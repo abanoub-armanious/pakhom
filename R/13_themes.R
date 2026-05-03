@@ -725,7 +725,19 @@ apply_framework_themes <- function(coding_state, framework_spec) {
                      "coded entries -- generating empty theme set"))
   }
 
-  create_theme_set(themes)
+  ts <- create_theme_set(themes)
+
+  # AC8: ThemeSet must have the SAME shape that generate_themes_iterative
+  # produces, so cascade_theme_assignments + downstream consumers
+  # (aggregate_theme_statistics, enrich_themes, report rendering) work
+  # without modification. Populate merge_history$code_to_theme_map keyed
+  # by code_key (= construct id in Mode 3) -> theme$name. Without this,
+  # cascade_theme_assignments bails out with "No code-to-theme mapping",
+  # no theme_membership_* columns get set, and all themes render with
+  # n_entries = 0 -- exactly the silent end-to-end Mode 3 failure that
+  # phase 29's tests didn't catch.
+  ts <- rebuild_code_to_theme_map(ts, coding_state)
+  ts
 }
 
 #' Enrich themes with entry counts, sentiment, and quotes
@@ -794,7 +806,15 @@ enrich_themes <- function(theme_set, data, coding_state = NULL) {
       }
     }
 
-    theme_set$themes[[i]]$keywords <- theme_set$themes[[i]]$codes_included
+    # In Mode 3, apply_framework_themes already set keywords =
+    # framework$example_indicators (the participant phrases the model
+    # was told to look for). Overwriting with codes_included would erase
+    # exactly the framework signal Mode 3 is supposed to surface, so
+    # detect Mode 3 themes via the framework_construct_id marker and
+    # preserve their keywords. Mode 2 keeps the existing behavior.
+    if (is.null(theme_set$themes[[i]]$framework_construct_id)) {
+      theme_set$themes[[i]]$keywords <- theme_set$themes[[i]]$codes_included
+    }
   }
 
   theme_set

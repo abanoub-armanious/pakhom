@@ -82,6 +82,30 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   # reviewer scanning the outputs/ directory sees Mode 1 / 2 / 3 without
   # opening run_metadata.json. Spec: SPRINT4_DESIGN.md line 237.
   meth_mode <- tryCatch(config$methodology$mode, error = function(e) NULL)
+
+  # AC2 mode dispatch: refuse Mode 1 BEFORE creating output_dir so a
+  # mistaken Mode 1 invocation doesn't leave a stranded empty run dir
+  # under outputs/. Mode 1 has its own dedicated entry point
+  # (run_provocateur_questioning); it does NOT use the auto-pipeline.
+  if (identical(meth_mode, "reflexive_scaffold")) {
+    stop(
+      "Mode 1 (Reflexive Scaffold) does not use the run_analysis() ",
+      "auto-pipeline. In Mode 1 the researcher authors codes and themes ",
+      "(typically in NVivo / ATLAS.ti); pakhom contributes the ",
+      "provocateur questioning loop, which is invoked separately.\n\n",
+      "Use the dedicated Mode 1 entry point:\n",
+      "  reflection_log <- run_provocateur_questioning(\n",
+      "    data       = your_corpus,\n",
+      "    theme_set  = your_researcher_authored_themes,\n",
+      "    provider   = create_ai_provider('anthropic', config),\n",
+      "    config     = config\n",
+      "  )\n\n",
+      "If you intended to use the auto-pipeline, choose Mode 2 ",
+      "(codebook_collaborative) or Mode 3 (framework_applied) instead.",
+      call. = FALSE
+    )
+  }
+
   if (isTRUE(resume)) {
     latest_run <- find_latest_run(results_base)
     if (!is.null(latest_run)) {
@@ -121,23 +145,9 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   # reviewer scrolling logs sees the declaration up-front.
   log_info(stamp_methodology_console(meth_mode, basename(output_dir)))
 
-  # AC2 / AC8 mode dispatch: refuse modes that aren't yet operationally
-  # implemented rather than silently running Mode 2's pipeline under a
-  # different label. Mode 1 (Reflexive Scaffold) requires the
-  # provocateur questioning loop (M1.1+) which is in development.
-  if (identical(meth_mode, "reflexive_scaffold")) {
-    stop(
-      "Mode 1 (Reflexive Scaffold) is declared in config but not yet ",
-      "operationally implemented. The provocateur questioning loop ",
-      "(M1.1+ work) is in development; running the current pipeline ",
-      "under a Mode 1 declaration would silently use Mode 2 behavior, ",
-      "violating AC2 (three modes; no fourth -- and each operating as ",
-      "declared). Please use Mode 2 (codebook_collaborative) or ",
-      "Mode 3 (framework_applied) for now. Track Mode 1 progress in ",
-      "the package roadmap.",
-      call. = FALSE
-    )
-  }
+  # (Mode 1 dispatch was hoisted above output_dir creation so a Mode 1
+  # invocation doesn't leave a stranded empty run dir; see audit
+  # phase 30.5 finding H3.)
 
   # Mode 3 (Framework Applied): load the researcher's framework spec.
   # Validation already ensured framework_spec_path is non-empty when

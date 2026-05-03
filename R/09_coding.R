@@ -172,6 +172,28 @@ run_progressive_coding <- function(data, provider, config = list(),
       log_warn("Config has changed since last run. Continuing with existing codes but new config.")
     }
 
+    # AC2/AC8: cross-mode resume guard. If a Mode 2 partial state is
+    # resumed under a framework_spec arg, dispatch would Frankenstein
+    # the codebook (free-form keys + new construct keys mixed). Refuse
+    # rather than silently corrupt the state.
+    if (!is.null(framework_spec)) {
+      validate_class(framework_spec, "FrameworkSpec")
+      missing_constructs <- setdiff(framework_spec$construct_ids,
+                                       names(state$codebook))
+      if (length(missing_constructs) > 0L) {
+        stop(sprintf(
+          paste0("Mode 3 resume guard: resumed coding_state's codebook is ",
+                 "missing %d framework constructs (%s), suggesting it was ",
+                 "produced under a different mode or a different framework. ",
+                 "Per AC2 (each mode operating as declared), refusing to ",
+                 "silently mix codebooks. Start a fresh Mode 3 run or ",
+                 "resume from a state produced under THIS framework."),
+          length(missing_constructs),
+          paste(head(missing_constructs, 5L), collapse = ", ")
+        ), call. = FALSE)
+      }
+    }
+
     # Backward-compat: states saved before the saturation tracking fix lack
     # code_n_coded_at_birth. Initialize the map and seed existing codes with 0,
     # which is the conservative choice (treats them as 'born early', so they

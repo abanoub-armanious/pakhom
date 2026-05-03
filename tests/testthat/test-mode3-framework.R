@@ -318,6 +318,149 @@ test_that("Mode 3 dispatch uses framework even when provider is Anthropic (overr
   # case (verified in the prior test).
 })
 
+# ---- BLOCKER fixes from phase 29 audit -------------------------------------
+
+test_that("apply_framework_themes populates merge_history$code_to_theme_map (BLOCKER 1 regression)", {
+  # The phase 29 audit caught that apply_framework_themes was returning
+  # a ThemeSet without merge_history$code_to_theme_map populated, which
+  # caused cascade_theme_assignments to bail out and produce
+  # n_entries = 0 for every theme. Without this, Mode 3 was silently
+  # broken end-to-end. This test pins the contract.
+  spec <- load_framework_spec("tpb")
+  state <- create_coding_state()
+  for (c in spec$constructs) {
+    state$codebook[[c$id]] <- list(
+      code_name = c$name, description = c$description,
+      type = "framework_construct", frequency = 0L,
+      entry_ids = character(0), coded_segments = list()
+    )
+  }
+  state$codebook[["intention"]]$frequency <- 1L
+  state$codebook[["intention"]]$entry_ids <- "e1"
+  state$codebook[["intention"]]$coded_segments <- list(list(
+    entry_id = "e1", text = "I plan", start_char = 0L, end_char = 6L
+  ))
+  state$entry_results[["e1"]] <- list(
+    codes_assigned = "intention",
+    coded_segments = list(list(code_key = "intention", code_name = "Behavioral intention",
+                                 text = "I plan", start_char = 0L, end_char = 6L)),
+    skipped = FALSE, skip_reason = NA_character_
+  )
+
+  ts <- apply_framework_themes(state, spec)
+  # merge_history must exist and contain a mapping from construct id ->
+  # theme name. Without this, cascade_theme_assignments fails at
+  # R/13_themes.R:559-565.
+  expect_false(is.null(ts$merge_history))
+  expect_false(is.null(ts$merge_history$code_to_theme_map))
+  expect_equal(ts$merge_history$code_to_theme_map[["intention"]],
+               "Behavioral intention")
+})
+
+test_that("Mode 3 end-to-end: cascade_theme_assignments populates theme_membership_* via apply_framework_themes", {
+  # Integration regression test for the audit's BLOCKER 1: verify the
+  # full chain apply_framework_themes -> cascade -> theme_membership_*.
+  spec <- load_framework_spec("tpb")
+  state <- create_coding_state()
+  for (c in spec$constructs) {
+    state$codebook[[c$id]] <- list(
+      code_name = c$name, description = c$description,
+      type = "framework_construct", frequency = 0L,
+      entry_ids = character(0), coded_segments = list()
+    )
+  }
+  state$codebook[["intention"]]$frequency <- 1L
+  state$codebook[["intention"]]$entry_ids <- "e1"
+  state$entry_results[["e1"]] <- list(
+    codes_assigned = "intention",
+    coded_segments = list(list(code_key = "intention", code_name = "Behavioral intention",
+                                 text = "I plan", start_char = 0L, end_char = 6L)),
+    skipped = FALSE, skip_reason = NA_character_
+  )
+
+  ts <- apply_framework_themes(state, spec)
+  data <- tibble::tibble(std_id = "e1", std_text = "I plan to take medication.")
+  data <- cascade_theme_assignments(data, state, ts)
+
+  # cascade_theme_assignments should have produced a theme_membership_*
+  # column AND assigned e1 to "Behavioral intention".
+  expect_true("theme_membership_Behavioral.intention" %in% names(data))
+  expect_equal(data$theme_membership_Behavioral.intention[1], 1L)
+})
+
+test_that("enrich_themes preserves Mode 3 keywords (HIGH 3 regression)", {
+  # Phase 29 audit caught that enrich_themes unconditionally overwrote
+  # keywords with codes_included, erasing the framework's
+  # example_indicators that apply_framework_themes had set. The fix
+  # detects Mode 3 themes via the framework_construct_id marker and
+  # preserves their keywords.
+  spec <- load_framework_spec("tpb")
+  state <- create_coding_state()
+  for (c in spec$constructs) {
+    state$codebook[[c$id]] <- list(
+      code_name = c$name, description = c$description,
+      type = "framework_construct", frequency = 0L,
+      entry_ids = character(0), coded_segments = list()
+    )
+  }
+  state$codebook[["intention"]]$frequency <- 1L
+  state$codebook[["intention"]]$entry_ids <- "e1"
+  state$entry_results[["e1"]] <- list(
+    codes_assigned = "intention",
+    coded_segments = list(list(code_key = "intention", code_name = "Behavioral intention",
+                                 text = "I plan", start_char = 0L, end_char = 6L)),
+    skipped = FALSE, skip_reason = NA_character_
+  )
+
+  ts <- apply_framework_themes(state, spec)
+  data <- tibble::tibble(std_id = "e1",
+                          std_text = "I plan to take medication every day.",
+                          sentiment_score = 0.5)
+  data <- cascade_theme_assignments(data, state, ts)
+  ts <- enrich_themes(ts, data, coding_state = state)
+
+  # The "Behavioral intention" theme should still have the example
+  # indicator phrases (e.g. "I plan to...") as keywords, NOT just the
+  # construct id "intention" that codes_included contains.
+  intention_theme <- ts$themes[[which(vapply(ts$themes, function(t) {
+    identical(t$name, "Behavioral intention")
+  }, logical(1)))]]
+  # Example indicators from TPB intention include "I plan to..." etc.
+  expect_true(any(grepl("plan", intention_theme$keywords)))
+  # codes_included is just the construct id (single string)
+  expect_equal(intention_theme$codes_included, "intention")
+})
+
+test_that("run_progressive_coding refuses Mode 3 resume from a Mode 2 state (BLOCKER 2)", {
+  # Phase 29 audit caught that resuming a Mode 2 partial state under a
+  # framework_spec arg would Frankenstein the codebook. Resume guard
+  # added at R/09_coding.R now refuses.
+  spec <- load_framework_spec("tpb")
+  # Build a Mode 2-style resume state (free-form code keys, no framework
+  # constructs)
+  resume <- create_coding_state()
+  resume$codebook[["med_helps"]] <- list(
+    code_name = "med_helps", description = "x", type = "descriptive",
+    frequency = 1L, entry_ids = "e1",
+    coded_segments = list(list(text = "x", start_char = 0L, end_char = 1L))
+  )
+  data <- tibble::tibble(std_id = "e1", std_text = "x")
+
+  expect_error(
+    suppressMessages(suppressWarnings(
+      run_progressive_coding(
+        data = data,
+        provider = mock_provider("openai"),
+        config = list(saturation_enabled = FALSE),
+        research_focus = "test",
+        resume_state = resume,
+        framework_spec = spec
+      )
+    )),
+    "Mode 3 resume guard"
+  )
+})
+
 # ---- Pipeline-level Mode 1 friendly error ----------------------------------
 
 test_that("Pipeline source contains Mode 1 friendly-error block (dispatch is wired)", {
@@ -341,10 +484,10 @@ test_that("Pipeline source contains Mode 1 friendly-error block (dispatch is wir
            "pipeline source not locatable in this run context")
 
   src <- paste(readLines(src_path), collapse = "\n")
-  expect_match(src, "Mode 1 \\(Reflexive Scaffold\\) is declared")
-  # Source has the dispatch error broken across paste() pieces; we look
-  # for two anchor phrases separately.
-  expect_match(src, "not yet")
-  expect_match(src, "operationally implemented")
-  expect_match(src, "Mode 2 \\(codebook_collaborative\\) or")
+  expect_match(src, "Mode 1 \\(Reflexive Scaffold\\)")
+  # Source points users at the dedicated Mode 1 entry point and lists
+  # alternative auto-pipeline modes
+  expect_match(src, "run_provocateur_questioning")
+  expect_match(src, "codebook_collaborative")
+  expect_match(src, "framework_applied")
 })
