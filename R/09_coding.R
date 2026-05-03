@@ -123,6 +123,12 @@ create_coding_state <- function(learning_context = NULL, config_hash = NULL) {
 #'   \code{outputs/<run>/fabrication_log.csv} as a CSV audit artifact for
 #'   the methodology paper's KPI. Pass \code{NULL} to skip the CSV (the
 #'   default for tests + non-pipeline callers).
+#' @param framework_spec Optional \code{FrameworkSpec} object (from
+#'   \code{\link{load_framework_spec}}). When supplied (Mode 3 / Framework
+#'   Applied), the codebook is pre-populated with the framework's
+#'   constructs and the AI is constrained to apply them verbatim
+#'   (no NEW: prefix path). Anomaly segments go to a dedicated
+#'   "anomaly" key. NULL preserves Mode 2 (free-form codebook) behavior.
 #' @return ProgressiveCodingState with all entries processed
 #' @export
 run_progressive_coding <- function(data, provider, config = list(),
@@ -133,7 +139,8 @@ run_progressive_coding <- function(data, provider, config = list(),
                                     resume_state = NULL,
                                     audit_log = NULL,
                                     response_cache = NULL,
-                                    fabrication_log = NULL) {
+                                    fabrication_log = NULL,
+                                    framework_spec = NULL) {
   config$max_retries_per_entry <- config$max_retries_per_entry %||% 1L
   config$include_in_vivo <- config$include_in_vivo %||% TRUE
   config$code_style <- config$code_style %||% "descriptive"
@@ -179,6 +186,38 @@ run_progressive_coding <- function(data, provider, config = list(),
   } else {
     config_hash <- if (!is.null(checkpoint)) checkpoint$config_hash else NULL
     state <- create_coding_state(learning_context, config_hash)
+    # Mode 3 (Framework Applied): pre-populate the codebook with the
+    # framework's constructs so the AI's enum-constrained outputs map
+    # directly into existing codebook keys (no NEW: prefix path is
+    # exercised). Per AC2, Mode 3's "codebook" IS the framework, fixed
+    # at run start.
+    if (!is.null(framework_spec)) {
+      validate_class(framework_spec, "FrameworkSpec")
+      for (c in framework_spec$constructs) {
+        state$codebook[[c$id]] <- list(
+          code_name      = c$name,
+          description    = c$description,
+          type           = "framework_construct",
+          frequency      = 0L,
+          entry_ids      = character(0),
+          coded_segments = list()
+        )
+      }
+      # The "anomaly" bucket captures non-fitting segments. Pre-populated
+      # so the schema-enum dispatch always lands in an existing codebook
+      # key (no novelty creation path).
+      state$codebook[["anomaly"]] <- list(
+        code_name      = "Anomaly (non-fitting)",
+        description    = paste0(
+          "Segments that resist the '", framework_spec$name, "' framework"
+        ),
+        type           = "anomaly",
+        frequency      = 0L,
+        entry_ids      = character(0),
+        coded_segments = list()
+      )
+      log_info("Mode 3 codebook pre-populated with {length(framework_spec$constructs)} constructs + anomaly bucket")
+    }
   }
 
   # Determine remaining entries
@@ -251,7 +290,8 @@ run_progressive_coding <- function(data, provider, config = list(),
       base_system_prompt = base_system_prompt,
       audit_log = audit_log,
       response_cache = response_cache,
-      fabrication_log = fabrication_log
+      fabrication_log = fabrication_log,
+      framework_spec = framework_spec
     )
 
     # Track this entry in the O(1) lists
@@ -457,28 +497,47 @@ run_progressive_coding <- function(data, provider, config = list(),
                                      provider, config, base_system_prompt,
                                      audit_log = NULL,
                                      response_cache = NULL,
-                                     fabrication_log = NULL) {
-  # T0.1 part 3b dispatch: when the provider is Anthropic, use the Citations
-  # API path (PREVENTION layer -- model returns server-side-guaranteed
-  # offsets into source). Otherwise use the schema-based path (existing
-  # tool_use forced output). Both paths feed into a shared per-segment
-  # processor so codebook update / fabrication handling are identical.
-  use_citations <- .use_citations_for_provider(provider, config)
+                                     fabrication_log = NULL,
+                                     framework_spec = NULL) {
+  # Three coding paths, dispatched by mode + provider:
+  #   1. FRAMEWORK (Mode 3): framework_spec is non-NULL -> AI applies
+  #      researcher's a-priori constructs verbatim; "anomaly" code captures
+  #      content that doesn't fit. No NEW codes allowed; codebook is
+  #      pre-populated with the framework's constructs at pipeline init.
+  #   2. CITATIONS (Mode 2 + Anthropic provider): T0.1 PREVENTION layer.
+  #      Model returns server-side-guaranteed offsets into source.
+  #   3. SCHEMA (Mode 2 + OpenAI, or Mode 1 fallback): existing forced
+  #      tool_use with free-form codes.
+  # All three paths feed into the same per-segment processor for
+  # verification + codebook update -- per AC8 (modes are configurations
+  # of one architecture, never separate code paths).
+  use_framework <- !is.null(framework_spec)
+  use_citations <- (!use_framework) && .use_citations_for_provider(provider, config)
 
-  # System prompt is identical across paths -- it's the methodology framing.
-  codebook_summary <- .build_codebook_summary(state, max_codes = 80,
-                                                recent_window = 20)
-  system_prompt <- paste0(
-    base_system_prompt,
-    "\n## YOUR CURRENT CODEBOOK\n",
-    if (nchar(codebook_summary) > 0) {
-      paste0("You have created these codes so far. Use them when applicable, ",
-             "or create NEW codes when the text discusses something not yet captured:\n\n",
-             codebook_summary)
-    } else {
-      "This is the FIRST entry. Create new codes as needed.\n"
-    }
-  )
+  # System prompt: methodology framing + codebook context. In Mode 3,
+  # codebook context is replaced with the framework prompt block (the
+  # only allowed code names). In Mode 2, the AI sees the growing
+  # codebook so it can reuse codes.
+  if (use_framework) {
+    system_prompt <- paste0(
+      base_system_prompt, "\n\n",
+      framework_prompt_block(framework_spec)
+    )
+  } else {
+    codebook_summary <- .build_codebook_summary(state, max_codes = 80,
+                                                  recent_window = 20)
+    system_prompt <- paste0(
+      base_system_prompt,
+      "\n## YOUR CURRENT CODEBOOK\n",
+      if (nchar(codebook_summary) > 0) {
+        paste0("You have created these codes so far. Use them when applicable, ",
+               "or create NEW codes when the text discusses something not yet captured:\n\n",
+               codebook_summary)
+      } else {
+        "This is the FIRST entry. Create new codes as needed.\n"
+      }
+    )
+  }
 
   truncated_text <- substr(text, 1, 8000)
   if (nchar(text) > 8000) {
@@ -486,7 +545,15 @@ run_progressive_coding <- function(data, provider, config = list(),
   }
 
   # Path-specific user prompt + ai_complete kwargs.
-  if (use_citations) {
+  if (use_framework) {
+    user_prompt <- .build_progressive_framework_user_prompt(truncated_text,
+                                                              framework_spec)
+    ai_kwargs <- list(
+      json_mode       = FALSE,
+      response_schema = .coding_schema_framework(framework_spec$construct_ids),
+      documents       = NULL
+    )
+  } else if (use_citations) {
     # Citations path: entry travels as a document with citations enabled;
     # the prompt instructs JSON output without offsets (Anthropic returns
     # them via the citations array). No response_schema (incompatible with
@@ -597,6 +664,8 @@ run_progressive_coding <- function(data, provider, config = list(),
       seg              = seg,
       seg_index        = i,
       use_citations    = use_citations,
+      use_framework    = use_framework,
+      framework_spec   = framework_spec,
       ai_meta          = ai_meta,
       documents        = ai_kwargs$documents,
       text             = text,
@@ -668,6 +737,34 @@ run_progressive_coding <- function(data, provider, config = list(),
   )
 }
 
+#' Build the Mode 3 (framework-applied) user prompt
+#'
+#' The framework's constructs are listed in the system prompt (via
+#' framework_prompt_block). The user prompt presents the entry text and
+#' instructs the AI to apply the framework constructs verbatim, flagging
+#' segments that resist the framework as \code{construct_id = "anomaly"}.
+#' @keywords internal
+.build_progressive_framework_user_prompt <- function(truncated_text,
+                                                       framework_spec) {
+  safe_text <- if (requireNamespace("jsonlite", quietly = TRUE)) {
+    raw_json <- jsonlite::toJSON(truncated_text, auto_unbox = TRUE)
+    substr(raw_json, 2, nchar(raw_json) - 1)
+  } else {
+    gsub('(["\\\\\n\r\t])', '\\\\\\1', truncated_text)
+  }
+  paste0(
+    "Apply the framework's constructs to any text segments in this entry that fit them. ",
+    "For each applicable segment:\n",
+    "- Set `construct_id` to one of the framework's construct ids (listed in the system prompt above).\n",
+    "- Set `anomaly_reason` to \"\" (the empty string) for normal construct applications.\n",
+    "If a segment resists the framework (no construct fits), code it as ",
+    "`construct_id: \"anomaly\"` and set `anomaly_reason` to a one-sentence ",
+    "explanation of why the framework doesn't capture it. Do NOT force a fit; ",
+    "the framework's anomaly_handling policy treats these as first-class output.\n\n",
+    'Entry text: "', safe_text, '"'
+  )
+}
+
 #' Build the citations-path user prompt (T0.1 part 3b)
 #'
 #' The model receives the entry as a document content block (passed
@@ -726,13 +823,32 @@ run_progressive_coding <- function(data, provider, config = list(),
 #' @return Updated \code{state} (immutable per-call; the codebook is
 #'   updated when a non-fabricated segment is processed).
 #' @keywords internal
-.handle_one_coded_segment <- function(seg, seg_index, use_citations, ai_meta,
+.handle_one_coded_segment <- function(seg, seg_index, use_citations,
+                                       use_framework = FALSE,
+                                       framework_spec = NULL,
+                                       ai_meta,
                                        documents, text, entry_id, state, acc,
                                        audit_log, fabrication_log) {
   seg_text  <- as.character(seg$text             %||% "")[1]
-  seg_code  <- as.character(seg$code             %||% "")[1]
-  seg_desc  <- as.character(seg$code_description %||% "")[1]
-  seg_type  <- as.character(seg$code_type        %||% "descriptive")[1]
+  # Mode 3 (framework) returns a `construct_id` field; Mode 2 returns
+  # `code` (with optional NEW: prefix). Map both to a uniform code_key.
+  if (isTRUE(use_framework)) {
+    construct_id   <- as.character(seg$construct_id %||% "")[1]
+    anomaly_reason <- as.character(seg$anomaly_reason %||% "")[1]
+    seg_code <- construct_id
+    seg_desc <- if (identical(construct_id, "anomaly")) {
+      paste0("Anomaly: ", anomaly_reason)
+    } else {
+      # Use the framework's construct description for new construct entries
+      idx <- match(construct_id, framework_spec$construct_ids)
+      if (!is.na(idx)) framework_spec$constructs[[idx]]$description else ""
+    }
+    seg_type <- "framework_construct"
+  } else {
+    seg_code <- as.character(seg$code             %||% "")[1]
+    seg_desc <- as.character(seg$code_description %||% "")[1]
+    seg_type <- as.character(seg$code_type        %||% "descriptive")[1]
+  }
   # In the schema path the model returns offsets; in the citations path
   # it doesn't (offsets come from Anthropic's citation array).
   seg_start <- suppressWarnings(as.integer(seg$start_char %||% NA_integer_)[1])
@@ -740,19 +856,31 @@ run_progressive_coding <- function(data, provider, config = list(),
 
   if (nchar(seg_code) == 0 || nchar(seg_text) < 3) return(state)
 
-  # Determine code_key first so the QuoteProvenance can attribute to it.
-  is_new <- grepl("^NEW:", seg_code, ignore.case = TRUE)
-  if (is_new) {
-    code_name <- trimws(sub("^NEW:\\s*", "", seg_code, ignore.case = TRUE))
+  # Determine code_key. Mode 3 uses construct_id verbatim (no NEW: prefix,
+  # no novelty creation -- the framework is fixed). Mode 2 parses NEW:.
+  if (isTRUE(use_framework)) {
+    is_new    <- !(seg_code %in% names(state$codebook))
+    code_name <- if (identical(seg_code, "anomaly")) {
+      "Anomaly (non-fitting)"
+    } else {
+      idx <- match(seg_code, framework_spec$construct_ids)
+      if (!is.na(idx)) framework_spec$constructs[[idx]]$name else seg_code
+    }
+    code_key  <- seg_code
   } else {
-    code_name <- trimws(seg_code)
-  }
-  code_key <- tolower(code_name)
-  # The AI sees the full codebook and decides whether to create a new code or
-  # use an existing one. Only EXACT key matches collapse to existing -- no
-  # substring/fuzzy matching; the AI's judgment is the authority on novelty.
-  if (is_new && code_key %in% names(state$codebook)) {
-    is_new <- FALSE
+    is_new <- grepl("^NEW:", seg_code, ignore.case = TRUE)
+    if (is_new) {
+      code_name <- trimws(sub("^NEW:\\s*", "", seg_code, ignore.case = TRUE))
+    } else {
+      code_name <- trimws(seg_code)
+    }
+    code_key <- tolower(code_name)
+    # The AI sees the full codebook and decides whether to create a new code or
+    # use an existing one. Only EXACT key matches collapse to existing -- no
+    # substring/fuzzy matching; the AI's judgment is the authority on novelty.
+    if (is_new && code_key %in% names(state$codebook)) {
+      is_new <- FALSE
+    }
   }
 
   # Build the (unverified) QuoteProvenance per path:

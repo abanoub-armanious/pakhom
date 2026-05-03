@@ -654,6 +654,80 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
 # Theme enrichment
 # ==============================================================================
 
+#' Apply framework constructs as themes (Mode 3 dispatch for theming)
+#'
+#' Replaces the inductive bottom-up theme generation with a deterministic
+#' mapping from framework constructs to themes. Each framework construct
+#' becomes a theme; codes (which in Mode 3 are construct_ids) are
+#' included verbatim under their parent construct. The "anomaly" code,
+#' if non-empty, becomes its own theme so anomalies are visible in the
+#' report rather than buried in the codebook.
+#'
+#' Per AC8 (modes are configurations of one architecture, never separate
+#' code paths): the returned ThemeSet has the same shape as one produced
+#' by \code{generate_themes_iterative()}, so all downstream consumers
+#' (cascade_theme_assignments, aggregate_theme_statistics, report
+#' rendering) work without modification.
+#'
+#' @param coding_state A \code{ProgressiveCodingState} from a Mode 3 run.
+#'   The codebook keys are construct_ids (plus "anomaly").
+#' @param framework_spec A loaded \code{FrameworkSpec}.
+#' @return A \code{ThemeSet} S3 object: one theme per construct that has
+#'   at least one coded entry (constructs with zero entries are dropped),
+#'   plus an "Anomaly" theme when anomalies are present.
+#' @export
+apply_framework_themes <- function(coding_state, framework_spec) {
+  validate_class(coding_state, "ProgressiveCodingState")
+  validate_class(framework_spec, "FrameworkSpec")
+
+  themes <- list()
+  next_id <- 1L
+
+  # Each construct -> one theme (when at least one entry was coded with it)
+  for (c in framework_spec$constructs) {
+    cb_entry <- coding_state$codebook[[c$id]]
+    if (is.null(cb_entry) || (cb_entry$frequency %||% 0L) == 0L) next
+    themes[[length(themes) + 1L]] <- list(
+      id              = next_id,
+      name            = c$name,
+      description     = c$description,
+      codes_included  = c$id,
+      keywords        = c$example_indicators %||% character(0),
+      subthemes       = character(0),
+      framework_construct_id = c$id  # mode-specific marker
+    )
+    next_id <- next_id + 1L
+  }
+
+  # Anomaly theme: surfaces non-fitting segments per the framework's
+  # anomaly_handling policy (Vila-Henninger 2024 abductive coding).
+  anomaly_entry <- coding_state$codebook[["anomaly"]]
+  if (!is.null(anomaly_entry) && (anomaly_entry$frequency %||% 0L) > 0L) {
+    themes[[length(themes) + 1L]] <- list(
+      id              = next_id,
+      name            = "Anomaly (non-fitting)",
+      description     = paste0(
+        "Segments that resist the '", framework_spec$name, "' framework. ",
+        "Per the framework's anomaly_handling policy ('",
+        framework_spec$anomaly_handling, "'), these are surfaced as a ",
+        "first-class output rather than forced into a construct that ",
+        "doesn't fit."
+      ),
+      codes_included  = "anomaly",
+      keywords        = character(0),
+      subthemes       = character(0),
+      framework_construct_id = "anomaly"
+    )
+  }
+
+  if (length(themes) == 0L) {
+    log_warn(paste0("apply_framework_themes: no constructs received any ",
+                     "coded entries -- generating empty theme set"))
+  }
+
+  create_theme_set(themes)
+}
+
 #' Enrich themes with entry counts, sentiment, and quotes
 #'
 #' @param theme_set ThemeSet object

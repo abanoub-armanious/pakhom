@@ -1,0 +1,133 @@
+# Theoretical Domains Framework (TDF)
+# Source: Atkins, L., Francis, J., Islam, R., O'Connor, D., Patey, A., Ivers, N.,
+# ... & Michie, S. (2017). A guide to using the Theoretical Domains Framework
+# of behaviour change to investigate implementation problems. Implementation
+# Science, 12(1), 77.
+# DOI: 10.1186/s13012-017-0605-9
+#
+# 14-domain framework for analyzing implementation problems and behavior
+# change in healthcare. Synthesizes 33 behavior-change theories.
+
+framework:
+  name: "Theoretical Domains Framework (TDF)"
+  citations:
+    - "Atkins, L., Francis, J., Islam, R., et al. (2017). A guide to using the Theoretical Domains Framework of behaviour change to investigate implementation problems. Implementation Science, 12(1), 77. doi:10.1186/s13012-017-0605-9"
+    - "Cane, J., O'Connor, D., & Michie, S. (2012). Validation of the theoretical domains framework for use in behaviour change and implementation research. Implementation Science, 7, 37."
+  epistemic_stance: "constructionist"
+  anomaly_handling: "extend"
+  constructs:
+    - id: knowledge
+      name: "Knowledge"
+      description: "An awareness of the existence of something. Includes knowledge of conditions, scientific rationale, procedural knowledge, and knowledge of task environment."
+      example_indicators:
+        - "I didn't know"
+        - "I learned that"
+        - "I'm aware"
+        - "I understand"
+        - "I had no idea"
+    - id: skills
+      name: "Skills"
+      description: "An ability or proficiency acquired through practice. Includes competence, ability, interpersonal skills, and skill assessment."
+      example_indicators:
+        - "I'm able to"
+        - "I practiced"
+        - "I'm not skilled at"
+        - "I'm competent in"
+    - id: social_professional_role_identity
+      name: "Social/professional role and identity"
+      description: "A coherent set of behaviors and displayed personal qualities of an individual in a social or work setting. Includes professional identity, group identity, leadership, and organizational commitment."
+      example_indicators:
+        - "As a parent I"
+        - "It's not my role"
+        - "My job requires"
+        - "I identify as"
+    - id: beliefs_about_capabilities
+      name: "Beliefs about capabilities"
+      description: "Acceptance of the truth, reality, or validity about an ability, talent, or facility that a person can put to constructive use. Includes self-confidence, perceived competence, self-efficacy, and empowerment."
+      example_indicators:
+        - "I can do this"
+        - "I feel confident"
+        - "I'm not capable"
+        - "I doubt I can"
+    - id: optimism
+      name: "Optimism"
+      description: "The confidence that things will happen for the best or that desired goals will be attained."
+      example_indicators:
+        - "I'm hopeful"
+        - "Things will improve"
+        - "I expect success"
+        - "I feel pessimistic"
+    - id: beliefs_about_consequences
+      name: "Beliefs about consequences"
+      description: "Acceptance of the truth, reality, or validity about outcomes of a behavior in a given situation. Includes outcome expectancies and anticipated regret."
+      example_indicators:
+        - "If I do this, then"
+        - "It will lead to"
+        - "I expect that"
+        - "Consequences include"
+    - id: reinforcement
+      name: "Reinforcement"
+      description: "Increasing the probability of a response by arranging a dependent relationship between the response and a stimulus. Includes rewards (proximal/distal/valued/sanctions/incentives) and punishments."
+      example_indicators:
+        - "Rewarded me"
+        - "Punished for"
+        - "Incentive to"
+        - "Reinforcement"
+    - id: intentions
+      name: "Intentions"
+      description: "A conscious decision to perform a behavior or a resolve to act in a certain way. Includes stability of intentions and stages of change model."
+      example_indicators:
+        - "I plan to"
+        - "I intend to"
+        - "I'm going to"
+        - "My intention is"
+    - id: goals
+      name: "Goals"
+      description: "Mental representations of outcomes or end states that an individual wants to achieve. Includes target setting, distal vs proximal goals, and goal priority."
+      example_indicators:
+        - "My goal is"
+        - "I aim to"
+        - "Target weight"
+        - "I want to achieve"
+    - id: memory_attention_decision
+      name: "Memory, attention, and decision processes"
+      description: "The ability to retain information, focus selectively on aspects of the environment, and choose between two or more alternatives."
+      example_indicators:
+        - "I forgot"
+        - "I remembered"
+        - "I focused on"
+        - "I decided"
+        - "I couldn't concentrate"
+    - id: environmental_context_resources
+      name: "Environmental context and resources"
+      description: "Any circumstance of a person's situation or environment that discourages or encourages the development of skills and abilities, independence, social competence, and adaptive behavior."
+      example_indicators:
+        - "Limited resources"
+        - "My environment"
+        - "Access to"
+        - "The setting"
+    - id: social_influences
+      name: "Social influences"
+      description: "Those interpersonal processes that can cause individuals to change their thoughts, feelings, or behaviors. Includes peer pressure, modelling, social support, and group conformity."
+      example_indicators:
+        - "My friends"
+        - "Peer pressure"
+        - "Modeled by"
+        - "Family expects"
+    - id: emotion
+      name: "Emotion"
+      description: "A complex reaction pattern, involving experiential, behavioral, and physiological elements, by which the individual attempts to deal with a personally significant matter."
+      example_indicators:
+        - "I felt anxious"
+        - "I'm afraid"
+        - "I was angry"
+        - "Joy"
+        - "Frustration"
+    - id: behavioral_regulation
+      name: "Behavioral regulation"
+      description: "Anything aimed at managing or changing objectively observed or measured actions. Includes self-monitoring, breaking habits, and action planning."
+      example_indicators:
+        - "I tracked my"
+        - "I monitor"
+        - "Breaking the habit"
+        - "Action plan"

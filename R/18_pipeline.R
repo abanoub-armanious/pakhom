@@ -121,6 +121,44 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   # reviewer scrolling logs sees the declaration up-front.
   log_info(stamp_methodology_console(meth_mode, basename(output_dir)))
 
+  # AC2 / AC8 mode dispatch: refuse modes that aren't yet operationally
+  # implemented rather than silently running Mode 2's pipeline under a
+  # different label. Mode 1 (Reflexive Scaffold) requires the
+  # provocateur questioning loop (M1.1+) which is in development.
+  if (identical(meth_mode, "reflexive_scaffold")) {
+    stop(
+      "Mode 1 (Reflexive Scaffold) is declared in config but not yet ",
+      "operationally implemented. The provocateur questioning loop ",
+      "(M1.1+ work) is in development; running the current pipeline ",
+      "under a Mode 1 declaration would silently use Mode 2 behavior, ",
+      "violating AC2 (three modes; no fourth -- and each operating as ",
+      "declared). Please use Mode 2 (codebook_collaborative) or ",
+      "Mode 3 (framework_applied) for now. Track Mode 1 progress in ",
+      "the package roadmap.",
+      call. = FALSE
+    )
+  }
+
+  # Mode 3 (Framework Applied): load the researcher's framework spec.
+  # Validation already ensured framework_spec_path is non-empty when
+  # mode == "framework_applied" (R/01_config.R). Loading early catches
+  # spec errors before expensive coding work.
+  framework_spec <- NULL
+  if (identical(meth_mode, "framework_applied")) {
+    framework_spec <- tryCatch(
+      load_framework_spec(config$methodology$framework_spec_path),
+      error = function(e) {
+        stop(
+          "Mode 3 (Framework Applied) requires a valid framework spec at ",
+          sprintf("'%s', but loading failed: %s",
+                   config$methodology$framework_spec_path, e$message),
+          call. = FALSE
+        )
+      }
+    )
+    log_info("Mode 3 framework loaded: '{framework_spec$name}' ({length(framework_spec$constructs)} constructs)")
+  }
+
   checkpoint <- init_checkpoints(
     output_dir = output_dir,
     config_hash = hash_config(config_path)
@@ -352,7 +390,8 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
       resume_state = resume_state,
       audit_log = audit_log,
       response_cache = response_cache,
-      fabrication_log = fabrication_log
+      fabrication_log = fabrication_log,
+      framework_spec = framework_spec
     )
 
     save_checkpoint(checkpoint, "progressive_coding", coding_state)
@@ -507,6 +546,16 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     if (review_iteration == 1L && "themes_generated" %in% completed) {
       log_info("\n[STEP 5] Loading themes from checkpoint...")
       theme_set <- load_checkpoint(checkpoint, "themes_generated")
+    } else if (!is.null(framework_spec)) {
+      # AC2 / AC8 mode dispatch: Mode 3 uses the framework's constructs
+      # AS the themes. No iterative merging -- the framework IS the theme
+      # structure, fixed at run start.
+      log_info("\n[STEP 5] Mapping framework constructs to themes (Mode 3)...")
+      theme_set <- apply_framework_themes(coding_state, framework_spec)
+      if (is.null(theme_set) || length(theme_set$themes) == 0L) {
+        log_warn("Framework theme application produced no themes -- continuing with empty set")
+      }
+      save_checkpoint(checkpoint, "themes_generated", theme_set)
     } else {
       log_info("\n[STEP 5] Generating themes via iterative bottom-up merging...")
       theme_set <- generate_themes_iterative(

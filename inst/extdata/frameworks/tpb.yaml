@@ -1,0 +1,59 @@
+# Theory of Planned Behavior (TPB)
+# Source: Ajzen, I. (1991). The theory of planned behavior. Organizational
+# Behavior and Human Decision Processes, 50(2), 179-211.
+# DOI: 10.1016/0749-5978(91)90020-T
+#
+# Predicts behavioral intention from three antecedents (attitude, subjective
+# norm, perceived behavioral control) plus the behavior itself.
+
+framework:
+  name: "Theory of Planned Behavior"
+  citations:
+    - "Ajzen, I. (1991). The theory of planned behavior. Organizational Behavior and Human Decision Processes, 50(2), 179-211. doi:10.1016/0749-5978(91)90020-T"
+    - "Ajzen, I. (2020). The theory of planned behavior: Frequently asked questions. Human Behavior and Emerging Technologies, 2(4), 314-324."
+  epistemic_stance: "positivist"
+  anomaly_handling: "bracket"
+  constructs:
+    - id: attitude
+      name: "Attitude toward the behavior"
+      description: "The degree to which a person has a favorable or unfavorable evaluation of the behavior in question. Captures positive and negative beliefs about engaging in the behavior."
+      example_indicators:
+        - "I think it's good to..."
+        - "I find it pleasant to..."
+        - "It's worth it"
+        - "It's harmful"
+        - "I enjoy"
+    - id: subjective_norm
+      name: "Subjective norm"
+      description: "The perceived social pressure to perform or not perform the behavior. Captures what important referent individuals or groups think the person should do."
+      example_indicators:
+        - "My family expects me to..."
+        - "People I respect think..."
+        - "Most people I know..."
+        - "Society says..."
+        - "My doctor said"
+    - id: perceived_behavioral_control
+      name: "Perceived behavioral control"
+      description: "The perceived ease or difficulty of performing the behavior. Reflects past experience as well as anticipated obstacles and impediments."
+      example_indicators:
+        - "I can do it"
+        - "It's hard for me to..."
+        - "I have control over"
+        - "It's beyond me"
+        - "I'm able to"
+    - id: intention
+      name: "Behavioral intention"
+      description: "The motivational factors that influence behavior; an indication of how hard people are willing to try, and how much effort they are planning to exert, to perform the behavior."
+      example_indicators:
+        - "I plan to..."
+        - "I intend to..."
+        - "I will try to..."
+        - "My goal is"
+    - id: behavior
+      name: "Behavior"
+      description: "The observable response in a given situation. Speech act describing what the person actually did, not what they planned to do."
+      example_indicators:
+        - "I did..."
+        - "Yesterday I"
+        - "I have been"
+        - "I stopped"

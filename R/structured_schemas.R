@@ -93,6 +93,67 @@
   )
 }
 
+#' Schema for the per-entry coding response in Mode 3 (Framework Applied)
+#'
+#' Mirrors \code{.coding_schema()} but constrains \code{construct_id} to
+#' the framework's allowed construct ids plus the literal "anomaly" --
+#' the model can label a segment with a construct from the framework OR
+#' flag it as resisting the framework, but cannot invent new constructs.
+#' Per AC2 and AC8, Mode 3 is a CONFIGURATION of the same schema-based
+#' coding architecture, not a separate code path: same shape, different
+#' enum + an \code{anomaly_reason} field for non-fitting segments.
+#'
+#' Returned shape:
+#' \preformatted{
+#'   {
+#'     "skipped": boolean,
+#'     "skip_reason": string,
+#'     "coded_segments": [
+#'       {
+#'         "text": string,
+#'         "start_char": integer,
+#'         "end_char": integer,
+#'         "construct_id": string (one of framework constructs OR "anomaly"),
+#'         "anomaly_reason": string (non-empty when construct_id="anomaly"; "" otherwise)
+#'       }, ...
+#'     ]
+#'   }
+#' }
+#'
+#' @param construct_ids Character vector of allowed construct ids from
+#'   the loaded \code{FrameworkSpec}. The schema enforces that
+#'   \code{construct_id} is one of these or the literal "anomaly".
+#' @keywords internal
+.coding_schema_framework <- function(construct_ids) {
+  stopifnot(is.character(construct_ids), length(construct_ids) > 0L)
+  enum <- as.list(c(construct_ids, "anomaly"))
+  list(
+    type                  = "object",
+    additionalProperties  = FALSE,
+    required              = list("skipped", "skip_reason", "coded_segments"),
+    properties = list(
+      skipped     = list(type = "boolean"),
+      skip_reason = list(type = "string"),
+      coded_segments = list(
+        type  = "array",
+        items = list(
+          type                  = "object",
+          additionalProperties  = FALSE,
+          required = list("text", "start_char", "end_char",
+                          "construct_id", "anomaly_reason"),
+          properties = list(
+            text           = list(type = "string"),
+            start_char     = list(type = "integer"),
+            end_char       = list(type = "integer"),
+            construct_id   = list(type = "string", enum = enum),
+            anomaly_reason = list(type = "string")
+          )
+        )
+      )
+    )
+  )
+}
+
 #' Schema for the AI saturation-check response (.ai_saturation_check)
 #'
 #' \preformatted{

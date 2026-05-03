@@ -15,7 +15,8 @@ run_progressive_coding(
   resume_state = NULL,
   audit_log = NULL,
   response_cache = NULL,
-  fabrication_log = NULL
+  fabrication_log = NULL,
+  framework_spec = NULL
 )
 }
 \arguments{
@@ -54,6 +55,13 @@ is non-NULL, fabrications are also written to
 \code{outputs/<run>/fabrication_log.csv} as a CSV audit artifact for
 the methodology paper's KPI. Pass \code{NULL} to skip the CSV (the
 default for tests + non-pipeline callers).}
+
+\item{framework_spec}{Optional \code{FrameworkSpec} object (from
+\code{\link{load_framework_spec}}). When supplied (Mode 3 / Framework
+Applied), the codebook is pre-populated with the framework's
+constructs and the AI is constrained to apply them verbatim
+(no NEW: prefix path). Anomaly segments go to a dedicated
+"anomaly" key. NULL preserves Mode 2 (free-form codebook) behavior.}
 }
 \value{
 ProgressiveCodingState with all entries processed

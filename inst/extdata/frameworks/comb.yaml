@@ -1,0 +1,78 @@
+# COM-B Model of Behavior
+# Source: Michie, S., van Stralen, M. M., & West, R. (2011). The behaviour
+# change wheel: A new method for characterising and designing behaviour
+# change interventions. Implementation Science, 6, 42.
+# DOI: 10.1186/1748-5908-6-42
+#
+# Capability + Opportunity + Motivation -> Behavior. Foundation of the
+# Behaviour Change Wheel; widely used in health-behavior research.
+
+framework:
+  name: "COM-B Model of Behavior"
+  citations:
+    - "Michie, S., van Stralen, M. M., & West, R. (2011). The behaviour change wheel: A new method for characterising and designing behaviour change interventions. Implementation Science, 6, 42. doi:10.1186/1748-5908-6-42"
+  epistemic_stance: "constructionist"
+  anomaly_handling: "extend"
+  constructs:
+    - id: capability_physical
+      name: "Physical capability"
+      description: "The physical ability to perform the behavior, including the necessary physical skills, strength, or stamina."
+      example_indicators:
+        - "I can physically..."
+        - "I'm strong enough"
+        - "I'm too weak to"
+        - "My body can"
+        - "I lack the energy"
+    - id: capability_psychological
+      name: "Psychological capability"
+      description: "The psychological ability (knowledge, cognitive skills, comprehension, reasoning) to engage in the necessary mental processes to perform the behavior."
+      example_indicators:
+        - "I know how to"
+        - "I understand"
+        - "I forgot how"
+        - "I learned to"
+        - "I can't think clearly"
+    - id: opportunity_physical
+      name: "Physical opportunity"
+      description: "Opportunity afforded by the physical environment that makes the behavior possible (time, location, resources, infrastructure)."
+      example_indicators:
+        - "I have access to"
+        - "There's no time"
+        - "It's not available"
+        - "I can afford"
+        - "The pharmacy is"
+    - id: opportunity_social
+      name: "Social opportunity"
+      description: "Opportunity afforded by the social environment - cultural milieu, social influences that shape the way we think about things and the words and concepts we use."
+      example_indicators:
+        - "My friends do"
+        - "It's expected"
+        - "Stigma around"
+        - "People talk about"
+        - "Cultural pressure"
+    - id: motivation_reflective
+      name: "Reflective motivation"
+      description: "Reflective processes involving evaluations and plans (intentions, goals, conscious decision-making, beliefs about consequences)."
+      example_indicators:
+        - "I decided to"
+        - "I believe it will"
+        - "My goal is"
+        - "I weighed the options"
+        - "On balance"
+    - id: motivation_automatic
+      name: "Automatic motivation"
+      description: "Automatic processes involving emotions and impulses arising from associative learning and/or innate dispositions (cravings, habits, emotional responses)."
+      example_indicators:
+        - "I crave"
+        - "Out of habit"
+        - "I felt compelled"
+        - "Automatically I"
+        - "Triggered me"
+    - id: behavior
+      name: "Behavior"
+      description: "The observable behavior itself - what the person did."
+      example_indicators:
+        - "I took"
+        - "I went"
+        - "I stopped"
+        - "I started"

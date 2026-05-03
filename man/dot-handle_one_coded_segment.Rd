@@ -8,6 +8,8 @@
   seg,
   seg_index,
   use_citations,
+  use_framework = FALSE,
+  framework_spec = NULL,
   ai_meta,
   documents,
   text,
