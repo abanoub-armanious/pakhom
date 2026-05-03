@@ -4,7 +4,7 @@
 \alias{.build_tier0_source_block}
 \title{Render the citation-source breakdown sub-block for the Tier-0 dashboard}
 \usage{
-.build_tier0_source_block(stats)
+.build_tier0_source_block(stats, config = NULL)
 }
 \description{
 Distinguishes Anthropic Citations API quotes (PREVENTION layer:

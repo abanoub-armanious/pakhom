@@ -170,9 +170,31 @@ verify_run_integrity <- function(run_dir, config = list()) {
   if (isTRUE(config$audit$capture_raw_responses %||% TRUE)) {
     expected <- c(expected, "api_responses")
   }
+  # Phase 32 (audit H1 + H2): Mode 3 must have an archived framework
+  # spec at outputs/<run>/framework_applied.{yaml|json}. The extension
+  # is dynamic (preserved from the source spec); accept either as
+  # satisfying the archive requirement.
+  framework_present <- if (identical(meth_mode, "framework_applied")) {
+    yaml_exists <- file.exists(file.path(run_dir, "framework_applied.yaml"))
+    yml_exists  <- file.exists(file.path(run_dir, "framework_applied.yml"))
+    json_exists <- file.exists(file.path(run_dir, "framework_applied.json"))
+    yaml_exists || yml_exists || json_exists
+  } else NA  # not applicable for non-Mode-3 runs
 
   present <- expected[file.exists(file.path(run_dir, expected))]
   missing <- setdiff(expected, present)
+
+  # Add framework_applied.* to expected/present/missing so the integrity
+  # report reflects it. Done here (not via the standard `expected` list
+  # above) because the extension is dynamic.
+  if (identical(meth_mode, "framework_applied")) {
+    expected <- c(expected, "framework_applied.{yaml|json}")
+    if (isTRUE(framework_present)) {
+      present <- c(present, "framework_applied.{yaml|json}")
+    } else {
+      missing <- c(missing, "framework_applied.{yaml|json}")
+    }
+  }
 
   list(
     expected = expected,
@@ -305,6 +327,17 @@ export_theme_entry_csvs <- function(data, theme_set, output_dir,
 #'   When NULL the card renders an explicit "coverage not computed"
 #'   notice rather than silently omitting -- absence is itself a
 #'   transparency signal per AC4.
+#' @param framework_spec Optional \code{FrameworkSpec} object (Mode 3
+#'   only). When provided AND \code{config$methodology$mode} is
+#'   \code{"framework_applied"}, the report renders a Framework
+#'   Declaration section with the framework's name, citations,
+#'   epistemic stance, anomaly handling policy, and full constructs
+#'   list. NULL on Mode 1 / Mode 2 runs.
+#' @param framework_archive Optional named list returned by
+#'   \code{\link{archive_framework_spec}} carrying the archived
+#'   framework's path + sha256 hash. When provided alongside
+#'   \code{framework_spec}, the Framework Declaration section
+#'   includes the sha256 fingerprint and a link to the archived spec.
 #' @return Path to generated HTML report
 #' @export
 generate_report <- function(data, theme_set, correlations_df, insights,
@@ -319,7 +352,9 @@ generate_report <- function(data, theme_set, correlations_df, insights,
                              cooccurrence_tests = NULL,
                              audit_log = NULL,
                              response_cache = NULL,
-                             coverage = NULL) {
+                             coverage = NULL,
+                             framework_spec = NULL,
+                             framework_archive = NULL) {
   validate_class(theme_set, "ThemeSet")
 
   # Validate inputs
@@ -372,7 +407,9 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     excerpt_verification = excerpt_verification,
     coding_state = coding_state,
     coverage = coverage,
-    run_id = basename(output_dir)
+    run_id = basename(output_dir),
+    framework_spec = framework_spec,
+    framework_archive = framework_archive
   )
 
   # Write Rmd (collapse to single string to prevent duplication)
@@ -443,7 +480,9 @@ generate_report <- function(data, theme_set, correlations_df, insights,
                                 excerpt_verification = NULL,
                                 coding_state = NULL,
                                 coverage = NULL,
-                                run_id = NULL) {
+                                run_id = NULL,
+                                framework_spec = NULL,
+                                framework_archive = NULL) {
 
   theme_count <- length(theme_stats)
 
@@ -518,7 +557,8 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   tier0_stats <- compute_quote_provenance_stats(coding_state)
   content <- paste0(content,
     .build_tier0_dashboard(tier0_stats,
-                           fabrication_log_relpath = "fabrication_log.csv")
+                           fabrication_log_relpath = "fabrication_log.csv",
+                           config = config)
   )
 
   # T0.3 corpus coverage assertion. Pairs with T0.1: T0.1 says "no
@@ -530,6 +570,21 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   content <- paste0(content,
     render_tier0_coverage_card(coverage)
   )
+
+  # Phase 32 (audit H1 + H2): Framework Declaration section. Renders
+  # ONLY when Mode 3 + the framework_spec is present. Carries the
+  # framework's name, citations, epistemic stance, anomaly handling
+  # policy, and full constructs list -- so a reviewer reading the
+  # report knows exactly which theoretical framework was applied,
+  # along with the sha256 hash of the archived framework_applied.yaml
+  # for replay-equivalence checks. Per AC4, this is mandatory for any
+  # Mode 3 run; absence (e.g., archive failed earlier) renders an
+  # explicit "framework archive not available" notice.
+  if (identical(meth_mode, "framework_applied")) {
+    content <- paste0(content,
+      .build_framework_declaration(framework_spec, framework_archive)
+    )
+  }
 
   # Inline data overview context into executive summary (Issue 4)
   rc <- overall_stats$research_context
@@ -1417,6 +1472,162 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     'Copilot drew themes from only the first 2-3 pages of data. ',
     'pakhom processes entries strictly one at a time; this funnel is ',
     'the empirical proof of full-corpus coverage in the LLM call path.</p>\n',
+    '</div>\n\n'
+  )
+}
+
+
+# ==============================================================================
+# Framework Declaration card (Sprint-4 Mode 3 / phase 32)
+# ==============================================================================
+
+#' Render the Mode 3 Framework Declaration section
+#'
+#' Phase 32 (audit H1 + H2): Mode 3 reports previously stamped the
+#' methodology mode at the top ("M3 - Framework Applied") but never
+#' surfaced WHICH theoretical framework was applied. A reviewer reading
+#' a report could not reconstruct whether the analysis used the Theory
+#' of Planned Behavior, COM-B, the Theoretical Domains Framework, or
+#' the researcher's own custom YAML -- which broke the methodology
+#' paper provenance chain and made cross-run comparison opaque. This
+#' helper renders the framework's identity (name + sha256 hash), its
+#' epistemic stance, anomaly handling policy, and the full constructs
+#' list with example indicators so the report is self-describing.
+#'
+#' Per AC4 ("methodology stamped on every output"), this section is
+#' mandatory for any Mode 3 run. Absence (e.g., archive failed earlier
+#' in the pipeline) renders an explicit "framework archive not
+#' available" notice rather than silently omitting -- the absence is
+#' itself a transparency signal.
+#'
+#' @param spec A \code{FrameworkSpec} object (from
+#'   \code{\link{load_framework_spec}}). NULL falls through to the
+#'   unavailable variant.
+#' @param archive Named list returned by
+#'   \code{\link{archive_framework_spec}} carrying \code{path},
+#'   \code{relative_path}, and \code{hash}. NULL is acceptable but
+#'   the rendered section will lack the file-link + sha256 fingerprint.
+#' @return Character HTML/markdown string for the section.
+#' @keywords internal
+.build_framework_declaration <- function(spec, archive = NULL) {
+  if (is.null(spec) || !inherits(spec, "FrameworkSpec")) {
+    return(paste0(
+      '<div class="framework-card framework-unavailable">\n\n',
+      '## Theoretical Framework (Mode 3 / AC4)\n\n',
+      'The Mode 3 framework spec was not available to the report ',
+      'renderer. This is a transparency failure -- a Mode 3 run that ',
+      'cannot identify its framework should not be treated as a ',
+      'reproducible methodology paper artifact. Investigate the ',
+      'pipeline log for an archive_framework_spec error, then re-run.\n\n',
+      '</div>\n\n'
+    ))
+  }
+
+  # Header line: framework name + (optional) sha256 short fingerprint
+  hash_str <- if (!is.null(archive) && !is.null(archive$hash) &&
+                    !is.na(archive$hash) && nzchar(archive$hash))
+                sprintf(' <span class="framework-hash">sha256: %s</span>',
+                        substr(archive$hash, 1, 12))
+              else ""
+  archive_link <- if (!is.null(archive) && !is.null(archive$relative_path))
+                    sprintf(' &middot; <a href="%s">archived spec</a>',
+                            .html_esc(archive$relative_path))
+                  else ""
+
+  # Citations block -- one per line, escaped
+  citations_block <- if (length(spec$citations) > 0L) {
+    cit_lines <- vapply(spec$citations, function(cit) {
+      sprintf("- %s", .html_esc(cit))
+    }, character(1))
+    paste0(
+      "**Citations:**\n",
+      paste(cit_lines, collapse = "\n"),
+      "\n\n"
+    )
+  } else {
+    "**Citations:** (none recorded in spec)\n\n"
+  }
+
+  # Per-construct rows. Limit example_indicators preview to first 3
+  # so the section stays readable on long frameworks (TDF has 14+).
+  construct_rows <- vapply(spec$constructs, function(c) {
+    indicators <- c$example_indicators %||% character(0)
+    indicator_str <- if (length(indicators) > 0L) {
+      preview <- head(indicators, 3L)
+      tail_str <- if (length(indicators) > 3L)
+                    sprintf(", ... (+%d more)", length(indicators) - 3L)
+                  else ""
+      esc_preview <- vapply(preview, .html_esc, character(1))
+      sprintf('<em>e.g.,</em> %s%s',
+              paste(sprintf('"%s"', esc_preview), collapse = "; "),
+              tail_str)
+    } else "<em>(no example indicators in spec)</em>"
+    sprintf(
+      paste0(
+        '<tr><td class="framework-construct-id"><code>%s</code></td>',
+        '<td><strong>%s</strong></td>',
+        '<td>%s<br><small>%s</small></td></tr>'
+      ),
+      .html_esc(c$id),
+      .html_esc(c$name),
+      .html_esc(c$description),
+      indicator_str
+    )
+  }, character(1))
+
+  # Stance + policy plain-language explainers so a reviewer doesn't
+  # have to look them up.
+  stance_explainer <- switch(spec$epistemic_stance,
+    "constructionist" = "treats constructs as researcher-developed lenses; expects to fit not all data perfectly",
+    "positivist"      = "treats constructs as universal categories; brackets data that doesn't fit",
+    "mixed"           = "applies constructs as primary but tolerates legitimate revision when data demands it",
+    "(unknown stance)"
+  )
+  anomaly_explainer <- switch(spec$anomaly_handling,
+    "extend"  = "anomalies become NEW constructs (abductive coding; Vila-Henninger 2024); each requires explicit researcher acceptance",
+    "revise"  = "anomalies trigger MODIFICATION of an existing construct's definition; logged as framework revisions",
+    "bracket" = "anomalies are flagged as out-of-scope WITHOUT modifying the framework; most positivist",
+    "(unknown policy)"
+  )
+
+  paste0(
+    '<div class="framework-card">\n\n',
+    '## Theoretical Framework (Mode 3 / AC4)\n\n',
+    sprintf('### %s%s%s\n\n',
+            .html_esc(spec$name), hash_str, archive_link),
+    citations_block,
+    sprintf(
+      paste0(
+        '**Epistemic stance:** `%s` &mdash; %s.\n\n',
+        '**Anomaly handling:** `%s` &mdash; %s.\n\n'
+      ),
+      .html_esc(spec$epistemic_stance), stance_explainer,
+      .html_esc(spec$anomaly_handling), anomaly_explainer
+    ),
+    sprintf(
+      '**Constructs (%d):** the AI was constrained to apply ONLY these labels (plus an `anomaly` bucket per the policy above). Free-form coding was disabled.\n\n',
+      length(spec$constructs)
+    ),
+    '<div class="framework-constructs-wrapper">\n',
+    '<table class="framework-constructs">\n',
+    '<thead><tr><th>ID</th><th>Construct</th><th>Description &amp; example indicators</th></tr></thead>\n',
+    '<tbody>\n', paste(construct_rows, collapse = "\n"), '\n</tbody>\n',
+    '</table>\n',
+    '</div>\n\n',
+    if (!is.null(archive)) paste0(
+      '<p class="framework-citation"><em>This declaration is the canonical ',
+      'record of the framework applied for the run. The archived spec ',
+      'file (linked above) is byte-equivalent to what was loaded by ',
+      '<code>load_framework_spec()</code>; its sha256 fingerprint is ',
+      'stamped into <code>run_metadata.json</code> for cross-run ',
+      'comparison and replay-equivalence checks.</em></p>\n'
+    ) else paste0(
+      '<p class="framework-citation"><em>The framework spec was loaded ',
+      'in-process but not archived to the run output directory ',
+      '(archive_framework_spec() was not called or failed). The ',
+      'declaration above reflects the in-memory FrameworkSpec object; ',
+      'replay-equivalence is not assertable without the archive file.</em></p>\n'
+    ),
     '</div>\n\n'
   )
 }

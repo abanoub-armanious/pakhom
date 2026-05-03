@@ -25,7 +25,9 @@ generate_report(
   cooccurrence_tests = NULL,
   audit_log = NULL,
   response_cache = NULL,
-  coverage = NULL
+  coverage = NULL,
+  framework_spec = NULL,
+  framework_archive = NULL
 )
 }
 \arguments{
@@ -92,6 +94,19 @@ surviving preprocessing reached the LLM (no silent truncation).
 When NULL the card renders an explicit "coverage not computed"
 notice rather than silently omitting -- absence is itself a
 transparency signal per AC4.}
+
+\item{framework_spec}{Optional \code{FrameworkSpec} object (Mode 3
+only). When provided AND \code{config$methodology$mode} is
+\code{"framework_applied"}, the report renders a Framework
+Declaration section with the framework's name, citations,
+epistemic stance, anomaly handling policy, and full constructs
+list. NULL on Mode 1 / Mode 2 runs.}
+
+\item{framework_archive}{Optional named list returned by
+\code{\link{archive_framework_spec}} carrying the archived
+framework's path + sha256 hash. When provided alongside
+\code{framework_spec}, the Framework Declaration section
+includes the sha256 fingerprint and a link to the archived spec.}
 }
 \value{
 Path to generated HTML report

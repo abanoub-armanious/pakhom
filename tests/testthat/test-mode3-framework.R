@@ -494,3 +494,380 @@ test_that("Pipeline source contains Mode 1 friendly-error block (dispatch is wir
   expect_match(src, "codebook_collaborative")
   expect_match(src, "framework_applied")
 })
+
+# ---- Phase 32: Framework Declaration section + Citations API footnote ----
+
+test_that(".build_framework_declaration renders framework name + sha256 + citations + stance + policy + constructs", {
+  spec <- load_framework_spec("tpb")
+  d <- withr::local_tempdir()
+  arch <- archive_framework_spec(spec, d)
+  html <- pakhom:::.build_framework_declaration(spec, arch)
+  expect_match(html, "Theoretical Framework \\(Mode 3 / AC4\\)")
+  expect_match(html, "Theory of Planned Behavior")
+  expect_match(html, "sha256:")
+  # Hash short fingerprint = first 12 chars of arch$hash
+  expect_match(html, substr(arch$hash, 1, 12), fixed = TRUE)
+  # Citations -- TPB ships with the Ajzen 1991 + 2020 references
+  expect_match(html, "Ajzen", fixed = TRUE)
+  expect_match(html, "1991", fixed = TRUE)
+  # Epistemic stance + plain-language explainer
+  expect_match(html, "positivist")
+  expect_match(html, "brackets data that doesn't fit")
+  # Anomaly policy + plain-language explainer
+  expect_match(html, "bracket")
+  expect_match(html, "out-of-scope")
+  # All five TPB constructs surface
+  for (cid in c("attitude", "subjective_norm",
+                  "perceived_behavioral_control", "intention", "behavior")) {
+    expect_match(html, sprintf("<code>%s</code>", cid))
+  }
+  # Archive link
+  expect_match(html, sprintf('href="%s"', arch$relative_path))
+})
+
+test_that(".build_framework_declaration renders the unavailable variant when spec is NULL", {
+  html <- pakhom:::.build_framework_declaration(NULL, NULL)
+  expect_match(html, "framework-unavailable")
+  expect_match(html, "transparency failure")
+})
+
+test_that(".build_framework_declaration renders the unavailable variant for non-FrameworkSpec input", {
+  html <- pakhom:::.build_framework_declaration(list(name = "fake"), NULL)
+  expect_match(html, "framework-unavailable")
+})
+
+test_that(".build_framework_declaration handles spec without an archive (no hash, no link)", {
+  spec <- load_framework_spec("tpb")
+  html <- pakhom:::.build_framework_declaration(spec, archive = NULL)
+  expect_match(html, "Theory of Planned Behavior")
+  expect_no_match(html, "sha256:")
+  expect_no_match(html, "archived spec")
+})
+
+test_that(".build_framework_declaration HTML-escapes framework name + construct fields", {
+  # Synthetic spec with researcher-supplied content that contains HTML-
+  # active characters in name + construct description. The renderer must
+  # escape every interpolation -- a malicious or careless framework spec
+  # should not be able to inject arbitrary HTML / JS into a Mode 3
+  # report. Audit-pattern fix ahead of time.
+  d <- withr::local_tempdir()
+  yaml_path <- file.path(d, "evil.yaml")
+  writeLines(c(
+    "framework:",
+    "  name: '<script>alert(1)</script>'",
+    "  citations:",
+    "    - 'A & B (2024) <em>title</em>'",
+    "  epistemic_stance: 'mixed'",
+    "  anomaly_handling: 'extend'",
+    "  constructs:",
+    "    - id: c1",
+    "      name: 'C <one>'",
+    "      description: '\"first\" & only'",
+    "      example_indicators:",
+    "        - '<b>example</b>'"
+  ), yaml_path)
+  spec <- load_framework_spec(yaml_path)
+  arch <- archive_framework_spec(spec, d)
+  html <- pakhom:::.build_framework_declaration(spec, arch)
+  expect_no_match(html, "<script>alert\\(1\\)</script>")
+  # Escaped form must be present
+  expect_match(html, "&lt;script&gt;")
+  expect_match(html, "&amp;")
+})
+
+test_that(".tier0_citations_api_bypass_footnote fires only on Mode 3 + Anthropic", {
+  fn_m3_anth <- pakhom:::.tier0_citations_api_bypass_footnote(list(
+    methodology = list(mode = "framework_applied"),
+    ai = list(provider = "anthropic")
+  ))
+  expect_match(fn_m3_anth, "structurally precluded")
+  expect_match(fn_m3_anth, "tool_use", fixed = TRUE)
+
+  # All other combos return ""
+  fn_m3_oai <- pakhom:::.tier0_citations_api_bypass_footnote(list(
+    methodology = list(mode = "framework_applied"),
+    ai = list(provider = "openai")
+  ))
+  expect_equal(fn_m3_oai, "")
+
+  fn_m2_anth <- pakhom:::.tier0_citations_api_bypass_footnote(list(
+    methodology = list(mode = "codebook_collaborative"),
+    ai = list(provider = "anthropic")
+  ))
+  expect_equal(fn_m2_anth, "")
+
+  fn_m1_anth <- pakhom:::.tier0_citations_api_bypass_footnote(list(
+    methodology = list(mode = "reflexive_scaffold"),
+    ai = list(provider = "anthropic")
+  ))
+  expect_equal(fn_m1_anth, "")
+
+  fn_null <- pakhom:::.tier0_citations_api_bypass_footnote(NULL)
+  expect_equal(fn_null, "")
+})
+
+test_that(".build_tier0_source_block plumbs config through to bypass footnote", {
+  # Build a stats object with quotes from model_freeform only (the
+  # canonical Mode 3 + Anthropic shape), then verify the rendered
+  # source block carries the bypass footnote when config indicates
+  # Mode 3 + Anthropic.
+  src <- "I plan to take my medication every day."
+  q <- make_quote("e1", "data_entry", src, 0L, 6L, "I plan",
+                    citation_source = "model_freeform")
+  q <- verify_quote(q, src)
+  stats <- quote_provenance_summary(list(q))
+
+  html_m3 <- pakhom:::.build_tier0_source_block(stats, config = list(
+    methodology = list(mode = "framework_applied"),
+    ai = list(provider = "anthropic")
+  ))
+  expect_match(html_m3, "structurally precluded")
+
+  html_m2 <- pakhom:::.build_tier0_source_block(stats, config = list(
+    methodology = list(mode = "codebook_collaborative"),
+    ai = list(provider = "anthropic")
+  ))
+  expect_no_match(html_m2, "structurally precluded")
+})
+
+test_that("verify_run_integrity expects framework_applied.{yaml|json} when Mode 3", {
+  d <- withr::local_tempdir()
+  cfg <- list(methodology = list(mode = "framework_applied"),
+                output = list(generate_report = FALSE),
+                audit = list(capture_raw_responses = FALSE))
+  res <- verify_run_integrity(d, cfg)
+  expect_true("framework_applied.{yaml|json}" %in% res$expected)
+  expect_true("framework_applied.{yaml|json}" %in% res$missing)
+  expect_false(res$complete)
+
+  # Now drop a fake framework_applied.yaml in run_dir
+  writeLines("framework: { name: stub, constructs: [] }",
+             file.path(d, "framework_applied.yaml"))
+  # Drop the OTHER mandatory artifacts so we test only the framework path
+  for (f in c("sentiment_scores.csv", "consolidated_codes.csv",
+                "correlations.csv", "themes.json", "analysis_report.Rmd",
+                "run_metadata.json", "fabrication_log.csv",
+                "ai_decisions.jsonl")) {
+    writeLines("", file.path(d, f))
+  }
+  dir.create(file.path(d, "theme_entries"))
+  dir.create(file.path(d, "rules"))
+  writeLines("", file.path(d, "rules", "methodology_rules.md"))
+  res2 <- verify_run_integrity(d, cfg)
+  expect_false("framework_applied.{yaml|json}" %in% res2$missing)
+  expect_true("framework_applied.{yaml|json}" %in% res2$present)
+})
+
+test_that("verify_run_integrity for Mode 2/Mode 3 differs only in framework expectation", {
+  d <- withr::local_tempdir()
+  cfg_m2 <- list(methodology = list(mode = "codebook_collaborative"),
+                   output = list(generate_report = FALSE),
+                   audit = list(capture_raw_responses = FALSE))
+  cfg_m3 <- list(methodology = list(mode = "framework_applied"),
+                   output = list(generate_report = FALSE),
+                   audit = list(capture_raw_responses = FALSE))
+  m2 <- verify_run_integrity(d, cfg_m2)
+  m3 <- verify_run_integrity(d, cfg_m3)
+  expect_false("framework_applied.{yaml|json}" %in% m2$expected)
+  expect_true("framework_applied.{yaml|json}" %in% m3$expected)
+  # All other expected files are identical
+  expect_setequal(setdiff(m3$expected, m2$expected),
+                    "framework_applied.{yaml|json}")
+})
+
+test_that("Mode 3 report integration: generate_report writes an Rmd with Framework Declaration + bypass footnote", {
+  # Audit H1 (phase 32 audit): the previous version of this test
+  # wrapped generate_report in a tryCatch that swallowed the error and
+  # then skip()ped if the Rmd was never written. That made the test
+  # silently pass for ANY future regression of the Mode 3 wiring --
+  # the audit caught the silent skip. The fix here is twofold:
+  #   1. Build a sufficient input set (full export_files, complete
+  #      theme_set, sentiment data on the entries) so generate_report
+  #      actually completes.
+  #   2. Remove the skip-fallback: any failure to write the Rmd or
+  #      missing Mode 3 content in the Rmd is now a hard test failure.
+  skip_if_not(rmarkdown::pandoc_available() ||
+                dir.exists("/Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64"),
+              "Requires pandoc")
+
+  spec <- load_framework_spec("tpb")
+  out_dir <- withr::local_tempdir()
+  arch <- archive_framework_spec(spec, out_dir)
+
+  # Build a richer data fixture: 6 entries with varied sentiment so
+  # aggregate_overall_statistics's sentiment + emotion summaries
+  # produce non-degenerate values that downstream Rmd builders
+  # (e.g., .build_emotional_landscape) format without crashing.
+  data <- tibble::tibble(
+    std_id   = paste0("e", 1:6),
+    std_text = c("I plan to take it",
+                  "My doctor expects me to",
+                  "I always forget",
+                  "Side effects are tough",
+                  "I really don't think it helps",
+                  "I have control over my schedule"),
+    std_author = paste0("user", 1:6),
+    sentiment_score = c(0.5, 0.4, -0.3, -0.5, -0.7, 0.6),
+    all_emotions = c("hope", "concern", "frustration", "frustration",
+                       "doubt", "control"),
+    emotion_intensity = c(0.5, 0.4, 0.6, 0.7, 0.8, 0.5),
+    confidence = rep(0.9, 6),
+    emerged_themes = c("intention", "subjective_norm", "intention",
+                        "perceived_behavioral_control",
+                        "attitude", "perceived_behavioral_control"),
+    theme_membership_intention                    = c(1L, 0L, 1L, 0L, 0L, 0L),
+    theme_membership_subjective_norm              = c(0L, 1L, 0L, 0L, 0L, 0L),
+    theme_membership_perceived_behavioral_control = c(0L, 0L, 0L, 1L, 0L, 1L),
+    theme_membership_attitude                     = c(0L, 0L, 0L, 0L, 1L, 0L)
+  )
+  ts <- create_theme_set(list(
+    list(id = 1L, name = "intention", description = "Behavioral intention",
+         codes_included = "intention"),
+    list(id = 2L, name = "subjective_norm",
+         description = "Perceived social pressure",
+         codes_included = "subjective_norm"),
+    list(id = 3L, name = "perceived_behavioral_control",
+         description = "Perceived ease/difficulty",
+         codes_included = "perceived_behavioral_control"),
+    list(id = 4L, name = "attitude",
+         description = "Favorable/unfavorable evaluation",
+         codes_included = "attitude")
+  ))
+  # Enrich theme_set so per-theme stats (supporting_quotes, code_count)
+  # don't crash downstream rendering helpers.
+  for (i in seq_along(ts$themes)) {
+    ts$themes[[i]]$supporting_quotes <- character(0)
+  }
+
+  cs <- create_coding_state()
+  cs$entries_processed <- data$std_id
+  for (sid in data$std_id) {
+    cs$entry_results[[sid]] <- list(skipped = FALSE)
+  }
+
+  # Provide an export_files list that mirrors the shape
+  # export_results() would produce; the Rmd builders read these
+  # filenames into chunks (basename(...) calls). The files don't have
+  # to exist on disk -- the Rmd builder just emits paths into the
+  # rendered Rmd.
+  export_files <- list(
+    sentiment_file    = file.path(out_dir, "sentiment_scores.csv"),
+    codes_file        = file.path(out_dir, "consolidated_codes.csv"),
+    correlations_file = file.path(out_dir, "correlations.csv"),
+    themes_file       = file.path(out_dir, "themes.json"),
+    plot_file         = file.path(out_dir, "correlation_plot.png"),
+    theme_csv_files   = list()
+  )
+
+  cfg <- list(
+    methodology = list(mode = "framework_applied",
+                          framework_spec_path = spec$source_path),
+    study = list(name = "phase32-test",
+                   research_focus = "Mode 3 e2e smoke",
+                   research_context = "test"),
+    ai = list(provider = "anthropic"),
+    output = list(generate_report = TRUE,
+                    generate_correlation_plot = FALSE),
+    audit = list(capture_raw_responses = FALSE)
+  )
+
+  # Drive generate_report. Audit H1 fix: do NOT wrap in tryCatch --
+  # any error (including the previous "a character vector argument
+  # expected" from missing export_files) must surface as a test
+  # failure, not a silent skip.
+  result <- generate_report(
+    data = data, theme_set = ts, correlations_df = NULL,
+    insights = list(), export_files = export_files,
+    consolidated = NULL, learning_context = NULL,
+    provider = NULL, config = cfg,
+    output_file = file.path(out_dir, "test_report.html"),
+    coding_state = cs,
+    framework_spec = spec,
+    framework_archive = arch
+  )
+
+  # The Rmd MUST exist (audit H1: no skip-fallback).
+  rmd_path <- file.path(out_dir, "test_report.Rmd")
+  expect_true(file.exists(rmd_path),
+              info = "generate_report must write an Rmd; previous silent-skip is now a hard fail")
+
+  rmd <- paste(readLines(rmd_path, warn = FALSE), collapse = "\n")
+  # Framework Declaration section is present (Mode 3 specific)
+  expect_match(rmd, "Theoretical Framework \\(Mode 3 / AC4\\)")
+  expect_match(rmd, "Theory of Planned Behavior", fixed = TRUE)
+  expect_match(rmd, substr(arch$hash, 1, 12), fixed = TRUE)
+  # All five TPB constructs surface in the Rmd
+  for (cid in c("attitude", "subjective_norm",
+                  "perceived_behavioral_control", "intention", "behavior")) {
+    expect_match(rmd, sprintf("<code>%s</code>", cid))
+  }
+  # Bypass footnote fires (Mode 3 + Anthropic)
+  expect_match(rmd, "structurally precluded")
+})
+
+test_that("Mode 2 report does NOT include the Framework Declaration section", {
+  # Mode 2 / Mode 1 reports should never render the Framework
+  # Declaration -- the gating condition in .build_rmd_content is
+  # `if (identical(meth_mode, "framework_applied"))`. Pin the
+  # negative assertion so a future refactor that loosens the gate
+  # surfaces in tests.
+  skip_if_not(rmarkdown::pandoc_available() ||
+                dir.exists("/Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64"),
+              "Requires pandoc")
+
+  out_dir <- withr::local_tempdir()
+  data <- tibble::tibble(
+    std_id   = paste0("e", 1:3),
+    std_text = letters[1:3],
+    std_author = c("a", "b", "c"),
+    sentiment_score = c(0.1, -0.1, 0.3),
+    all_emotions = c("hope", "doubt", "hope"),
+    emotion_intensity = rep(0.5, 3),
+    confidence = rep(0.9, 3),
+    emerged_themes = c("T1", "T1", "T2"),
+    theme_membership_T1 = c(1L, 1L, 0L),
+    theme_membership_T2 = c(0L, 0L, 1L)
+  )
+  ts <- create_theme_set(list(
+    list(id = 1L, name = "T1", description = "first",  codes_included = "x"),
+    list(id = 2L, name = "T2", description = "second", codes_included = "y")
+  ))
+  cs <- create_coding_state()
+  cs$entries_processed <- data$std_id
+  for (sid in data$std_id) cs$entry_results[[sid]] <- list(skipped = FALSE)
+
+  export_files <- list(
+    sentiment_file = file.path(out_dir, "sentiment_scores.csv"),
+    codes_file     = file.path(out_dir, "consolidated_codes.csv"),
+    correlations_file = file.path(out_dir, "correlations.csv"),
+    themes_file    = file.path(out_dir, "themes.json"),
+    plot_file      = file.path(out_dir, "correlation_plot.png"),
+    theme_csv_files = list()
+  )
+  cfg <- list(
+    methodology = list(mode = "codebook_collaborative"),
+    study = list(name = "test", research_focus = "y"),
+    ai = list(provider = "openai"),
+    output = list(generate_report = TRUE, generate_correlation_plot = FALSE),
+    audit = list(capture_raw_responses = FALSE)
+  )
+
+  generate_report(
+    data = data, theme_set = ts, correlations_df = NULL,
+    insights = list(), export_files = export_files,
+    consolidated = NULL, learning_context = NULL,
+    provider = NULL, config = cfg,
+    output_file = file.path(out_dir, "test_report.html"),
+    coding_state = cs
+    # framework_spec/framework_archive intentionally NULL on Mode 2
+  )
+
+  rmd_path <- file.path(out_dir, "test_report.Rmd")
+  expect_true(file.exists(rmd_path))
+  rmd <- paste(readLines(rmd_path, warn = FALSE), collapse = "\n")
+  expect_no_match(rmd, "Theoretical Framework \\(Mode 3 / AC4\\)")
+  expect_no_match(rmd, "framework-card")
+  # The bypass footnote must also NOT fire on Mode 2 even with
+  # provider != anthropic
+  expect_no_match(rmd, "structurally precluded")
+})

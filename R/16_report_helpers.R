@@ -880,14 +880,22 @@ generate_downloads_section <- function(export_files, theme_stats) {
 #' @return A character string of markdown content (one card).
 #' @keywords internal
 .build_tier0_dashboard <- function(stats,
-                                    fabrication_log_relpath = "fabrication_log.csv") {
+                                    fabrication_log_relpath = "fabrication_log.csv",
+                                    config = NULL) {
   if (is.null(stats) || identical(stats$total, 0L)) {
+    # Audit H1 follow-up (phase 32): even on the empty-stats path we
+    # still render the Mode-3-bypass footnote when applicable, so a
+    # reviewer reading the dashboard for a Mode 3 + Anthropic run with
+    # zero verbatim claims sees the architectural reason for the
+    # absence (the Citations API is precluded by the tool_use schema)
+    # rather than just "verification did not run."
     return(paste0(
       '<div class="tier0-dashboard tier0-empty">\n\n',
       '## Data Integrity Dashboard (T0.1)\n\n',
       'Quote-provenance verification did not run for this report ',
       '(pre-T0.1 run, no coding step, or no AI-attributed verbatim claims). ',
       'Future runs of this study will include a verification dashboard here.\n\n',
+      .tier0_citations_api_bypass_footnote(config),
       '</div>\n\n'
     ))
   }
@@ -959,7 +967,7 @@ generate_downloads_section <- function(export_files, theme_stats) {
   # layer (model_freeform: model wrote a verbatim claim, ladder verified
   # offline). Both are admissible into the codebook; citations are strictly
   # stronger evidence. The dashboard makes the distinction visible.
-  source_block <- .build_tier0_source_block(stats)
+  source_block <- .build_tier0_source_block(stats, config = config)
 
   paste0(
     '<div class="tier0-dashboard">\n\n',
@@ -1005,9 +1013,15 @@ generate_downloads_section <- function(export_files, theme_stats) {
 #' (degenerate state -- shouldn't happen for normal runs but the dashboard
 #' should not crash on an unusual stats object).
 #' @keywords internal
-.build_tier0_source_block <- function(stats) {
+.build_tier0_source_block <- function(stats, config = NULL) {
   by_source <- stats$by_citation_source
-  if (length(by_source) == 0L) return("")
+  if (length(by_source) == 0L) {
+    # When the source breakdown has nothing to show, fall through to
+    # only the Mode-3-bypass footnote (or empty when not Mode 3 +
+    # Anthropic). Empty-source state is fine on its own; the footnote
+    # explains the deliberate architectural constraint when applicable.
+    return(.tier0_citations_api_bypass_footnote(config))
+  }
 
   rate_by_source <- stats$verification_rate_by_source %||%
                       stats::setNames(numeric(0), character(0))
@@ -1046,6 +1060,58 @@ generate_downloads_section <- function(export_files, theme_stats) {
   paste0(
     "**Citation source breakdown:**\n",
     paste(lines, collapse = "\n"),
-    "\n\n"
+    "\n\n",
+    .tier0_citations_api_bypass_footnote(config)
+  )
+}
+
+#' Footnote explaining the Mode 3 + Anthropic Citations API silent bypass
+#'
+#' Phase 32 (audit MEDIUM #5 / C3): when \code{config$methodology$mode}
+#' is \code{"framework_applied"} (Mode 3) AND
+#' \code{config$ai$provider} is \code{"anthropic"}, the Citations API
+#' path in \code{R/02_ai_providers.R} is deliberately dropped. The
+#' constraint is structural at the Anthropic API level: forced
+#' \code{tool_use} schema (which Mode 3 requires to constrain coding
+#' to framework constructs) and the Citations API output format are
+#' mutually exclusive on the same response. The Mode 3 coding pipeline
+#' therefore relies on the verification ladder's DETECTION-only path
+#' (model_freeform + offline string match) instead of the API's
+#' PREVENTION layer.
+#'
+#' Without this footnote, a reviewer reading the Tier-0 dashboard for
+#' a Mode 3 + Anthropic run would see only \emph{"Model freeform
+#' (detection only)"} and reasonably wonder why the Anthropic-specific
+#' prevention layer is missing -- they could infer a bug rather than a
+#' deliberate architectural constraint. The footnote makes the
+#' architectural reason explicit.
+#'
+#' Returns "" when the trigger condition does not apply (Mode 1 / Mode
+#' 2 runs, or non-Anthropic providers, or NULL config).
+#' @keywords internal
+.tier0_citations_api_bypass_footnote <- function(config = NULL) {
+  if (is.null(config)) return("")
+  meth_mode <- tryCatch(config$methodology$mode, error = function(e) NULL)
+  provider  <- tryCatch(config$ai$provider,      error = function(e) NULL)
+  if (!identical(meth_mode, "framework_applied")) return("")
+  if (!identical(provider, "anthropic")) return("")
+
+  paste0(
+    '<div class="tier0-footnote tier0-mode3-citations-bypass">\n',
+    '<strong>Note (Mode 3 + Anthropic):</strong> the Citations API ',
+    '(prevention layer) is <em>structurally precluded</em> in this run. ',
+    'Mode 3 (Framework Applied) forces a <code>tool_use</code> response ',
+    'schema so the model can only return constructs from the framework ',
+    '(plus an <code>anomaly</code> bucket). The Anthropic Citations API ',
+    'output format is mutually exclusive with forced <code>tool_use</code> ',
+    'on the same response, so the API silently drops citation spans for ',
+    'Mode 3 calls. The Mode 3 pipeline therefore relies on the four-step ',
+    'verification ladder (detection-only) for quote provenance -- the ',
+    'same ladder Modes 1 and 2 use as a backstop, but here it is the ',
+    'sole layer rather than a backstop. Future phases may explore a ',
+    'hybrid schema (constrained constructs + paired citation offsets) ',
+    'as a research spike. For now this footnote is the honest disclosure ',
+    'rather than silent omission.\n',
+    '</div>\n\n'
   )
 }

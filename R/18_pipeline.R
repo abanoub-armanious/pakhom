@@ -157,6 +157,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   # mode == "framework_applied" (R/01_config.R). Loading early catches
   # spec errors before expensive coding work.
   framework_spec <- NULL
+  framework_archive <- NULL  # populated below for Mode 3
   if (identical(meth_mode, "framework_applied")) {
     framework_spec <- tryCatch(
       load_framework_spec(config$methodology$framework_spec_path),
@@ -170,6 +171,26 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
       }
     )
     log_info("Mode 3 framework loaded: '{framework_spec$name}' ({length(framework_spec$constructs)} constructs)")
+
+    # Phase 32 (audit H1 + H2): archive the framework spec verbatim
+    # under outputs/<run>/framework_applied.{yaml|json} and capture the
+    # sha256 hash + identity metadata for stamping into
+    # run_metadata.json. Per AC4 the archive is mandatory for Mode 3 --
+    # without it a reviewer cannot reconstruct WHICH framework was
+    # used.
+    #
+    # Phase 32 audit (M1 + M2): the previous version wrapped this call
+    # in a tryCatch that absorbed archive errors into a warning,
+    # letting the run finalize with no framework_name / framework_hash
+    # in run_metadata.json AND no archived spec on disk. AC4 requires
+    # the archive; without it the run's provenance is broken. The
+    # auditor's M1+M2 finding is correct: archive failure must be a
+    # hard refuse, not a soft warn -- symmetric with the "Mode 3
+    # requires a valid framework spec" stop() above. Failure here
+    # aborts run_analysis() before any expensive coding work; the
+    # output_dir is already created but contains no AI-call artifacts
+    # so cleanup is straightforward.
+    framework_archive <- archive_framework_spec(framework_spec, output_dir)
   }
 
   checkpoint <- init_checkpoints(
@@ -221,7 +242,32 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   # state record. The init_run_state helper in R/run_state.R is the
   # canonical writer; here we extend the helper's output with the
   # provider/model fields the pipeline carries.
-  meta_methodology <- init_run_state(
+  # Phase 32 (audit H1 + H2): when Mode 3, splat the framework archive
+  # metadata into run_metadata.json so cross-run comparisons + replay
+  # can route off the framework's identity (name + sha256). Mode 1 and
+  # Mode 2 runs leave these fields out (init_run_state writes only the
+  # fields supplied via ...). framework_archive may be NULL on Mode 3
+  # if the archive call failed; downstream verify_run_integrity
+  # surfaces the gap.
+  # Audit L2 (phase 32): jsonlite::write_json with auto_unbox=TRUE
+  # collapses length-1 character vectors into JSON scalars. For a
+  # single-construct framework that would mean
+  # framework_construct_ids serializes as a string instead of an
+  # array, breaking downstream parsers expecting an array shape.
+  # Wrapping construct_ids in as.list() preserves the array shape
+  # (jsonlite serializes a length-1 list as a length-1 array).
+  framework_extras <- if (!is.null(framework_archive)) list(
+    framework_name             = framework_archive$name,
+    framework_hash             = framework_archive$hash,
+    framework_relative_path    = framework_archive$relative_path,
+    framework_epistemic_stance = framework_archive$epistemic_stance,
+    framework_anomaly_handling = framework_archive$anomaly_handling,
+    framework_n_constructs     = framework_archive$n_constructs,
+    framework_construct_ids    = as.list(framework_archive$construct_ids),
+    framework_schema_version   = framework_archive$schema_version
+  ) else list()
+
+  meta_methodology <- do.call(init_run_state, c(list(
     run_dir          = output_dir,
     run_id           = basename(output_dir),
     methodology_mode = config$methodology$mode,
@@ -237,7 +283,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     research_focus          = config$study$research_focus,
     package_version         = as.character(utils::packageVersion("pakhom")),
     analysis_schema_version = .SCHEMA_VERSION
-  )
+  ), framework_extras))
 
   # Initialize AI decision audit log (T1.4: methodology_mode auto-stamped on
   # every record because we pass config; pre-T1.4 callers without config still
@@ -797,7 +843,12 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
       cooccurrence_tests = cooccurrence_tests,
       audit_log = audit_log,
       response_cache = response_cache,
-      coverage = coverage
+      coverage = coverage,
+      # Phase 32: pass framework_spec + archive metadata so the Mode 3
+      # report renders the Framework Declaration section + the
+      # Citations API silent-bypass footnote in the Tier-0 dashboard.
+      framework_spec    = framework_spec,
+      framework_archive = framework_archive
     )
   }
 

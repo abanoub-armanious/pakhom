@@ -1,5 +1,131 @@
 # pakhom 1.0.0
 
+## Sprint-4 phase 32: Mode 3 (Framework Applied) transparency hardening
+
+Closes phase 30 audit findings H1 (framework_spec archive), H2 (Framework
+Declaration in report), and audit MEDIUM #5 / C3 (Mode 3 + Anthropic
+Citations API silent bypass). Before phase 32, a Mode 3 reviewer reading
+a generated HTML report saw "M3 - Framework Applied" stamped at the top
+but could not tell WHICH theoretical framework was applied (TPB?
+COM-B? TDF? a custom YAML?), what its citations were, what the
+epistemic stance was, or what the anomaly handling policy said -- AC4
+("methodology stamped on every output") was honored at the mode level
+but not the framework level. Phase 32 closes the gap end-to-end.
+
+- **`archive_framework_spec()`** (new in `R/framework_spec.R`). Writes
+  a verbatim byte-equivalent copy of the loaded framework spec to
+  `outputs/<run>/framework_applied.{yaml|json}` (extension preserved
+  from source) and computes a deterministic SHA-256 over the file's
+  bytes. Returns a metadata list (`name`, `hash`, `epistemic_stance`,
+  `anomaly_handling`, `n_constructs`, `construct_ids`,
+  `relative_path`) suitable for splatting into `init_run_state(...)`
+  and forwarding to the report renderer. Per AC4 the archive is
+  mandatory for any Mode 3 run -- the integrity check now flags a
+  missing archive as an incomplete run.
+
+- **`run_metadata.json` framework stamping**. `R/18_pipeline.R` now
+  invokes `archive_framework_spec()` immediately after `load_framework_spec()`
+  (Mode 3 only) and splats the resulting metadata into `init_run_state`
+  via `do.call`. Mode 3 runs now carry `framework_name`,
+  `framework_hash`, `framework_relative_path`,
+  `framework_epistemic_stance`, `framework_anomaly_handling`,
+  `framework_n_constructs`, `framework_construct_ids`, and
+  `framework_schema_version` in `run_metadata.json`. Mode 1 + Mode 2
+  metadata is unchanged (the splat is conditional on
+  `framework_archive` being non-NULL).
+
+- **Framework Declaration section** (new `.build_framework_declaration()`
+  helper in `R/17_report.R`). Renders only for Mode 3 runs, immediately
+  after the Tier-0 dashboards. Includes:
+  * Framework name + sha256 fingerprint (first 12 chars) + link to
+    the archived spec file
+  * Citations (full reference list from the spec)
+  * Epistemic stance + plain-language explainer ("constructionist
+    treats constructs as researcher-developed lenses; positivist
+    treats constructs as universal categories; mixed applies
+    constructs as primary but tolerates legitimate revision")
+  * Anomaly handling policy + plain-language explainer ("extend =
+    new constructs; revise = modify existing definitions; bracket =
+    flag as out-of-scope")
+  * Full constructs table with id, name, description, and first 3
+    example indicators (rest counted as "+N more" so the section
+    stays readable on long frameworks like TDF's 14)
+  * Citation paragraph confirming byte-equivalence with the loaded
+    spec + sha256 fingerprint location in `run_metadata.json`
+  Falls through to an explicit "transparency failure" notice when
+  the archive is unavailable -- absence is itself an AC4 signal.
+
+- **Mode 3 + Anthropic Citations API bypass footnote** (new
+  `.tier0_citations_api_bypass_footnote()` helper). When the run is
+  Mode 3 + provider = `"anthropic"`, the Tier-0 source-breakdown card
+  now appends an explicit footnote explaining that the Citations API
+  prevention layer is structurally precluded (forced `tool_use` schema
+  for framework-construct constraint is mutually exclusive with the
+  Citations API output format on the same Anthropic response). The
+  Mode 3 pipeline relies on the verification ladder's DETECTION-only
+  path; the footnote makes the architectural reason explicit rather
+  than letting a reviewer infer a bug. Future phases may explore a
+  hybrid schema (constrained constructs + paired citation offsets) as
+  a research spike.
+
+- **`verify_run_integrity()` Mode 3 expectation**. The integrity check
+  for `mode = "framework_applied"` now expects
+  `framework_applied.{yaml|json}` to exist under `run_dir` and reports
+  it as missing if absent. The accept-either logic supports both
+  YAML-source and JSON-source frameworks.
+
+- **HTML escaping**: every researcher-supplied interpolation in
+  `.build_framework_declaration` (framework name, citations, construct
+  id/name/description, example indicators) is routed through
+  `.html_esc`. Tested with a synthetic spec containing `<script>` /
+  `&` / quote characters in framework name + construct fields; the
+  rendered HTML neutralizes all HTML-active content.
+
+- **Audit-driven hardening (1 background subagent on the implementation
+  surface)**:
+  * **Audit H1** (silent skip in e2e test) — the previous Mode 3
+    integration test wrapped `generate_report()` in a `tryCatch` that
+    swallowed the error AND then `skip()`ped if no Rmd was written,
+    making any future regression of the Mode 3 wiring invisible. The
+    audit predicted this exact failure class ("silent Mode 3 end-to-end
+    failure") matched the user's standing audit-pattern memo. Fix: build
+    a sufficient input set (full `export_files` shape, sentiment scores
+    per entry, multi-theme `theme_set`) so `generate_report` actually
+    completes the Rmd, and remove the skip-fallback so any failure is a
+    hard test failure. Added a Mode 2 negative test that pins the
+    Framework Declaration is NOT rendered for non-Mode-3 runs.
+  * **Audit M1 + M2** (archive failure was a soft warn) — per AC4 a
+    Mode 3 run cannot finalize without its framework archive; the
+    previous `tryCatch` around `archive_framework_spec` absorbed errors
+    into a warning, letting the run finalize with broken provenance.
+    Fix: the call now propagates errors directly so any archive failure
+    aborts `run_analysis()` before any expensive coding work. Symmetric
+    with the existing "Mode 3 requires a valid framework spec" hard-stop
+    on spec load.
+  * **Audit L2** (single-construct `framework_construct_ids` would
+    scalarize) — `jsonlite::write_json` with `auto_unbox=TRUE` collapses
+    length-1 character vectors into JSON scalars, so a 1-construct
+    framework's `construct_ids` would round-trip as `"only_one"` instead
+    of `["only_one"]`. Fix: splat `as.list(construct_ids)` into
+    `init_run_state`'s extras so the JSON array shape is preserved
+    regardless of length. Added a regression test that round-trips
+    `run_metadata.json` and asserts the array shape.
+  * **Bypass footnote on empty-dashboard path** — caught while fixing
+    H1: the Citations API bypass footnote previously only fired when
+    the source-breakdown sub-block ran, but the dashboard short-circuits
+    to an empty card when zero verbatim claims exist (e.g., a Mode 3 +
+    Anthropic run that produces only construct labels with no quote
+    citations). Fix: footnote also renders on the empty-dashboard path
+    so the architectural reason for the absence is surfaced.
+
+Phase 32 net adds 18 tests (8 in `test-framework_spec.R` for the
+archive helper across all three built-in frameworks + the L2
+single-construct round-trip; 10 in `test-mode3-framework.R` for the
+Framework Declaration render + HTML escaping + bypass footnote
+dispatch + integrity-check expectation + a working Mode 3 e2e
+report-render + a Mode 2 negative test). Test count: 2089 -> 2168
+net. R CMD check stays at 0 errors / 0 warnings / 2 routine NOTEs.
+
 ## Sprint-4 phase 31: Mode 1 (Reflexive Scaffold) full orchestrator
 
 Closes the phase 30 audit's CRITICAL findings C1 + C2: Mode 1 was

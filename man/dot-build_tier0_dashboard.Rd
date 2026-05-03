@@ -4,7 +4,11 @@
 \alias{.build_tier0_dashboard}
 \title{Build the Tier-0 data integrity dashboard markdown for the report}
 \usage{
-.build_tier0_dashboard(stats, fabrication_log_relpath = "fabrication_log.csv")
+.build_tier0_dashboard(
+  stats,
+  fabrication_log_relpath = "fabrication_log.csv",
+  config = NULL
+)
 }
 \arguments{
 \item{stats}{Named list returned by

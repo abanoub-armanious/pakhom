@@ -269,6 +269,101 @@ print.FrameworkSpec <- function(x, ...) {
   invisible(x)
 }
 
+#' Archive a Mode 3 framework spec into the run output directory
+#'
+#' Phase 32 (audit H1 + H2): a Mode 3 run loads
+#' \code{config$methodology$framework_spec_path} into a typed
+#' \code{FrameworkSpec} but never copies the source spec into the run
+#' outputs. The HTML report's methodology stamp says "M3 - Framework
+#' Applied" but a reviewer cannot reconstruct WHICH framework was used
+#' (TPB? COM-B? TDF? a custom YAML?), what its citations are, or what
+#' its anomaly handling policy says. Without the archive, replay /
+#' methodology-paper provenance is broken.
+#'
+#' This helper writes a verbatim copy of the source spec to
+#' \code{outputs/<run>/framework_applied.yaml} (or .json -- preserved
+#' from source extension), computes a deterministic SHA-256 of the
+#' file's bytes, and returns a metadata list suitable for stamping into
+#' \code{run_metadata.json} via \code{init_run_state(...)}.
+#'
+#' Per AC4 ("methodology stamped on every output"), the archive is
+#' mandatory for any Mode 3 run -- absence of the archive is a coverage
+#' failure flagged by \code{verify_run_integrity}.
+#'
+#' @param spec A \code{FrameworkSpec} object (must carry a non-NA
+#'   \code{source_path}). For built-in frameworks the source_path is
+#'   the \code{system.file()} resolution at load time.
+#' @param run_dir Path to the run output directory. Created if missing.
+#' @return Named list with \code{path} (path of the archived file
+#'   under run_dir), \code{hash} (sha256 hex string), \code{name}
+#'   (framework$name), \code{epistemic_stance}, \code{anomaly_handling},
+#'   \code{n_constructs}, \code{schema_version}, suitable to splat into
+#'   \code{init_run_state(...)}.
+#' @export
+archive_framework_spec <- function(spec, run_dir) {
+  validate_class(spec, "FrameworkSpec")
+  if (!is.character(run_dir) || length(run_dir) != 1L || !nzchar(run_dir)) {
+    stop("archive_framework_spec: run_dir must be a single non-empty string",
+         call. = FALSE)
+  }
+  src <- spec$source_path
+  if (is.null(src) || !is.character(src) || length(src) != 1L ||
+      is.na(src) || !nzchar(src) || !file.exists(src)) {
+    stop(sprintf(
+      "archive_framework_spec: spec$source_path '%s' is missing or unreadable; ",
+      src %||% "<NA>"
+    ),
+    "the spec must have been loaded from a real file (load_framework_spec ",
+    "sets source_path on read).", call. = FALSE)
+  }
+  if (!dir.exists(run_dir)) {
+    dir.create(run_dir, recursive = TRUE, showWarnings = FALSE)
+  }
+
+  # Preserve the source extension; default to .yaml when the source
+  # somehow lost its extension. The destination file name is fixed
+  # ("framework_applied") so verify_run_integrity has a deterministic
+  # path to check.
+  ext <- tolower(tools::file_ext(src))
+  if (!nzchar(ext) || !ext %in% c("yaml", "yml", "json")) {
+    ext <- "yaml"
+  }
+  dest_name <- paste0("framework_applied.", ext)
+  dest <- file.path(run_dir, dest_name)
+
+  ok <- file.copy(src, dest, overwrite = TRUE)
+  if (!isTRUE(ok)) {
+    stop(sprintf(
+      "archive_framework_spec: failed to copy %s -> %s", src, dest
+    ), call. = FALSE)
+  }
+
+  # SHA-256 over the copied file's bytes -- deterministic identity for
+  # cross-run comparison + replay-equivalence checks. Computed AFTER
+  # the copy so the hash matches the on-disk file.
+  hash <- tryCatch(
+    digest::digest(file = dest, algo = "sha256", serialize = FALSE),
+    error = function(e) {
+      log_warn("archive_framework_spec: could not compute sha256 of {dest}: {e$message}")
+      NA_character_
+    }
+  )
+
+  log_info("Mode 3 framework archived: {dest_name} (sha256 {substr(hash, 1, 12)}..., {length(spec$constructs)} constructs)")
+
+  list(
+    path             = dest,
+    relative_path    = dest_name,
+    hash             = hash,
+    name             = spec$name,
+    epistemic_stance = spec$epistemic_stance,
+    anomaly_handling = spec$anomaly_handling,
+    n_constructs     = length(spec$constructs),
+    construct_ids    = spec$construct_ids,
+    schema_version   = spec$schema_version
+  )
+}
+
 #' List the built-in frameworks shipped with pakhom
 #'
 #' Returns a character vector of built-in framework aliases. Each alias

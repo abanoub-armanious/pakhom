@@ -310,3 +310,145 @@ test_that("framework_prompt_block omits indicators line when none supplied", {
   block <- framework_prompt_block(spec)
   expect_false(grepl("Example indicators", block))
 })
+
+# ---- archive_framework_spec (phase 32 / audit H1 + H2) -------------------
+
+test_that("archive_framework_spec writes byte-equivalent copy + sha256 hash", {
+  spec <- load_framework_spec("tpb")
+  d <- withr::local_tempdir()
+  arch <- archive_framework_spec(spec, d)
+  expect_true(file.exists(arch$path))
+  # Byte-equivalent: round-trip via base R + the yaml::yaml.load_file result
+  # would lose comments; assert direct file-bytes equivalence with the source.
+  expect_equal(
+    digest::digest(file = spec$source_path, algo = "sha256",
+                    serialize = FALSE),
+    arch$hash
+  )
+  expect_equal(arch$relative_path, "framework_applied.yaml")
+  expect_equal(arch$name, "Theory of Planned Behavior")
+  expect_equal(arch$epistemic_stance, "positivist")
+  expect_equal(arch$anomaly_handling, "bracket")
+  expect_equal(arch$n_constructs, 5L)
+})
+
+test_that("archive_framework_spec preserves source extension (.json)", {
+  d <- withr::local_tempdir()
+  src <- file.path(d, "spec.json")
+  jsonlite::write_json(list(framework = list(
+    name = "JsonFramework",
+    constructs = list(
+      list(id = "c1", name = "C One", description = "first construct")
+    ),
+    epistemic_stance = "constructionist",
+    anomaly_handling = "extend"
+  )), src, pretty = TRUE, auto_unbox = TRUE)
+  spec <- load_framework_spec(src)
+  out <- withr::local_tempdir()
+  arch <- archive_framework_spec(spec, out)
+  expect_equal(arch$relative_path, "framework_applied.json")
+  expect_true(file.exists(file.path(out, "framework_applied.json")))
+})
+
+test_that("archive_framework_spec rejects spec with missing source_path", {
+  # Construct a spec with a NA source_path (shouldn't happen via
+  # load_framework_spec, but defending against direct construction)
+  spec <- structure(list(
+    name = "Fake", citations = character(0),
+    epistemic_stance = "mixed", anomaly_handling = "bracket",
+    constructs = list(list(id = "c", name = "C", description = "d",
+                              example_indicators = character(0))),
+    construct_ids = "c", source_path = NA_character_,
+    schema_version = "1.0.0"
+  ), class = "FrameworkSpec")
+  d <- withr::local_tempdir()
+  expect_error(archive_framework_spec(spec, d),
+               "source_path.*missing")
+})
+
+test_that("archive_framework_spec rejects non-FrameworkSpec input", {
+  d <- withr::local_tempdir()
+  expect_error(archive_framework_spec(list(name = "fake"), d),
+               "FrameworkSpec")
+})
+
+test_that("archive_framework_spec creates run_dir if missing", {
+  spec <- load_framework_spec("tpb")
+  d <- file.path(withr::local_tempdir(), "fresh", "subdir")
+  expect_false(dir.exists(d))
+  arch <- archive_framework_spec(spec, d)
+  expect_true(dir.exists(d))
+  expect_true(file.exists(arch$path))
+})
+
+test_that("archive_framework_spec hash is deterministic across calls", {
+  spec <- load_framework_spec("tpb")
+  d1 <- withr::local_tempdir()
+  d2 <- withr::local_tempdir()
+  a1 <- archive_framework_spec(spec, d1)
+  a2 <- archive_framework_spec(spec, d2)
+  expect_equal(a1$hash, a2$hash)
+})
+
+test_that("archive_framework_spec works for all three built-in frameworks", {
+  for (name in list_builtin_frameworks()) {
+    spec <- load_framework_spec(name)
+    d <- withr::local_tempdir()
+    arch <- archive_framework_spec(spec, d)
+    expect_true(file.exists(arch$path),
+                info = sprintf("framework: %s", name))
+    expect_match(arch$hash, "^[0-9a-f]{64}$",
+                  info = sprintf("framework: %s sha256 must be 64 hex chars",
+                                 name))
+  }
+})
+
+test_that("framework_construct_ids serializes as a JSON array even for single-construct frameworks", {
+  # Audit L2 (phase 32): jsonlite::write_json with auto_unbox=TRUE
+  # would collapse a length-1 character vector into a JSON scalar,
+  # so a 1-construct framework's construct_ids would round-trip as
+  # "c1" instead of ["c1"]. The phase 32 fix is to splat
+  # as.list(construct_ids) into init_run_state's extras so the JSON
+  # array shape is preserved regardless of length.
+  d <- withr::local_tempdir()
+  src <- file.path(d, "single.yaml")
+  writeLines(c(
+    "framework:",
+    "  name: 'Single Construct'",
+    "  epistemic_stance: 'mixed'",
+    "  anomaly_handling: 'extend'",
+    "  constructs:",
+    "    - id: only_one",
+    "      name: 'Only construct'",
+    "      description: 'one'"
+  ), src)
+  spec <- load_framework_spec(src)
+  arch <- archive_framework_spec(spec, d)
+
+  # Simulate the do.call(init_run_state, c(list(...), framework_extras))
+  # path: build framework_extras the way 18_pipeline.R does, then
+  # write through .write_run_metadata, then read back.
+  meta_extras <- list(
+    framework_name             = arch$name,
+    framework_hash             = arch$hash,
+    framework_relative_path    = arch$relative_path,
+    framework_epistemic_stance = arch$epistemic_stance,
+    framework_anomaly_handling = arch$anomaly_handling,
+    framework_n_constructs     = arch$n_constructs,
+    framework_construct_ids    = as.list(arch$construct_ids),  # the fix
+    framework_schema_version   = arch$schema_version
+  )
+  meta <- do.call(init_run_state, c(list(
+    run_dir = d,
+    run_id = "test-run",
+    methodology_mode = "framework_applied"
+  ), meta_extras))
+
+  # Verify by reading back the JSON: construct_ids should be an array,
+  # not a scalar string, even though it has length 1.
+  raw <- jsonlite::read_json(file.path(d, "run_metadata.json"),
+                                simplifyVector = FALSE)
+  expect_type(raw$framework_construct_ids, "list")
+  expect_length(raw$framework_construct_ids, 1L)
+  expect_equal(raw$framework_construct_ids[[1L]], "only_one")
+})
