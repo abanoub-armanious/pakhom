@@ -34,6 +34,12 @@ two honest fields: \code{corpus_provided_to_per_category_fns}
 (TRUE -- the data tibble IS passed) and
 \code{llm_prompt_includes_full_corpus} (FALSE -- current
 prompts only embed supporting-entry text).
+2.1.0 -- phase 33 (M1.3 reflexive memos): added \code{n_memos}
+and \code{memos_by_type} informational fields. Memo writing is
+a researcher activity, not a pipeline gate -- the headline
+\code{no_silent_skip} boolean is unchanged. The fields exist so
+the methodology paper can report researcher-side burden as a
+KPI alongside AI-side coverage.
 }
 }
 \keyword{internal}

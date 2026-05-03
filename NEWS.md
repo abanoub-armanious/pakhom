@@ -1,5 +1,140 @@
 # pakhom 1.0.0
 
+## Sprint-4 phase 33: M1.3 reflexive memos as data (Mode 1 AC6 parity)
+
+Closes phase 30 audit HIGH #2 / H5: ResearcherReflectionLog has carried
+a `memos = list()` slot since phase 30 but had no CRUD API. Per AC6
+(symmetric obligations across modes), Mode 1's burden parity vs Modes
+2/3 is delivered through reflexive memos at pause points -- without a
+memo CRUD + persistence layer, Mode 1's burden was aspirational rather
+than operational. Phase 33 implements the foundational layer per the
+SPRINT4_DESIGN.md M1.3 spec (line 277-298): typed memos with Markdown
+round-trip + YAML frontmatter + persistence under `memos/` + report
+section + integrity tracking. Future phases may layer AI-coding-of-
+memos (the "researcher voice" theme set, spec line 293) on top.
+
+- **`R/memos.R`** (new file). The full memo API:
+  * `make_memo(body, type, ...)` constructor with the SPRINT4_DESIGN.md
+    M1.3 schema (id, timestamp, author, type, linked_codes,
+    linked_themes, linked_entries, linked_prior_memo, body) + 4 valid
+    types (operational / coding / theoretical / positionality).
+  * `add_memo(log, body, ...)` appends a memo to a
+    ResearcherReflectionLog. Pass-by-value: callers must capture the
+    return. Memos are *immutable* once added -- there is no
+    `update_memo` or `delete_memo` (revisions add a NEW memo with
+    `linked_prior_memo` pointing at the antecedent; memo evolution is
+    data per Birks/Chapman/Francis 2025). When an `audit_log` is
+    supplied, a `memo_added` decision is recorded.
+  * `read_memo(log, id)` returns the Memo or NULL.
+  * `list_memos(log, type/author/linked_theme)` returns a filterable
+    tibble.
+  * `memo_to_markdown(memo)` / `markdown_to_memo(md_text)` -- the
+    Markdown + YAML frontmatter round-trip per spec line 280-291.
+    Handles bodies with apostrophes, quotes, colons, multi-line
+    content; YAML strings are single-quoted with embedded apostrophes
+    doubled per the YAML spec.
+  * `persist_memos(log, run_dir)` writes one
+    `outputs/<run>/memos/<memo_id>.md` per memo. Idempotent: re-calls
+    produce byte-equivalent output (replay-equivalence).
+  * `load_memos(run_dir)` reads them back, sorted chronologically.
+    Skips malformed `.md` files with a warning rather than crashing
+    (resilient to manual edits / corruption).
+  * `Memo` S3 class + `print.Memo`.
+
+- **ResearcherReflectionLog schema 1.1.0 -> 1.2.0**: the `memos` slot
+  now holds typed `Memo` S3 objects rather than unstructured list
+  entries. Backward-compatible: pre-1.2.0 logs whose memos slot
+  contains untyped entries are preserved in place; downstream code
+  paths (the report's memo section, the coverage's n_memos field)
+  filter via `inherits(m, "Memo")` so only typed memos are surfaced.
+
+- **`run_mode1()` integration**:
+  * **Resume**: hydrates memos from on-disk Markdown files
+    (`load_memos(output_dir)`) when resuming. Per AC4, the Markdown
+    files are the canonical source of truth for memo content -- the
+    `reflection_log.json` carries an in-memory copy for replay
+    convenience but the Markdown files survive a JSON-format change.
+  * **Finalize**: persists all memos before `finalize_run()`. A memo
+    write failure (e.g., disk full) is a soft warning, not an abort
+    -- unlike the framework_archive case (where AC4 mandates the
+    archive), memos are researcher-authored and an empty memo set is
+    a valid Mode 1 outcome.
+
+- **Mode 1 report: Researcher Reflexive Memos section** (new
+  `.build_mode1_memo_section` helper in `R/mode1_report.R`). Renders
+  after the per-theme provocations section so the reading order
+  mirrors the research workflow (provocations -> reflexive memos).
+  Sorted chronologically (timestamp ascending) so the timeline reads
+  earliest -> latest. Each memo block carries: type badge, id,
+  timestamp + author, links (themes + codes + entries + prior memo),
+  and body in a `<pre>`-wrapped `white-space: pre-wrap` block so
+  Markdown inside the body doesn't restructure the surrounding
+  document. **Empty-memo state** renders an explicit AC6-noting
+  notice rather than silent omission.
+
+- **`ProvocationCoverage` schema 2.0.0 -> 2.1.0**: added `n_memos`
+  (count of typed memos) and `memos_by_type` (named list, e.g.,
+  `list(operational = 2, theoretical = 5)`). Informational only --
+  the headline `no_silent_skip` is unchanged. The fields exist so
+  the methodology paper can compute researcher-side burden as a KPI
+  alongside AI-side coverage.
+
+- **`verify_run_integrity_mode1`** now returns `n_memos_persisted`
+  (count of `.md` files under `memos/`). Memos are conditionally
+  expected -- a Mode 1 run with zero memos is valid (the run may
+  have been used for provocation generation only).
+
+- **HTML escaping**: every researcher-supplied interpolation in the
+  memo report block (body, links, author, prior-memo id) is routed
+  through `.html_esc`. A regression test pins XSS prevention with a
+  crafted `<script>` body + author + theme.
+
+- **Audit-driven hardening (1 background subagent on the implementation
+  surface)**:
+  * **Audit C1 (CRITICAL)** -- `.read_reflection_log_json` was
+    re-classing provocations + provenance on resume but not memos.
+    Memos in a resumed JSON-only run were plain lists, and every
+    consumer gating on `inherits(m, "Memo")` (the report's memo
+    section, persist_memos, the n_memos counter on the coverage
+    object, the by-type print breakdown) silently treated the run
+    as having zero memos -- a researcher-work-loss bug. Fix: same
+    re-class pattern the provocations + provenance use.
+  * **Audit H1** -- the body round-trip was not byte-equivalent for
+    bodies with trailing whitespace (`"test\n"` round-tripped to
+    `"test"`, etc.). Fix: canonicalize body at `make_memo` construction
+    time (strip trailing whitespace once, store the canonical form);
+    `markdown_to_memo` no longer post-processes the parsed body. Now
+    the round-trip is trivially identity.
+  * **Audit H2** -- `print.Memo` crashed on a Memo with NULL
+    `linked_prior_memo` because `is.na(NULL)` returns `logical(0)`
+    and `if` errors on length zero. Fix: NULL-safe
+    `if (!is.null(...) && length(...) > 0L && !is.na(...))`.
+  * **Audit H3** -- the unit tests in `test-memos.R` exercised
+    `persist_memos` / `load_memos` / `add_memo` directly, but no
+    test exercised them through the `run_mode1` orchestrator. A
+    regression that removed the `persist_memos` call from the
+    orchestrator would have surfaced only at manual inspection. Fix:
+    added an end-to-end test that drives `run_mode1`, adds memos
+    post-run, persists them, hydrates them via `load_memos`, and
+    verifies the rendered Mode 1 report includes the bodies (no
+    empty-state notice). Plus a focused regression test for the C1
+    JSON re-class fix.
+  * **Audit M1** -- `load_memos` sort was non-deterministic on
+    identical timestamps because `order()` falls back to position-
+    in-input. Fix: secondary sort by id so the chronological view
+    is deterministic regardless of filesystem return order.
+  * **Audit M2 + Resume divergence** -- documented `persist_memos`
+    overwrite policy explicitly; added a `log_warn` when
+    `reflection_log.json` and on-disk memo counts differ on resume
+    (the on-disk version always wins per AC4, but a count mismatch
+    usually signals manual intervention worth flagging).
+
+Phase 33 net adds ~120 memo tests across `test-memos.R` + the new
+e2e + JSON-re-class tests in `test-mode1-orchestrator.R`. Test count:
+2168 -> 2293 net (the audit-fix tests pin every issue listed above so
+the same bugs cannot regress). R CMD check stays at 0 errors / 0
+warnings / 2 routine NOTEs.
+
 ## Sprint-4 phase 32: Mode 3 (Framework Applied) transparency hardening
 
 Closes phase 30 audit findings H1 (framework_spec archive), H2 (Framework

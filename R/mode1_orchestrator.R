@@ -69,8 +69,14 @@
 #'     (TRUE -- the data tibble IS passed) and
 #'     \code{llm_prompt_includes_full_corpus} (FALSE -- current
 #'     prompts only embed supporting-entry text).
+#' 2.1.0 -- phase 33 (M1.3 reflexive memos): added \code{n_memos}
+#'   and \code{memos_by_type} informational fields. Memo writing is
+#'   a researcher activity, not a pipeline gate -- the headline
+#'   \code{no_silent_skip} boolean is unchanged. The fields exist so
+#'   the methodology paper can report researcher-side burden as a
+#'   KPI alongside AI-side coverage.
 #' @keywords internal
-.PROVOCATION_COVERAGE_SCHEMA_VERSION <- "2.0.0"
+.PROVOCATION_COVERAGE_SCHEMA_VERSION <- "2.1.0"
 
 # ==============================================================================
 # compute_mode1_coverage -- T0.3 for Mode 1
@@ -265,6 +271,21 @@ compute_mode1_coverage <- function(reflection_log, theme_set, data,
   corpus_provided_to_per_category_fns <- TRUE
   llm_prompt_includes_full_corpus     <- FALSE  # current architecture
 
+  # Phase 33 (M1.3): count typed memos. Informational only -- memo
+  # writing is a researcher activity, not an AI-pipeline gate, so
+  # n_memos does NOT enter the no_silent_skip headline. But the
+  # coverage card surfaces the count so the methodology paper KPI
+  # ("did this Mode 1 run carry researcher-side reflexive burden?")
+  # is computable from the persisted coverage object alone.
+  typed_memos <- Filter(function(m) inherits(m, "Memo"),
+                          reflection_log$memos %||% list())
+  n_memos <- length(typed_memos)
+  memos_by_type <- if (n_memos > 0L) {
+    mt <- vapply(typed_memos, function(m) m$type, character(1))
+    tbl <- table(mt)
+    as.list(stats::setNames(as.integer(tbl), names(tbl)))
+  } else list()
+
   # Headline assertions. AC4: a Mode 1 run with zero themes input is
   # a degenerate / mis-configured state, not a verified-coverage state
   # -- gate no_silent_skip on n_themes_input > 0 (mirrors the n_input>0
@@ -315,6 +336,8 @@ compute_mode1_coverage <- function(reflection_log, theme_set, data,
     n_corpus_entries_searchable   = as.integer(nrow(data)),
     corpus_provided_to_per_category_fns = corpus_provided_to_per_category_fns,
     llm_prompt_includes_full_corpus = llm_prompt_includes_full_corpus,
+    n_memos                       = as.integer(n_memos),
+    memos_by_type                 = memos_by_type,
     no_silent_theme_skip          = no_silent_theme_skip,
     no_unexpected_category_attempts = no_unexpected_category_attempts,
     no_silent_skip                = no_silent_skip,
@@ -380,6 +403,13 @@ print.ProvocationCoverage <- function(x, ...) {
   cat(sprintf("  LLM prompts include full corpus: %s\n",
               if (isTRUE(x$llm_prompt_includes_full_corpus)) "TRUE"
               else "FALSE (only supporting-entry context per theme)"))
+  cat(sprintf("  Researcher memos (M1.3):         %d\n",
+              x$n_memos %||% 0L))
+  if (length(x$memos_by_type %||% list()) > 0L) {
+    for (tn in names(x$memos_by_type)) {
+      cat(sprintf("    %s: %d\n", tn, x$memos_by_type[[tn]]))
+    }
+  }
   cat(sprintf("  No silent theme skip:            %s\n",
               if (isTRUE(x$no_silent_theme_skip)) "TRUE (verified)" else "FALSE"))
   cat(sprintf("  No unexpected-category attempts: %s\n",
@@ -751,11 +781,28 @@ compute_mode1_theme_stats <- function(data, theme_set, reflection_log) {
 
   present <- expected[file.exists(file.path(run_dir, expected))]
   missing <- setdiff(expected, present)
+
+  # Phase 33 (M1.3): the memos/ directory is conditionally expected --
+  # when at least one .md file lives under memos/, the directory MUST
+  # be present (it's the canonical persistence layer for researcher
+  # memos per AC4). Empty memo state is a valid Mode 1 outcome (a
+  # researcher might have used the run only for AI provocations
+  # without authoring memos), so memos/ is NOT expected unconditionally.
+  # We surface the count separately so the report's integrity card
+  # shows it.
+  memos_dir <- file.path(run_dir, "memos")
+  memo_files <- if (dir.exists(memos_dir))
+                  list.files(memos_dir, pattern = "\\.md$",
+                              full.names = FALSE)
+                else character(0)
+  n_memos_persisted <- length(memo_files)
+
   list(
     expected = expected,
     present  = present,
     missing  = missing,
-    complete = length(missing) == 0L
+    complete = length(missing) == 0L,
+    n_memos_persisted = n_memos_persisted
   )
 }
 
@@ -1158,6 +1205,34 @@ run_mode1 <- function(data, theme_set,
         log_info("Resuming with {length(resume_log$provocations)} prior provocation(s)")
       }
     }
+    # Phase 33 (M1.3): hydrate memos from on-disk Markdown files even
+    # if the reflection_log.json is unavailable (memos have their own
+    # canonical persistence layer per AC4 -- the Markdown files are
+    # the source of truth, not the JSON copy). This keeps
+    # researcher-authored memos durable across crashes / format
+    # changes that would otherwise lose them.
+    on_disk_memos <- tryCatch(load_memos(output_dir),
+                                error = function(e) {
+                                  log_warn("Could not load persisted memos: {e$message}")
+                                  list()
+                                })
+    if (length(on_disk_memos) > 0L) {
+      # Phase 33 audit (resume disagreement): if the JSON had memos
+      # AND the on-disk count differs, log a warning so the divergence
+      # is visible in the run log rather than silent. The on-disk
+      # version always wins (per AC4 the .md files are canonical), but
+      # a count mismatch usually signals manual intervention worth
+      # flagging.
+      json_memo_count <- length(resume_log$memos %||% list())
+      if (json_memo_count > 0L && json_memo_count != length(on_disk_memos)) {
+        log_warn("Memo count mismatch on resume: reflection_log.json has {json_memo_count}, memos/ has {length(on_disk_memos)}; on-disk wins (AC4)")
+      }
+      if (is.null(resume_log)) {
+        resume_log <- create_reflection_log()
+      }
+      resume_log$memos <- on_disk_memos
+      log_info("Resumed with {length(on_disk_memos)} prior memo(s) from {file.path(output_dir, 'memos')}")
+    }
   }
 
   # ---- Provocateur loop ---------------------------------------------------
@@ -1202,6 +1277,22 @@ run_mode1 <- function(data, theme_set,
                 .write_mode1_coverage_json(coverage, output_dir,
                                              methodology_mode = meth_mode)
               else NA_character_
+
+  # Phase 33 (M1.3): persist any memos in the reflection log to
+  # outputs/<run>/memos/<id>.md. Idempotent + safe-on-empty (returns
+  # immediately when no memos). The memos directory is the canonical
+  # source of truth for memo content; the reflection_log.json carries
+  # an in-memory copy for replay convenience but the Markdown files
+  # are what survive a JSON-format change. tryCatch keeps a memo-
+  # write failure (e.g., disk full) from killing the rest of the
+  # pipeline -- but unlike the framework_archive case (where AC4
+  # mandates the archive), memos are researcher-authored and an empty
+  # memo set is itself a valid state.
+  memo_paths <- tryCatch(persist_memos(reflection_log, output_dir),
+                            error = function(e) {
+                              log_warn("Could not persist memos: {e$message}")
+                              character(0)
+                            })
 
   # ---- Generate the Mode 1 report -----------------------------------------
   if (isTRUE(config$output$generate_report)) {
@@ -1298,6 +1389,25 @@ run_mode1 <- function(data, theme_set,
     })
   } else {
     raw$provocations <- list()
+  }
+
+  # Phase 33 audit C1: re-class each Memo on read. Without this,
+  # downstream consumers gating on inherits(m, "Memo")
+  # (.build_mode1_memo_section, persist_memos, the n_memos counter on
+  # ProvocationCoverage, etc.) silently treat the resumed run as
+  # having zero memos. The Markdown-on-disk path (load_memos) is the
+  # canonical source of truth and overrides this when memos/ has
+  # files, but on a JSON-only resume the re-class is the only thing
+  # that keeps memos visible. Schema version is preserved -- a 1.0.0
+  # Memo from a future cross-version round-trip stays at 1.0.0.
+  if (!is.null(raw$memos) && length(raw$memos) > 0L) {
+    raw$memos <- lapply(raw$memos, function(m) {
+      if (!is.list(m)) return(m)
+      class(m) <- "Memo"
+      m
+    })
+  } else {
+    raw$memos <- list()
   }
 
   # Coerce the data.frame slots back. simplifyVector=FALSE leaves them

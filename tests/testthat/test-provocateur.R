@@ -24,7 +24,7 @@ test_that("create_reflection_log returns the documented shape", {
   expect_equal(nrow(log$positionality_history), 0L)
   expect_equal(nrow(log$provocation_attempts), 0L)
   expect_equal(nrow(log$skipped_themes), 0L)
-  expect_equal(log$schema_version, "1.1.0")
+  expect_equal(log$schema_version, "1.2.0")
 })
 
 test_that("create_reflection_log accepts and stores config_hash", {

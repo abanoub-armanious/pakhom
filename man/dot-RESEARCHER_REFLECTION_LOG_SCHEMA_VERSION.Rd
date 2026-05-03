@@ -25,5 +25,16 @@ never attempted IS. skipped_themes records themes the orchestrator
 bypassed (e.g., zero supporting entries) with an explicit reason,
 so the coverage card distinguishes "silent skip" from "explicit
 skip with stated reason."
+1.2.0 -- phase 33 (M1.3 reflexive memos): the memos slot now holds
+a list of typed \code{Memo} S3 objects rather than an unstructured
+list. The Memo schema (id, timestamp, author, type, linked_codes,
+linked_themes, linked_entries, linked_prior_memo, body) supports
+Markdown round-trip with YAML frontmatter (per SPRINT4_DESIGN.md
+M1.3 spec line 277-298) and is the AC6 burden-parity counterpart
+to Modes 2/3's codebook + theme review pause-points. CRUD via
+\code{add_memo}, \code{read_memo}, \code{list_memos}; persistence
+via \code{persist_memos} / \code{load_memos}. Backward-compatible:
+1.1.0 logs with a list of pre-Memo entries are kept in place
+(the new code paths gate on \code{inherits(m, "Memo")}).
 }
 \keyword{internal}

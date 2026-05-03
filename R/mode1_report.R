@@ -296,6 +296,141 @@ compute_provocation_provenance_stats <- function(reflection_log) {
   content
 }
 
+# ==============================================================================
+# Researcher Reflexive Memos section (Phase 33 / M1.3)
+# ==============================================================================
+
+#' Build the Researcher Reflexive Memos section of the Mode 1 report
+#'
+#' Per AC6 (symmetric obligations across modes), Mode 1's burden parity
+#' against Modes 2/3 is delivered through reflexive memos at pause
+#' points. This section renders the memo timeline chronologically with
+#' per-memo metadata (type, links to provocations / themes / entries)
+#' so a reviewer can read the researcher's analytic trail alongside
+#' the provocations that prompted it.
+#'
+#' Empty-memo state renders an explicit notice rather than silent
+#' omission -- per AC4 the absence of memos in a Mode 1 run is itself
+#' transparency-relevant. A Mode 1 run with zero memos is valid (the
+#' researcher may have used the run for provocation generation only)
+#' but the report says so.
+#' @keywords internal
+.build_mode1_memo_section <- function(reflection_log) {
+  memos <- reflection_log$memos %||% list()
+  typed_memos <- Filter(function(m) inherits(m, "Memo"), memos)
+
+  header <- paste0(
+    "\n# Researcher Reflexive Memos (M1.3 / AC6)\n\n",
+    "Per AC6 (symmetric obligations across modes), Mode 1's burden ",
+    "parity against Modes 2 and 3 is delivered through reflexive memos. ",
+    "Memos are *researcher-authored* analytic notes -- the AI does NOT ",
+    "write them. This section renders the memo timeline chronologically; ",
+    "each memo links to the provocations, themes, codes, or entries it ",
+    "responds to. Memos are persisted as Markdown files with YAML ",
+    "frontmatter under `memos/` so they round-trip into NVivo / ATLAS.ti ",
+    "via QDPX export.\n\n"
+  )
+
+  if (length(typed_memos) == 0L) {
+    return(paste0(
+      header,
+      "_No memos were authored during this run. Per AC4, the absence is ",
+      "reported rather than silently omitted -- a Mode 1 run with zero ",
+      "memos is valid (the run may have been used for provocation ",
+      "generation only) but does not deliver the researcher-side ",
+      "reflexive burden that AC6 calls for. Consider authoring memos in ",
+      "response to the provocations above; use `add_memo(reflection_log, ",
+      "...)` to add memos programmatically or write Markdown files ",
+      "directly under `memos/` (one per memo, with YAML frontmatter ",
+      "matching the M1.3 schema -- see `?make_memo`)._\n\n"
+    ))
+  }
+
+  # Sort chronologically (timestamp ascending) so the timeline reads
+  # earliest -> latest.
+  ts <- vapply(typed_memos, function(m) m$timestamp, character(1))
+  typed_memos <- typed_memos[order(ts)]
+
+  # By-type rollup
+  type_counts <- table(vapply(typed_memos, function(m) m$type, character(1)))
+  rollup_lines <- vapply(names(type_counts), function(tn) {
+    sprintf("- **%s**: %d", .html_esc(tn), type_counts[[tn]])
+  }, character(1))
+
+  body <- paste0(
+    header,
+    "**Memos written: ", length(typed_memos), "**. Breakdown by type:\n",
+    paste(rollup_lines, collapse = "\n"), "\n\n"
+  )
+
+  for (m in typed_memos) {
+    body <- paste0(body, .render_memo_block(m))
+  }
+  body
+}
+
+#' Render a single memo as an HTML block
+#' @keywords internal
+.render_memo_block <- function(m) {
+  if (!inherits(m, "Memo")) return("")
+  type_class <- sprintf("memo-type-%s", .html_esc(m$type))
+  meta_parts <- character(0)
+  meta_parts <- c(meta_parts, sprintf("<span class=\"memo-timestamp\">%s</span>",
+                                          .html_esc(m$timestamp)))
+  meta_parts <- c(meta_parts, sprintf("<span class=\"memo-author\">%s</span>",
+                                          .html_esc(m$author)))
+  if (length(m$linked_themes) > 0L) {
+    meta_parts <- c(meta_parts, sprintf(
+      "<span class=\"memo-link\">themes: %s</span>",
+      .html_esc(paste(m$linked_themes, collapse = ", "))
+    ))
+  }
+  if (length(m$linked_codes) > 0L) {
+    meta_parts <- c(meta_parts, sprintf(
+      "<span class=\"memo-link\">codes: %s</span>",
+      .html_esc(paste(m$linked_codes, collapse = ", "))
+    ))
+  }
+  if (length(m$linked_entries) > 0L) {
+    n_entries <- length(m$linked_entries)
+    preview <- if (n_entries > 3L)
+                 paste0(paste(head(m$linked_entries, 3L),
+                                collapse = ", "),
+                          sprintf(", +%d more", n_entries - 3L))
+               else paste(m$linked_entries, collapse = ", ")
+    meta_parts <- c(meta_parts, sprintf(
+      "<span class=\"memo-link\">entries: %s</span>",
+      .html_esc(preview)
+    ))
+  }
+  if (!is.na(m$linked_prior_memo)) {
+    meta_parts <- c(meta_parts, sprintf(
+      "<span class=\"memo-link\">extends: <code>%s</code></span>",
+      .html_esc(m$linked_prior_memo)
+    ))
+  }
+  meta <- paste(meta_parts, collapse = " &middot; ")
+
+  # Body is researcher-supplied Markdown -- escape the raw text and
+  # emit it inside a <pre>-like wrapper so the Markdown renderer
+  # treats it as a literal block. We don't render the Markdown to HTML
+  # here because the researcher's content might use formatting that
+  # collides with the surrounding Rmd structure (e.g., a "## Heading"
+  # would create a duplicate level-2 heading in the report TOC). The
+  # wrapper preserves the content faithfully without restructuring.
+  body_esc <- .html_esc(m$body)
+
+  paste0(
+    sprintf('<div class="memo-block %s">\n', type_class),
+    sprintf('<div class="memo-header"><strong>[%s]</strong> <code>%s</code></div>\n',
+            .html_esc(m$type), .html_esc(m$id)),
+    sprintf('<div class="memo-meta">%s</div>\n', meta),
+    sprintf('<div class="memo-body"><pre style="white-space: pre-wrap; background: transparent; border: none; padding: 0;">%s</pre></div>\n',
+            body_esc),
+    "</div>\n\n"
+  )
+}
+
 #' Render a single provocation as an HTML block (called from the per-theme section)
 #' @keywords internal
 .render_provocation_block <- function(p) {
@@ -433,6 +568,17 @@ compute_provocation_provenance_stats <- function(reflection_log) {
   # Per-theme provocations
   content <- paste0(content,
     .build_mode1_provocation_section(theme_stats, reflection_log)
+  )
+
+  # Phase 33 (M1.3): Researcher Reflexive Memos section. Renders the
+  # researcher's memo timeline (chronological by timestamp). Per AC6
+  # (symmetric obligations across modes), memos are Mode 1's burden-
+  # parity counterpart to Modes 2/3's codebook + theme review pause-
+  # points. The section appears after provocations because memos are
+  # most often written in response to provocations -- the reading
+  # order mirrors the research workflow.
+  content <- paste0(content,
+    .build_mode1_memo_section(reflection_log)
   )
 
   # Run integrity card -- shows reviewer what artifacts the run produced
