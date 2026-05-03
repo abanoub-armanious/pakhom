@@ -97,6 +97,26 @@ create_ai_provider <- function(provider = "openai", config = NULL) {
 #'   the six task schemas the in-package callers use). Reasoning models
 #'   (o1/o3/o4) silently fall back to \code{json_mode} because they don't
 #'   support strict json_schema as of writing.
+#' @param documents Optional list of source documents to enable Anthropic's
+#'   Citations API (Sprint-4 T0.1 part 3b). Each element is a named list with
+#'   \code{$id} (character, internal pakhom identifier preserved on the
+#'   returned citations for downstream bridging), \code{$text} (character,
+#'   the document content), and optional \code{$title} (character, becomes
+#'   Anthropic's document title; defaults to \code{$id}). When non-empty,
+#'   the user message is built as a content array with one
+#'   \code{document} block per entry (\code{citations.enabled=TRUE}) followed
+#'   by a \code{text} block carrying \code{prompt}. The model's response is
+#'   parsed for citations; the returned \code{$citations} is a normalized list
+#'   of citation objects. \strong{Provider compatibility:} Citations API is
+#'   Anthropic-only. Passing \code{documents} to an OpenAI provider raises
+#'   an error. \strong{Combining with \code{response_schema}:} Anthropic's
+#'   Citations API is incompatible with the newer Structured Outputs
+#'   (\code{output_config.format}); pakhom uses forced tool_use for
+#'   \code{response_schema}, which is not formally documented as
+#'   incompatible but produces no text blocks for citations to attach to.
+#'   When both are passed the request is sent as-is and \code{$citations}
+#'   will typically be empty -- callers should choose one mode or the other
+#'   per the architecture (phase 21c uses citations alone for Anthropic).
 #' @return A list with the following fields (canonical shape, normalized
 #'   across OpenAI and Anthropic):
 #'   \itemize{
@@ -117,26 +137,46 @@ create_ai_provider <- function(provider = "openai", config = NULL) {
 #'       replay (OS.5) and debugging.
 #'     \item \code{prompt_hash}: character. SHA-256 hex digest of the request
 #'       inputs (prompt + system_prompt + model + temperature + max_tokens +
-#'       json_mode). Used as the cache key for \code{replay_run()}; stable
-#'       across R versions and platforms because the underlying hash is
-#'       computed over a JSON serialization of the inputs, not the R object.
+#'       json_mode + response_schema + documents). Used as the cache key for
+#'       \code{replay_run()}; stable across R versions and platforms because
+#'       the underlying hash is computed over a JSON serialization of the
+#'       inputs, not the R object.
 #'     \item \code{request_id}: character or \code{NA_character_}.
 #'       Provider-assigned request identifier (from the \code{x-request-id}
 #'       header for OpenAI or \code{request-id} for Anthropic; falls back to
 #'       \code{$id} from the response body).
+#'     \item \code{citations}: list. Normalized citations extracted from
+#'       text blocks in the response (Anthropic Citations API only). Each
+#'       element is a list whose field names exactly mirror Anthropic's
+#'       citation schema (\code{type}, \code{cited_text}, \code{document_index},
+#'       \code{document_title}, plus type-specific fields:
+#'       \code{start_char_index}/\code{end_char_index} for char_location,
+#'       \code{start_page_number}/\code{end_page_number} for page_location,
+#'       \code{start_block_index}/\code{end_block_index} for
+#'       content_block_location). Empty list when \code{documents} was NULL
+#'       or no citations were returned. Phase 21b's
+#'       \code{make_quotes_from_citations()} converts these to
+#'       \code{QuoteProvenance} objects with
+#'       \code{citation_source = "anthropic_citations_api"}.
 #'   }
 #' @keywords internal
 ai_complete <- function(provider, prompt, system_prompt = NULL,
                         task = "coding", model = NULL,
                         temperature = NULL, max_tokens = NULL,
                         json_mode = FALSE, max_retries = 3,
-                        response_schema = NULL) {
+                        response_schema = NULL,
+                        documents = NULL) {
   validate_class(provider, "AIProvider")
 
   # Resolve parameters from task defaults
   if (is.null(model)) model <- provider$models$primary
   if (is.null(temperature)) temperature <- provider$temperature[[task]] %||% 0.3
   if (is.null(max_tokens)) max_tokens <- provider$max_tokens[[task]] %||% 2000
+
+  # Validate documents shape eagerly (before retries). Empty list is treated
+  # the same as NULL; a malformed list errors out with a clear message rather
+  # than producing an opaque API 400.
+  documents <- .validate_documents(documents)
 
   last_error <- NULL
 
@@ -145,11 +185,13 @@ ai_complete <- function(provider, prompt, system_prompt = NULL,
       if (provider$provider == "openai") {
         .openai_completion(provider, prompt, system_prompt, model,
                             temperature, max_tokens, json_mode,
-                            response_schema = response_schema)
+                            response_schema = response_schema,
+                            documents = documents)
       } else {
         .anthropic_completion(provider, prompt, system_prompt, model,
                                temperature, max_tokens, json_mode,
-                               response_schema = response_schema)
+                               response_schema = response_schema,
+                               documents = documents)
       }
     }, error = function(e) {
       last_error <<- e
@@ -185,16 +227,21 @@ ai_complete <- function(provider, prompt, system_prompt = NULL,
 #' @param system_prompt System prompt
 #' @param task Task name
 #' @param json_mode JSON mode
+#' @param response_schema Optional JSON schema (see \code{\link{ai_complete}})
+#' @param documents Optional source documents for Anthropic Citations API
+#'   (see \code{\link{ai_complete}})
 #' @return List of the same shape as \code{\link{ai_complete}}.
 #' @keywords internal
 ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
                               task = "sentiment", json_mode = FALSE,
-                              response_schema = NULL) {
+                              response_schema = NULL,
+                              documents = NULL) {
   ai_complete(provider, prompt, system_prompt,
               task = task,
               model = provider$models$fast %||% provider$models$primary,
               json_mode = json_mode,
-              response_schema = response_schema)
+              response_schema = response_schema,
+              documents = documents)
 }
 
 # ==============================================================================
@@ -203,7 +250,18 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 
 .openai_completion <- function(provider, prompt, system_prompt, model,
                                 temperature, max_tokens, json_mode,
-                                response_schema = NULL) {
+                                response_schema = NULL,
+                                documents = NULL) {
+  if (length(documents) > 0L) {
+    stop(
+      "Source documents (Citations API) are Anthropic-only. ",
+      "Pass an Anthropic AIProvider, or use the schema-level offsets-only ",
+      "discipline (start_char/end_char without a `text` field) which works ",
+      "for any provider via the verification ladder. ",
+      "Citations API: https://docs.anthropic.com/en/docs/build-with-claude/citations",
+      call. = FALSE
+    )
+  }
   is_reasoning <- .is_reasoning_model(model)
 
   messages <- list()
@@ -287,8 +345,12 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
     raw_response  = parsed,
     prompt_hash   = .compute_prompt_hash(prompt, system_prompt, model,
                                           temperature, max_tokens, json_mode,
-                                          response_schema = response_schema),
-    request_id    = request_id
+                                          response_schema = response_schema,
+                                          documents = NULL),
+    request_id    = request_id,
+    # OpenAI doesn't have a Citations API; we error earlier when documents is
+    # non-NULL. Always-present empty list keeps the canonical shape.
+    citations     = list()
   )
 }
 
@@ -298,9 +360,19 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 
 .anthropic_completion <- function(provider, prompt, system_prompt, model,
                                    temperature, max_tokens, json_mode,
-                                   response_schema = NULL) {
-  # Anthropic uses 'system' as a top-level parameter, not in messages
-  messages <- list(list(role = "user", content = prompt))
+                                   response_schema = NULL,
+                                   documents = NULL) {
+  # Anthropic uses 'system' as a top-level parameter, not in messages.
+  # When documents are supplied (Sprint-4 T0.1 part 3b), the user message
+  # content becomes a content array of one document block per source
+  # (citations.enabled=TRUE) followed by a text block carrying the prompt.
+  # When documents is NULL/empty, we keep the legacy string-content shape
+  # bit-for-bit so existing callers' request bodies don't change.
+  user_content <- .anthropic_build_user_content(prompt, documents)
+  messages <- list(list(
+    role    = "user",
+    content = user_content %||% prompt
+  ))
 
   effective_system <- system_prompt %||% ""
 
@@ -365,6 +437,12 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
   # tool input and JSON-stringify it into $content (caller's contract is
   # "content is a string"; downstream parse_json_safely round-trips it).
   # When no schema, take the first text block as before.
+  #
+  # T0.1 part 3b: in either case we walk the full content array for any
+  # citations attached to text blocks. Forced tool_use produces no text
+  # blocks (so citations is empty) -- callers that want citations must
+  # avoid response_schema. Free-text responses with documents enabled
+  # return citations.
   if (use_schema) {
     tool_block <- NULL
     for (item in parsed$content) {
@@ -383,10 +461,23 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
     # choosing to invoke an external tool.
     finish_reason <- "stop"
   } else {
-    content <- parsed$content[[1]]$text
+    # Concatenate text from ALL text blocks in the response (when citations
+    # are enabled the model emits multiple text blocks interleaved with
+    # citation-attached blocks; the caller's contract is a single string).
+    # When citations are disabled this collapses to the legacy single-block
+    # behavior because parsed$content has exactly one text block.
+    text_chunks <- character(0)
+    for (item in parsed$content) {
+      if (identical(item$type, "text") && !is.null(item$text)) {
+        text_chunks <- c(text_chunks, as.character(item$text))
+      }
+    }
+    content <- paste(text_chunks, collapse = "")
     raw_finish <- parsed$stop_reason %||% "end_turn"
     finish_reason <- .normalize_anthropic_finish(raw_finish)
   }
+
+  citations <- .anthropic_extract_citations(parsed$content)
 
   if (finish_reason == "length") {
     log_warn("Response truncated (max_tokens={max_tokens}). Consider increasing.")
@@ -403,8 +494,10 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
     raw_response  = parsed,
     prompt_hash   = .compute_prompt_hash(prompt, system_prompt, model,
                                           temperature, max_tokens, json_mode,
-                                          response_schema = response_schema),
-    request_id    = request_id
+                                          response_schema = response_schema,
+                                          documents = documents),
+    request_id    = request_id,
+    citations     = citations
   )
 }
 
@@ -422,12 +515,13 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 #' itself, so the digest is stable across R versions, platforms, and
 #' serialization-format changes. The set of fields hashed is exactly those
 #' that determine the response: prompt + system_prompt + model + temperature
-#' + max_tokens + json_mode + response_schema. Used as the cache key for
-#' replay_run() (OS.5).
+#' + max_tokens + json_mode + response_schema + documents. Used as the cache
+#' key for replay_run() (OS.5).
 #'
-#' Sprint-4 T1.2 added response_schema to the hash inputs. Pre-T1.2
-#' callers (response_schema = NULL) produce the same hashes as before
-#' because NULL serializes to "null" and the field was implicitly absent.
+#' Sprint-4 T1.2 added response_schema; T0.1 part 3b added documents. Pre-
+#' addition callers (NULL for the new arg) produce the same hashes as
+#' before because NULL serializes to "null" and the field was implicitly
+#' absent.
 #'
 #' @param prompt User prompt string
 #' @param system_prompt System prompt string (NULL becomes "")
@@ -437,11 +531,21 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 #' @param json_mode Logical
 #' @param response_schema Optional JSON Schema (R list); NULL when no
 #'   structured output was requested.
+#' @param documents Optional list of source documents (Anthropic Citations
+#'   API). NULL or empty list when citations were not requested. Hashing
+#'   documents is required because the same prompt over different source
+#'   corpora must produce different cache keys (otherwise replay_run()
+#'   would silently return a citation-less response for a citations
+#'   request, or vice versa).
 #' @return Character: SHA-256 hex digest (64 chars)
 #' @keywords internal
 .compute_prompt_hash <- function(prompt, system_prompt, model,
                                   temperature, max_tokens, json_mode,
-                                  response_schema = NULL) {
+                                  response_schema = NULL,
+                                  documents = NULL) {
+  # Normalize empty documents list to NULL so cache keys for "no documents"
+  # are stable regardless of whether the caller passed NULL or list().
+  if (length(documents) == 0L) documents <- NULL
   key <- jsonlite::toJSON(list(
     prompt          = prompt,
     system_prompt   = system_prompt %||% "",
@@ -449,7 +553,8 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
     temperature     = temperature,
     max_tokens      = max_tokens,
     json_mode       = isTRUE(json_mode),
-    response_schema = response_schema
+    response_schema = response_schema,
+    documents       = documents
   ), auto_unbox = TRUE, null = "null")
   digest::digest(as.character(key), algo = "sha256", serialize = FALSE)
 }
@@ -513,6 +618,190 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
     "stop_sequence" = "stop",
     "tool_use"      = "tool_use",
     stop_reason
+  )
+}
+
+# ==============================================================================
+# Citations API helpers (Sprint-4 T0.1 part 3b)
+# ==============================================================================
+# T0.1 anti-fabrication has two layers: DETECTION (verification ladder in
+# R/quote_provenance.R, shipped phases 17-19) and PREVENTION (Anthropic
+# Citations API, this phase). Citations API guarantees server-side that
+# returned indices are valid pointers into the provided document -- the
+# model literally cannot return a span that doesn't exist in the source.
+# This module provides the provider-side primitives; the bridge from
+# Anthropic citations to pakhom's QuoteProvenance schema lives in
+# R/quote_provenance.R (phase 21b) and the caller wiring in R/09_coding.R
+# (phase 21c).
+
+#' Validate and normalize the documents argument
+#'
+#' Accepts NULL, an empty list, or a list of named lists with required
+#' \code{$id} and \code{$text} fields and an optional \code{$title} field.
+#' Returns the normalized list (or NULL when empty); errors with a clear
+#' message on a malformed input rather than producing an opaque API 400.
+#'
+#' Each document gets a defaulted \code{$title = $id} when not supplied,
+#' because the model's citations include a \code{document_title} that
+#' downstream code uses for human-readable display; without a title the
+#' field would round-trip as NULL, complicating the bridge.
+#'
+#' @param documents Caller-supplied documents list (or NULL).
+#' @return NULL when input is NULL/empty, otherwise the normalized list.
+#' @keywords internal
+.validate_documents <- function(documents) {
+  if (is.null(documents)) return(NULL)
+  if (!is.list(documents)) {
+    stop("`documents` must be a list of named lists (one per source document)",
+         call. = FALSE)
+  }
+  if (length(documents) == 0L) return(NULL)
+
+  for (i in seq_along(documents)) {
+    d <- documents[[i]]
+    if (!is.list(d) || is.null(names(d))) {
+      stop(sprintf("documents[[%d]] must be a named list with $id and $text",
+                   i), call. = FALSE)
+    }
+    if (is.null(d$id) || !is.character(d$id) || length(d$id) != 1L ||
+        !nzchar(d$id)) {
+      stop(sprintf("documents[[%d]]$id must be a non-empty string", i),
+           call. = FALSE)
+    }
+    if (is.null(d$text) || !is.character(d$text) || length(d$text) != 1L) {
+      stop(sprintf("documents[[%d]]$text must be a single string", i),
+           call. = FALSE)
+    }
+    if (!is.null(d$title) &&
+        (!is.character(d$title) || length(d$title) != 1L)) {
+      stop(sprintf("documents[[%d]]$title must be a single string when supplied",
+                   i), call. = FALSE)
+    }
+    if (is.null(d$title)) documents[[i]]$title <- d$id
+  }
+  documents
+}
+
+#' Build the Anthropic user-message content array for a Citations API request
+#'
+#' When \code{documents} is non-empty, the user message must be a content
+#' array of one \code{document} block per source (with
+#' \code{citations.enabled=TRUE}) followed by a \code{text} block carrying
+#' the prompt. When NULL/empty, returns NULL so the caller falls back to
+#' the legacy \code{content = prompt} string shape -- this keeps existing
+#' (non-citations) request bodies bit-for-bit identical.
+#'
+#' Anthropic accepts plain-text source via
+#' \code{source = list(type="text", media_type="text/plain", data=text)}
+#' and chunks it into sentences; returned citations carry char_location
+#' indices into the original text. Phase 21a uses this mode exclusively;
+#' custom_content / PDF / file-id sources can be added later by extending
+#' this helper without breaking callers.
+#'
+#' @param prompt User prompt string (the question/instruction to the model).
+#' @param documents Validated documents list from
+#'   \code{\link{.validate_documents}} or NULL.
+#' @return List of content blocks, or NULL when no documents.
+#' @keywords internal
+.anthropic_build_user_content <- function(prompt, documents) {
+  if (length(documents) == 0L) return(NULL)
+  blocks <- vector("list", length(documents) + 1L)
+  for (i in seq_along(documents)) {
+    d <- documents[[i]]
+    blocks[[i]] <- list(
+      type   = "document",
+      source = list(
+        type       = "text",
+        media_type = "text/plain",
+        data       = d$text
+      ),
+      title = d$title %||% d$id,
+      citations = list(enabled = TRUE)
+    )
+  }
+  blocks[[length(documents) + 1L]] <- list(type = "text", text = prompt)
+  blocks
+}
+
+#' Extract citations from a parsed Anthropic response content array
+#'
+#' Walks the \code{parsed$content} list and collects every citation
+#' attached to a text block. Each citation is preserved with Anthropic's
+#' field names exactly (no remapping) so the bridge in
+#' \code{R/quote_provenance.R} can dispatch on \code{type}:
+#' \itemize{
+#'   \item \code{char_location}: \code{start_char_index},
+#'     \code{end_char_index} (0-indexed, exclusive end) -- pakhom's
+#'     QuoteProvenance schema uses the same convention.
+#'   \item \code{page_location}: \code{start_page_number},
+#'     \code{end_page_number} (1-indexed, exclusive end) -- PDF sources.
+#'   \item \code{content_block_location}: \code{start_block_index},
+#'     \code{end_block_index} (0-indexed, exclusive end) -- custom_content
+#'     sources.
+#' }
+#' All three types share \code{type}, \code{cited_text},
+#' \code{document_index}, \code{document_title}.
+#'
+#' Robustness: skips non-text blocks (tool_use blocks have no citations);
+#' skips text blocks whose \code{citations} is NULL or empty; preserves
+#' unknown citation types unchanged for forward compatibility.
+#'
+#' @param parsed_content The \code{parsed$content} list from the API
+#'   response (may be a list of blocks, or empty).
+#' @return List of citation objects in the order they were emitted across
+#'   all text blocks. Empty list when no citations were returned.
+#' @keywords internal
+.anthropic_extract_citations <- function(parsed_content) {
+  if (is.null(parsed_content) || length(parsed_content) == 0L) return(list())
+  out <- list()
+  for (block in parsed_content) {
+    if (!is.list(block)) next
+    if (!identical(block$type, "text")) next
+    cites <- block$citations
+    if (is.null(cites) || length(cites) == 0L) next
+    for (cite in cites) {
+      if (!is.list(cite)) next
+      out[[length(out) + 1L]] <- .normalize_anthropic_citation(cite)
+    }
+  }
+  out
+}
+
+#' Normalize a single citation into the canonical pakhom shape
+#'
+#' Coerces numeric index fields to integer (jsonlite::fromJSON returns them
+#' as numeric by default), handles missing-field defaults, and preserves
+#' Anthropic's field names verbatim so the bridge in 21b doesn't need a
+#' field-name lookup table.
+#' @keywords internal
+.normalize_anthropic_citation <- function(cite) {
+  type <- as.character(cite$type %||% NA_character_)[1]
+  base <- list(
+    type           = type,
+    cited_text     = as.character(cite$cited_text %||% NA_character_)[1],
+    document_index = as.integer(cite$document_index %||% NA_integer_)[1],
+    document_title = as.character(cite$document_title %||% NA_character_)[1]
+  )
+  # Type-specific fields. Defaults are NA when the field is absent so the
+  # bridge can dispatch on `type` without missing-field surprises.
+  switch(type,
+    "char_location" = c(base, list(
+      start_char_index = as.integer(cite$start_char_index %||% NA_integer_)[1],
+      end_char_index   = as.integer(cite$end_char_index   %||% NA_integer_)[1]
+    )),
+    "page_location" = c(base, list(
+      start_page_number = as.integer(cite$start_page_number %||% NA_integer_)[1],
+      end_page_number   = as.integer(cite$end_page_number   %||% NA_integer_)[1]
+    )),
+    "content_block_location" = c(base, list(
+      start_block_index = as.integer(cite$start_block_index %||% NA_integer_)[1],
+      end_block_index   = as.integer(cite$end_block_index   %||% NA_integer_)[1]
+    )),
+    # Unknown citation types: pass through with their raw fields stripped of
+    # NULL so downstream code at least has something predictable to inspect.
+    c(base, cite[setdiff(names(cite),
+                         c("type", "cited_text", "document_index",
+                           "document_title"))])
   )
 }
 

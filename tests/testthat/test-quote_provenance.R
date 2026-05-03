@@ -412,3 +412,250 @@ test_that(".build_tier0_dashboard handles singular vs plural correctly", {
   md2 <- pakhom:::.build_tier0_dashboard(compute_quote_provenance_stats(state2))
   expect_match(md2, "2.* fabricated quotes were")
 })
+
+# ==============================================================================
+# Phase 21b: Anthropic Citations API bridge
+# ==============================================================================
+# Tests for make_quote_from_citation() and make_quotes_from_citations(),
+# which convert Anthropic Citations API output into QuoteProvenance objects
+# with citation_source = "anthropic_citations_api". The bridge is the second
+# half of T0.1's prevention layer: phase 21a captures citations at the
+# provider level; this phase produces verifiable QuoteProvenance objects
+# from them.
+
+# Helper: a citation pointing at QUOTE_TEXT in SRC.
+# Recall SRC = "Hello world. This is the source text." with QUOTE_TEXT at [13, 27)
+.cit_char <- function(doc_index = 0L, start = 13L, end = 27L,
+                       cited = QUOTE_TEXT, title = "Doc 1") {
+  list(
+    type             = "char_location",
+    cited_text       = cited,
+    document_index   = doc_index,
+    document_title   = title,
+    start_char_index = start,
+    end_char_index   = end
+  )
+}
+
+.docs_one <- function() {
+  list(list(id = "doc1", text = SRC, title = "Doc 1"))
+}
+
+# ---- make_quote_from_citation -----------------------------------------------
+
+test_that("make_quote_from_citation builds QuoteProvenance with anthropic_citations_api source", {
+  q <- make_quote_from_citation(.cit_char(), .docs_one(),
+                                 attributed_code_id = "cod_42",
+                                 attributed_theme_id = "thm_07",
+                                 ai_model = "claude-opus-4-7",
+                                 ai_call_id = "msg_test")
+  expect_s3_class(q, "QuoteProvenance")
+  expect_equal(q$citation_source,    "anthropic_citations_api")
+  expect_equal(q$source_doc_id,      "doc1")
+  expect_equal(q$source_doc_type,    "data_entry")  # default
+  expect_equal(q$start_char,         13L)
+  expect_equal(q$end_char,           27L)
+  expect_equal(q$exact_text,         QUOTE_TEXT)
+  expect_equal(q$attributed_code_id, "cod_42")
+  expect_equal(q$attributed_theme_id, "thm_07")
+  expect_equal(q$ai_model,           "claude-opus-4-7")
+  expect_equal(q$ai_call_id,         "msg_test")
+  # Newly-constructed quote starts unverified (caller chains verify_quote)
+  expect_equal(q$verification_status, "unverified")
+})
+
+test_that("make_quote_from_citation maps document_index 0 to documents[[1]]", {
+  docs <- list(
+    list(id = "doc_a", text = "first doc text", title = "A"),
+    list(id = "doc_b", text = SRC,              title = "B")
+  )
+  cite <- .cit_char(doc_index = 1L)  # 0-indexed -> documents[[2]]
+  q <- make_quote_from_citation(cite, docs)
+  expect_equal(q$source_doc_id, "doc_b")
+})
+
+test_that("make_quote_from_citation respects per-document type override", {
+  docs <- list(list(id = "p1", text = SRC, title = "P1", type = "reddit_post"))
+  q <- make_quote_from_citation(.cit_char(), docs)
+  expect_equal(q$source_doc_type, "reddit_post")
+})
+
+test_that("make_quote_from_citation lets caller override source_doc_type_default", {
+  q <- make_quote_from_citation(.cit_char(), .docs_one(),
+                                 source_doc_type_default = "interview_segment")
+  expect_equal(q$source_doc_type, "interview_segment")
+})
+
+test_that("make_quote_from_citation errors on out-of-range document_index", {
+  expect_error(
+    make_quote_from_citation(.cit_char(doc_index = 5L), .docs_one()),
+    "document_index .* out of range"
+  )
+  expect_error(
+    make_quote_from_citation(.cit_char(doc_index = -1L), .docs_one()),
+    "document_index .* out of range"
+  )
+})
+
+test_that("make_quote_from_citation errors on NA document_index", {
+  cite <- .cit_char()
+  cite$document_index <- NA_integer_
+  expect_error(make_quote_from_citation(cite, .docs_one()), "document_index")
+})
+
+test_that("make_quote_from_citation errors when documents is missing or empty", {
+  expect_error(
+    make_quote_from_citation(.cit_char(), list()),
+    "non-empty list"
+  )
+  expect_error(
+    make_quote_from_citation(.cit_char(), NULL),
+    "non-empty list"
+  )
+})
+
+test_that("make_quote_from_citation errors when document is missing $id or $text", {
+  expect_error(
+    make_quote_from_citation(.cit_char(),
+                              list(list(text = SRC))),  # missing id
+    "missing \\$id or \\$text"
+  )
+  expect_error(
+    make_quote_from_citation(.cit_char(),
+                              list(list(id = "x"))),    # missing text
+    "missing \\$id or \\$text"
+  )
+})
+
+test_that("make_quote_from_citation errors with helpful message on page_location", {
+  cite <- list(
+    type              = "page_location",
+    cited_text        = "pdf content",
+    document_index    = 0L,
+    document_title    = "PDF",
+    start_page_number = 1L,
+    end_page_number   = 2L
+  )
+  expect_error(
+    make_quote_from_citation(cite, list(list(id = "p", text = "x"))),
+    "page_location citations \\(PDF inputs\\) are not yet supported"
+  )
+})
+
+test_that("make_quote_from_citation errors with helpful message on content_block_location", {
+  cite <- list(
+    type              = "content_block_location",
+    cited_text        = "block content",
+    document_index    = 0L,
+    document_title    = "Custom",
+    start_block_index = 0L,
+    end_block_index   = 1L
+  )
+  expect_error(
+    make_quote_from_citation(cite, list(list(id = "p", text = "x"))),
+    "content_block_location citations .* are not yet supported"
+  )
+})
+
+test_that("make_quote_from_citation errors on unknown citation type", {
+  cite <- list(
+    type           = "future_location_type",
+    cited_text     = "x",
+    document_index = 0L
+  )
+  expect_error(
+    make_quote_from_citation(cite, .docs_one()),
+    "Unknown Anthropic citation type: future_location_type"
+  )
+})
+
+test_that("make_quote_from_citation errors on missing citation type", {
+  expect_error(
+    make_quote_from_citation(list(document_index = 0L), .docs_one()),
+    "type"
+  )
+})
+
+# ---- Bridge feeds the verification ladder cleanly --------------------------
+
+test_that("citations bridge -> verify_quote yields verified_exact for honest spans", {
+  # End-to-end: cited text matches source at offsets -> ladder step 1 passes
+  q <- make_quote_from_citation(.cit_char(), .docs_one())
+  q <- verify_quote(q, SRC)
+  expect_equal(q$verification_status, "verified_exact")
+  expect_equal(q$verification_method, "string_match")
+  expect_equal(q$verification_score,  1.0)
+})
+
+test_that("citations bridge -> verify_quote catches API misalignment via substring fallback", {
+  # Anthropic guarantees indices, but defense in depth: if some future API
+  # bug returns a misaligned offset, the ladder's substring step recovers
+  # via verified_fuzzy. This test simulates that scenario by constructing
+  # the citation with a wrong start_char but a real cited_text.
+  cite <- .cit_char(start = 5L, end = 19L, cited = QUOTE_TEXT)
+  # SRC at [5, 19) is " world. This i" -- not QUOTE_TEXT
+  q <- make_quote_from_citation(cite, .docs_one())
+  q <- verify_quote(q, SRC)
+  # Strict step fails (offsets don't match exact_text); normalized also
+  # fails; substring search finds QUOTE_TEXT in SRC -> verified_fuzzy
+  expect_equal(q$verification_status, "verified_fuzzy")
+  expect_equal(q$verification_method, "substring_search")
+})
+
+test_that("citations bridge -> verify_quote flags genuinely fabricated content as fabricated", {
+  # If somehow Anthropic's guarantee is violated (or our test mocks bad
+  # behavior), the ladder still marks fabricated. This documents that the
+  # bridge does NOT bypass the verification ladder.
+  cite <- .cit_char(start = 0L, end = 30L,
+                     cited = "this string is not in the source at all xx")
+  q <- make_quote_from_citation(cite, .docs_one())
+  q <- verify_quote(q, SRC)
+  expect_equal(q$verification_status, "fabricated")
+})
+
+# ---- make_quotes_from_citations (batch) -------------------------------------
+
+test_that("make_quotes_from_citations returns list in same order as input", {
+  cites <- list(
+    .cit_char(start = 0L,  end = 5L,  cited = "Hello"),
+    .cit_char(start = 13L, end = 27L, cited = QUOTE_TEXT)
+  )
+  qs <- make_quotes_from_citations(cites, .docs_one(),
+                                     ai_model = "m", ai_call_id = "c")
+  expect_length(qs, 2L)
+  expect_s3_class(qs[[1]], "QuoteProvenance")
+  expect_equal(qs[[1]]$exact_text, "Hello")
+  expect_equal(qs[[2]]$exact_text, QUOTE_TEXT)
+  # Both share the metadata applied uniformly
+  expect_equal(qs[[1]]$ai_model, "m")
+  expect_equal(qs[[2]]$ai_model, "m")
+  expect_equal(qs[[1]]$citation_source, "anthropic_citations_api")
+})
+
+test_that("make_quotes_from_citations returns empty list on empty input", {
+  expect_identical(make_quotes_from_citations(list(),    .docs_one()), list())
+  expect_identical(make_quotes_from_citations(NULL,      .docs_one()), list())
+})
+
+test_that("make_quotes_from_citations resolves multi-document corpora correctly", {
+  docs <- list(
+    list(id = "doc_a", text = "Apple banana cherry.", title = "A"),
+    list(id = "doc_b", text = SRC,                    title = "B")
+  )
+  cites <- list(
+    .cit_char(doc_index = 0L, start = 0L,  end = 5L,  cited = "Apple"),
+    .cit_char(doc_index = 1L, start = 13L, end = 27L, cited = QUOTE_TEXT)
+  )
+  qs <- make_quotes_from_citations(cites, docs)
+  expect_equal(qs[[1]]$source_doc_id, "doc_a")
+  expect_equal(qs[[2]]$source_doc_id, "doc_b")
+})
+
+test_that("make_quotes_from_citations propagates errors from individual citations", {
+  cites <- list(.cit_char(),
+                .cit_char(doc_index = 99L))  # second is out of range
+  expect_error(
+    make_quotes_from_citations(cites, .docs_one()),
+    "document_index"
+  )
+})

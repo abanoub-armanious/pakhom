@@ -390,3 +390,539 @@ test_that("T0.1: .code_entry_progressive writes fabricated quotes to Fabrication
   expect_equal(rows$verification_status, "fabricated")
   expect_equal(rows$ai_call_id, "req_fab_log")
 })
+
+# ==============================================================================
+# Phase 21c: Anthropic Citations API integration in .code_entry_progressive
+# ==============================================================================
+# T0.1 part 3b: when the provider is Anthropic, the coding pipeline uses the
+# Citations API (PREVENTION layer -- model returns server-side-guaranteed
+# offsets into the source document instead of free-form quotes). The
+# verification ladder still runs as defense in depth. Tests cover:
+#   - Provider dispatch: Anthropic -> citations path; OpenAI -> schema path
+#   - Citations -> QuoteProvenance with citation_source = anthropic_citations_api
+#   - Pairing: emission-order match, string match, fallback to model_freeform
+#   - End-to-end: Anthropic citations path produces verified quotes
+#   - End-to-end: OpenAI schema path is unchanged (regression check)
+
+# ---- Dispatch and small helpers ---------------------------------------------
+
+test_that(".use_citations_for_provider returns TRUE only for Anthropic", {
+  expect_true(pakhom:::.use_citations_for_provider(mock_provider("anthropic"),
+                                                   list()))
+  expect_false(pakhom:::.use_citations_for_provider(mock_provider("openai"),
+                                                    list()))
+})
+
+test_that(".normalize_segments handles all three jsonlite shapes", {
+  # list-of-lists (the canonical shape) -- pass-through
+  segs_list <- list(list(text = "x", code = "c"), list(text = "y", code = "c"))
+  expect_identical(pakhom:::.normalize_segments(segs_list), segs_list)
+
+  # data.frame (jsonlite collapses uniform-fields)
+  segs_df <- data.frame(text = c("x", "y"), code = c("c", "c"),
+                        stringsAsFactors = FALSE)
+  segs_norm <- pakhom:::.normalize_segments(segs_df)
+  expect_length(segs_norm, 2L)
+  expect_equal(segs_norm[[1]]$text, "x")
+
+  # single segment named list (jsonlite collapses arity-1 arrays)
+  seg_one <- list(text = "x", code = "c", code_description = "d", code_type = "t")
+  segs_norm <- pakhom:::.normalize_segments(seg_one)
+  expect_length(segs_norm, 1L)
+  expect_equal(segs_norm[[1]]$text, "x")
+})
+
+test_that(".build_progressive_citations_user_prompt declares anti-fabrication rules", {
+  prompt <- pakhom:::.build_progressive_citations_user_prompt()
+  expect_match(prompt, "verbatim quote from the document")
+  expect_match(prompt, "Do NOT paraphrase")
+  expect_match(prompt, "Do NOT invent quotes")
+  # Schema still asks for code, code_description, code_type
+  expect_match(prompt, "code_description")
+  expect_match(prompt, "code_type")
+})
+
+test_that(".citation_text_matches returns TRUE on exact and normalized matches", {
+  cite <- list(cited_text = "trouble sleeping")
+  expect_true(pakhom:::.citation_text_matches(cite, "trouble sleeping"))
+  # Normalized comparison handles whitespace/case
+  expect_true(pakhom:::.citation_text_matches(
+    list(cited_text = "  Trouble  Sleeping "),
+    "trouble sleeping"))
+  # Smart quotes vs straight quotes
+  expect_true(pakhom:::.citation_text_matches(
+    list(cited_text = "“hello”"),
+    '"hello"'))
+  # Genuinely different text
+  expect_false(pakhom:::.citation_text_matches(
+    list(cited_text = "different"),
+    "trouble sleeping"))
+})
+
+# ---- Quote constructors per path --------------------------------------------
+
+test_that(".build_quote_from_schema_path produces a model_freeform QuoteProvenance", {
+  ai_meta <- new.env(parent = emptyenv())
+  ai_meta$model <- "gpt-4o-mock"
+  ai_meta$call_id <- "req_test"
+  q <- pakhom:::.build_quote_from_schema_path(
+    seg_text = "trouble sleeping", seg_start = 6L, seg_end = 22L,
+    text = "I had trouble sleeping after starting the medication",
+    entry_id = "e1", code_key = "sleep_difficulty", ai_meta = ai_meta
+  )
+  expect_s3_class(q, "QuoteProvenance")
+  expect_equal(q$citation_source, "model_freeform")
+  expect_equal(q$start_char, 6L)
+  expect_equal(q$end_char,   22L)
+  expect_equal(q$exact_text, "trouble sleeping")
+})
+
+test_that(".build_quote_from_schema_path defaults bad offsets to safe values", {
+  ai_meta <- new.env(parent = emptyenv())
+  ai_meta$model <- "gpt-4o-mock"; ai_meta$call_id <- "r"
+  # Negative start -> 0
+  q <- pakhom:::.build_quote_from_schema_path(
+    seg_text = "hello", seg_start = -5L, seg_end = NA_integer_,
+    text = "hello world", entry_id = "e1", code_key = "c", ai_meta = ai_meta
+  )
+  expect_equal(q$start_char, 0L)
+  expect_equal(q$end_char,   nchar("hello"))
+})
+
+test_that(".build_quote_from_citations_path returns anthropic_citations_api on emission-order match", {
+  ai_meta <- new.env(parent = emptyenv())
+  ai_meta$model <- "claude-mock"; ai_meta$call_id <- "msg_test"
+  citations <- list(
+    list(type = "char_location", cited_text = "trouble sleeping",
+         document_index = 0L, document_title = "e1",
+         start_char_index = 6L, end_char_index = 22L),
+    list(type = "char_location", cited_text = "the medication",
+         document_index = 0L, document_title = "e1",
+         start_char_index = 38L, end_char_index = 52L)
+  )
+  documents <- list(list(id = "e1",
+                         text = "I had trouble sleeping after starting the medication.",
+                         type = "data_entry"))
+
+  q <- pakhom:::.build_quote_from_citations_path(
+    seg_text = "trouble sleeping", seg_index = 1L,
+    citations = citations, documents = documents,
+    text = documents[[1]]$text, entry_id = "e1",
+    code_key = "sleep_difficulty", ai_meta = ai_meta
+  )
+  expect_s3_class(q, "QuoteProvenance")
+  expect_equal(q$citation_source, "anthropic_citations_api")
+  expect_equal(q$start_char,      6L)
+  expect_equal(q$end_char,        22L)
+  expect_equal(q$exact_text,      "trouble sleeping")
+})
+
+test_that(".build_quote_from_citations_path falls back to string match when emission order is wrong", {
+  ai_meta <- new.env(parent = emptyenv())
+  ai_meta$model <- "m"; ai_meta$call_id <- "c"
+  citations <- list(
+    list(type = "char_location", cited_text = "the medication",
+         document_index = 0L, document_title = "e1",
+         start_char_index = 38L, end_char_index = 52L),
+    list(type = "char_location", cited_text = "trouble sleeping",
+         document_index = 0L, document_title = "e1",
+         start_char_index = 6L, end_char_index = 22L)
+  )
+  documents <- list(list(id = "e1",
+                         text = "I had trouble sleeping after starting the medication.",
+                         type = "data_entry"))
+
+  # seg_index=1 would emission-order-match citations[[1]] (cited_text =
+  # "the medication"), which doesn't match seg_text. String-match fallback
+  # finds citations[[2]].
+  q <- pakhom:::.build_quote_from_citations_path(
+    seg_text = "trouble sleeping", seg_index = 1L,
+    citations = citations, documents = documents,
+    text = documents[[1]]$text, entry_id = "e1",
+    code_key = "sleep_difficulty", ai_meta = ai_meta
+  )
+  expect_equal(q$citation_source, "anthropic_citations_api")
+  expect_equal(q$exact_text, "trouble sleeping")
+  expect_equal(q$start_char, 6L)
+})
+
+test_that(".build_quote_from_citations_path falls back to model_freeform when no citation matches", {
+  ai_meta <- new.env(parent = emptyenv())
+  ai_meta$model <- "m"; ai_meta$call_id <- "c"
+  citations <- list(
+    list(type = "char_location", cited_text = "completely different text",
+         document_index = 0L, document_title = "e1",
+         start_char_index = 0L, end_char_index = 25L)
+  )
+  documents <- list(list(id = "e1",
+                         text = "I had trouble sleeping",
+                         type = "data_entry"))
+
+  q <- pakhom:::.build_quote_from_citations_path(
+    seg_text = "trouble sleeping", seg_index = 1L,
+    citations = citations, documents = documents,
+    text = documents[[1]]$text, entry_id = "e1",
+    code_key = "sleep_difficulty", ai_meta = ai_meta
+  )
+  # Pairing failed -> fell back to model_freeform; ladder will run normally
+  expect_equal(q$citation_source, "model_freeform")
+  expect_equal(q$exact_text, "trouble sleeping")
+})
+
+test_that(".build_quote_from_citations_path falls back when citations list is empty", {
+  ai_meta <- new.env(parent = emptyenv())
+  ai_meta$model <- "m"; ai_meta$call_id <- "c"
+  documents <- list(list(id = "e1", text = "I had trouble sleeping",
+                         type = "data_entry"))
+
+  q <- pakhom:::.build_quote_from_citations_path(
+    seg_text = "trouble sleeping", seg_index = 1L,
+    citations = list(), documents = documents,
+    text = documents[[1]]$text, entry_id = "e1",
+    code_key = "c", ai_meta = ai_meta
+  )
+  expect_equal(q$citation_source, "model_freeform")
+})
+
+# ---- End-to-end: .code_entry_progressive on Anthropic uses citations --------
+
+test_that("T0.1 part 3b: Anthropic provider triggers citations path; QuoteProvenance carries anthropic_citations_api", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  entry_text <- "I had trouble sleeping after starting the new medication."
+  # JSON without offsets: model returns text only; citations carry the offsets
+  mock_response <- jsonlite::toJSON(list(
+    skipped        = FALSE,
+    skip_reason    = "",
+    coded_segments = list(list(
+      text             = "trouble sleeping",
+      code             = "NEW: sleep difficulty",
+      code_description = "Difficulty initiating or maintaining sleep",
+      code_type        = "descriptive"
+    ))
+  ), auto_unbox = TRUE)
+
+  captured <- new.env(parent = emptyenv())
+
+  local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt = NULL, task = "coding",
+                            model = NULL, temperature = NULL, max_tokens = NULL,
+                            json_mode = FALSE, max_retries = 3,
+                            response_schema = NULL, documents = NULL) {
+      # Capture the kwargs to assert dispatch went down the citations path
+      captured$documents       <- documents
+      captured$response_schema <- response_schema
+      captured$json_mode       <- json_mode
+      list(
+        content       = mock_response,
+        model         = "claude-opus-4-7-mock",
+        request_id    = "req_anthropic_test",
+        usage         = list(prompt_tokens = 100L, completion_tokens = 30L,
+                             total_tokens = 130L),
+        finish_reason = "stop",
+        raw_response  = list(),
+        prompt_hash   = "h",
+        # Anthropic returned a citation pointing to the verbatim claim
+        citations     = list(list(
+          type             = "char_location",
+          cited_text       = "trouble sleeping",
+          document_index   = 0L,
+          document_title   = "e1",
+          start_char_index = 6L,
+          end_char_index   = 22L
+        ))
+      )
+    },
+    .package = "pakhom"
+  )
+
+  state <- create_coding_state()
+  state <- pakhom:::.code_entry_progressive(
+    text = entry_text, entry_id = "e1", entry_index = 1L,
+    state = state, provider = mock_provider("anthropic"),
+    config = list(max_retries_per_entry = 1L),
+    base_system_prompt = "test"
+  )
+
+  # Dispatch went down the citations path: documents passed, no response_schema,
+  # json_mode TRUE
+  expect_length(captured$documents, 1L)
+  expect_equal(captured$documents[[1]]$id, "e1")
+  expect_equal(captured$documents[[1]]$text, entry_text)
+  expect_null(captured$response_schema)
+  expect_true(captured$json_mode)
+
+  # The QuoteProvenance carries the citations-API source and is verified
+  seg <- state$entry_results[["e1"]]$coded_segments[[1]]
+  expect_s3_class(seg$provenance, "QuoteProvenance")
+  expect_equal(seg$provenance$citation_source, "anthropic_citations_api")
+  expect_true(seg$provenance$verification_status %in%
+              c("verified_exact", "verified_fuzzy"))
+  expect_equal(seg$provenance$ai_call_id, "req_anthropic_test")
+  expect_equal(seg$provenance$ai_model,   "claude-opus-4-7-mock")
+})
+
+test_that("T0.1 part 3b: OpenAI provider keeps the schema path (citation_source = model_freeform)", {
+  # Regression check: refactor must not change OpenAI behavior. The existing
+  # tests above already cover this, but assert the citation_source explicitly
+  # to lock in the contract.
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  entry_text <- "I had trouble sleeping."
+  mock_response <- jsonlite::toJSON(list(
+    skipped = FALSE, skip_reason = "",
+    coded_segments = list(list(
+      text = "trouble sleeping", start_char = 6L, end_char = 22L,
+      code = "NEW: sleep_diff", code_description = "x", code_type = "descriptive"
+    ))
+  ), auto_unbox = TRUE)
+
+  captured <- new.env(parent = emptyenv())
+
+  local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt = NULL, task = "coding",
+                            model = NULL, temperature = NULL, max_tokens = NULL,
+                            json_mode = FALSE, max_retries = 3,
+                            response_schema = NULL, documents = NULL) {
+      captured$documents       <- documents
+      captured$response_schema <- response_schema
+      list(
+        content       = mock_response, model = "gpt-4o-mock",
+        request_id    = "r",
+        usage         = list(prompt_tokens = 1L, completion_tokens = 1L,
+                             total_tokens = 2L),
+        finish_reason = "stop", raw_response = list(),
+        prompt_hash   = "h", citations = list()
+      )
+    },
+    .package = "pakhom"
+  )
+
+  state <- create_coding_state()
+  state <- pakhom:::.code_entry_progressive(
+    text = entry_text, entry_id = "e1", entry_index = 1L,
+    state = state, provider = mock_provider("openai"),
+    config = list(max_retries_per_entry = 1L),
+    base_system_prompt = "test"
+  )
+
+  # Schema path: documents NULL, response_schema is the coding schema
+  expect_null(captured$documents)
+  expect_false(is.null(captured$response_schema))
+
+  seg <- state$entry_results[["e1"]]$coded_segments[[1]]
+  expect_equal(seg$provenance$citation_source, "model_freeform")
+})
+
+test_that("T0.1 part 3b: Anthropic with no citations falls back to model_freeform per segment", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  entry_text <- "I had trouble sleeping."
+  mock_response <- jsonlite::toJSON(list(
+    skipped = FALSE, skip_reason = "",
+    coded_segments = list(list(
+      text = "trouble sleeping",
+      code = "NEW: sleep_diff", code_description = "x", code_type = "descriptive"
+    ))
+  ), auto_unbox = TRUE)
+
+  local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt = NULL, task = "coding",
+                            model = NULL, temperature = NULL, max_tokens = NULL,
+                            json_mode = FALSE, max_retries = 3,
+                            response_schema = NULL, documents = NULL) {
+      list(
+        content    = mock_response, model = "claude-mock",
+        request_id = "r",
+        usage      = list(prompt_tokens = 1L, completion_tokens = 1L,
+                          total_tokens = 2L),
+        finish_reason = "stop", raw_response = list(),
+        prompt_hash   = "h",
+        citations     = list()  # API returned no citations (e.g., model misbehaved)
+      )
+    },
+    .package = "pakhom"
+  )
+
+  state <- create_coding_state()
+  state <- pakhom:::.code_entry_progressive(
+    text = entry_text, entry_id = "e1", entry_index = 1L,
+    state = state, provider = mock_provider("anthropic"),
+    config = list(max_retries_per_entry = 1L),
+    base_system_prompt = "test"
+  )
+
+  # Segment kept (it's a real verbatim) but flagged as model_freeform because
+  # the citation path produced no usable pairing. The verification ladder
+  # still ran (substring search recovers the offsets).
+  seg <- state$entry_results[["e1"]]$coded_segments[[1]]
+  expect_s3_class(seg$provenance, "QuoteProvenance")
+  expect_equal(seg$provenance$citation_source, "model_freeform")
+  expect_true(seg$provenance$verification_status %in%
+              c("verified_exact", "verified_fuzzy"))
+})
+
+test_that("T0.1 part 3b: Anthropic citations path drops fabricated quotes (defense in depth)", {
+  # Anthropic's server-side guarantee covers index validity. If somehow a
+  # citation is returned that doesn't match the source (test mocks this
+  # adversarially to confirm the bridge does not bypass verification), the
+  # ladder still flags fabricated.
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  entry_text <- "Real entry text."
+  mock_response <- jsonlite::toJSON(list(
+    skipped = FALSE, skip_reason = "",
+    coded_segments = list(list(
+      text = "completely fabricated content",
+      code = "NEW: fabricated", code_description = "x", code_type = "descriptive"
+    ))
+  ), auto_unbox = TRUE)
+
+  local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt = NULL, task = "coding",
+                            model = NULL, temperature = NULL, max_tokens = NULL,
+                            json_mode = FALSE, max_retries = 3,
+                            response_schema = NULL, documents = NULL) {
+      list(
+        content       = mock_response, model = "claude-mock",
+        request_id    = "req_fab_anthro",
+        usage         = list(prompt_tokens = 1L, completion_tokens = 1L,
+                             total_tokens = 2L),
+        finish_reason = "stop", raw_response = list(),
+        prompt_hash   = "h",
+        # Adversarial mock: API claims a citation for content that's not in
+        # the entry. The ladder still flags fabricated.
+        citations     = list(list(
+          type = "char_location", cited_text = "completely fabricated content",
+          document_index = 0L, document_title = "e1",
+          start_char_index = 0L, end_char_index = 30L
+        ))
+      )
+    },
+    .package = "pakhom"
+  )
+
+  state <- create_coding_state()
+  state <- suppressWarnings(pakhom:::.code_entry_progressive(
+    text = entry_text, entry_id = "e1", entry_index = 1L,
+    state = state, provider = mock_provider("anthropic"),
+    config = list(max_retries_per_entry = 1L),
+    base_system_prompt = "test"
+  ))
+
+  # Fabricated -- segment dropped, codebook unpolluted
+  expect_length(state$entry_results[["e1"]]$coded_segments, 0L)
+  expect_length(state$codebook, 0L)
+})
+
+test_that("T0.1 part 3b: Anthropic citations path attributes ai_call_id from response", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  entry_text <- "trouble sleeping is hard"
+  mock_response <- jsonlite::toJSON(list(
+    skipped = FALSE, skip_reason = "",
+    coded_segments = list(list(
+      text = "trouble sleeping",
+      code = "NEW: x", code_description = "x", code_type = "descriptive"
+    ))
+  ), auto_unbox = TRUE)
+
+  local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt = NULL, task = "coding",
+                            model = NULL, temperature = NULL, max_tokens = NULL,
+                            json_mode = FALSE, max_retries = 3,
+                            response_schema = NULL, documents = NULL) {
+      list(
+        content    = mock_response, model = "claude-opus-4-7-MOCK",
+        request_id = "msg_REQID_42",
+        usage      = list(prompt_tokens = 1L, completion_tokens = 1L,
+                          total_tokens = 2L),
+        finish_reason = "stop", raw_response = list(),
+        prompt_hash   = "h",
+        citations     = list(list(
+          type = "char_location", cited_text = "trouble sleeping",
+          document_index = 0L, document_title = "e1",
+          start_char_index = 0L, end_char_index = 16L
+        ))
+      )
+    },
+    .package = "pakhom"
+  )
+
+  state <- create_coding_state()
+  state <- pakhom:::.code_entry_progressive(
+    text = entry_text, entry_id = "e1", entry_index = 1L,
+    state = state, provider = mock_provider("anthropic"),
+    config = list(max_retries_per_entry = 1L),
+    base_system_prompt = "test"
+  )
+
+  seg <- state$entry_results[["e1"]]$coded_segments[[1]]
+  expect_equal(seg$provenance$ai_call_id, "msg_REQID_42")
+  expect_equal(seg$provenance$ai_model,   "claude-opus-4-7-MOCK")
+})
+
+test_that("T0.1 part 3b: Anthropic citations path handles multiple segments with paired citations", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  entry_text <- "I had trouble sleeping. The medication helps."
+  # Two segments, two citations, properly paired by emission order
+  mock_response <- jsonlite::toJSON(list(
+    skipped = FALSE, skip_reason = "",
+    coded_segments = list(
+      list(text = "trouble sleeping",
+           code = "NEW: sleep_diff",   code_description = "x", code_type = "descriptive"),
+      list(text = "The medication helps",
+           code = "NEW: medication_efficacy", code_description = "y", code_type = "descriptive")
+    )
+  ), auto_unbox = TRUE)
+
+  local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt = NULL, task = "coding",
+                            model = NULL, temperature = NULL, max_tokens = NULL,
+                            json_mode = FALSE, max_retries = 3,
+                            response_schema = NULL, documents = NULL) {
+      list(
+        content    = mock_response, model = "claude-mock",
+        request_id = "r",
+        usage      = list(prompt_tokens = 1L, completion_tokens = 1L,
+                          total_tokens = 2L),
+        finish_reason = "stop", raw_response = list(),
+        prompt_hash   = "h",
+        citations     = list(
+          list(type = "char_location", cited_text = "trouble sleeping",
+               document_index = 0L, document_title = "e1",
+               start_char_index = 6L, end_char_index = 22L),
+          list(type = "char_location", cited_text = "The medication helps",
+               document_index = 0L, document_title = "e1",
+               start_char_index = 24L, end_char_index = 44L)
+        )
+      )
+    },
+    .package = "pakhom"
+  )
+
+  state <- create_coding_state()
+  state <- pakhom:::.code_entry_progressive(
+    text = entry_text, entry_id = "e1", entry_index = 1L,
+    state = state, provider = mock_provider("anthropic"),
+    config = list(max_retries_per_entry = 1L),
+    base_system_prompt = "test"
+  )
+
+  segs <- state$entry_results[["e1"]]$coded_segments
+  expect_length(segs, 2L)
+  expect_equal(segs[[1]]$provenance$citation_source, "anthropic_citations_api")
+  expect_equal(segs[[2]]$provenance$citation_source, "anthropic_citations_api")
+  expect_equal(segs[[1]]$provenance$exact_text, "trouble sleeping")
+  expect_equal(segs[[2]]$provenance$exact_text, "The medication helps")
+  # Codebook has both codes
+  expect_setequal(names(state$codebook),
+                  c("sleep_diff", "medication_efficacy"))
+})

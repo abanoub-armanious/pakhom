@@ -458,9 +458,16 @@ run_progressive_coding <- function(data, provider, config = list(),
                                      audit_log = NULL,
                                      response_cache = NULL,
                                      fabrication_log = NULL) {
-  # Build full system prompt with current codebook state
-  codebook_summary <- .build_codebook_summary(state, max_codes = 80, recent_window = 20)
+  # T0.1 part 3b dispatch: when the provider is Anthropic, use the Citations
+  # API path (PREVENTION layer -- model returns server-side-guaranteed
+  # offsets into source). Otherwise use the schema-based path (existing
+  # tool_use forced output). Both paths feed into a shared per-segment
+  # processor so codebook update / fabrication handling are identical.
+  use_citations <- .use_citations_for_provider(provider, config)
 
+  # System prompt is identical across paths -- it's the methodology framing.
+  codebook_summary <- .build_codebook_summary(state, max_codes = 80,
+                                                recent_window = 20)
   system_prompt <- paste0(
     base_system_prompt,
     "\n## YOUR CURRENT CODEBOOK\n",
@@ -473,50 +480,63 @@ run_progressive_coding <- function(data, provider, config = list(),
     }
   )
 
-  # User prompt -- use jsonlite for proper escaping of all special characters
   truncated_text <- substr(text, 1, 8000)
-  safe_text <- if (requireNamespace("jsonlite", quietly = TRUE)) {
-    # jsonlite::toJSON produces a quoted, escaped string -- strip outer quotes
-    raw_json <- jsonlite::toJSON(truncated_text, auto_unbox = TRUE)
-    substr(raw_json, 2, nchar(raw_json) - 1)
-  } else {
-    gsub('(["\\\\\n\r\t])', '\\\\\\1', truncated_text)
-  }
   if (nchar(text) > 8000) {
     log_debug("Entry {entry_id}: text truncated from {nchar(text)} to 8000 chars")
   }
-  prompt <- paste0(
-    "As you read through this entry, code any text segments applicable to the research question.\n\n",
-    'Entry text: "', safe_text, '"'
-  )
+
+  # Path-specific user prompt + ai_complete kwargs.
+  if (use_citations) {
+    # Citations path: entry travels as a document with citations enabled;
+    # the prompt instructs JSON output without offsets (Anthropic returns
+    # them via the citations array). No response_schema (incompatible with
+    # citations: forced tool_use produces no text blocks for citations to
+    # attach to).
+    user_prompt <- .build_progressive_citations_user_prompt()
+    ai_kwargs <- list(
+      json_mode       = TRUE,
+      response_schema = NULL,
+      documents       = list(list(id = entry_id,
+                                   text = truncated_text,
+                                   type = "data_entry"))
+    )
+  } else {
+    # Schema path: existing forced-tool_use flow with strict JSON schema.
+    user_prompt <- .build_progressive_schema_user_prompt(truncated_text)
+    ai_kwargs <- list(
+      json_mode       = FALSE,
+      response_schema = .coding_schema(),
+      documents       = NULL
+    )
+  }
 
   result <- NULL
-  # Capture model + request_id at outer scope so the per-segment T0.1
-  # verification (below) can attribute each QuoteProvenance to the AI call
-  # that produced it. Use an environment (reference type) rather than <<-
+  # Capture model + request_id + citations at outer scope so the per-segment
+  # T0.1 wiring can attribute each QuoteProvenance to the AI call. Env-backed
   # because <<- from inside tryCatch's expr block walks past the function's
-  # local frame and writes to the global environment instead -- a subtle
-  # R quirk caused by tryCatch evaluating expr in a child env whose
-  # lexical parent is globalenv, not the calling function's body.
+  # local frame and writes to globalenv instead (subtle R quirk).
   ai_meta <- new.env(parent = emptyenv())
-  ai_meta$model   <- NA_character_
-  ai_meta$call_id <- NA_character_
+  ai_meta$model     <- NA_character_
+  ai_meta$call_id   <- NA_character_
+  ai_meta$citations <- list()
   retries <- config$max_retries_per_entry %||% 1L
 
   for (attempt in seq_len(retries + 1)) {
     result <- tryCatch({
-      ai_result <- ai_complete(provider, prompt, system_prompt,
-                                task = "coding",
-                                response_schema = .coding_schema())
-      ai_meta$model   <- ai_result$model      %||% NA_character_
-      ai_meta$call_id <- ai_result$request_id %||% NA_character_
+      ai_result <- ai_complete(provider, user_prompt, system_prompt,
+                                task            = "coding",
+                                json_mode       = ai_kwargs$json_mode,
+                                response_schema = ai_kwargs$response_schema,
+                                documents       = ai_kwargs$documents)
+      ai_meta$model     <- ai_result$model      %||% NA_character_
+      ai_meta$call_id   <- ai_result$request_id %||% NA_character_
+      ai_meta$citations <- ai_result$citations  %||% list()
       if (!is.null(audit_log)) {
         log_ai_request(audit_log, "coding", ai_result, response_cache,
                         entry_id = entry_id, attempt = attempt)
       }
       response <- ai_result$content
 
-      # Parse without expected_key to avoid noisy warnings for skip responses
       parsed <- parse_json_safely(response)
 
       if (is.null(parsed)) {
@@ -539,13 +559,11 @@ run_progressive_coding <- function(data, provider, config = list(),
 
   # Process result
   if (is.null(result) || isTRUE(result$skipped)) {
-    # Entry skipped (nothing applicable or parse failure)
     skip_reason <- if (!is.null(result) && isTRUE(result$skipped)) {
       result$skip_reason %||% "No applicable content"
     } else {
       "AI response parse failure"
     }
-
     state$entry_results[[entry_id]] <- list(
       codes_assigned = character(0),
       coded_segments = list(),
@@ -555,7 +573,6 @@ run_progressive_coding <- function(data, provider, config = list(),
     return(state)
   }
 
-  # Parse coded segments -- handle both list-of-lists and data.frame formats
   segments_raw <- result$coded_segments
   if (is.null(segments_raw) || length(segments_raw) == 0) {
     state$entry_results[[entry_id]] <- list(
@@ -566,136 +583,356 @@ run_progressive_coding <- function(data, provider, config = list(),
     )
     return(state)
   }
+  segments <- .normalize_segments(segments_raw)
 
-  # Normalize to list-of-lists (jsonlite may return data.frame)
-  segments <- if (is.data.frame(segments_raw)) {
-    lapply(seq_len(nrow(segments_raw)), function(i) as.list(segments_raw[i, ]))
-  } else if (is.list(segments_raw) && !is.null(names(segments_raw)) &&
-             "text" %in% names(segments_raw)) {
-    # Single segment returned as named list instead of list-of-lists
-    list(segments_raw)
-  } else {
-    segments_raw
-  }
+  # Per-iteration accumulators -- mutate via env reference so the per-segment
+  # helper can update them without returning multiple values.
+  acc <- new.env(parent = emptyenv())
+  acc$entry_codes    <- character(0)
+  acc$entry_segments <- list()
 
-  # Process each coded segment
-  entry_codes <- character(0)
-  entry_segments <- list()
-
-  for (seg in segments) {
-    seg_text <- as.character(seg$text %||% "")[1]
-    seg_code <- as.character(seg$code %||% "")[1]
-    seg_desc <- as.character(seg$code_description %||% "")[1]
-    seg_type <- as.character(seg$code_type %||% "descriptive")[1]
-    seg_start <- suppressWarnings(as.integer(seg$start_char %||% NA_integer_)[1])
-    seg_end <- suppressWarnings(as.integer(seg$end_char %||% NA_integer_)[1])
-
-    if (nchar(seg_code) == 0 || nchar(seg_text) < 3) next
-
-    # Determine code_key first so the QuoteProvenance can attribute to it.
-    is_new <- grepl("^NEW:", seg_code, ignore.case = TRUE)
-    if (is_new) {
-      code_name <- trimws(sub("^NEW:\\s*", "", seg_code, ignore.case = TRUE))
-    } else {
-      code_name <- trimws(seg_code)
-    }
-    code_key <- tolower(code_name)
-    # The AI sees the full codebook and decides whether to create a new code
-    # or use an existing one. We only check for EXACT key matches to avoid
-    # accidentally creating a duplicate with identical name. No substring or
-    # fuzzy matching -- the AI's judgment is the authority on code novelty.
-    if (is_new && code_key %in% names(state$codebook)) {
-      is_new <- FALSE
-    }
-
-    # T0.1: Verify the AI's claimed-verbatim segment text against the entry
-    # via the four-step ladder (R/quote_provenance.R). Build offsets defensively
-    # since the AI sometimes returns NA / out-of-range values; the substring
-    # search step in verify_quote recovers from imprecise offsets when the
-    # text is genuinely in the source.
-    sc <- if (is.na(seg_start) || seg_start < 0L) 0L else seg_start
-    ec <- if (is.na(seg_end) || seg_end <= sc) sc + nchar(seg_text) else seg_end
-    quote <- make_quote(
-      source_doc_id      = entry_id,
-      source_doc_type    = "data_entry",
-      source_text        = text,
-      start_char         = sc,
-      end_char           = ec,
-      exact_text         = seg_text,
-      attributed_code_id = code_key,
-      ai_model           = ai_meta$model,
-      ai_call_id         = ai_meta$call_id,
-      citation_source    = "model_freeform"
-    )
-    quote <- verify_quote(quote, text)
-
-    if (identical(quote$verification_status, "fabricated")) {
-      # Anti-fabrication enforcement: drop the segment, log to the fabrication
-      # CSV for the methodology paper KPI, and emit a quote_fabricated audit
-      # decision so cross-run analysis can attribute fabrications to specific
-      # ai_call_ids.
-      log_fabrication(fabrication_log, quote)
-      if (!is.null(audit_log)) {
-        log_ai_decision(audit_log, "quote_verification", "quote_fabricated",
-                        entry_id = entry_id, code_name = code_name,
-                        quote_id = quote$quote_id,
-                        ai_call_id = quote$ai_call_id %||% NA_character_,
-                        exact_text = substr(seg_text, 1, 200))
-      }
-      log_warn("Entry {entry_id}: AI returned fabricated quote for code '{code_name}'; segment dropped.")
-      next
-    }
-
-    # Verified (exact or fuzzy) -- attach provenance to the segment record so
-    # downstream report rendering can show verification status + the
-    # methodology paper can compute per-run fabrication rates from the
-    # codebook.
-    seg_record <- list(
-      entry_id   = entry_id,
-      text       = seg_text,
-      start_char = seg_start,
-      end_char   = seg_end,
-      provenance = quote
-    )
-
-    # Update codebook
-    if (is_new || !(code_key %in% names(state$codebook))) {
-      state$codebook[[code_key]] <- list(
-        code_name = code_name,
-        description = seg_desc,
-        type = seg_type,
-        frequency = 1L,
-        entry_ids = entry_id,
-        coded_segments = list(seg_record)
-      )
-    } else {
-      cb_entry <- state$codebook[[code_key]]
-      cb_entry$frequency <- cb_entry$frequency + 1L
-      cb_entry$entry_ids <- unique(c(cb_entry$entry_ids, entry_id))
-      cb_entry$coded_segments[[length(cb_entry$coded_segments) + 1L]] <- seg_record
-      state$codebook[[code_key]] <- cb_entry
-    }
-
-    entry_codes <- unique(c(entry_codes, code_key))
-    entry_segments[[length(entry_segments) + 1L]] <- list(
-      code_key   = code_key,
-      code_name  = code_name,
-      text       = seg_text,
-      start_char = seg_start,
-      end_char   = seg_end,
-      provenance = quote
+  for (i in seq_along(segments)) {
+    seg <- segments[[i]]
+    state <- .handle_one_coded_segment(
+      seg              = seg,
+      seg_index        = i,
+      use_citations    = use_citations,
+      ai_meta          = ai_meta,
+      documents        = ai_kwargs$documents,
+      text             = text,
+      entry_id         = entry_id,
+      state            = state,
+      acc              = acc,
+      audit_log        = audit_log,
+      fabrication_log  = fabrication_log
     )
   }
 
-  # Store entry results (tracking vectors managed by the main loop)
   state$entry_results[[entry_id]] <- list(
-    codes_assigned = entry_codes,
-    coded_segments = entry_segments,
-    skipped = FALSE,
-    skip_reason = NA_character_
+    codes_assigned = acc$entry_codes,
+    coded_segments = acc$entry_segments,
+    skipped        = FALSE,
+    skip_reason    = NA_character_
   )
 
   state
+}
+
+# ==============================================================================
+# Per-segment processing (shared between schema and citations paths)
+# ==============================================================================
+
+#' Decide whether to use the Anthropic Citations API path for this provider
+#'
+#' Returns TRUE for Anthropic providers; FALSE otherwise. Future Sprint-4
+#' phases may add a config opt-out (\code{config$data_integrity$use_citations_api}),
+#' but the default-on-for-Anthropic stance is load-bearing -- the Citations
+#' API is the package's primary anti-fabrication PREVENTION layer (T0.1
+#' part 3b) and disabling it weakens the architectural commitment to AC1
+#' (AI is scaffold by architecture, not by configuration).
+#' @keywords internal
+.use_citations_for_provider <- function(provider, config) {
+  isTRUE(provider$provider == "anthropic")
+}
+
+#' Normalize the AI's coded_segments payload into a uniform list-of-lists
+#'
+#' jsonlite may return a data.frame (when all segments share the same fields)
+#' or a single named list (when only one segment). Downstream code expects
+#' a list of named lists, so this helper coerces both shapes.
+#' @keywords internal
+.normalize_segments <- function(segments_raw) {
+  if (is.data.frame(segments_raw)) {
+    return(lapply(seq_len(nrow(segments_raw)),
+                  function(i) as.list(segments_raw[i, ])))
+  }
+  if (is.list(segments_raw) && !is.null(names(segments_raw)) &&
+      "text" %in% names(segments_raw)) {
+    return(list(segments_raw))
+  }
+  segments_raw
+}
+
+#' Build the schema-path user prompt (existing T1.2 flow)
+#' @keywords internal
+.build_progressive_schema_user_prompt <- function(truncated_text) {
+  safe_text <- if (requireNamespace("jsonlite", quietly = TRUE)) {
+    raw_json <- jsonlite::toJSON(truncated_text, auto_unbox = TRUE)
+    substr(raw_json, 2, nchar(raw_json) - 1)
+  } else {
+    gsub('(["\\\\\n\r\t])', '\\\\\\1', truncated_text)
+  }
+  paste0(
+    "As you read through this entry, code any text segments applicable to the research question.\n\n",
+    'Entry text: "', safe_text, '"'
+  )
+}
+
+#' Build the citations-path user prompt (T0.1 part 3b)
+#'
+#' The model receives the entry as a document content block (passed
+#' alongside this prompt by .anthropic_completion when documents is
+#' set). The prompt instructs JSON-mode output where each segment's
+#' \code{text} field is a verbatim quote from the document; the
+#' Anthropic API attaches a citation to each verbatim quote, producing
+#' server-side-guaranteed character offsets into the source. The model
+#' is explicitly instructed NOT to invent quotes -- the QuoteProvenance
+#' bridge cross-checks the model's claim against Anthropic's citation
+#' span, and the verification ladder runs as defense in depth.
+#' @keywords internal
+.build_progressive_citations_user_prompt <- function() {
+  paste0(
+    "Read the document provided as context, then identify code-worthy segments.\n\n",
+    "Return JSON with this exact shape:\n",
+    "{\n",
+    '  "skipped": false,\n',
+    '  "skip_reason": "",\n',
+    '  "coded_segments": [\n',
+    "    {\n",
+    '      "text": "<verbatim quote from the document>",\n',
+    '      "code": "<existing code name OR \\"NEW: <new code name>\\">",\n',
+    '      "code_description": "<brief description, required for NEW codes>",\n',
+    '      "code_type": "descriptive | emotional | process | in_vivo"\n',
+    "    }\n",
+    "  ]\n",
+    "}\n\n",
+    "If nothing in the document is applicable, return ",
+    '{"skipped": true, "skip_reason": "<reason>", "coded_segments": []}.\n\n',
+    "CRITICAL ANTI-FABRICATION RULES:\n",
+    "- The `text` field MUST be a verbatim slice of the document, character-for-character.\n",
+    "- Do NOT paraphrase. Do NOT invent quotes. Do NOT combine fragments.\n",
+    "- If you cannot find a verbatim slice that supports the code, do not include the segment.\n",
+    "- Each verbatim quote will be cross-checked against the source document; ",
+    "non-verbatim segments are dropped from the analysis."
+  )
+}
+
+#' Process one coded segment from either the schema or citations path
+#'
+#' Builds a path-appropriate \code{QuoteProvenance} (free-form via
+#' \code{make_quote} or citation-bridged via \code{make_quote_from_citation}),
+#' runs the verification ladder, and -- if not fabricated -- updates the
+#' codebook and accumulators.
+#'
+#' Mutates \code{acc$entry_codes} and \code{acc$entry_segments} via
+#' environment reference so the caller doesn't have to thread them
+#' through return values.
+#'
+#' @return Updated \code{state} (immutable per-call; the codebook is
+#'   updated when a non-fabricated segment is processed).
+#' @keywords internal
+.handle_one_coded_segment <- function(seg, seg_index, use_citations, ai_meta,
+                                       documents, text, entry_id, state, acc,
+                                       audit_log, fabrication_log) {
+  seg_text  <- as.character(seg$text             %||% "")[1]
+  seg_code  <- as.character(seg$code             %||% "")[1]
+  seg_desc  <- as.character(seg$code_description %||% "")[1]
+  seg_type  <- as.character(seg$code_type        %||% "descriptive")[1]
+  # In the schema path the model returns offsets; in the citations path
+  # it doesn't (offsets come from Anthropic's citation array).
+  seg_start <- suppressWarnings(as.integer(seg$start_char %||% NA_integer_)[1])
+  seg_end   <- suppressWarnings(as.integer(seg$end_char   %||% NA_integer_)[1])
+
+  if (nchar(seg_code) == 0 || nchar(seg_text) < 3) return(state)
+
+  # Determine code_key first so the QuoteProvenance can attribute to it.
+  is_new <- grepl("^NEW:", seg_code, ignore.case = TRUE)
+  if (is_new) {
+    code_name <- trimws(sub("^NEW:\\s*", "", seg_code, ignore.case = TRUE))
+  } else {
+    code_name <- trimws(seg_code)
+  }
+  code_key <- tolower(code_name)
+  # The AI sees the full codebook and decides whether to create a new code or
+  # use an existing one. Only EXACT key matches collapse to existing -- no
+  # substring/fuzzy matching; the AI's judgment is the authority on novelty.
+  if (is_new && code_key %in% names(state$codebook)) {
+    is_new <- FALSE
+  }
+
+  # Build the (unverified) QuoteProvenance per path:
+  # - Citations path: pair this segment with the corresponding citation by
+  #   emission order, validated by string match. If pairing succeeds the
+  #   quote carries citation_source = "anthropic_citations_api"; otherwise
+  #   we fall back to model_freeform (the model returned a `text` claim
+  #   without an attached citation, so we treat it like the schema path).
+  # - Schema path: classic make_quote with model-supplied offsets.
+  quote_partial <- if (isTRUE(use_citations)) {
+    .build_quote_from_citations_path(
+      seg_text = seg_text, seg_index = seg_index,
+      citations = ai_meta$citations, documents = documents,
+      text = text, entry_id = entry_id, code_key = code_key,
+      ai_meta = ai_meta
+    )
+  } else {
+    .build_quote_from_schema_path(
+      seg_text = seg_text, seg_start = seg_start, seg_end = seg_end,
+      text = text, entry_id = entry_id, code_key = code_key,
+      ai_meta = ai_meta
+    )
+  }
+
+  quote <- verify_quote(quote_partial, text)
+
+  if (identical(quote$verification_status, "fabricated")) {
+    # Anti-fabrication enforcement: drop the segment, log to the fabrication
+    # CSV for the methodology paper KPI, and emit a quote_fabricated audit
+    # decision so cross-run analysis can attribute fabrications to specific
+    # ai_call_ids.
+    log_fabrication(fabrication_log, quote)
+    if (!is.null(audit_log)) {
+      log_ai_decision(audit_log, "quote_verification", "quote_fabricated",
+                      entry_id  = entry_id, code_name = code_name,
+                      quote_id  = quote$quote_id,
+                      ai_call_id = quote$ai_call_id %||% NA_character_,
+                      exact_text = substr(seg_text, 1, 200))
+    }
+    log_warn("Entry {entry_id}: AI returned fabricated quote for code '{code_name}'; segment dropped.")
+    return(state)
+  }
+
+  # Verified -- attach provenance to the segment record so downstream
+  # rendering can show verification status, and the methodology paper can
+  # compute per-run fabrication rates from the codebook.
+  seg_record <- list(
+    entry_id   = entry_id,
+    text       = seg_text,
+    start_char = seg_start,
+    end_char   = seg_end,
+    provenance = quote
+  )
+
+  if (is_new || !(code_key %in% names(state$codebook))) {
+    state$codebook[[code_key]] <- list(
+      code_name      = code_name,
+      description    = seg_desc,
+      type           = seg_type,
+      frequency      = 1L,
+      entry_ids      = entry_id,
+      coded_segments = list(seg_record)
+    )
+  } else {
+    cb_entry <- state$codebook[[code_key]]
+    cb_entry$frequency <- cb_entry$frequency + 1L
+    cb_entry$entry_ids <- unique(c(cb_entry$entry_ids, entry_id))
+    cb_entry$coded_segments[[length(cb_entry$coded_segments) + 1L]] <- seg_record
+    state$codebook[[code_key]] <- cb_entry
+  }
+
+  acc$entry_codes <- unique(c(acc$entry_codes, code_key))
+  acc$entry_segments[[length(acc$entry_segments) + 1L]] <- list(
+    code_key   = code_key,
+    code_name  = code_name,
+    text       = seg_text,
+    start_char = seg_start,
+    end_char   = seg_end,
+    provenance = quote
+  )
+
+  state
+}
+
+#' Build a QuoteProvenance for the schema path (offsets from the model)
+#' @keywords internal
+.build_quote_from_schema_path <- function(seg_text, seg_start, seg_end,
+                                           text, entry_id, code_key, ai_meta) {
+  # Build offsets defensively -- the AI sometimes returns NA / out-of-range
+  # values. The substring search step in verify_quote recovers from
+  # imprecise offsets when the text is genuinely in the source.
+  sc <- if (is.na(seg_start) || seg_start < 0L) 0L else seg_start
+  ec <- if (is.na(seg_end) || seg_end <= sc) sc + nchar(seg_text) else seg_end
+  make_quote(
+    source_doc_id      = entry_id,
+    source_doc_type    = "data_entry",
+    source_text        = text,
+    start_char         = sc,
+    end_char           = ec,
+    exact_text         = seg_text,
+    attributed_code_id = code_key,
+    ai_model           = ai_meta$model,
+    ai_call_id         = ai_meta$call_id,
+    citation_source    = "model_freeform"
+  )
+}
+
+#' Build a QuoteProvenance for the citations path (offsets from Anthropic)
+#'
+#' Pairs the model's segment with the corresponding citation by:
+#' \enumerate{
+#'   \item Emission-order match (citation[seg_index] -- the most common
+#'         success case when the model emits one citation per segment).
+#'   \item Cited-text string match (handles cases where the model emits
+#'         citations in a different order than segments, or extra commentary
+#'         citations interleave with the JSON).
+#'   \item Fallback to the schema path's freeform constructor, leaving the
+#'         verification ladder to recover offsets via substring search.
+#'         citation_source becomes \code{"model_freeform"} so the dashboard
+#'         distinguishes citation-API-grounded quotes from those that fell
+#'         back.
+#' }
+#' @keywords internal
+.build_quote_from_citations_path <- function(seg_text, seg_index, citations,
+                                              documents, text, entry_id,
+                                              code_key, ai_meta) {
+  if (length(citations) == 0L) {
+    return(.build_quote_from_schema_path(seg_text, NA_integer_, NA_integer_,
+                                          text, entry_id, code_key, ai_meta))
+  }
+
+  matched <- NULL
+
+  # Emission-order pairing first
+  if (seg_index <= length(citations)) {
+    cand <- citations[[seg_index]]
+    if (.citation_text_matches(cand, seg_text)) {
+      matched <- cand
+    }
+  }
+
+  # String-match fallback: scan all citations for one whose cited_text
+  # equals the segment's claimed text
+  if (is.null(matched)) {
+    for (c in citations) {
+      if (.citation_text_matches(c, seg_text)) {
+        matched <- c
+        break
+      }
+    }
+  }
+
+  if (is.null(matched)) {
+    # No citation pairs cleanly with this segment -- model may have emitted
+    # the JSON without proper citation interleaving, or the cited_text
+    # differs slightly. Fall back to schema-path constructor; the
+    # verification ladder will run normally.
+    return(.build_quote_from_schema_path(seg_text, NA_integer_, NA_integer_,
+                                          text, entry_id, code_key, ai_meta))
+  }
+
+  # Successful pairing: build via the citations bridge with the document type
+  # carried through (so source_doc_type stays meaningful for QDPX export and
+  # report rendering).
+  make_quote_from_citation(
+    citation            = matched,
+    documents           = documents,
+    attributed_code_id  = code_key,
+    ai_model            = ai_meta$model,
+    ai_call_id          = ai_meta$call_id,
+    source_doc_type_default = "data_entry"
+  )
+}
+
+#' Check whether a citation's cited_text equals a segment's claimed text
+#'
+#' Uses normalized comparison (whitespace + smart quotes + case) so trivial
+#' formatting differences in the model's JSON encoding don't cause spurious
+#' fallback to model_freeform. The verification ladder will further verify
+#' the byte identity once the QuoteProvenance is built.
+#' @keywords internal
+.citation_text_matches <- function(citation, seg_text) {
+  cited <- citation$cited_text %||% ""
+  identical(.normalize_quote_text(cited),
+            .normalize_quote_text(seg_text))
 }
 
 # ==============================================================================

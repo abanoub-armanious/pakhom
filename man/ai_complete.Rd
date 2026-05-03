@@ -14,7 +14,8 @@ ai_complete(
   max_tokens = NULL,
   json_mode = FALSE,
   max_retries = 3,
-  response_schema = NULL
+  response_schema = NULL,
+  documents = NULL
 )
 }
 \arguments{
@@ -48,6 +49,27 @@ pre-T1.2 \code{json_mode} path (see \code{R/structured_schemas.R} for
 the six task schemas the in-package callers use). Reasoning models
 (o1/o3/o4) silently fall back to \code{json_mode} because they don't
 support strict json_schema as of writing.}
+
+\item{documents}{Optional list of source documents to enable Anthropic's
+Citations API (Sprint-4 T0.1 part 3b). Each element is a named list with
+\code{$id} (character, internal pakhom identifier preserved on the
+returned citations for downstream bridging), \code{$text} (character,
+the document content), and optional \code{$title} (character, becomes
+Anthropic's document title; defaults to \code{$id}). When non-empty,
+the user message is built as a content array with one
+\code{document} block per entry (\code{citations.enabled=TRUE}) followed
+by a \code{text} block carrying \code{prompt}. The model's response is
+parsed for citations; the returned \code{$citations} is a normalized list
+of citation objects. \strong{Provider compatibility:} Citations API is
+Anthropic-only. Passing \code{documents} to an OpenAI provider raises
+an error. \strong{Combining with \code{response_schema}:} Anthropic's
+Citations API is incompatible with the newer Structured Outputs
+(\code{output_config.format}); pakhom uses forced tool_use for
+\code{response_schema}, which is not formally documented as
+incompatible but produces no text blocks for citations to attach to.
+When both are passed the request is sent as-is and \code{$citations}
+will typically be empty -- callers should choose one mode or the other
+per the architecture (phase 21c uses citations alone for Anthropic).}
 }
 \value{
 A list with the following fields (canonical shape, normalized
@@ -70,13 +92,27 @@ are remapped).
 replay (OS.5) and debugging.
 \item \code{prompt_hash}: character. SHA-256 hex digest of the request
 inputs (prompt + system_prompt + model + temperature + max_tokens +
-json_mode). Used as the cache key for \code{replay_run()}; stable
-across R versions and platforms because the underlying hash is
-computed over a JSON serialization of the inputs, not the R object.
+json_mode + response_schema + documents). Used as the cache key for
+\code{replay_run()}; stable across R versions and platforms because
+the underlying hash is computed over a JSON serialization of the
+inputs, not the R object.
 \item \code{request_id}: character or \code{NA_character_}.
 Provider-assigned request identifier (from the \code{x-request-id}
 header for OpenAI or \code{request-id} for Anthropic; falls back to
 \code{$id} from the response body).
+\item \code{citations}: list. Normalized citations extracted from
+text blocks in the response (Anthropic Citations API only). Each
+element is a list whose field names exactly mirror Anthropic's
+citation schema (\code{type}, \code{cited_text}, \code{document_index},
+\code{document_title}, plus type-specific fields:
+\code{start_char_index}/\code{end_char_index} for char_location,
+\code{start_page_number}/\code{end_page_number} for page_location,
+\code{start_block_index}/\code{end_block_index} for
+content_block_location). Empty list when \code{documents} was NULL
+or no citations were returned. Phase 21b's
+\code{make_quotes_from_citations()} converts these to
+\code{QuoteProvenance} objects with
+\code{citation_source = "anthropic_citations_api"}.
 }
 }
 \description{

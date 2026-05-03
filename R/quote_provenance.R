@@ -178,6 +178,194 @@ make_quote <- function(source_doc_id, source_doc_type, source_text,
 }
 
 # ==============================================================================
+# Anthropic Citations API bridge (Sprint-4 T0.1 part 3b, phase 21b)
+# ==============================================================================
+# Converts Anthropic Citations API output (extracted by
+# R/02_ai_providers.R::.anthropic_extract_citations) into pakhom's
+# QuoteProvenance schema. The model returned spans into provided source
+# documents; this bridge looks up the actual source text via document_index
+# and constructs a QuoteProvenance with citation_source =
+# "anthropic_citations_api". The verification ladder still runs (defense in
+# depth -- Anthropic guarantees the indices are valid pointers, but our
+# ladder catches corpus drift, encoding issues, and the rare API edge case).
+#
+# Why this is the prevention layer (vs phase 17-19's detection layer):
+# When the model uses Citations API, it cannot fabricate quote text -- it
+# returns char_location indices into the source document, and Anthropic
+# guarantees those indices are valid. Compare to free-form quote
+# generation where the model can produce text that looks plausible but
+# isn't in any source (the Frankenstein/Jowsey 2025 failure mode at 58%).
+# ==============================================================================
+
+#' Construct a QuoteProvenance from a single Anthropic citation
+#'
+#' Bridges one Anthropic citation object (the shape produced by
+#' \code{R/02_ai_providers.R::.anthropic_extract_citations}) to a
+#' \code{QuoteProvenance} object with \code{citation_source =
+#' "anthropic_citations_api"}. The constructed quote is in the
+#' \code{"unverified"} state; chain through \code{\link{verify_quote}}
+#' to run the four-step verification ladder.
+#'
+#' Supported citation types:
+#' \itemize{
+#'   \item \code{char_location} (plain text source) -- maps directly to
+#'     \code{start_char}/\code{end_char}. The \code{cited_text} is stored
+#'     as \code{exact_text}; the verification ladder confirms it matches
+#'     \code{source[start_char:end_char]} byte-for-byte.
+#'   \item \code{page_location} (PDF source) -- not yet supported. PDF
+#'     inputs aren't part of pakhom's current data model. Errors with a
+#'     clear message rather than silently producing a malformed quote.
+#'   \item \code{content_block_location} (custom_content source) -- not
+#'     yet supported for the same reason. Phase 21a uses plain_text source
+#'     exclusively; if a future caller switches to custom_content, the
+#'     bridge needs a block-index-to-char-offset mapping (caller would
+#'     supply per-document block boundaries).
+#' }
+#'
+#' Document lookup: \code{citation$document_index} is 0-indexed into the
+#' \code{documents} list passed to \code{ai_complete()}. The bridge
+#' converts to 1-indexed for R.
+#'
+#' @param citation A single citation object from
+#'   \code{ai_complete()$citations}. Must have \code{type},
+#'   \code{document_index}, and the type-specific span fields populated.
+#' @param documents The same documents list passed to
+#'   \code{ai_complete()}. Each element must have \code{$id} and
+#'   \code{$text}; an optional \code{$type} field overrides the default
+#'   \code{source_doc_type}.
+#' @param attributed_theme_id,attributed_code_id Optional attribution
+#'   metadata. The bridge cannot infer these from the citation alone --
+#'   the caller pairs each citation with the code/theme it supports.
+#' @param ai_model,ai_call_id The model and request_id from the
+#'   \code{ai_complete()} response that produced this citation. Stored
+#'   on the QuoteProvenance for audit log linkage.
+#' @param ai_paraphrase Optional paraphrase, if the AI rephrased rather
+#'   than directly quoted. Defaults to \code{NA_character_} since
+#'   Citations API returns verbatim slices.
+#' @param source_doc_type_default Default \code{source_doc_type} when the
+#'   document doesn't specify \code{$type}. Defaults to
+#'   \code{"data_entry"} matching pakhom's coding pipeline convention.
+#' @return A \code{QuoteProvenance} object (unverified state) with
+#'   \code{citation_source = "anthropic_citations_api"}.
+#' @export
+make_quote_from_citation <- function(citation, documents,
+                                      attributed_theme_id = NA_character_,
+                                      attributed_code_id = NA_character_,
+                                      ai_model = NA_character_,
+                                      ai_call_id = NA_character_,
+                                      ai_paraphrase = NA_character_,
+                                      source_doc_type_default = "data_entry") {
+  if (!is.list(citation) || is.null(citation$type)) {
+    stop("`citation` must be a citation object with at least a `type` field",
+         call. = FALSE)
+  }
+  if (!is.list(documents) || length(documents) == 0L) {
+    stop("`documents` must be a non-empty list of source documents",
+         call. = FALSE)
+  }
+
+  # Document lookup: 0-indexed -> 1-indexed
+  doc_idx <- citation$document_index
+  if (is.null(doc_idx) || is.na(doc_idx) ||
+      doc_idx < 0L || doc_idx >= length(documents)) {
+    stop(sprintf(
+      "citation$document_index (%s) out of range for documents (length %d)",
+      format(doc_idx), length(documents)
+    ), call. = FALSE)
+  }
+  doc <- documents[[doc_idx + 1L]]
+  if (is.null(doc$id) || is.null(doc$text)) {
+    stop(sprintf(
+      "documents[[%d]] missing $id or $text required for QuoteProvenance",
+      doc_idx + 1L
+    ), call. = FALSE)
+  }
+  source_doc_type <- doc$type %||% source_doc_type_default
+
+  switch(citation$type,
+    "char_location" = {
+      # exact_text uses Anthropic's cited_text. Verification ladder still
+      # runs at the caller's chaining step to confirm
+      # source_text[start_char_index:end_char_index] == cited_text. Defense
+      # in depth: Anthropic's server-side guarantee covers index validity;
+      # our offline verification covers byte-identity (catches corpus
+      # drift, encoding mismatch, and any API edge case).
+      make_quote(
+        source_doc_id      = doc$id,
+        source_doc_type    = source_doc_type,
+        source_text        = doc$text,
+        start_char         = citation$start_char_index,
+        end_char           = citation$end_char_index,
+        exact_text         = citation$cited_text %||% NA_character_,
+        ai_paraphrase      = ai_paraphrase,
+        attributed_theme_id = attributed_theme_id,
+        attributed_code_id  = attributed_code_id,
+        ai_model           = ai_model,
+        ai_call_id         = ai_call_id,
+        citation_source    = "anthropic_citations_api"
+      )
+    },
+    "page_location" = stop(
+      "page_location citations (PDF inputs) are not yet supported by the ",
+      "Anthropic citations bridge. pakhom uses plain_text source documents ",
+      "exclusively; PDF citation handling requires page-to-char offset ",
+      "mapping that hasn't been implemented.",
+      call. = FALSE
+    ),
+    "content_block_location" = stop(
+      "content_block_location citations (custom_content sources) are not yet ",
+      "supported by the bridge. To use custom_content sources, supply a ",
+      "block-index-to-char-offset mapping per document (not yet implemented).",
+      call. = FALSE
+    ),
+    stop(sprintf(
+      paste("Unknown Anthropic citation type: %s. Expected one of:",
+            "char_location, page_location, content_block_location."),
+      citation$type
+    ), call. = FALSE)
+  )
+}
+
+#' Construct QuoteProvenance objects from a list of Anthropic citations
+#'
+#' Batch convenience over \code{\link{make_quote_from_citation}} when all
+#' citations share the same attribution metadata (typical for a single AI
+#' call's output where one entry was passed and one code/theme is being
+#' attributed). For per-citation distinct attribution, callers should use
+#' \code{Map()} or iterate manually.
+#'
+#' Returns a list in the same order as \code{citations} so callers can
+#' zip the result with parallel structures (e.g., a per-segment code list).
+#' Empty input returns \code{list()} (not an error).
+#'
+#' @param citations List of citation objects (\code{ai_complete()$citations}).
+#' @param documents Same documents list passed to \code{ai_complete()}.
+#' @inheritParams make_quote_from_citation
+#' @return List of \code{QuoteProvenance} objects (unverified). Empty list
+#'   when \code{citations} is empty.
+#' @export
+make_quotes_from_citations <- function(citations, documents,
+                                        attributed_theme_id = NA_character_,
+                                        attributed_code_id = NA_character_,
+                                        ai_model = NA_character_,
+                                        ai_call_id = NA_character_,
+                                        ai_paraphrase = NA_character_,
+                                        source_doc_type_default = "data_entry") {
+  if (length(citations) == 0L) return(list())
+  lapply(citations, function(c) {
+    make_quote_from_citation(
+      c, documents,
+      attributed_theme_id = attributed_theme_id,
+      attributed_code_id  = attributed_code_id,
+      ai_model            = ai_model,
+      ai_call_id          = ai_call_id,
+      ai_paraphrase       = ai_paraphrase,
+      source_doc_type_default = source_doc_type_default
+    )
+  })
+}
+
+# ==============================================================================
 # Verification ladder
 # ==============================================================================
 

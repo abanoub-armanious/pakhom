@@ -10,7 +10,8 @@ ai_complete_fast(
   system_prompt = NULL,
   task = "sentiment",
   json_mode = FALSE,
-  response_schema = NULL
+  response_schema = NULL,
+  documents = NULL
 )
 }
 \arguments{
@@ -23,6 +24,11 @@ ai_complete_fast(
 \item{task}{Task name}
 
 \item{json_mode}{JSON mode}
+
+\item{response_schema}{Optional JSON schema (see \code{\link{ai_complete}})}
+
+\item{documents}{Optional source documents for Anthropic Citations API
+(see \code{\link{ai_complete}})}
 }
 \value{
 List of the same shape as \code{\link{ai_complete}}.
