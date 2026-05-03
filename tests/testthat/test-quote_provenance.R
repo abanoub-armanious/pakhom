@@ -659,3 +659,264 @@ test_that("make_quotes_from_citations propagates errors from individual citation
     "document_index"
   )
 })
+
+# ==============================================================================
+# Phase 21d: citation_source breakdown in the summary + Tier-0 dashboard
+# ==============================================================================
+# T0.1 part 3b dashboard work: quote_provenance_summary now exposes per-source
+# counts and per-source verification rates so the dashboard can distinguish
+# the PREVENTION layer (Anthropic Citations API: server-side-grounded) from
+# the DETECTION-only layer (model_freeform: model wrote a verbatim claim,
+# ladder verified offline).
+
+# Helper: build a list of QuoteProvenance objects with the desired
+# citation_source / verification_status mix, deterministically.
+.q_with_source_status <- function(source, status,
+                                    src_id = "doc1",
+                                    text = QUOTE_TEXT,
+                                    source_text = SRC,
+                                    start = 13L, end = 27L) {
+  q <- make_quote(src_id, "test", source_text, start, end, text,
+                   citation_source = source)
+  q$verification_status <- status
+  q$verification_method <- if (status == "verified_exact") "string_match"
+                            else if (status == "verified_fuzzy") "substring_search"
+                            else NA_character_
+  q$verification_score  <- if (status == "verified_exact") 1.0
+                            else if (status == "verified_fuzzy") 0.85
+                            else NA_real_
+  q
+}
+
+test_that("quote_provenance_summary computes by_citation_source breakdown", {
+  quotes <- list(
+    .q_with_source_status("anthropic_citations_api", "verified_exact"),
+    .q_with_source_status("anthropic_citations_api", "verified_exact"),
+    .q_with_source_status("anthropic_citations_api", "verified_fuzzy"),
+    .q_with_source_status("model_freeform",          "verified_exact"),
+    .q_with_source_status("model_freeform",          "fabricated")
+  )
+  s <- quote_provenance_summary(quotes)
+
+  # Source counts present and correct
+  expect_equal(s$by_citation_source[["anthropic_citations_api"]], 3L)
+  expect_equal(s$by_citation_source[["model_freeform"]],          2L)
+
+  # n_citations_api convenience accessor
+  expect_equal(s$n_citations_api, 3L)
+  # citations_api_rate = 3 / 5
+  expect_equal(s$citations_api_rate, 0.6)
+})
+
+test_that("quote_provenance_summary computes per-source verification rates", {
+  quotes <- list(
+    # citations API: 3/3 verified
+    .q_with_source_status("anthropic_citations_api", "verified_exact"),
+    .q_with_source_status("anthropic_citations_api", "verified_exact"),
+    .q_with_source_status("anthropic_citations_api", "verified_fuzzy"),
+    # model_freeform: 1/2 verified (1 fabricated)
+    .q_with_source_status("model_freeform",          "verified_exact"),
+    .q_with_source_status("model_freeform",          "fabricated")
+  )
+  s <- quote_provenance_summary(quotes)
+  expect_equal(s$verification_rate_by_source[["anthropic_citations_api"]], 1.0)
+  expect_equal(s$verification_rate_by_source[["model_freeform"]],          0.5)
+})
+
+test_that("quote_provenance_summary on empty quotes returns NA rates and zero counts (preserves shape)", {
+  s <- quote_provenance_summary(list())
+  expect_equal(s$total, 0L)
+  expect_equal(s$n_citations_api, 0L)
+  expect_identical(s$citations_api_rate, NA_real_)
+  expect_length(s$by_citation_source, 0L)
+  expect_length(s$verification_rate_by_source, 0L)
+})
+
+test_that(".build_tier0_source_block renders citations API first, then alphabetical", {
+  s <- list(
+    by_citation_source = c(model_freeform = 2L,
+                            anthropic_citations_api = 3L,
+                            human_supplied = 1L),
+    verification_rate_by_source = c(anthropic_citations_api = 1.0,
+                                     model_freeform = 0.5,
+                                     human_supplied = 1.0)
+  )
+  block <- pakhom:::.build_tier0_source_block(s)
+  expect_match(block, "Citation source breakdown")
+  expect_match(block, "Anthropic Citations API")
+  expect_match(block, "Model freeform")
+  expect_match(block, "Human-supplied")
+
+  # Citations API line appears before model_freeform line
+  pos_api <- regexpr("Anthropic Citations API", block)
+  pos_freeform <- regexpr("Model freeform", block)
+  expect_true(pos_api < pos_freeform)
+})
+
+test_that(".build_tier0_source_block shows percentages and verification rates", {
+  s <- list(
+    by_citation_source = c(anthropic_citations_api = 3L,
+                            model_freeform = 1L),
+    verification_rate_by_source = c(anthropic_citations_api = 1.0,
+                                     model_freeform = 0.0)  # all fabricated
+  )
+  block <- pakhom:::.build_tier0_source_block(s)
+  # 3 of 4 = 75%
+  expect_match(block, "75\\.0%")
+  # 1 of 4 = 25%
+  expect_match(block, "25\\.0%")
+  # citations_api: 100% verified
+  expect_match(block, "100\\.0% verified")
+  # model_freeform: 0% verified
+  expect_match(block, "0\\.0% verified")
+})
+
+test_that(".build_tier0_source_block returns empty string when no source breakdown", {
+  s <- list(by_citation_source = stats::setNames(integer(0), character(0)),
+            verification_rate_by_source = stats::setNames(numeric(0), character(0)))
+  expect_equal(pakhom:::.build_tier0_source_block(s), "")
+})
+
+test_that(".build_tier0_source_block falls back to source name on unknown labels", {
+  s <- list(
+    by_citation_source = c(future_source = 2L),
+    verification_rate_by_source = c(future_source = 0.5)
+  )
+  block <- pakhom:::.build_tier0_source_block(s)
+  expect_match(block, "future_source")
+})
+
+test_that(".build_tier0_dashboard now includes citation source breakdown and notes prevention layer", {
+  quotes <- list(
+    .q_with_source_status("anthropic_citations_api", "verified_exact"),
+    .q_with_source_status("anthropic_citations_api", "verified_fuzzy"),
+    .q_with_source_status("model_freeform",          "verified_exact")
+  )
+  s <- quote_provenance_summary(quotes)
+  md <- pakhom:::.build_tier0_dashboard(s)
+
+  # Mentions both layers
+  expect_match(md, "Anthropic Citations API")
+  expect_match(md, "prevention layer")
+  expect_match(md, "Citation source breakdown")
+  # Contains both source labels
+  expect_match(md, "Anthropic Citations API \\(prevention \\+ detection\\)")
+  expect_match(md, "Model freeform \\(detection only\\)")
+})
+
+# ==============================================================================
+# Integration test: end-to-end coding run on Anthropic produces a dashboard
+# with citation_source breakdown reflecting the run's prevention-layer use.
+# ==============================================================================
+
+test_that("End-to-end (mocked Anthropic): coding run -> stats -> dashboard shows citations API engaged", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  entry_text <- "I had trouble sleeping. The medication helps a lot."
+  mock_response <- jsonlite::toJSON(list(
+    skipped = FALSE, skip_reason = "",
+    coded_segments = list(
+      list(text = "trouble sleeping",
+           code = "NEW: sleep_diff", code_description = "x", code_type = "descriptive"),
+      list(text = "The medication helps",
+           code = "NEW: medication_efficacy", code_description = "y", code_type = "descriptive")
+    )
+  ), auto_unbox = TRUE)
+
+  testthat::local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt = NULL, task = "coding",
+                            model = NULL, temperature = NULL, max_tokens = NULL,
+                            json_mode = FALSE, max_retries = 3,
+                            response_schema = NULL, documents = NULL) {
+      list(
+        content    = mock_response, model = "claude-mock",
+        request_id = "r",
+        usage      = list(prompt_tokens = 1L, completion_tokens = 1L,
+                          total_tokens = 2L),
+        finish_reason = "stop", raw_response = list(),
+        prompt_hash   = "h",
+        citations     = list(
+          list(type = "char_location", cited_text = "trouble sleeping",
+               document_index = 0L, document_title = "e1",
+               start_char_index = 6L, end_char_index = 22L),
+          list(type = "char_location", cited_text = "The medication helps",
+               document_index = 0L, document_title = "e1",
+               start_char_index = 24L, end_char_index = 44L)
+        )
+      )
+    },
+    .package = "pakhom"
+  )
+
+  state <- create_coding_state()
+  state <- pakhom:::.code_entry_progressive(
+    text = entry_text, entry_id = "e1", entry_index = 1L,
+    state = state, provider = mock_provider("anthropic"),
+    config = list(max_retries_per_entry = 1L),
+    base_system_prompt = "test"
+  )
+
+  # Pipe through summary + dashboard
+  stats <- compute_quote_provenance_stats(state)
+  expect_equal(stats$total, 2L)
+  expect_equal(stats$n_citations_api, 2L)
+  expect_equal(stats$citations_api_rate, 1.0)
+  expect_equal(stats$verification_rate_by_source[["anthropic_citations_api"]], 1.0)
+
+  md <- pakhom:::.build_tier0_dashboard(stats)
+  expect_match(md, "Anthropic Citations API")
+  expect_match(md, "100\\.0% verified")
+  # No fabrications
+  expect_match(md, "No fabrications detected")
+})
+
+test_that("End-to-end (mocked OpenAI): dashboard shows model_freeform path engaged (regression)", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  entry_text <- "I had trouble sleeping after the medication."
+  mock_response <- jsonlite::toJSON(list(
+    skipped = FALSE, skip_reason = "",
+    coded_segments = list(list(
+      text = "trouble sleeping", start_char = 6L, end_char = 22L,
+      code = "NEW: sleep_diff", code_description = "x", code_type = "descriptive"
+    ))
+  ), auto_unbox = TRUE)
+
+  testthat::local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt = NULL, task = "coding",
+                            model = NULL, temperature = NULL, max_tokens = NULL,
+                            json_mode = FALSE, max_retries = 3,
+                            response_schema = NULL, documents = NULL) {
+      list(
+        content    = mock_response, model = "gpt-4o-mock",
+        request_id = "r",
+        usage      = list(prompt_tokens = 1L, completion_tokens = 1L,
+                          total_tokens = 2L),
+        finish_reason = "stop", raw_response = list(),
+        prompt_hash   = "h",
+        citations     = list()
+      )
+    },
+    .package = "pakhom"
+  )
+
+  state <- create_coding_state()
+  state <- pakhom:::.code_entry_progressive(
+    text = entry_text, entry_id = "e1", entry_index = 1L,
+    state = state, provider = mock_provider("openai"),
+    config = list(max_retries_per_entry = 1L),
+    base_system_prompt = "test"
+  )
+
+  stats <- compute_quote_provenance_stats(state)
+  expect_equal(stats$total, 1L)
+  expect_equal(stats$n_citations_api, 0L)
+  expect_equal(stats$citations_api_rate, 0)
+  # by_citation_source has model_freeform = 1
+  expect_equal(stats$by_citation_source[["model_freeform"]], 1L)
+
+  md <- pakhom:::.build_tier0_dashboard(stats)
+  expect_match(md, "Model freeform \\(detection only\\)")
+})

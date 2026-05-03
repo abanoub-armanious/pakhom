@@ -15,13 +15,37 @@ Named list:
 \item \code{total}: total quote count
 \item \code{by_status}: integer vector keyed by verification_status
 \item \code{by_method}: integer vector keyed by verification_method
+\item \code{by_citation_source}: integer vector keyed by
+\code{citation_source} (\code{"anthropic_citations_api"},
+\code{"model_freeform"}, etc.)
 \item \code{verification_rate}: proportion in either verified state
 \item \code{fabrication_rate}: proportion fabricated
 \item \code{drift_rate}: proportion drifted
+\item \code{verification_rate_by_source}: named numeric vector --
+per-citation_source verification rate (verified / total quotes
+with that source). Lets the dashboard expose the differential
+reliability of the prevention layer (citations API) vs the
+detection-only layer (model_freeform + ladder).
+\item \code{n_citations_api}: integer count of quotes with
+\code{citation_source == "anthropic_citations_api"}. Convenience
+accessor for the dashboard's headline KPI.
+\item \code{citations_api_rate}: proportion of quotes that came
+through the citations API path (vs. fell back to model_freeform).
+This is the package's empirical answer to "did the prevention
+layer actually engage on this run?".
 }
 }
 \description{
 Computes counts + rates from a list of verified quotes. Used by the
-upcoming T0.1 part 3 work to render a dashboard at the top of the
-generated report; usable today for programmatic introspection.
+Tier-0 dashboard (\code{\link{.build_tier0_dashboard}}) and usable
+programmatically for cross-run analyses (the methodology paper's KPIs
+draw from the same shape).
+}
+\details{
+Sprint-4 T0.1 part 3b adds the \code{by_citation_source} breakdown
+and \code{verification_rate_by_source} so the dashboard can distinguish
+Anthropic Citations API quotes (server-side-grounded by Anthropic plus
+client-verified by our ladder) from model-freeform quotes (client-
+verified only). Both are valid; the citations source is strictly
+stronger.
 }

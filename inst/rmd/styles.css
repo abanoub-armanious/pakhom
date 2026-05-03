@@ -355,6 +355,78 @@ a:hover {
 }
 
 /* ============================================
+   PARTICIPANT DISTRIBUTION (T0.2)
+   ============================================ */
+.participant-spread-card {
+  background: var(--bg-light);
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}
+
+.participant-spread-card .ps-header {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.6rem;
+}
+
+.participant-spread-card .ps-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+}
+
+.participant-spread-card .ps-stat {
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+}
+
+.participant-spread-card .ps-value {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.participant-spread-card .ps-value.ps-warn {
+  color: #C0392B;  /* warm red, signals concentration */
+}
+
+.participant-spread-card .ps-label {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-top: 0.15rem;
+}
+
+.participant-spread-card .ps-warning {
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  background: rgba(192, 57, 43, 0.08);
+  border-left: 3px solid #C0392B;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.participant-spread-card.participant-spread-unavailable {
+  background: rgba(0,0,0,0.02);
+}
+
+.participant-spread-card .ps-unavailable-note {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0;
+  font-style: italic;
+}
+
+/* ============================================
    QUOTE BOXES
    ============================================ */
 .quote-box {

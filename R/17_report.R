@@ -992,6 +992,14 @@ generate_report <- function(data, theme_set, correlations_df, insights,
       )
     }
 
+    # T0.2 participant distribution: count, Gini, top contributor share, with
+    # a concentration warning when one author dominates. Renders an
+    # "unavailable" variant when std_author isn't present (preserves the
+    # absence-as-signal pattern -- silent omission would itself be a
+    # methodology problem per Jowsey 2025).
+    content <- paste0(content,
+      .build_participant_spread_card(ts$participant_spread))
+
     # Representative quotes
     content <- paste0(content, "### Representative Voices\n\n")
     if (!is.null(ts$quotes_with_context) && length(ts$quotes_with_context) > 0) {
@@ -1039,6 +1047,120 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   }
 
   content
+}
+
+# ==============================================================================
+# Participant distribution card (Sprint-4 T0.2)
+# ==============================================================================
+
+#' Render the per-theme Participant Distribution card
+#'
+#' Empirical answer to Jowsey et al. 2025's Frankenstein finding that "none
+#' of the Copilot outputs reported the participant spread". Three metrics
+#' are surfaced as a meta card:
+#' \itemize{
+#'   \item \code{n_distinct_contributors} -- count of unique authors
+#'   \item \code{contributor_gini} -- Gini coefficient (0 = even, 1 = one
+#'     contributor takes everything)
+#'   \item \code{top_contributor_share} -- fraction from the most prolific
+#'     contributor (the "is this one person's theme?" check)
+#' }
+#'
+#' Concentration warnings:
+#' \itemize{
+#'   \item When \code{n_distinct_contributors == 1}, renders a "single
+#'     contributor" notice -- the theme has zero participant spread.
+#'   \item When \code{top_contributor_share > 0.5} (one contributor owns
+#'     more than half), renders a caution banner.
+#' }
+#'
+#' Unavailable variant: when \code{participant_spread$available} is FALSE
+#' (no \code{std_author} column in the data, or no non-NA author values
+#' for this theme), renders a "Participant data not available" notice.
+#' Silent omission is rejected because the absence itself carries
+#' methodological signal (a Tier-0 universal that explicitly cannot be
+#' computed must say so).
+#'
+#' @param ps participant_spread sub-list from
+#'   \code{aggregate_theme_statistics()} (or NULL/missing on legacy stats).
+#' @return Character HTML/markdown string for the card.
+#' @keywords internal
+.build_participant_spread_card <- function(ps) {
+  if (is.null(ps)) {
+    # Legacy stats objects predate T0.2 -- treat as unavailable rather
+    # than crashing.
+    return(paste0(
+      '<div class="participant-spread-card participant-spread-unavailable">\n',
+      '<div class="ps-header">Participant Distribution</div>\n',
+      '<p class="ps-unavailable-note">Author data not available for ',
+      'this analysis run.</p>\n',
+      '</div>\n\n'
+    ))
+  }
+
+  if (!isTRUE(ps$available)) {
+    return(paste0(
+      '<div class="participant-spread-card participant-spread-unavailable">\n',
+      '<div class="ps-header">Participant Distribution</div>\n',
+      '<p class="ps-unavailable-note">Author data not available for ',
+      'this dataset; participant-spread metrics cannot be computed. ',
+      'Per Tier-0 transparency policy this absence is reported rather ',
+      'than silently omitted.</p>\n',
+      '</div>\n\n'
+    ))
+  }
+
+  n_contrib <- ps$n_distinct_contributors %||% 0L
+  gini      <- ps$contributor_gini      %||% NA_real_
+  top_share <- ps$top_contributor_share %||% NA_real_
+
+  gini_str  <- if (is.na(gini))      "n/a" else sprintf("%.2f", gini)
+  share_str <- if (is.na(top_share)) "n/a" else sprintf("%.0f%%",
+                                                         100 * top_share)
+
+  # Concentration warning -- threshold tuned to flag themes that look
+  # prevalent but actually lean on one heavy poster. The single-contributor
+  # case is its own message because n=1 means top_share=1.0 by definition
+  # and the count itself is the warning.
+  warn_msg <- NULL
+  share_warn_class <- ""
+  if (n_contrib == 1L) {
+    warn_msg <- paste0(
+      "Single contributor only. This theme has no participant spread; ",
+      "treat findings as a single voice, not a community pattern."
+    )
+    share_warn_class <- "ps-warn"
+  } else if (!is.na(top_share) && top_share > 0.5) {
+    warn_msg <- paste0(
+      sprintf("%s of this theme's entries come from one contributor", share_str),
+      " (top contributor share > 50%). Consider whether the theme reflects ",
+      "a community pattern or a single user's framing."
+    )
+    share_warn_class <- "ps-warn"
+  }
+
+  paste0(
+    '<div class="participant-spread-card">\n',
+    '<div class="ps-header">Participant Distribution</div>\n',
+    '<div class="ps-stats">\n',
+    '<div class="ps-stat">',
+    '<span class="ps-value">', n_contrib, '</span>',
+    '<span class="ps-label">Distinct contributors</span>',
+    '</div>\n',
+    '<div class="ps-stat">',
+    '<span class="ps-value">', gini_str, '</span>',
+    '<span class="ps-label">Gini coefficient</span>',
+    '</div>\n',
+    '<div class="ps-stat">',
+    '<span class="ps-value ', share_warn_class, '">', share_str, '</span>',
+    '<span class="ps-label">Top contributor share</span>',
+    '</div>\n',
+    '</div>\n',
+    if (!is.null(warn_msg)) paste0(
+      '<div class="ps-warning">', .html_esc(warn_msg), '</div>\n'
+    ) else "",
+    '</div>\n\n'
+  )
 }
 
 

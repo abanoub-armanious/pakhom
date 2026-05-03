@@ -605,8 +605,16 @@ log_fabrication <- function(flog, quote) {
 #' Summarize quote provenance for the report's Tier-0 dashboard
 #'
 #' Computes counts + rates from a list of verified quotes. Used by the
-#' upcoming T0.1 part 3 work to render a dashboard at the top of the
-#' generated report; usable today for programmatic introspection.
+#' Tier-0 dashboard (\code{\link{.build_tier0_dashboard}}) and usable
+#' programmatically for cross-run analyses (the methodology paper's KPIs
+#' draw from the same shape).
+#'
+#' Sprint-4 T0.1 part 3b adds the \code{by_citation_source} breakdown
+#' and \code{verification_rate_by_source} so the dashboard can distinguish
+#' Anthropic Citations API quotes (server-side-grounded by Anthropic plus
+#' client-verified by our ladder) from model-freeform quotes (client-
+#' verified only). Both are valid; the citations source is strictly
+#' stronger.
 #'
 #' @param quotes List of QuoteProvenance objects (after \code{verify_quote}).
 #' @return Named list:
@@ -614,20 +622,39 @@ log_fabrication <- function(flog, quote) {
 #'     \item \code{total}: total quote count
 #'     \item \code{by_status}: integer vector keyed by verification_status
 #'     \item \code{by_method}: integer vector keyed by verification_method
+#'     \item \code{by_citation_source}: integer vector keyed by
+#'       \code{citation_source} (\code{"anthropic_citations_api"},
+#'       \code{"model_freeform"}, etc.)
 #'     \item \code{verification_rate}: proportion in either verified state
 #'     \item \code{fabrication_rate}: proportion fabricated
 #'     \item \code{drift_rate}: proportion drifted
+#'     \item \code{verification_rate_by_source}: named numeric vector --
+#'       per-citation_source verification rate (verified / total quotes
+#'       with that source). Lets the dashboard expose the differential
+#'       reliability of the prevention layer (citations API) vs the
+#'       detection-only layer (model_freeform + ladder).
+#'     \item \code{n_citations_api}: integer count of quotes with
+#'       \code{citation_source == "anthropic_citations_api"}. Convenience
+#'       accessor for the dashboard's headline KPI.
+#'     \item \code{citations_api_rate}: proportion of quotes that came
+#'       through the citations API path (vs. fell back to model_freeform).
+#'       This is the package's empirical answer to "did the prevention
+#'       layer actually engage on this run?".
 #'   }
 #' @export
 quote_provenance_summary <- function(quotes) {
   if (length(quotes) == 0L) {
     return(list(
-      total             = 0L,
-      by_status         = stats::setNames(integer(0), character(0)),
-      by_method         = stats::setNames(integer(0), character(0)),
-      verification_rate = NA_real_,
-      fabrication_rate  = NA_real_,
-      drift_rate        = NA_real_
+      total                       = 0L,
+      by_status                   = stats::setNames(integer(0), character(0)),
+      by_method                   = stats::setNames(integer(0), character(0)),
+      by_citation_source          = stats::setNames(integer(0), character(0)),
+      verification_rate           = NA_real_,
+      fabrication_rate            = NA_real_,
+      drift_rate                  = NA_real_,
+      verification_rate_by_source = stats::setNames(numeric(0), character(0)),
+      n_citations_api             = 0L,
+      citations_api_rate          = NA_real_
     ))
   }
 
@@ -635,21 +662,41 @@ quote_provenance_summary <- function(quotes) {
                      character(1))
   methods  <- vapply(quotes, function(q) q$verification_method %||% NA_character_,
                      character(1))
+  sources  <- vapply(quotes, function(q) q$citation_source %||% NA_character_,
+                     character(1))
 
   status_table <- table(statuses, useNA = "no")
   method_table <- table(methods,  useNA = "no")
+  source_table <- table(sources,  useNA = "no")
 
   n <- length(quotes)
+  is_verified <- statuses %in% c("verified_exact", "verified_fuzzy")
+
+  # Per-source verification rate. Avoids divide-by-zero when a source
+  # has zero entries (the table doesn't include it).
+  rate_by_source <- vapply(names(source_table), function(s) {
+    src_total <- sum(sources == s, na.rm = TRUE)
+    if (src_total == 0L) return(NA_real_)
+    sum(sources == s & is_verified, na.rm = TRUE) / src_total
+  }, numeric(1))
+  names(rate_by_source) <- names(source_table)
+
+  n_citations_api <- sum(sources == "anthropic_citations_api", na.rm = TRUE)
+
   list(
-    total             = n,
-    by_status         = as.integer(status_table) |>
-                          stats::setNames(names(status_table)),
-    by_method         = as.integer(method_table) |>
-                          stats::setNames(names(method_table)),
-    verification_rate = sum(statuses %in% c("verified_exact", "verified_fuzzy"),
-                             na.rm = TRUE) / n,
-    fabrication_rate  = sum(statuses == "fabricated", na.rm = TRUE) / n,
-    drift_rate        = sum(statuses == "drifted",   na.rm = TRUE) / n
+    total                       = n,
+    by_status                   = as.integer(status_table) |>
+                                    stats::setNames(names(status_table)),
+    by_method                   = as.integer(method_table) |>
+                                    stats::setNames(names(method_table)),
+    by_citation_source          = as.integer(source_table) |>
+                                    stats::setNames(names(source_table)),
+    verification_rate           = sum(is_verified, na.rm = TRUE) / n,
+    fabrication_rate            = sum(statuses == "fabricated", na.rm = TRUE) / n,
+    drift_rate                  = sum(statuses == "drifted",   na.rm = TRUE) / n,
+    verification_rate_by_source = rate_by_source,
+    n_citations_api             = as.integer(n_citations_api),
+    citations_api_rate          = n_citations_api / n
   )
 }
 

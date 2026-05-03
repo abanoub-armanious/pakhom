@@ -42,6 +42,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL) {
                          pct_negative = 0, pct_positive = 0),
         intensity = list(mean = NA_real_, sd = NA_real_),
         emotions = tibble(emotion = character(), n = integer(), pct = numeric()),
+        participant_spread = .empty_participant_spread(),
         keywords = t$keywords %||% character(0),
         subthemes = t$subthemes %||% character(0),
         subthemes_structured = t$subthemes_structured,
@@ -50,6 +51,12 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL) {
       )
       next
     }
+
+    # Participant spread (T0.2 -- Jowsey "Frankenstein" answer): per-theme
+    # counts of distinct contributors + Gini of the per-contributor entry-count
+    # distribution + share of the most prolific contributor. Lets the report
+    # surface themes that look prevalent but actually rest on one heavy poster.
+    participant_spread <- .compute_participant_spread(entries)
 
     # Sentiment stats
     sent <- list(
@@ -107,6 +114,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL) {
       sentiment = sent,
       intensity = intensity,
       emotions = emotions,
+      participant_spread = participant_spread,
       keywords = t$keywords %||% t$codes_included[seq_len(min(5, length(t$codes_included)))],
       subthemes = t$subthemes %||% character(0),
       subthemes_structured = t$subthemes_structured,
@@ -116,6 +124,124 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL) {
   }
 
   theme_stats
+}
+
+# ==============================================================================
+# Participant spread (Sprint-4 T0.2)
+# ==============================================================================
+# T0.2 answers Jowsey et al. 2025's empirical finding that "none of the
+# Copilot outputs reported the participant spread." Per-theme metrics:
+#   n_distinct_contributors -- how many unique authors contributed to this
+#     theme's entries
+#   contributor_gini        -- Gini coefficient of per-contributor entry-count
+#     distribution. 0.0 = each contributor has the same number of entries
+#     (perfectly equal); 1.0 = one contributor has all entries.
+#   top_contributor_share   -- fraction of theme's entries from the single
+#     most prolific contributor. Quick "is this one person's theme?" check.
+#
+# Without these, themes that look prevalent (n_entries high) can secretly
+# be one heavy poster repeating themselves. The Frankenstein paper made
+# this opacity non-negotiable; pakhom's Tier-0 commitment is to surface it
+# regardless of mode.
+#
+# Author column comes from std_author (set in R/07_data_loading.R based on
+# config column_mappings). When std_author is absent (anonymous data,
+# legacy runs, datasets that didn't supply an author column) the metrics
+# return their empty shape -- the report renders a "contributor data
+# unavailable" notice rather than crashing or silently dropping the
+# section.
+
+#' Compute participant spread metrics for a theme's entries
+#'
+#' @param entries tibble of entries belonging to this theme (must have
+#'   a \code{std_author} column when participant spread is desired; when
+#'   the column is missing or all NA, returns the empty-shape list).
+#' @return Named list:
+#'   \itemize{
+#'     \item \code{n_distinct_contributors}: integer count of unique non-NA
+#'       \code{std_author} values
+#'     \item \code{contributor_gini}: Gini coefficient (\code{NA_real_} when
+#'       there are no contributors or only one)
+#'     \item \code{top_contributor_share}: fraction of entries from the
+#'       single most prolific contributor (\code{NA_real_} when no
+#'       contributors)
+#'     \item \code{available}: logical -- TRUE when \code{std_author}
+#'       was usable, FALSE when absent or all NA. Lets downstream
+#'       rendering distinguish "no data" from "data shows even spread".
+#'   }
+#' @keywords internal
+.compute_participant_spread <- function(entries) {
+  if (!"std_author" %in% names(entries)) {
+    return(.empty_participant_spread())
+  }
+  authors <- entries$std_author
+  authors_nonna <- authors[!is.na(authors) & nzchar(as.character(authors))]
+  if (length(authors_nonna) == 0L) {
+    return(.empty_participant_spread())
+  }
+
+  counts <- as.integer(table(authors_nonna))
+  n_contrib <- length(counts)
+  total_entries <- sum(counts)
+
+  # Gini is undefined for n_contrib == 0; conventionally 0 for n_contrib == 1
+  # (no inequality possible with one value). We return NA in both cases so
+  # the dashboard distinguishes "1 contributor (Gini meaningless)" from
+  # "many contributors, perfectly even (Gini = 0)".
+  gini <- if (n_contrib >= 2L) .gini_coefficient(counts) else NA_real_
+  top_share <- max(counts) / total_entries
+
+  list(
+    n_distinct_contributors = n_contrib,
+    contributor_gini        = gini,
+    top_contributor_share   = top_share,
+    available               = TRUE
+  )
+}
+
+#' Empty-shape result for the participant-spread sub-list
+#'
+#' Used in two cases: themes with zero entries (no contributors to count),
+#' and entries datasets that don't carry an \code{std_author} column.
+#' Keeping a stable shape across those cases simplifies downstream rendering.
+#' @keywords internal
+.empty_participant_spread <- function() {
+  list(
+    n_distinct_contributors = 0L,
+    contributor_gini        = NA_real_,
+    top_contributor_share   = NA_real_,
+    available               = FALSE
+  )
+}
+
+#' Gini coefficient of a non-negative numeric vector
+#'
+#' Standard sample Gini based on the mean absolute difference, normalized
+#' to the unit interval. Returns 0 when all values are identical, NA when the input
+#' is empty / contains negatives / has zero sum.
+#'
+#' Implemented inline (rather than depending on \code{ineq}) because (a)
+#' Gini is a one-line formula not worth a 21st imported package and (b)
+#' pakhom's CRAN dependency footprint is already noted as accept-as-noise.
+#'
+#' @param x Non-negative numeric vector (per-contributor entry counts).
+#' @return Numeric Gini in the unit interval, or \code{NA_real_} on degenerate
+#'   inputs.
+#' @keywords internal
+.gini_coefficient <- function(x) {
+  if (length(x) == 0L) return(NA_real_)
+  if (any(is.na(x)) || any(x < 0)) return(NA_real_)
+  total <- sum(x)
+  if (total == 0) return(NA_real_)
+  n <- length(x)
+  # Sorted-values closed-form: G = (2 * sum(i * x[i])) / (n * sum(x)) - (n+1)/n
+  # where x is sorted ascending and i is 1-indexed. Equivalent to the
+  # mean-absolute-difference definition; numerically more stable for large n.
+  x_sorted <- sort(x)
+  weighted <- sum(seq_along(x_sorted) * x_sorted)
+  g <- (2 * weighted) / (n * total) - (n + 1) / n
+  # Numerical clamp -- closed-form can produce -1e-16 for perfectly equal x
+  max(0, min(1, g))
 }
 
 #' Aggregate overall analysis statistics for report
@@ -586,44 +712,95 @@ generate_downloads_section <- function(export_files, theme_stats) {
   if (nrow(valid) == 0) return(list())
 
   valid <- valid |> arrange(sentiment_score)
+  has_authors <- "std_author" %in% names(valid)
+  n_valid <- nrow(valid)
 
-  # Pick negative, neutral, positive representatives
+  # Sentiment-positioned target slots (most negative, median, most positive).
+  # NULL means "this slot can't be filled at this n_valid."
+  targets <- list(
+    most_negative = if (n_valid >= 1L) 1L else NULL,
+    median        = if (n_valid >= 3L) ceiling(n_valid / 2L) else NULL,
+    most_positive = if (n_valid >= 3L) n_valid else if (n_valid >= 2L) 2L else NULL
+  )
+
   quotes <- list()
+  taken_indices <- integer(0)
+  taken_authors <- character(0)
 
-  if (nrow(valid) >= 1) {
-    q <- valid[1, ]
-    quotes$most_negative <- list(
-      text = truncate_text(q[[text_col]], 300),
-      sentiment = round(q$sentiment_score, 2),
-      emotion = q$all_emotions %||% NA_character_
-    )
-  }
+  for (label in names(targets)) {
+    target_idx <- targets[[label]]
+    if (is.null(target_idx)) next
 
-  if (nrow(valid) >= 3) {
-    mid <- ceiling(nrow(valid) / 2)
-    q <- valid[mid, ]
-    quotes$median <- list(
-      text = truncate_text(q[[text_col]], 300),
-      sentiment = round(q$sentiment_score, 2),
-      emotion = q$all_emotions %||% NA_character_
+    # T0.2 spread-aware selection: prefer a row whose author is not already
+    # represented in this theme's quotes. Search expands outward from the
+    # target sentiment position so we keep the "most negative / median /
+    # most positive" framing as close as possible while diversifying. Falls
+    # back to target_idx when no alternative exists (single-contributor
+    # theme, no author data, all unique authors already taken).
+    chosen_idx <- .pick_quote_with_spread(
+      valid_df       = valid,
+      target_idx     = target_idx,
+      taken_indices  = taken_indices,
+      taken_authors  = taken_authors,
+      has_authors    = has_authors
     )
 
-    q <- valid[nrow(valid), ]
-    quotes$most_positive <- list(
-      text = truncate_text(q[[text_col]], 300),
+    q <- valid[chosen_idx, ]
+    quotes[[label]] <- list(
+      text      = truncate_text(q[[text_col]], 300),
       sentiment = round(q$sentiment_score, 2),
-      emotion = q$all_emotions %||% NA_character_
+      emotion   = q$all_emotions %||% NA_character_
     )
-  } else if (nrow(valid) == 2) {
-    q <- valid[2, ]
-    quotes$most_positive <- list(
-      text = truncate_text(q[[text_col]], 300),
-      sentiment = round(q$sentiment_score, 2),
-      emotion = q$all_emotions %||% NA_character_
-    )
+    taken_indices <- c(taken_indices, chosen_idx)
+    if (has_authors) {
+      a <- q$std_author
+      if (!is.null(a) && !is.na(a) && nzchar(as.character(a))) {
+        taken_authors <- c(taken_authors, as.character(a))
+      }
+    }
   }
 
   quotes
+}
+
+#' Pick a row near a sentiment-target index, preferring a new contributor
+#'
+#' Search order: target_idx, then expanding outward (target-1, target+1,
+#' target-2, target+2, ...) until we find a row that (a) hasn't been taken
+#' already by index, AND (b) is from an author not yet represented (or has
+#' no author data, which we treat as "neutral" and accept). When no winner
+#' is found, falls back to target_idx so the caller still gets SOMETHING --
+#' single-contributor or no-author-data themes degrade to the original
+#' behavior. This is the per-slot half of T0.2 spread-aware quote selection.
+#' @keywords internal
+.pick_quote_with_spread <- function(valid_df, target_idx, taken_indices,
+                                     taken_authors, has_authors) {
+  n <- nrow(valid_df)
+  if (target_idx < 1L || target_idx > n) return(target_idx)
+
+  # When there's no author data we just want the first non-taken-by-index
+  # row (preserves the old behavior for datasets without author columns).
+  is_acceptable <- function(idx) {
+    if (idx %in% taken_indices) return(FALSE)
+    if (!has_authors) return(TRUE)
+    a <- valid_df$std_author[idx]
+    if (is.null(a) || is.na(a) || !nzchar(as.character(a))) return(TRUE)
+    !(as.character(a) %in% taken_authors)
+  }
+
+  # Target first, then expanding outward in alternating directions.
+  if (is_acceptable(target_idx)) return(target_idx)
+  for (offset in seq_len(n)) {
+    for (direction in c(-1L, 1L)) {
+      cand <- target_idx + direction * offset
+      if (cand < 1L || cand > n) next
+      if (is_acceptable(cand)) return(cand)
+    }
+  }
+  # Nothing acceptable -- fallback to target_idx (single-contributor theme,
+  # all authors already taken). Caller will end up with a duplicate-author
+  # quote, which is the natural outcome when spread is genuinely unavailable.
+  target_idx
 }
 
 #' Count emotion occurrences across multi-label all_emotions column
@@ -770,13 +947,25 @@ generate_downloads_section <- function(export_files, theme_stats) {
     ""
   }
 
+  # Citation-source breakdown: distinguishes the PREVENTION layer (Anthropic
+  # Citations API: server-side-grounded quote spans) from the DETECTION-only
+  # layer (model_freeform: model wrote a verbatim claim, ladder verified
+  # offline). Both are admissible into the codebook; citations are strictly
+  # stronger evidence. The dashboard makes the distinction visible.
+  source_block <- .build_tier0_source_block(stats)
+
   paste0(
     '<div class="tier0-dashboard">\n\n',
     '## Data Integrity Dashboard (T0.1)\n\n',
     'This run subjected every AI-attributed verbatim claim to a four-step ',
     'verification ladder (strict string match -> normalized match -> substring ',
     'search -> embedding similarity) before admitting it into the codebook. ',
-    'This addresses the Jowsey et al. 2025 critique ',
+    'For Anthropic-provider runs, the verification ladder runs on top of the ',
+    '**Anthropic Citations API** -- which is the package\'s prevention layer ',
+    '(model returns server-side-guaranteed offsets into source documents ',
+    'instead of free-form quotes). The two layers compose: the API prevents ',
+    'fabrications, the ladder catches anything the API misses (corpus drift, ',
+    'encoding issues). Together they address the Jowsey et al. 2025 critique ',
     '(doi:10.1371/journal.pone.0330217) that LLM-for-thematic-analysis tools ',
     'cannot be trusted to refrain from fabricating Frankenstein quotes that ',
     'look verbatim but exist in no source.\n\n',
@@ -787,11 +976,69 @@ generate_downloads_section <- function(export_files, theme_stats) {
     sprintf("%.1f%%", pct_verified), ') -- ',
     n_exact, ' exact + ', n_fuzzy, ' fuzzy.\n',
     '- Verification methods: ', method_str, '.\n\n',
+    source_block,
     fab_line,
     drift_line,
     'See [`R/quote_provenance.R`](https://github.com/) for the verification ',
     'ladder implementation and the methodology paper for the empirical ',
     'justification of each ladder step\'s threshold.\n\n',
     '</div>\n\n'
+  )
+}
+
+#' Render the citation-source breakdown sub-block for the Tier-0 dashboard
+#'
+#' Distinguishes Anthropic Citations API quotes (PREVENTION layer:
+#' server-side-grounded offsets) from model_freeform quotes (DETECTION-only
+#' layer: model wrote a verbatim claim, ladder verified offline). Renders
+#' the per-source count and per-source verification rate so the dashboard
+#' shows both reliability dimensions at once.
+#'
+#' Returns "" (empty string) when there are no citation_source values
+#' (degenerate state -- shouldn't happen for normal runs but the dashboard
+#' should not crash on an unusual stats object).
+#' @keywords internal
+.build_tier0_source_block <- function(stats) {
+  by_source <- stats$by_citation_source
+  if (length(by_source) == 0L) return("")
+
+  rate_by_source <- stats$verification_rate_by_source %||%
+                      stats::setNames(numeric(0), character(0))
+
+  # Display order: citations API first (it's the headline win), then any
+  # other sources alphabetically. This makes the dashboard's "what
+  # happened" story read top-to-bottom: best evidence first.
+  source_order <- c(
+    "anthropic_citations_api",
+    sort(setdiff(names(by_source), "anthropic_citations_api"))
+  )
+  source_order <- intersect(source_order, names(by_source))
+
+  pretty_label <- function(s) {
+    switch(s,
+      "anthropic_citations_api" = "Anthropic Citations API (prevention + detection)",
+      "model_freeform"          = "Model freeform (detection only)",
+      "human_supplied"          = "Human-supplied",
+      "pipeline_derived"        = "Pipeline-derived",
+      s
+    )
+  }
+
+  total <- sum(by_source)
+
+  lines <- vapply(source_order, function(s) {
+    n_src <- as.integer(by_source[[s]])
+    pct_src <- 100 * n_src / max(total, 1)
+    rate_src <- rate_by_source[[s]] %||% NA_real_
+    rate_str <- if (is.na(rate_src)) "rate n/a" else
+                sprintf("%.1f%% verified", 100 * rate_src)
+    sprintf("- **%s**: %d (%.1f%%) -- %s",
+            pretty_label(s), n_src, pct_src, rate_str)
+  }, character(1))
+
+  paste0(
+    "**Citation source breakdown:**\n",
+    paste(lines, collapse = "\n"),
+    "\n\n"
   )
 }

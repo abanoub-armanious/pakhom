@@ -859,8 +859,9 @@ run_progressive_coding <- function(data, provider, config = list(),
 #'
 #' Pairs the model's segment with the corresponding citation by:
 #' \enumerate{
-#'   \item Emission-order match (citation[seg_index] -- the most common
-#'         success case when the model emits one citation per segment).
+#'   \item Emission-order match (\code{citations[[seg_index]]} -- the
+#'         most common success case when the model emits one citation
+#'         per segment).
 #'   \item Cited-text string match (handles cases where the model emits
 #'         citations in a different order than segments, or extra commentary
 #'         citations interleave with the JSON).

@@ -11,7 +11,16 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = FALSE
+  # All chunks in this getting-started vignette are illustrative -- they show
+  # how a user would invoke pakhom against their own data, API keys, and
+  # configuration. They are NOT runnable in the package-build environment
+  # because they reference user-supplied paths (e.g., "my_data.csv") and
+  # require live API credentials. Setting eval = FALSE prevents knitr from
+  # running them at vignette-build time; purl = FALSE prevents R CMD check's
+  # "running R code from vignettes" step from extracting and running them
+  # (Stangle/purl ignores eval = FALSE and respects purl = FALSE instead).
+  eval = FALSE,
+  purl = FALSE
 )
 ```
 
@@ -79,7 +88,7 @@ from where it left off.
 ### R and RStudio
 
 You need R (version 4.1 or higher) installed on your computer. We strongly
-recommend using [RStudio](https://posit.co/download/rstudio-desktop/),
+recommend using [RStudio](https://posit.co/download/rstudio-desktop),
 which provides a user-friendly interface for running R code.
 
 If you have never used R before: RStudio has a console pane (usually at the
