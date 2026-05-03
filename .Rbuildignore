@@ -1,0 +1,13 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^LICENSE\.md$
+^\.github$
+^config\.yaml$
+^outputs$
+^manual analyses$
+^.*\.db$
+^\.claude$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^notes$

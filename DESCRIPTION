@@ -1,0 +1,65 @@
+Package: pakhom
+Title: AI-Integrated Thematic Analysis Following Braun and Clarke
+Version: 1.0.0
+Authors@R: person(given = c("Abanoub", "J."), family = "Armanious",
+    role = c("aut", "cre"), email = "armaniousabanoub@gmail.com")
+Description: Conducts AI-assisted reflexive thematic analysis (Braun & Clarke,
+    2006) on online discussion forum data using OpenAI or Anthropic APIs. Features
+    codebook-first learning from previous manual analyses, progressive sequential
+    coding (one entry at a time), embedding-augmented iterative bottom-up theme
+    emergence with co-occurrence context, deterministic code-path theme assignment,
+    triangulated thematic saturation detection, and inter-model reliability via
+    cross-run comparison. Supports checkpoint/resume, mid-pipeline researcher
+    review (CSV or QDPX format), QDPX export for QDA software interoperability,
+    AI decision audit trails (JSONL), within-run longitudinal analysis, and
+    publication-quality HTML reports. The package name 'pakhom' (Coptic for
+    'eagle') honors Saint Pachomius the Great (c. 292-348 CE), whose written
+    Rule of communal discipline established the genre of methodology-as-written-
+    document, of which this package is a digital descendant. Development
+    assisted by Claude (Anthropic).
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports:
+    dplyr (>= 1.1.0),
+    tibble,
+    stringr,
+    readr,
+    jsonlite,
+    yaml,
+    DBI,
+    RSQLite,
+    httr2,
+    stringdist,
+    corrplot,
+    ggplot2,
+    scales,
+    rmarkdown,
+    knitr,
+    progress,
+    logger,
+    tictoc,
+    rlang,
+    tools,
+    xml2,
+    digest
+Suggests:
+    cli,
+    htmltools,
+    pdftools,
+    pkgdown,
+    purrr,
+    readxl,
+    shiny,
+    SnowballC,
+    stringi,
+    testthat (>= 3.0.0),
+    tidyr,
+    withr,
+    DT,
+    furrr,
+    future,
+    igraph
+VignetteBuilder: knitr
+Config/testthat/edition: 3

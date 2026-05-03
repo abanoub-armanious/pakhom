@@ -1,0 +1,11 @@
+std_id,std_text,sentiment_score,all_emotions,emotion_intensity,confidence,emerged_themes,source_table
+entry_001,I cannot sleep at all since starting this medication,-0.75,sadness,0.85,0.88,Sleep Deficits and Binge Vulnerability,posts
+entry_002,The side effects are manageable but annoying,-0.3,anger,0.5,0.78,Medication Side Effects and Tolerance,posts
+entry_003,I feel so anxious about my eating patterns,-0.5,sadness,0.6,0.82,Recovery and Coping Strategies,posts
+entry_004,Sleep has improved with melatonin supplement,0.6,joy,0.65,0.73,Sleep Deficits and Binge Vulnerability,posts
+entry_005,Nausea from the medication is terrible,-0.65,disgust,0.75,0.92,Medication Side Effects and Tolerance,comments
+entry_006,My binge eating is getting worse at night,-0.55,sadness,0.65,0.87,Sleep Deficits and Binge Vulnerability,comments
+entry_007,Starting to feel more in control of eating habits,0.65,trust,0.72,0.82,Recovery and Coping Strategies,posts
+entry_009,Sleep deprivation makes everything worse,-0.55,sadness,0.75,0.88,Sleep Deficits and Binge Vulnerability,comments
+entry_011,Therapy has been helping with my relationship with food,0.7,trust,0.8,0.85,Recovery and Coping Strategies,posts
+entry_012,The new medication dosage seems to work better,0.3,anticipation,0.5,0.70,Medication Side Effects and Tolerance,comments

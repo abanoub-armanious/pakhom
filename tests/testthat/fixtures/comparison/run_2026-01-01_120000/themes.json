@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Sleep Disruption and Binge Eating",
+    "description": "Poor sleep quality triggering binge eating episodes",
+    "entry_count": 5,
+    "prevalence": "35.7%",
+    "sentiment_tendency": "negative",
+    "codes_included": "poor sleep quality; binge eating triggers; nighttime eating"
+  },
+  {
+    "name": "Medication Side Effects",
+    "description": "Side effects from medications used to treat binge eating",
+    "entry_count": 4,
+    "prevalence": "28.6%",
+    "sentiment_tendency": "mixed",
+    "codes_included": "medication nausea; appetite suppression; GI issues"
+  },
+  {
+    "name": "Emotional Regulation Struggles",
+    "description": "Difficulty managing emotions leading to disordered eating",
+    "entry_count": 3,
+    "prevalence": "21.4%",
+    "sentiment_tendency": "negative",
+    "codes_included": "emotional eating; stress response; mood swings"
+  }
+]

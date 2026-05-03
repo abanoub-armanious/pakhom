@@ -1,0 +1,209 @@
+url: ~
+
+template:
+  bootstrap: 5
+  bootswatch: cosmo
+  bslib:
+    primary: "#2c3e50"
+
+# Author profile links (preferred over an after_body JS hack -- pkgdown
+# renders these into the author footer on every page natively, so the link
+# is server-rendered (no flicker) and survives any future pkgdown markup
+# changes.)
+authors:
+  Abanoub J. Armanious:
+    href: https://www.linkedin.com/in/abanoubarmanious/
+
+navbar:
+  structure:
+    left: [intro, reference, articles]
+    right: [search, linkedin, github]
+  components:
+    github:
+      icon: fa-github
+      href: https://github.com/abanoub-armanious/pakhom
+      aria-label: GitHub
+    linkedin:
+      icon: fa-linkedin
+      href: https://www.linkedin.com/in/abanoubarmanious/
+      aria-label: LinkedIn
+
+home:
+  title: "pakhom: AI-Integrated Reflexive Thematic Analysis"
+  description: >
+    An R package that automates Braun & Clarke reflexive thematic analysis
+    using OpenAI or Anthropic APIs. Supports learning from prior manual
+    studies, checkpoint/resume, researcher review points, and
+    publication-quality HTML reports.
+
+reference:
+  - title: "Run an Analysis"
+    desc: "Core entry points for running the pipeline"
+    contents:
+      - run_analysis
+      - load_config
+      - create_config
+      - config_wizard
+      - config_wizard_app
+
+  - title: "Configuration"
+    desc: "Configuration creation, validation, and defaults"
+    contents:
+      - default_config
+
+  - title: "Data Loading & Exploration"
+    desc: "Load data from SQLite and explore databases"
+    contents:
+      - load_data
+      - explore_database
+      - detect_variable_types
+
+  - title: "AI Provider"
+    desc: "AI provider abstraction for OpenAI and Anthropic"
+    contents:
+      - create_ai_provider
+
+  - title: "Pipeline Steps"
+    desc: "Individual analysis steps (called by run_analysis)"
+    contents:
+      - run_progressive_coding
+      - create_coding_state
+      - get_analytic_sample
+      - analyze_sentiment
+      - generate_themes_iterative
+      - cascade_theme_assignments
+      - enrich_themes
+      - calculate_correlations
+
+  - title: "Themes & Theme Data"
+    desc: "Working with ThemeSet objects"
+    contents:
+      - create_theme_set
+      - theme_names
+      - n_themes
+      - theme_set_to_tibble
+      - normalize_theme_result
+      - prune_empty_themes
+
+  - title: "Checkpoint & Resume"
+    desc: "Save and restore pipeline progress"
+    contents:
+      - init_checkpoints
+
+  - title: "Manuscript Learning"
+    desc: "Learn from prior manual thematic analyses"
+    contents:
+      - load_previous_studies
+      - generate_learning_context
+      - generate_learning_reflection
+
+  - title: "Human Verification"
+    desc: "Inter-rater reliability and code verification"
+    contents:
+      - run_human_verification
+      - verify_excerpts
+
+  - title: "Report & Export"
+    desc: "HTML report, CSV/JSON exports, and QDA-software interoperability"
+    contents:
+      - generate_report
+      - export_results
+      - export_qdpx
+
+  - title: "Comparison"
+    desc: "Compare results across pipeline runs and across AI models"
+    contents:
+      - compare_runs
+      - compare_models
+      - list_available_runs
+      - compare_theme_groups
+
+  - title: "Temporal Analysis"
+    desc: "Within-run longitudinal analysis when entries have timestamps"
+    contents:
+      - analyze_temporal_patterns
+      - generate_temporal_plots
+
+  - title: "Audit Log"
+    desc: "JSONL trail of every AI decision for post-hoc transparency review"
+    contents:
+      - init_audit_log
+      - close_audit_log
+
+  - title: "Statistical Analysis"
+    desc: "Correlation and co-occurrence helpers"
+    contents:
+      - aggregate_overall_statistics
+      - aggregate_theme_statistics
+      - test_theme_cooccurrence
+      - create_theme_network
+
+  - title: "Scraper"
+    desc: "Reddit data collection"
+    contents:
+      - scrape_reddit
+
+  - title: "Pipeline Integrity"
+    desc: "Verify pipeline run integrity"
+    contents:
+      - verify_run_integrity
+
+  - title: "Internal Helpers"
+    desc: "Internal functions used by the pipeline (not typically called directly)"
+    contents:
+      - starts_with(".")
+      - ai_complete
+      - ai_complete_fast
+      - as_coding_results
+      - compute_coding_benchmarks
+      - compute_dynamic_batches
+      - compute_embeddings
+      - create_correlation_plot
+      - detect_columns
+      - discover_study_folders
+      - enrich_themes
+      - estimate_tokens
+      - export_theme_entry_csvs
+      - extract_manuscript_sections
+      - extract_significant
+      - find_latest_run
+      - find_resume_point
+      - generate_ai_synthesis
+      - generate_downloads_section
+      - generate_insights
+      - generate_run_id
+      - generate_saturation_plot
+      - generate_theme_detail_section
+      - get_emotion_interpretation
+      - hash_config
+      - interpret_correlations
+      - list_checkpoints
+      - load_and_combine_tables
+      - load_checkpoint
+      - make_anchor_id
+      - make_safe_filename
+      - "null-coalesce"
+      - parse_codebook
+      - parse_json_safely
+      - parse_manuscript
+      - parse_raw_data_files
+      - prepare_correlation_data
+      - preprocess_text
+      - review_progressive_codebook
+      - review_themes
+      - safe_progress_bar
+      - save_checkpoint
+      - save_partial_checkpoint
+      - standardize_data
+      - pakhom-package
+      - truncate_text
+      - validate_class
+      - validate_config
+      - validate_data_columns
+      - validate_provider
+
+articles:
+  - title: "Getting Started"
+    navbar: "Getting Started"
+    contents:
+      - getting-started

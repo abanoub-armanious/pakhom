@@ -1,0 +1,664 @@
+# Getting Started with pakhom
+
+## What is pakhom?
+
+**pakhom** is an R package that automates reflexive thematic
+analysis (Braun & Clarke, 2006) using AI. It takes a dataset of text
+entries (e.g., forum posts, survey responses, interview transcripts) and
+produces a publication-quality HTML report containing themes, codes,
+sentiment analysis, correlation analysis, and supporting evidence.
+
+You give it your data and your research question. It gives you back a
+complete thematic analysis – including the kinds of tables, figures, and
+statistical tests you would normally produce by hand over weeks of
+manual coding.
+
+### Who is this for?
+
+Researchers who:
+
+- Are conducting qualitative or mixed-methods research with large text
+  datasets
+- Want to use AI to assist (not replace) their analytical process
+- May or may not have deep experience with R programming
+- Want reproducible, transparent, and auditable thematic analysis
+
+### What does it actually do?
+
+The package runs a pipeline that mirrors how manual reflexive thematic
+analysis works:
+
+1.  **Codebook-first learning** – Learns from your previous manual
+    analyses (QDPX/NVivo codebooks, Excel, CSV) including the full code
+    hierarchy, entry-level coding examples, and discarded codes
+2.  **Data loading** – Reads from a SQLite database (one or more tables)
+3.  **Progressive sequential coding** – AI reads each entry one at a
+    time, coding applicable text segments and skipping irrelevant
+    content. Builds a growing codebook as it goes (no relevance filter,
+    no batch coding, no consolidation step)
+4.  **Researcher review** (optional) – You curate the codebook before
+    theming
+5.  **Code-aware sentiment analysis** – AI assigns sentiment scores
+    using the codes assigned to each entry as context for more accurate
+    scoring
+6.  **Iterative bottom-up theme generation** – Codes are merged in
+    multiple passes until no more productive groupings exist. Themes and
+    subthemes emerge organically from the merge depth
+7.  **Deterministic theme cascading** – Entry-to-theme assignment flows
+    through the code hierarchy (pure R, no AI re-reading of entries)
+8.  **Correlation analysis** – Statistical tests between themes and
+    variables
+9.  **Report generation** – Produces an interactive HTML report
+
+At multiple points, the pipeline can **pause** and let you review and
+modify its decisions before proceeding. You can also **stop and resume**
+at any time – the system tracks which entries have been processed and
+continues from where it left off.
+
+------------------------------------------------------------------------
+
+## Prerequisites
+
+### R and RStudio
+
+You need R (version 4.1 or higher) installed on your computer. We
+strongly recommend using
+[RStudio](https://posit.co/download/rstudio-desktop/), which provides a
+user-friendly interface for running R code.
+
+If you have never used R before: RStudio has a console pane (usually at
+the bottom left) where you type commands and press Enter to run them.
+That is all you need to know to use this package.
+
+### An AI API Key
+
+pakhom uses AI services to analyze your text. You need an API key
+from one of these providers:
+
+- **OpenAI** (recommended for beginners): Sign up at
+  [platform.openai.com](https://platform.openai.com). Go to API Keys and
+  create one. It will look like `sk-proj-...`.
+- **Anthropic**: Sign up at
+  [console.anthropic.com](https://console.anthropic.com). Create an API
+  key. It will look like `sk-ant-...`.
+
+Both services charge per use. A typical analysis of ~500 entries costs
+approximately \$2–5 USD.
+
+**Important:** Never share your API key or commit it to version control.
+The package reads it from an environment variable (explained below).
+
+### Your Data
+
+Your text data must be in a **SQLite database** (a `.db` file). If your
+data is currently in CSV, Excel, or another format, you can convert it:
+
+``` r
+# Convert a CSV to SQLite
+library(DBI)
+library(RSQLite)
+
+db <- dbConnect(SQLite(), "my_data.db")
+my_data <- read.csv("my_data.csv")
+dbWriteTable(db, "posts", my_data)
+dbDisconnect(db)
+```
+
+Each row in your table should represent one text entry (e.g., one forum
+post, one survey response). You need at minimum a column containing the
+text content.
+
+### Optional: Reddit API Access (only if you’ll use the built-in scraper)
+
+The package includes an optional Reddit scraper
+([`scrape_reddit()`](../reference/scrape_reddit.md)) that can populate
+your SQLite database directly. **You don’t need this if your data is
+already prepared.** If you do want to use it, note that as of November
+2025 Reddit no longer offers self-service API key creation — you must
+first be approved through Reddit’s Responsible Builder Program:
+
+- Review the policy:
+  <https://support.reddithelp.com/hc/en-us/articles/42728983564564-Responsible-Builder-Policy>
+- File a support ticket describing your use case (subreddits, expected
+  request volume, whether commercial vs academic). Target turnaround is
+  ~7 days for academic / non-commercial research.
+- For sensitive-population subreddits (e.g. anything health-related),
+  Reddit reviewers significantly favor applications that cite IRB
+  approval or an exemption letter from your institution.
+- Once approved, store credentials in `.Renviron`:
+  `REDDIT_CLIENT_ID=your_id_here REDDIT_CLIENT_SECRET=your_secret_here REDDIT_USER_AGENT=pakhom/1.0.0 (by u/YourRedditUsername)`
+- In your config: `scraping.enabled: true` plus the list of subreddits.
+
+If approval is pending or you’d rather skip the scraper, just leave
+`scraping.enabled: false` (the default) and load your own data into a
+SQLite `.db` file using whatever method you prefer.
+
+------------------------------------------------------------------------
+
+## Installation
+
+``` r
+# Install from a local copy of the package:
+devtools::install("path/to/pakhom")
+
+# Or if hosted on GitHub:
+# devtools::install_github("username/pakhom")
+```
+
+If you see errors about missing packages, install them first:
+
+``` r
+install.packages(c("dplyr", "tibble", "stringr", "readr", "jsonlite",
+                    "yaml", "DBI", "RSQLite", "httr2", "stringdist",
+                    "corrplot", "ggplot2", "rmarkdown", "knitr",
+                    "progress", "logger", "tictoc", "rlang"))
+```
+
+------------------------------------------------------------------------
+
+## Step 1: Set Your API Key
+
+The safest way to store your API key is in an `.Renviron` file. This
+file lives in your home directory and is read automatically when R
+starts.
+
+**On Mac/Linux**, open a terminal and run:
+
+``` bash
+echo 'OPENAI_API_KEY=sk-proj-your-key-here' >> ~/.Renviron
+```
+
+**On Windows**, run this in R:
+
+``` r
+# This opens the file for editing
+usethis::edit_r_environ()
+# Add the line: OPENAI_API_KEY=sk-proj-your-key-here
+# Save and restart R
+```
+
+Verify it works:
+
+``` r
+Sys.getenv("OPENAI_API_KEY")
+# Should print your key (not an empty string)
+```
+
+For Anthropic, use `ANTHROPIC_API_KEY` instead.
+
+------------------------------------------------------------------------
+
+## Step 2: Create Your Configuration File
+
+The configuration file (`config.yaml`) tells pakhom everything it
+needs to know about your study. You have three options:
+
+### Option A: Web-Based Wizard (Recommended)
+
+``` r
+library(pakhom)
+config_wizard_app("config.yaml")
+```
+
+This opens a step-by-step web interface in your browser where you can
+fill in every setting with descriptions, validation, and live YAML
+preview. When done, it saves the file. Requires the `shiny` package
+(`install.packages("shiny")`).
+
+### Option B: CLI Wizard
+
+``` r
+config_wizard("config.yaml")
+```
+
+A simpler text-based wizard that runs in your R console.
+
+### Option C: Write it Manually
+
+Create a file called `config.yaml` in your project directory. Here is a
+minimal example:
+
+``` yaml
+study:
+  name: "My Research Study"
+  research_focus: "How does medication affect the interplay between sleep and binge eating?"
+  research_context: "Online forum discussions from Reddit"
+  concepts:
+    - "medication"
+    - "sleep"
+    - "binge eating"
+
+ai:
+  provider: "openai"
+  openai:
+    api_key_env: "OPENAI_API_KEY"
+
+data:
+  database: "my_data.db"
+  tables: "posts"
+  source_type: "reddit"
+
+output:
+  results_dir: "outputs/results"
+  generate_report: true
+```
+
+### Understanding the Key Settings
+
+**`study.research_focus`** – This is the most important setting. It
+tells the AI what your research question is. Be specific. Instead of
+“sleep problems,” write “How does medication affect the interplay
+between sleep quality and binge eating behaviors?”
+
+**`study.concepts`** – The key concepts in your study. These help the AI
+generate more targeted codes focused on the research question. List 2–5
+concepts.
+
+**`ai.provider`** – Either `"openai"` or `"anthropic"`. OpenAI’s GPT-4o
+is the default and works well for most studies.
+
+**`data.source_type`** – Tells the package how to preprocess your data.
+Options: `"reddit"`, `"twitter"`, `"clinical"`, `"generic"`. If unsure,
+use `"generic"`.
+
+------------------------------------------------------------------------
+
+## Step 3: Explore Your Data
+
+Before running the analysis, preview what is in your database:
+
+``` r
+library(pakhom)
+
+config <- load_config("config.yaml")
+explore_database(config$data$database)
+```
+
+This shows you which tables exist, how many rows each has, and what
+columns are available. Verify that the text column contains the content
+you expect.
+
+------------------------------------------------------------------------
+
+## Step 4: Run the Analysis
+
+``` r
+results <- run_analysis("config.yaml")
+```
+
+This runs the full pipeline. Depending on your dataset size, it may take
+10–30 minutes. You will see progress messages in the console showing
+which step is currently running.
+
+**If something goes wrong mid-run** (network error, computer crash,
+etc.), simply re-run with `resume = TRUE`:
+
+``` r
+results <- run_analysis("config.yaml", resume = TRUE)
+```
+
+The package saves checkpoints after each expensive step. Resuming skips
+already-completed steps and continues from where it left off.
+
+------------------------------------------------------------------------
+
+## Step 5: Review Your Results
+
+### The HTML Report
+
+The pipeline generates an interactive HTML report at
+`outputs/results/<run_id>/analysis_report.html`. Open it in your web
+browser. It contains:
+
+- Study overview and methodology description
+- Sentiment distribution with histograms
+- Full theme descriptions with supporting quotes and code lists
+- Correlation matrix and significant findings
+- Statistical test results (Mann-Whitney U, Chi-square)
+- Detailed per-theme entry tables
+
+### Exported Data Files
+
+All results are also exported as machine-readable files:
+
+| File | Contents |
+|----|----|
+| `sentiment_scores.csv` | Every entry with sentiment score, emotion, intensity |
+| `consolidated_codes.csv` | Codebook with all codes and frequencies |
+| `correlations.csv` | All pairwise correlation results |
+| `themes.json` | Complete theme definitions (name, description, codes, quotes) |
+| `theme_entries/` | One CSV per theme containing its assigned entries |
+
+### Working with Results in R
+
+``` r
+# Access the theme set
+ts <- results$theme_set
+theme_names(ts)          # List theme names
+n_themes(ts)             # Count themes
+theme_set_to_tibble(ts)  # Convert to a data frame
+
+# Access the analyzed data (the entries that received codes,
+# enriched with sentiment, emotion, and theme columns)
+analyzed <- results$analytic_data
+# Each row now has columns including:
+#   sentiment_score, all_emotions, emotion_intensity,
+#   emerged_themes (semicolon-separated theme names for this entry),
+#   n_themes (count of themes the entry belongs to),
+#   theme_membership_<ThemeName> (one binary 0/1 column per theme,
+#                                  for multi-label correlation analysis)
+
+# Access correlations
+corr <- results$correlations
+significant <- corr[corr$significant == TRUE, ]
+```
+
+------------------------------------------------------------------------
+
+## Researcher Review Points (Human-in-the-Loop)
+
+By default, the pipeline runs end-to-end without stopping. But for
+rigorous research, you often want to review and curate the AI’s
+decisions at critical points. Enable review points in your config:
+
+``` yaml
+analysis:
+  review_points:
+    after_coding: true          # Review codebook after progressive coding
+    after_themes: true          # Review themes before assignment
+```
+
+### How Review Points Work
+
+When a review point is enabled, the pipeline:
+
+1.  Exports a CSV to `<output_dir>/researcher_review/`
+2.  Logs a message telling you which file to review
+3.  Continues running (so downstream steps still proceed with unreviewed
+    data)
+
+To apply your review:
+
+1.  Open the exported CSV in Excel, Google Sheets, or any spreadsheet
+    tool
+2.  Fill in the action columns (instructions are in the console output)
+3.  Save the reviewed file with the name indicated (e.g.,
+    `codebook_reviewed.csv`)
+4.  Re-run the pipeline with `resume = TRUE`
+
+The pipeline detects the reviewed file and applies your modifications.
+
+### Review Point A: Codebook (after progressive coding)
+
+After progressive coding completes, the pipeline exports
+`codebook_review.csv` with columns: `code_key`, `code_name`,
+`description`, `frequency`, `n_entries`, `code_type`, `action`,
+`new_name`, `merge_into`.
+
+For each code, set `action` to:
+
+- `keep` – Keep as-is (optionally set `new_name` to rename it)
+- `delete` – Remove this code entirely
+- `merge` – Merge into another code (set `merge_into` to the target code
+  name)
+- Leave empty to keep unchanged
+
+### Review Point B: Themes (after theme generation)
+
+After theme generation, the pipeline exports `themes_review.csv` with
+columns: `theme_name`, `description`, `codes_included`, `action`,
+`new_name`, `new_description`, `merge_into`.
+
+Actions are the same as for codes: `keep`, `delete`, or `merge`.
+
+------------------------------------------------------------------------
+
+## Learning from Previous Studies
+
+If you have previously completed manual thematic analyses, pakhom
+can learn from them to produce more consistent and calibrated results.
+
+### Setting Up
+
+Place your prior analysis manuscripts (DOCX or PDF) in a folder. Each
+study should have its own subfolder ending with the word “study”:
+
+    manual analyses/
+      dayvigo_study/
+        manuscript.docx     <- Your completed analysis
+        raw data/           <- Optional: original coded entries
+          2024-01-15_user1_Rating 4.5.docx
+          2024-02-20_user2_Rating 3.0.docx
+      ozempic_study/
+        manuscript.docx
+        raw data/
+
+### Configuring
+
+``` yaml
+learning:
+  enabled: true
+  base_dir: "manual analyses"
+```
+
+The AI reads the themes and results sections from your manuscripts and
+uses them as calibration data. This helps it understand what level of
+specificity and depth you expect in themes, and what kinds of codes are
+relevant to your research area.
+
+------------------------------------------------------------------------
+
+## Advanced Configuration
+
+### Full Configuration Reference
+
+``` yaml
+study:
+  name: "Study Name"
+  research_focus: "Your research question"
+  research_context: "Context description"
+  concepts: ["concept1", "concept2", "concept3"]
+  researcher_positionality: "Optional: your perspective as researcher"
+
+ai:
+  provider: "openai"              # "openai" or "anthropic"
+  openai:
+    api_key_env: "OPENAI_API_KEY" # Environment variable name
+    models:
+      primary: "gpt-4o"           # Main analysis model
+      fast: "gpt-4o-mini"         # Used for batch operations
+    rate_limits:
+      rpm: 500                    # Requests per minute
+      tpm: 150000                 # Tokens per minute
+
+data:
+  database: "data.db"
+  tables: "posts"                 # Single table or list of tables
+  source_type: "reddit"           # reddit, twitter, clinical, generic
+  preprocessing:
+    min_char: 50                  # Minimum characters to keep an entry
+    saturation_enabled: true       # Enable thematic saturation detection
+
+learning:
+  enabled: false
+  base_dir: "manual analyses"
+
+analysis:
+  test_mode:
+    enabled: false                # Set true for quick validation runs
+    sample_size: 100
+    seed: 42
+
+  coding:
+    progressive: true             # One entry at a time (sequential coding)
+    include_in_vivo: true
+    max_retries_per_entry: 1
+    checkpoint_interval: 50       # Save progress every N entries
+
+  sentiment:
+    code_aware: true              # Use codes as context for sentiment
+    batch_size: 20
+    dynamic_batching: true
+
+  themes:
+    merge_strategy: "auto"        # "auto" or "manual" (pause each pass)
+    max_merge_passes: 5
+    min_merges_to_continue: 2
+
+  human_verification:
+    enabled: false                # Enable for inter-rater reliability
+    sample_size: 20
+    seed: 42
+
+  review_points:
+    after_coding: false           # Pause for codebook review
+    after_themes: false           # Pause for theme review
+
+  themes:
+    min_themes: 3
+    max_themes: 10
+    multi_label_assignment: true  # Allow entries in multiple themes
+    membership_threshold: 0.15   # Minimum confidence for theme membership
+    max_theme_proportion: 0.60   # Max fraction of entries in one theme
+    max_rebalance_iterations: 3
+    review_iterations: 2
+
+  correlations:
+    method: "spearman"
+    adjust_method: "bonferroni"
+    min_observations: 30
+    min_theme_entries: 5
+    dynamic_method: true          # Auto-select method per variable pair
+
+output:
+  results_dir: "outputs/results"
+  generate_report: true
+  generate_correlation_plot: true
+  comparison_enabled: true
+
+logging:
+  log_level: "INFO"               # DEBUG, INFO, WARN, or ERROR
+```
+
+### Using Anthropic Instead of OpenAI
+
+``` yaml
+ai:
+  provider: "anthropic"
+  anthropic:
+    api_key_env: "ANTHROPIC_API_KEY"
+    models:
+      primary: "claude-sonnet-4-20250514"
+      fast: "claude-sonnet-4-20250514"
+```
+
+### Multi-Table Analysis
+
+If your data spans multiple tables (e.g., posts and comments):
+
+``` yaml
+data:
+  database: "data.db"
+  tables:
+    - "posts"
+    - "comments"
+```
+
+The package loads and combines them, adding a `source_table` column.
+
+### Overriding Config at Runtime
+
+You can override any config setting without editing the YAML file:
+
+``` r
+results <- run_analysis("config.yaml", config_overrides = list(
+  "ai.provider" = "anthropic",
+  "analysis.test_mode.enabled" = TRUE,
+  "analysis.test_mode.sample_size" = 50
+))
+```
+
+------------------------------------------------------------------------
+
+## Comparing Runs
+
+After running the analysis multiple times (e.g., with different configs,
+different AI providers, or updated data), you can compare results:
+
+``` r
+runs <- list_available_runs("outputs/results")
+comparison <- compare_runs("outputs/results/latest", "outputs/results")
+print(comparison)
+```
+
+The comparison shows:
+
+- Theme stability across runs (which themes persist, which are new)
+- Sentiment distribution changes
+- Code evolution (new codes, dropped codes)
+- Entry migration between themes
+
+------------------------------------------------------------------------
+
+## Troubleshooting
+
+### “API rate limit exceeded”
+
+The package handles rate limits automatically with exponential backoff.
+If you consistently hit limits, reduce the sentiment batch size:
+
+``` yaml
+analysis:
+  sentiment:
+    batch_size: 10    # Default is 20
+```
+
+Progressive coding processes one entry at a time, so batch size only
+applies to sentiment analysis.
+
+### Pipeline interrupted mid-run
+
+Re-run with `resume = TRUE`. The checkpoint system saves progress after
+each expensive step. You will not be charged again for already-completed
+work.
+
+``` r
+results <- run_analysis("config.yaml", resume = TRUE)
+```
+
+### Report fails to render
+
+The HTML report requires `pandoc`. RStudio bundles pandoc automatically.
+If running R from the command line, install pandoc separately from
+[pandoc.org](https://pandoc.org/installing.html).
+
+### “Column not found” errors
+
+Run [`explore_database()`](../reference/explore_database.md) to verify
+your column names match what the package expects. The package
+auto-detects common column patterns, but unusual naming may require the
+`source_type: "generic"` setting.
+
+### Test mode for validation
+
+Before committing to a full run, validate your setup with test mode:
+
+``` r
+results <- run_analysis("config.yaml", config_overrides = list(
+  "analysis.test_mode.enabled" = TRUE,
+  "analysis.test_mode.sample_size" = 20,
+  "output.generate_report" = FALSE
+))
+```
+
+This runs the full pipeline on just 20 entries in a few minutes.
+
+------------------------------------------------------------------------
+
+## Citing pakhom
+
+If you use this package in published research, please cite:
+
+> [Armanious, A. J.](https://www.linkedin.com/in/abanoubarmanious/)
+> (2026). pakhom: AI-Integrated Thematic Analysis Following Braun
+> and Clarke \[R package\]. Version 1.0.0.

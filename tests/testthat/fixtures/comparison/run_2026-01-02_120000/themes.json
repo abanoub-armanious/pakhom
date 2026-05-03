@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Sleep Disruption and Binge Vulnerability",
+    "description": "Sleep problems increasing vulnerability to binge eating",
+    "entry_count": 6,
+    "prevalence": "40.0%",
+    "sentiment_tendency": "negative",
+    "codes_included": "poor sleep quality; binge eating triggers; nighttime eating; sleep deprivation effects"
+  },
+  {
+    "name": "Medication Side Effects and Tolerance",
+    "description": "Side effects and tolerance development with medications",
+    "entry_count": 3,
+    "prevalence": "20.0%",
+    "sentiment_tendency": "mixed",
+    "codes_included": "medication nausea; appetite suppression; GI issues; tolerance development"
+  },
+  {
+    "name": "Recovery and Coping Strategies",
+    "description": "Strategies for managing binge eating recovery",
+    "entry_count": 4,
+    "prevalence": "26.7%",
+    "sentiment_tendency": "positive",
+    "codes_included": "coping mechanisms; recovery progress; support systems"
+  }
+]

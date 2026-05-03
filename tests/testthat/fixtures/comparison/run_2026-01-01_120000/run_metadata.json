@@ -1,0 +1,11 @@
+{
+  "provider": "openai",
+  "model_primary": "gpt-4o",
+  "model_fast": "gpt-4o-mini",
+  "timestamp": "2026-01-01T12:00:00+0000",
+  "config_hash": "fixture-hash-1",
+  "study_name": "Fixture Study",
+  "research_focus": "fixture for cross-run comparison tests",
+  "package_version": "1.0.0",
+  "analysis_schema_version": "1.0"
+}

@@ -1,0 +1,12 @@
+citHeader("To cite pakhom in publications, use:")
+
+bibentry(
+  bibtype  = "Manual",
+  title    = "pakhom: AI-Integrated Thematic Analysis Following Braun and Clarke",
+  author   = person(given = c("Abanoub", "J."), family = "Armanious"),
+  year     = "2026",
+  note     = sprintf("R package version %s", meta$Version),
+  url      = "https://github.com/abanoub-armanious/pakhom"
+)
+
+citFooter("BibTeX users: the author field renders as 'Armanious, A. J.' in APA style.")

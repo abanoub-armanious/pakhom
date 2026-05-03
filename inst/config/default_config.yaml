@@ -1,0 +1,346 @@
+# =============================================================================
+# pakhom - Default Configuration Template
+# =============================================================================
+# Copy this file (e.g. `cp inst/config/default_config.yaml my_study.yaml`),
+# customize for your study, and pass the path to run_analysis().
+#
+# Three settings ARE REQUIRED before the pipeline can run:
+#   - study.research_focus : your research question
+#   - data.database        : path to a SQLite (.db) file
+#   - output.results_dir   : where the pipeline writes outputs
+#
+# All paths can be absolute or relative to the directory containing this
+# YAML file (paths are resolved at load_config() time).
+#
+# All values shown below mirror the runtime defaults returned by
+# default_config(). If you delete a key, the runtime default is used; you
+# only need to include the keys you want to override.
+#
+# Sensitive credentials (API keys, Reddit secrets) belong in .Renviron, not
+# here. The package reads them from environment variables by default.
+# =============================================================================
+
+
+# -----------------------------------------------------------------------------
+# Methodology
+# Multi-mode architecture (Sprint-4 / T1.3). Every run MUST declare its
+# methodological posture; there is intentionally no default. The mode
+# determines which AI behaviors are permitted, which artifacts are
+# mandatory, and which report sections are generated.
+#
+# Valid modes:
+#   reflexive_scaffold      AI as provocateur; researcher does all
+#                           meaning-making. Aligned with Braun & Clarke 2022
+#                           reflexive TA. Mandatory reflexive memos +
+#                           multi-timepoint positionality. AI never outputs
+#                           codes/themes as findings.
+#   codebook_collaborative  AI proposes codes; researcher gates each. Codebook
+#                           ships as deliverable. IRR + saturation as quality
+#                           diagnostics. For codebook TA / template TA.
+#   framework_applied       Researcher provides theoretical framework
+#                           (framework_spec_path); AI applies it; researcher
+#                           reviews. Anomaly tracking required. Absorbs
+#                           content-analytic use case via positivist framework.
+#
+# Run methodology_decision_aid() in R for help choosing.
+# -----------------------------------------------------------------------------
+methodology:
+  mode: ~                         # REQUIRED. One of: reflexive_scaffold,
+                                  # codebook_collaborative, framework_applied.
+  framework_spec_path: ~          # REQUIRED if mode = framework_applied.
+                                  # Path to a YAML/JSON describing constructs.
+  mode_locked_at: ~               # Auto-set on first finalized run (ISO 8601).
+  parent_run_id: ~                # Auto-set if this run continues from another.
+  mode_changed_from: ~            # Audit field if methodology changed mid-run.
+
+
+# -----------------------------------------------------------------------------
+# Audit (T1.4 / OS.5)
+# Controls how AI request/response provenance is captured. Disabling
+# capture_raw_responses saves storage but breaks replay_run() reproducibility.
+# -----------------------------------------------------------------------------
+audit:
+  capture_raw_responses: true
+  response_cache_dir: "api_responses"
+
+
+# -----------------------------------------------------------------------------
+# Memos (M1.3)
+# Reflexive memos as first-class analytic data. Mandatory in
+# reflexive_scaffold mode; optional in other modes. enabled: ~ means "derive
+# from mode" (resolved at run-start based on mandatory_for_modes).
+# -----------------------------------------------------------------------------
+memos:
+  enabled: ~
+  mandatory_for_modes: ["reflexive_scaffold"]
+  prompt_at: ["after_coding", "after_themes"]
+
+
+# -----------------------------------------------------------------------------
+# Study
+# Identity, research question, and reflexivity statements that will be
+# injected into AI prompts throughout the pipeline.
+# -----------------------------------------------------------------------------
+study:
+  name: "Untitled Study"
+  research_focus: ""              # REQUIRED. Your research question. Be specific.
+  research_context: ""            # Brief description of data source and population.
+  concepts: ~                     # Optional: 2-5 key concepts (list of strings).
+  researcher_positionality: ~     # Optional: your relevant expertise / standpoint.
+  research_paradigm: ~            # Optional: e.g. "critical realist", "pragmatist".
+  reflexive_notes: ~              # Optional: free-text notes on your assumptions.
+
+
+# -----------------------------------------------------------------------------
+# AI provider
+# Choose openai or anthropic; rate_limits should match your API tier.
+# -----------------------------------------------------------------------------
+ai:
+  provider: "openai"              # "openai" or "anthropic".
+
+  multi_model:
+    enabled: false                # Run multiple models in parallel for inter-model agreement.
+    models: []                    # List of {provider, model, api_key_env} entries.
+
+  openai:
+    api_key_env: "OPENAI_API_KEY" # Env var holding the key. Set in .Renviron, not here.
+    models:
+      primary: "gpt-4o"           # Used for coding, theming, merge passes.
+      fast: "gpt-4o-mini"         # Used for sentiment (lower cost, faster).
+      embedding: "text-embedding-3-small"   # Used for code-similarity context in theming.
+    rate_limits:                  # OpenAI Tier 3 defaults; raise for higher tiers.
+      requests_per_minute: 5000
+      tokens_per_minute: 800000
+      batch_size: 20
+      delay_between_batches: 0.5
+    context_window: 128000
+
+  anthropic:
+    api_key_env: "ANTHROPIC_API_KEY"
+    models:
+      primary: "claude-sonnet-4-20250514"
+      fast: "claude-sonnet-4-20250514"
+    rate_limits:
+      requests_per_minute: 1000
+      tokens_per_minute: 400000
+      batch_size: 10
+      delay_between_batches: 1.0
+    context_window: 200000
+
+  # Per-task token budgets; raise these if you see truncation warnings in logs.
+  max_tokens:
+    coding: 2000
+    theming: 4000
+    sentiment: 1500
+    review: 3000
+    insight: 1500
+    synthesis: 2000
+
+  # Per-task temperatures. Coding/theming use a small amount of creativity;
+  # sentiment is near-deterministic; insights and syntheses get a bit more.
+  temperature:
+    coding: 0.3
+    theming: 0.4
+    sentiment: 0.1
+    review: 0.3
+    insight: 0.4
+    synthesis: 0.4
+
+
+# -----------------------------------------------------------------------------
+# Data source
+# Where the pipeline reads input text from. SQLite database is required.
+# -----------------------------------------------------------------------------
+data:
+  source_type: "reddit"           # "reddit" / "twitter" / "clinical" / "generic"
+  database: ~                     # REQUIRED. Path to a SQLite .db file.
+  tables: ~                       # NULL = auto-detect; or list of table names.
+  custom_query: ~                 # Optional: SQL query overriding tables.
+  explicit_columns: ~             # Optional: list(text_column = "body", id_column = "post_id").
+
+  preprocessing:
+    remove_urls: true
+    remove_mentions: true
+    remove_hashtags: false
+    lowercase: false
+    min_text_length: 10
+    max_text_length: 10000
+    custom_cleaning_rules: []     # List of list(pattern, replacement) for project-specific cleanup.
+
+  # Auto-detection candidates per source_type. Edit if your column names differ.
+  column_mappings:
+    reddit:
+      id: ["post_id", "comment_id", "id"]
+      text: ["text", "comment_body", "body", "selftext"]
+      author: ["author", "username"]
+      timestamp: ["created_utc", "created", "date"]
+      metrics: ["score", "num_comments", "upvote_ratio"]
+    drugscom:
+      id: ["id", "review_id"]
+      text: ["review", "text", "comment"]
+      author: ["username", "author"]
+      timestamp: ["date", "created"]
+      metrics: ["rating", "likes", "useful_count"]
+    generic:
+      id: ["id"]
+      text: ["text", "content", "body", "comment"]
+      author: ["author", "user", "username"]
+      timestamp: ["date", "timestamp", "created"]
+      metrics: ["score", "rating", "likes"]
+
+
+# -----------------------------------------------------------------------------
+# Learning from prior studies (optional, opt-in)
+# When enabled, the package reads your previous manual codebooks (QDPX/NVivo,
+# Excel, CSV) and uses them to calibrate the AI's coding granularity.
+# Disabled by default because base_dir must be a real path on your disk.
+# -----------------------------------------------------------------------------
+learning:
+  enabled: false                  # Set true and provide base_dir to enable.
+  base_dir: ~                     # Absolute path to the directory containing your *_study/ folders.
+  folder_pattern: "study$"        # Regex matching subfolder names that contain prior studies.
+  manuscript_filenames:           # Filename patterns to look for inside each study folder.
+    - "finalized themes"
+    - "manuscript"
+    - "analysis"
+  raw_data_subfolder: "raw data"  # Folder inside each study that has the original coded entries.
+  max_manuscript_chars: 12000     # Char budget per manuscript when injecting into prompts.
+  max_raw_samples: 5              # How many raw entries to sample per prior study.
+
+
+# -----------------------------------------------------------------------------
+# Analysis
+# Tunables for each analytic step. Most defaults are reasonable starting points.
+# -----------------------------------------------------------------------------
+analysis:
+  dynamic_batching: true          # Token-aware batch sizing for sentiment.
+
+  sentiment:
+    include_confidence: true
+    include_emotions: true
+    emotion_categories:
+      - joy
+      - sadness
+      - anger
+      - fear
+      - surprise
+      - disgust
+      - trust
+      - anticipation
+    batch_size: 15
+
+  coding:
+    min_code_frequency: 1
+    include_in_vivo: true
+    code_style: "descriptive"
+    max_retries_per_entry: 2
+    use_fallback_extraction: true
+    fallback_keyword_patterns: ~
+    clean_excerpts: true
+    segment_length_min: ~         # NULL = use empirical benchmark from prior studies if available.
+    segment_length_max: ~
+    code_label_min_words: ~
+    code_label_max_words: ~
+    # Saturation detection (Guest et al. 2020 + De Paoli & Mathis 2024 style)
+    saturation_enabled: true
+    saturation_window: 200        # Coded-entry window over which to count new codes.
+    saturation_threshold: 2       # If <= this many new codes appear in the window, signal fires.
+    saturation_confirmations: 3   # Need this many consecutive low-creation windows to declare saturation.
+    min_coded_before_saturation: 500   # Don't even check until at least this many entries are coded.
+    ai_assessment_interval: 200   # Ask the AI every N coded entries whether novel patterns remain.
+
+  themes:
+    min_themes: ~                 # NULL = data-driven theme count.
+    max_themes: ~
+    include_subthemes: true
+    min_subthemes_per_theme: ~
+    max_subthemes_per_theme: ~
+    include_quotes: true
+    quotes_per_theme: 3
+    approach: "inductive"         # "inductive" or "deductive".
+    review_iterations: 1
+    max_theme_proportion: 0.60    # If any theme attracts > this fraction of entries, flag for split.
+    auto_split_dominant: false
+    enrich_missing_fields: true
+    strict_assignment_validation: true
+    max_rebalance_iterations: 3
+    multi_label_assignment: true  # Entries can belong to multiple themes (recommended).
+    membership_threshold: 0.15
+    ai_batch_size: ~              # NULL = dynamic; integer = fixed batch size.
+
+  correlations:
+    method: "spearman"            # "spearman", "pearson", or "kendall".
+    p_threshold: 0.05
+    adjust_method: "bonferroni"   # "bonferroni", "holm", "BH" (FDR), or "none".
+    min_observations: 30
+    min_theme_entries: 5
+    use_multi_label: true
+
+  test_mode:
+    enabled: false                # Set true for fast end-to-end validation runs.
+    sample_size: 100
+    seed: 42
+
+  human_verification:
+    enabled: false                # Inter-rater reliability (Cohen's kappa, Krippendorff's alpha).
+    sample_size: 20
+    seed: 42
+
+  review_points:
+    after_coding: false           # Pause after progressive coding for codebook review.
+    after_themes: false           # Pause after theme generation for theme review.
+    format: "csv"                 # "csv" or "qdpx" for the exported review files.
+    max_iterations: 3             # Cap on recursive review cycles.
+
+
+# -----------------------------------------------------------------------------
+# Output
+# Where results land and what artifacts to produce.
+# -----------------------------------------------------------------------------
+output:
+  results_dir: ~                  # REQUIRED. Pipeline writes a timestamped subfolder here per run.
+  checkpoint_dir: ~               # NULL = auto-create checkpoints/ inside results_dir.
+  generate_report: true
+  generate_theme_details: true
+  generate_correlation_plot: true
+  export_csv: true
+  export_json: true
+  comparison_enabled: true
+  comparison_similarity_threshold: 0.75
+  export_qdpx: true               # Produce QDPX archive for import into NVivo / ATLAS.ti / MAXQDA.
+
+
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+logging:
+  log_level: "INFO"               # "DEBUG", "INFO", "WARN", "ERROR".
+
+
+# -----------------------------------------------------------------------------
+# Reddit scraping (optional, opt-in)
+# -----------------------------------------------------------------------------
+# IMPORTANT: As of November 2025, Reddit no longer offers self-service API
+# key creation. To use this scraper you must first be approved through
+# Reddit's Responsible Builder Program (target turnaround ~7 days for
+# academic / non-commercial research):
+#   https://support.reddithelp.com/hc/en-us/articles/42728983564564-Responsible-Builder-Policy
+#
+# Once approved, store credentials in .Renviron (not here):
+#   REDDIT_CLIENT_ID=...
+#   REDDIT_CLIENT_SECRET=...
+#   REDDIT_USER_AGENT=pakhom/<version> (by u/YourRedditUsername)
+#
+# The scraper reads env vars first; the client_id/_secret fields below are
+# legacy fallbacks that should remain blank.
+# -----------------------------------------------------------------------------
+scraping:
+  enabled: false                  # Flip to true once credentials are in place.
+  subreddits: ~                   # List of subreddit names (without "r/").
+  posts_per_subreddit: 500
+  include_comments: true
+  sort_by: "new"                  # "new", "hot", "top", "rising"
+  time_filter: "all"              # For sort_by=top: "hour", "day", "week", "month", "year", "all"
+  reddit_client_id: ~             # Leave NULL; set REDDIT_CLIENT_ID in .Renviron.
+  reddit_client_secret: ~         # Leave NULL; set REDDIT_CLIENT_SECRET in .Renviron.
+  reddit_user_agent: "pakhom/1.0.0 (by u/YourRedditUsername)"
