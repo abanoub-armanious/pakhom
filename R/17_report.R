@@ -35,13 +35,27 @@
 #' @param insights Insights list
 #' @param consolidated ConsolidatedCodes list
 #' @param output_dir Output directory path
+#' @param methodology_mode Optional methodology mode (T1.7). When
+#'   non-NULL, every CSV produced is stamped with a comment header
+#'   identifying the mode and run id (per AC4). NULL skips stamping --
+#'   used by tests / legacy callers.
 #' @return List of export file paths
 #' @export
 export_results <- function(data, theme_set, correlations_df, insights,
-                            consolidated, output_dir) {
+                            consolidated, output_dir,
+                            methodology_mode = NULL) {
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
   export_files <- list()
+  # T1.7 (AC4): methodology stamp on every CSV produced by this run.
+  # Helper closes over methodology_mode + output_dir so the call sites
+  # below stay one-line.
+  .stamp <- function(path) {
+    if (is.null(methodology_mode) || !file.exists(path)) return(invisible(NULL))
+    tryCatch(stamp_methodology_csv(path, methodology_mode,
+                                     run_id = basename(output_dir)),
+             error = function(e) log_debug("CSV stamp skipped: {e$message}"))
+  }
 
   # --- Sentiment scores CSV ---
   sentiment_file <- file.path(output_dir, "sentiment_scores.csv")
@@ -51,6 +65,7 @@ export_results <- function(data, theme_set, correlations_df, insights,
     names(data)
   )
   readr::write_csv(data[, sentiment_cols, drop = FALSE], sentiment_file)
+  .stamp(sentiment_file)
   export_files$sentiment_file <- sentiment_file
   log_info("Exported sentiment scores: {sentiment_file}")
 
@@ -64,6 +79,7 @@ export_results <- function(data, theme_set, correlations_df, insights,
                       codes_file)
     log_warn("No consolidated codes to export")
   }
+  .stamp(codes_file)
   export_files$codes_file <- codes_file
 
   # --- Correlations CSV ---
@@ -77,17 +93,24 @@ export_results <- function(data, theme_set, correlations_df, insights,
                              significant = logical(), effect_size = character()),
                       correlations_file)
   }
+  .stamp(correlations_file)
   export_files$correlations_file <- correlations_file
 
   # --- Themes JSON ---
   themes_file <- file.path(output_dir, "themes.json")
   themes_json <- theme_set_to_tibble(theme_set)
   jsonlite::write_json(themes_json, themes_file, pretty = TRUE, auto_unbox = TRUE)
+  if (!is.null(methodology_mode)) {
+    tryCatch(stamp_methodology_json(themes_file, methodology_mode,
+                                      run_id = basename(output_dir)),
+             error = function(e) log_debug("JSON stamp skipped: {e$message}"))
+  }
   export_files$themes_file <- themes_file
   log_info("Exported themes: {themes_file}")
 
   # --- Per-theme CSV files ---
-  theme_csv_files <- export_theme_entry_csvs(data, theme_set, output_dir)
+  theme_csv_files <- export_theme_entry_csvs(data, theme_set, output_dir,
+                                              methodology_mode = methodology_mode)
   export_files$theme_csv_files <- theme_csv_files
 
   # --- Correlation plot ---
@@ -115,7 +138,15 @@ verify_run_integrity <- function(run_dir, config = list()) {
     "correlations.csv",
     "themes.json",
     "theme_entries",
-    "analysis_report.Rmd"
+    "analysis_report.Rmd",
+    # Sprint-4 Tier-0 + Tier-1 outputs that MUST be present in any
+    # complete run. Per AC4 (methodology stamped on every output),
+    # integrity check must verify these exist -- otherwise a run that
+    # silently lost the audit trail would still report complete=TRUE.
+    "run_metadata.json",            # T1.5: REDCap-style state record
+    "rules/methodology_rules.md",   # T1.6: archived rules text
+    "fabrication_log.csv",          # T0.1: anti-fabrication audit trail
+    "ai_decisions.jsonl"            # T1.4: AI decision audit log
   )
 
   # Conditional files based on config
@@ -124,6 +155,11 @@ verify_run_integrity <- function(run_dir, config = list()) {
   }
   if (isTRUE(config$output$generate_correlation_plot)) {
     expected <- c(expected, "correlation_plot.png")
+  }
+  # T1.4: when raw-response capture is enabled (default TRUE), the
+  # api_responses/ directory MUST exist for replay_run() to work.
+  if (isTRUE(config$audit$capture_raw_responses %||% TRUE)) {
+    expected <- c(expected, "api_responses")
   }
 
   present <- expected[file.exists(file.path(run_dir, expected))]
@@ -142,14 +178,24 @@ verify_run_integrity <- function(run_dir, config = list()) {
 #' @param data tibble with theme_membership_* or emerged_themes columns
 #' @param theme_set ThemeSet object
 #' @param output_dir Output directory
+#' @param methodology_mode Optional methodology mode (T1.7). When
+#'   non-NULL, every CSV produced is stamped with a comment header
+#'   identifying the mode and run id (per AC4). NULL skips stamping --
+#'   used by tests / legacy callers.
 #' @return Named list of file info per theme
-export_theme_entry_csvs <- function(data, theme_set, output_dir) {
+export_theme_entry_csvs <- function(data, theme_set, output_dir,
+                                      methodology_mode = NULL) {
   theme_dir <- file.path(output_dir, "theme_entries")
   dir.create(theme_dir, recursive = TRUE, showWarnings = FALSE)
 
   theme_csv_files <- list()
+  # T0.2: include std_author so per-theme CSVs preserve the contributor data
+  # the participant-spread metrics on the dashboard were computed from. Per
+  # AC4 (methodology stamped on every output), Tier-0-relevant columns
+  # propagate to all output artifacts -- silent omission would let a
+  # downstream consumer recompute participant spread from the wrong shape.
   export_cols <- intersect(
-    c("std_id", "std_text", "sentiment_score", "all_emotions",
+    c("std_id", "std_text", "std_author", "sentiment_score", "all_emotions",
       "emotion_intensity", "emerged_themes", "n_themes", "source_table"),
     names(data)
   )
@@ -170,6 +216,15 @@ export_theme_entry_csvs <- function(data, theme_set, output_dir) {
     safe_name <- make_safe_filename(tn)
     csv_path <- file.path(theme_dir, paste0(safe_name, ".csv"))
     readr::write_csv(entries[, intersect(export_cols, names(entries)), drop = FALSE], csv_path)
+    # T1.7 (AC4): stamp the file with the methodology mode so any
+    # downstream consumer parsing the CSV sees the declaration up-front.
+    # The stamp is a comment-style header line; readr::read_csv with
+    # comment = "#" strips it transparently.
+    if (!is.null(methodology_mode)) {
+      tryCatch(stamp_methodology_csv(csv_path, methodology_mode,
+                                       run_id = basename(output_dir)),
+               error = function(e) log_debug("CSV stamp skipped: {e$message}"))
+    }
 
     theme_csv_files[[tn]] <- list(
       file_path = csv_path,
@@ -184,6 +239,11 @@ export_theme_entry_csvs <- function(data, theme_set, output_dir) {
     arrange(emerged_themes) |>
     select(any_of(export_cols))
   readr::write_csv(master_data, master_path)
+  if (!is.null(methodology_mode)) {
+    tryCatch(stamp_methodology_csv(master_path, methodology_mode,
+                                     run_id = basename(output_dir)),
+             error = function(e) log_debug("CSV stamp skipped: {e$message}"))
+  }
 
   log_info("Exported {length(theme_csv_files)} theme CSV files + master CSV")
   theme_csv_files
@@ -229,6 +289,13 @@ export_theme_entry_csvs <- function(data, theme_set, output_dir) {
 #' @param response_cache Optional \code{ResponseCache} object (T1.4)
 #'   forwarded to \code{generate_ai_synthesis} so the raw API response is
 #'   written to the cache and referenced from the audit log.
+#' @param coverage Optional \code{CorpusCoverage} object (T0.3) from
+#'   \code{\link{compute_corpus_coverage}}. When provided, the report
+#'   renders a Tier-0 corpus-coverage card asserting that every entry
+#'   surviving preprocessing reached the LLM (no silent truncation).
+#'   When NULL the card renders an explicit "coverage not computed"
+#'   notice rather than silently omitting -- absence is itself a
+#'   transparency signal per AC4.
 #' @return Path to generated HTML report
 #' @export
 generate_report <- function(data, theme_set, correlations_df, insights,
@@ -242,7 +309,8 @@ generate_report <- function(data, theme_set, correlations_df, insights,
                              theme_group_tests = NULL,
                              cooccurrence_tests = NULL,
                              audit_log = NULL,
-                             response_cache = NULL) {
+                             response_cache = NULL,
+                             coverage = NULL) {
   validate_class(theme_set, "ThemeSet")
 
   # Validate inputs
@@ -293,7 +361,9 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     theme_group_tests = theme_group_tests,
     cooccurrence_tests = cooccurrence_tests,
     excerpt_verification = excerpt_verification,
-    coding_state = coding_state
+    coding_state = coding_state,
+    coverage = coverage,
+    run_id = basename(output_dir)
   )
 
   # Write Rmd (collapse to single string to prevent duplication)
@@ -362,7 +432,9 @@ generate_report <- function(data, theme_set, correlations_df, insights,
                                 theme_group_tests = NULL,
                                 cooccurrence_tests = NULL,
                                 excerpt_verification = NULL,
-                                coding_state = NULL) {
+                                coding_state = NULL,
+                                coverage = NULL,
+                                run_id = NULL) {
 
   theme_count <- length(theme_stats)
 
@@ -410,6 +482,15 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     else if (overall_stats$sentiment$mean > .SENTIMENT_POSITIVE_THRESHOLD) "positive"
     else "neutral"
 
+  # T1.7 (AC4): methodology stamp at the top of the report so a reviewer
+  # who picks up the rendered HTML sees the mode declaration before the
+  # substantive analysis. Built from config (the canonical source) with
+  # a fallback "Unknown methodology" for legacy runs without a config.
+  meth_mode <- tryCatch(config$methodology$mode, error = function(e) NULL)
+  content <- paste0(content,
+    stamp_methodology_html(meth_mode, run_id = run_id), '\n'
+  )
+
   content <- paste0(content,
     '<div class="hero-section">\n',
     '\n# Executive Summary\n\n',
@@ -429,6 +510,16 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   content <- paste0(content,
     .build_tier0_dashboard(tier0_stats,
                            fabrication_log_relpath = "fabrication_log.csv")
+  )
+
+  # T0.3 corpus coverage assertion. Pairs with T0.1: T0.1 says "no
+  # fabrications", T0.3 says "no silent truncation". Both are Tier-0
+  # transparency cards rendered before the substantive analysis so
+  # reviewers see the integrity claims first. coverage is NULL on
+  # legacy/test report calls -- the renderer degrades to an
+  # "unavailable" notice rather than crashing or omitting silently.
+  content <- paste0(content,
+    .build_corpus_coverage_card(coverage)
   )
 
   # Inline data overview context into executive summary (Issue 4)
@@ -1159,6 +1250,163 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     if (!is.null(warn_msg)) paste0(
       '<div class="ps-warning">', .html_esc(warn_msg), '</div>\n'
     ) else "",
+    '</div>\n\n'
+  )
+}
+
+
+# ==============================================================================
+# Corpus coverage card (Sprint-4 T0.3)
+# ==============================================================================
+
+#' Render the Tier-0 corpus-coverage assertion card
+#'
+#' Empirical answer to Jowsey et al. 2025's Frankenstein finding that
+#' Microsoft Copilot "drew themes from only the first 2-3 pages of data."
+#' pakhom processes entries strictly one at a time; this card surfaces the
+#' funnel from preprocessed data to LLM-processed entries to coded entries
+#' and asserts the headline \code{no_silent_truncation} claim explicitly.
+#'
+#' Pairs with the T0.1 verification dashboard: T0.1 says "no fabrications",
+#' T0.3 says "no silent truncation". Both are Tier-0 transparency cards
+#' rendered above the substantive analysis so reviewers see the integrity
+#' claims first.
+#'
+#' Unavailable variant: when \code{coverage} is NULL (legacy report call,
+#' or coverage computation failed) the card renders an explicit
+#' "coverage data unavailable" notice rather than omitting silently. Per
+#' AC4 (methodology stamped on every output), absence of the card is
+#' itself a failure signal so we say so.
+#'
+#' @param coverage A \code{CorpusCoverage} object from
+#'   \code{\link{compute_corpus_coverage}}, or NULL.
+#' @return Character HTML/markdown string for the card.
+#' @keywords internal
+.build_corpus_coverage_card <- function(coverage) {
+  if (is.null(coverage) || !inherits(coverage, "CorpusCoverage")) {
+    return(paste0(
+      '<div class="coverage-card coverage-unavailable">\n',
+      '<div class="coverage-header">Corpus Coverage (T0.3)</div>\n',
+      '<p class="coverage-unavailable-note">Coverage data not computed ',
+      'for this report. Per Tier-0 transparency policy this absence is ',
+      'reported rather than silently omitted -- a complete pakhom run ',
+      'computes coverage as the final step of progressive coding.</p>\n',
+      '</div>\n\n'
+    ))
+  }
+
+  ok <- isTRUE(coverage$no_silent_truncation)
+  banner_class <- if (ok) "coverage-banner-ok" else "coverage-banner-warn"
+  banner_msg <- if (ok) {
+    paste0(
+      "All ",
+      format(coverage$n_input_to_coding, big.mark = ","),
+      " entries from the preprocessed dataset were sent to the LLM. ",
+      "No silent truncation in the coding-call path."
+    )
+  } else if (coverage$n_input_to_coding == 0L) {
+    "Empty dataset: coding step received zero entries."
+  } else {
+    paste0(
+      format(coverage$n_unprocessed, big.mark = ","),
+      " of ",
+      format(coverage$n_input_to_coding, big.mark = ","),
+      " entries did NOT reach the LLM. Coverage is incomplete; ",
+      "investigate before publishing."
+    )
+  }
+
+  # Funnel rows -- only show pre-coding rows when we have data for them
+  funnel_rows <- character(0)
+  if (!is.na(coverage$n_raw_loaded)) {
+    funnel_rows <- c(funnel_rows, sprintf(
+      '<tr><td>Raw rows loaded</td><td>%s</td><td></td></tr>',
+      format(coverage$n_raw_loaded, big.mark = ",")
+    ))
+  }
+  if (!is.na(coverage$n_after_preprocessing)) {
+    drop_pp <- if (!is.na(coverage$n_raw_loaded))
+      format(coverage$n_raw_loaded - coverage$n_after_preprocessing,
+             big.mark = ",")
+    else ""
+    drop_label <- if (nzchar(drop_pp))
+      sprintf("%s removed (preprocessing: dedup + length filter)", drop_pp)
+    else "Preprocessed entries"
+    funnel_rows <- c(funnel_rows, sprintf(
+      '<tr><td>After preprocessing</td><td>%s</td><td>%s</td></tr>',
+      format(coverage$n_after_preprocessing, big.mark = ","),
+      drop_label
+    ))
+  }
+  if (!is.na(coverage$test_mode_sample_size)) {
+    funnel_rows <- c(funnel_rows, sprintf(
+      '<tr><td>Test-mode sub-sample</td><td>%s</td><td>%s</td></tr>',
+      format(coverage$test_mode_sample_size, big.mark = ","),
+      "Random sub-sample (test mode enabled)"
+    ))
+  }
+  funnel_rows <- c(funnel_rows, sprintf(
+    '<tr class="coverage-row-input"><td>Input to coding step</td><td>%s</td><td>%s</td></tr>',
+    format(coverage$n_input_to_coding, big.mark = ","),
+    "Entries fed to progressive sequential coding"
+  ))
+  funnel_rows <- c(funnel_rows, sprintf(
+    '<tr class="coverage-row-llm"><td>LLM-processed</td><td>%s</td><td>%s</td></tr>',
+    format(coverage$n_processed, big.mark = ","),
+    if (ok) "All input entries reached the LLM"
+    else sprintf("Gap: %s entries did not reach the LLM",
+                 format(coverage$n_unprocessed, big.mark = ","))
+  ))
+  funnel_rows <- c(funnel_rows, sprintf(
+    '<tr><td>&nbsp;&nbsp;-- of those, coded</td><td>%s</td><td>%s</td></tr>',
+    format(coverage$n_coded, big.mark = ","),
+    "Received at least one code"
+  ))
+  funnel_rows <- c(funnel_rows, sprintf(
+    '<tr><td>&nbsp;&nbsp;-- of those, skipped</td><td>%s</td><td>%s</td></tr>',
+    format(coverage$n_skipped, big.mark = ","),
+    "AI judged: no applicable content"
+  ))
+
+  # Skip-reason breakdown -- only render when we have skips
+  skip_block <- ""
+  if (length(coverage$skip_reasons) > 0L) {
+    rows <- vapply(seq_along(coverage$skip_reasons), function(i) {
+      reason <- names(coverage$skip_reasons)[i]
+      n      <- coverage$skip_reasons[[i]]
+      sprintf("<li><strong>%s</strong>: %s</li>",
+              .html_esc(reason), format(n, big.mark = ","))
+    }, character(1))
+    skip_block <- paste0(
+      '<div class="coverage-skip-reasons">\n',
+      '<div class="coverage-subheader">Skip reasons</div>\n',
+      '<ul>', paste(rows, collapse = ""), '</ul>\n',
+      '</div>\n'
+    )
+  }
+
+  paste0(
+    '<div class="coverage-card">\n',
+    '<div class="coverage-header">Corpus Coverage (T0.3)</div>\n',
+    '<div class="coverage-banner ', banner_class, '">', banner_msg, '</div>\n',
+    '<div class="coverage-funnel-wrapper">\n',
+    '<table class="coverage-funnel">\n',
+    '<thead><tr><th>Stage</th><th>Entries</th><th>Note</th></tr></thead>\n',
+    '<tbody>\n', paste(funnel_rows, collapse = "\n"), '\n</tbody>\n',
+    '</table>\n',
+    '</div>\n',
+    sprintf(
+      '<div class="coverage-volume">%s words (%s characters / %s bytes) of source text processed by the LLM.</div>\n',
+      format(coverage$words_processed, big.mark = ","),
+      format(coverage$chars_processed, big.mark = ","),
+      format(coverage$bytes_processed, big.mark = ",")
+    ),
+    skip_block,
+    '<p class="coverage-citation">Addresses Jowsey et al. 2025 ',
+    '(doi:10.1371/journal.pone.0330217), which found that Microsoft ',
+    'Copilot drew themes from only the first 2-3 pages of data. ',
+    'pakhom processes entries strictly one at a time; this funnel is ',
+    'the empirical proof of full-corpus coverage in the LLM call path.</p>\n',
     '</div>\n\n'
   )
 }

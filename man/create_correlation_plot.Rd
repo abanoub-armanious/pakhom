@@ -4,12 +4,22 @@
 \alias{create_correlation_plot}
 \title{Create correlation plot}
 \usage{
-create_correlation_plot(results, output_path)
+create_correlation_plot(
+  results,
+  output_path,
+  methodology_mode = NULL,
+  run_id = NULL
+)
 }
 \arguments{
 \item{results}{CorrelationResults from calculate_correlations()}
 
 \item{output_path}{File path for PNG output}
+
+\item{methodology_mode}{Optional character (T1.7 / AC4): when supplied,
+adds a footer caption identifying the methodology mode + run.}
+
+\item{run_id}{Optional character: run identifier.}
 }
 \description{
 Create correlation plot

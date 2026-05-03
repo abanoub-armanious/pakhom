@@ -4,7 +4,7 @@
 \alias{export_theme_entry_csvs}
 \title{Export CSV files for each theme's entries}
 \usage{
-export_theme_entry_csvs(data, theme_set, output_dir)
+export_theme_entry_csvs(data, theme_set, output_dir, methodology_mode = NULL)
 }
 \arguments{
 \item{data}{tibble with theme_membership_* or emerged_themes columns}
@@ -12,6 +12,11 @@ export_theme_entry_csvs(data, theme_set, output_dir)
 \item{theme_set}{ThemeSet object}
 
 \item{output_dir}{Output directory}
+
+\item{methodology_mode}{Optional methodology mode (T1.7). When
+non-NULL, every CSV produced is stamped with a comment header
+identifying the mode and run id (per AC4). NULL skips stamping --
+used by tests / legacy callers.}
 }
 \value{
 Named list of file info per theme

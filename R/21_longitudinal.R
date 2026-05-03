@@ -448,13 +448,22 @@ analyze_temporal_patterns <- function(data, theme_set, coding_state = NULL) {
 #'
 #' @param temporal_results List returned by \code{\link{analyze_temporal_patterns}}
 #' @param output_dir Directory where PNGs will be saved (created if needed)
+#' @param methodology_mode Optional character (T1.7 / AC4): when supplied,
+#'   adds a caption to each plot identifying the mode + run id.
+#' @param run_id Optional character: run identifier.
 #' @return Invisible character vector of file paths written
 #' @export
-generate_temporal_plots <- function(temporal_results, output_dir) {
+generate_temporal_plots <- function(temporal_results, output_dir,
+                                      methodology_mode = NULL,
+                                      run_id = NULL) {
   if (!isTRUE(temporal_results$has_temporal_data)) {
     log_warn("No temporal data available -- skipping plot generation")
     return(invisible(character(0)))
   }
+  # T1.7 (AC4): caption applied to every ggplot via labs(caption = ...).
+  meth_caption <- if (!is.null(methodology_mode)) {
+    methodology_plot_caption(methodology_mode, run_id)
+  } else NULL
 
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
   paths <- character(0)
@@ -484,7 +493,8 @@ generate_temporal_plots <- function(temporal_results, output_dir) {
         subtitle = paste0("Period type: ", temporal_results$period_type),
         x        = "Time Period",
         y        = "% of Entries in Period",
-        colour   = "Theme"
+        colour   = "Theme",
+        caption  = meth_caption
       ) +
       ggplot2::theme_minimal(base_family = "sans") +
       ggplot2::theme(
@@ -565,7 +575,8 @@ generate_temporal_plots <- function(temporal_results, output_dir) {
         title    = "Theme Emergence Timeline",
         subtitle = "Date each theme first appeared in the data",
         x        = "Date",
-        y        = NULL
+        y        = NULL,
+        caption  = meth_caption
       ) +
       ggplot2::theme_minimal(base_family = "sans") +
       ggplot2::theme(

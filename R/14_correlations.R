@@ -553,7 +553,12 @@ generate_insights <- function(correlations_df, theme_set, provider,
 #'
 #' @param results CorrelationResults from calculate_correlations()
 #' @param output_path File path for PNG output
-create_correlation_plot <- function(results, output_path) {
+#' @param methodology_mode Optional character (T1.7 / AC4): when supplied,
+#'   adds a footer caption identifying the methodology mode + run.
+#' @param run_id Optional character: run identifier.
+create_correlation_plot <- function(results, output_path,
+                                      methodology_mode = NULL,
+                                      run_id = NULL) {
   log_info("Creating correlation plot...")
 
   cm <- results$correlation_matrix
@@ -598,6 +603,15 @@ create_correlation_plot <- function(results, output_path) {
     log_warn("Corrplot failed: {e$message}")
   })
 
+  # T1.7 (AC4): methodology stamp footer
+  if (!is.null(methodology_mode)) {
+    graphics::mtext(
+      methodology_plot_caption(methodology_mode, run_id),
+      side = 1, line = bottom_margin - 1, cex = 0.7, col = "#7F8C8D", adj = 1,
+      outer = FALSE
+    )
+  }
+
   grDevices::dev.off()
   log_info("Correlation plot saved: {output_path}")
 }
@@ -612,10 +626,15 @@ create_correlation_plot <- function(results, output_path) {
 #' @param theme_set ThemeSet object
 #' @param output_path File path for PNG output
 #' @param min_cooccurrence Minimum co-occurrence count to draw an edge (default 3)
+#' @param methodology_mode Optional character (T1.7 / AC4): when supplied,
+#'   adds a footer caption identifying the mode + run.
+#' @param run_id Optional character: run identifier.
 #' @return Invisible adjacency matrix, or NULL if igraph unavailable
 #' @export
 create_theme_network <- function(data, theme_set, output_path = "theme_network.png",
-                                  min_cooccurrence = 3) {
+                                  min_cooccurrence = 3,
+                                  methodology_mode = NULL,
+                                  run_id = NULL) {
   if (!requireNamespace("igraph", quietly = TRUE)) {
     log_warn("igraph not installed -- skipping theme network plot")
     return(invisible(NULL))
@@ -696,6 +715,15 @@ create_theme_network <- function(data, theme_set, output_path = "theme_network.p
   }, error = function(e) {
     log_warn("Theme network plot failed: {e$message}")
   })
+
+  # T1.7 (AC4): methodology stamp footer
+  if (!is.null(methodology_mode)) {
+    graphics::mtext(
+      methodology_plot_caption(methodology_mode, run_id),
+      side = 1, line = 1.5, cex = 0.7, col = "#7F8C8D", adj = 1
+    )
+  }
+
   grDevices::dev.off()
 
   log_info("Theme network plot saved: {output_path}")

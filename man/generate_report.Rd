@@ -24,7 +24,8 @@ generate_report(
   theme_group_tests = NULL,
   cooccurrence_tests = NULL,
   audit_log = NULL,
-  response_cache = NULL
+  response_cache = NULL,
+  coverage = NULL
 )
 }
 \arguments{
@@ -83,6 +84,14 @@ recorded as an \code{ai_request} audit decision.}
 \item{response_cache}{Optional \code{ResponseCache} object (T1.4)
 forwarded to \code{generate_ai_synthesis} so the raw API response is
 written to the cache and referenced from the audit log.}
+
+\item{coverage}{Optional \code{CorpusCoverage} object (T0.3) from
+\code{\link{compute_corpus_coverage}}. When provided, the report
+renders a Tier-0 corpus-coverage card asserting that every entry
+surviving preprocessing reached the LLM (no silent truncation).
+When NULL the card renders an explicit "coverage not computed"
+notice rather than silently omitting -- absence is itself a
+transparency signal per AC4.}
 }
 \value{
 Path to generated HTML report

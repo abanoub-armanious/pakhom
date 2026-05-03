@@ -9,7 +9,8 @@ export_qdpx(
   data,
   output_path,
   theme_set = NULL,
-  study_name = "pakhom export"
+  study_name = "pakhom export",
+  methodology_mode = NULL
 )
 }
 \arguments{
@@ -25,6 +26,11 @@ If provided, builds a hierarchical code tree (Theme > Subtheme > Code).}
 
 \item{study_name}{Character string used as the project name inside the
 QDPX file.  Defaults to \code{"pakhom export"}.}
+
+\item{methodology_mode}{Optional character (T1.7 / AC4): when supplied,
+the QDPX project's Description is stamped with the methodology mode
+alongside the Tier-0 verification stats. NULL preserves legacy
+behavior (no methodology stamp).}
 }
 \value{
 The \code{output_path} (invisibly), or stops with an error.

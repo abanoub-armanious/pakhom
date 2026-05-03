@@ -4,12 +4,22 @@
 \alias{generate_saturation_plot}
 \title{Generate saturation curve plot}
 \usage{
-generate_saturation_plot(state, output_dir)
+generate_saturation_plot(
+  state,
+  output_dir,
+  methodology_mode = NULL,
+  run_id = NULL
+)
 }
 \arguments{
 \item{state}{ProgressiveCodingState with saturation data}
 
 \item{output_dir}{Directory to save the plot}
+
+\item{methodology_mode}{Optional character (T1.7 / AC4): when supplied,
+adds a footer caption to the plot identifying the mode + run.}
+
+\item{run_id}{Optional character: run identifier for the footer.}
 }
 \value{
 Path to the generated PNG, or NULL

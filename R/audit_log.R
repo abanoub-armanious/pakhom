@@ -23,7 +23,8 @@
   "positionality",         # M1.4  : repeated/dynamic positionality
   "reflexivity",           # M1.5  : reflexivity-collapse detection
   "mode_change",           # T1.5  : methodology re-declaration with parent_run_id
-  "quote_verification"     # T0.1  : Tier-0 quote provenance verification ladder
+  "quote_verification",    # T0.1  : Tier-0 quote provenance verification ladder
+  "coverage"               # T0.3  : Tier-0 corpus-coverage computation
 )
 
 .valid_decision_types <- c(
@@ -48,7 +49,9 @@
   "reflexivity_collapse_detected",    # M1.5
   "mode_changed",                     # T1.5
   "quote_verified",                   # T0.1
-  "quote_fabricated"                  # T0.1
+  "quote_fabricated",                 # T0.1
+  "quote_drifted",                    # T0.1: source corpus changed since attribution
+  "coverage_failure"                  # T0.3: corpus-coverage computation failed
 )
 
 # -- Constructor ---------------------------------------------------------------

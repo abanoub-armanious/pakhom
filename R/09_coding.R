@@ -683,7 +683,12 @@ run_progressive_coding <- function(data, provider, config = list(),
 .build_progressive_citations_user_prompt <- function() {
   paste0(
     "Read the document provided as context, then identify code-worthy segments.\n\n",
-    "Return JSON with this exact shape:\n",
+    "OUTPUT FORMAT (CRITICAL):\n",
+    "- Output ONLY a single JSON object. No preamble, no explanation, no ",
+    "commentary before or after the JSON.\n",
+    "- Do not wrap the JSON in markdown code fences.\n",
+    "- Your entire response must be parseable as JSON.\n\n",
+    "JSON shape:\n",
     "{\n",
     '  "skipped": false,\n',
     '  "skip_reason": "",\n',
@@ -788,6 +793,22 @@ run_progressive_coding <- function(data, provider, config = list(),
                       exact_text = substr(seg_text, 1, 200))
     }
     log_warn("Entry {entry_id}: AI returned fabricated quote for code '{code_name}'; segment dropped.")
+    return(state)
+  }
+
+  if (identical(quote$verification_status, "drifted")) {
+    # Source corpus changed between attribution and verification time
+    # (source_text_sha256 mismatch AND ladder failed). Per spec the quote
+    # is excluded from rendering pending researcher review; we log it to
+    # the audit trail so cross-run analysis can attribute drifts.
+    if (!is.null(audit_log)) {
+      log_ai_decision(audit_log, "quote_verification", "quote_drifted",
+                      entry_id  = entry_id, code_name = code_name,
+                      quote_id  = quote$quote_id,
+                      ai_call_id = quote$ai_call_id %||% NA_character_,
+                      exact_text = substr(seg_text, 1, 200))
+    }
+    log_warn("Entry {entry_id}: quote drifted (source SHA mismatch) for code '{code_name}'; segment dropped pending review.")
     return(state)
   }
 
@@ -912,10 +933,21 @@ run_progressive_coding <- function(data, provider, config = list(),
 
   # Successful pairing: build via the citations bridge with the document type
   # carried through (so source_doc_type stays meaningful for QDPX export and
-  # report rendering).
+  # report rendering). The bridge stores source_text_sha256 over the source
+  # text we pass it; later verify_quote re-hashes the FULL entry text and
+  # compares. To keep these in sync (and avoid spurious "drifted" status on
+  # long entries where the prompt was truncated to 8000 chars but the
+  # verifier sees the full text), we substitute the full text into the
+  # documents copy passed to the bridge. Anthropic's citation indices are
+  # computed against the truncated prompt text, but since the truncation is
+  # a strict prefix of the full text, indices remain valid pointers.
+  docs_for_provenance <- documents
+  if (length(docs_for_provenance) >= 1L) {
+    docs_for_provenance[[1L]]$text <- text
+  }
   make_quote_from_citation(
     citation            = matched,
-    documents           = documents,
+    documents           = docs_for_provenance,
     attributed_code_id  = code_key,
     ai_model            = ai_meta$model,
     ai_call_id          = ai_meta$call_id,
@@ -1208,9 +1240,14 @@ run_progressive_coding <- function(data, provider, config = list(),
 #'
 #' @param state ProgressiveCodingState with saturation data
 #' @param output_dir Directory to save the plot
+#' @param methodology_mode Optional character (T1.7 / AC4): when supplied,
+#'   adds a footer caption to the plot identifying the mode + run.
+#' @param run_id Optional character: run identifier for the footer.
 #' @return Path to the generated PNG, or NULL
 #' @keywords internal
-generate_saturation_plot <- function(state, output_dir) {
+generate_saturation_plot <- function(state, output_dir,
+                                       methodology_mode = NULL,
+                                       run_id = NULL) {
   curve <- state$saturation$curve
   if (is.null(curve) || nrow(curve) == 0) return(NULL)
 
@@ -1266,6 +1303,17 @@ generate_saturation_plot <- function(state, output_dir) {
       lwd = c(2.5, 1.5, NA),
       cex = 0.75, bg = "white"
     )
+
+    # T1.7 (AC4): methodology stamp footer. Base R plots use mtext for
+    # captions -- ggplot's labs(caption=...) equivalent. Subtle gray and
+    # outside the main plot area so the methodology is visible without
+    # interfering with data interpretation.
+    if (!is.null(methodology_mode)) {
+      graphics::mtext(
+        methodology_plot_caption(methodology_mode, run_id),
+        side = 1, line = 3.5, cex = 0.7, col = "#7F8C8D", adj = 1
+      )
+    }
 
     grDevices::dev.off()
     log_info("Saturation curve saved: {plot_path}")

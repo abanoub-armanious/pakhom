@@ -697,12 +697,27 @@ enrich_themes <- function(theme_set, data, coding_state = NULL) {
     }
 
     if (nrow(theme_entries) > 0) {
-      n_quotes <- min(3, nrow(theme_entries))
-      sample_idx <- if (nrow(theme_entries) <= n_quotes) seq_len(nrow(theme_entries))
-        else sort(sample(seq_len(nrow(theme_entries)), n_quotes))
-      theme_set$themes[[i]]$supporting_quotes <- substr(
-        theme_entries$std_text[sample_idx], 1, 200
+      # T0.2 spread-aware sentiment-positioned quote selection. The previous
+      # approach was random sampling -- which (a) didn't match the
+      # most-negative / median / most-positive labels the report renders, and
+      # (b) would happily return three quotes from one heavy poster. Now we
+      # call .select_representative_quotes (which is spread-aware and
+      # respects sentiment positions), then preserve the ordered
+      # character-vector shape that aggregate_theme_statistics expects.
+      selected <- .select_representative_quotes(theme_entries, n_quotes = 3)
+      ordered_labels <- intersect(
+        c("most_negative", "median", "most_positive"),
+        names(selected)
       )
+      qtexts <- vapply(
+        ordered_labels,
+        function(lbl) substr(as.character(selected[[lbl]]$text %||% ""), 1, 200),
+        character(1)
+      )
+      qtexts <- qtexts[nchar(qtexts) > 0]
+      if (length(qtexts) > 0L) {
+        theme_set$themes[[i]]$supporting_quotes <- unname(qtexts)
+      }
     }
 
     theme_set$themes[[i]]$keywords <- theme_set$themes[[i]]$codes_included

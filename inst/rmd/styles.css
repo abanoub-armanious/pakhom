@@ -355,6 +355,189 @@ a:hover {
 }
 
 /* ============================================
+   METHODOLOGY STAMP (T1.7)
+   ============================================ */
+.methodology-stamp {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: rgba(52, 152, 219, 0.07);
+  border-left: 3px solid #3498DB;
+  border-radius: var(--radius-sm);
+  margin: 0.75rem 0 1.25rem 0;
+  font-size: 0.83rem;
+  color: var(--text-primary);
+}
+
+.methodology-stamp .methodology-stamp-label {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.methodology-stamp .methodology-stamp-mode {
+  font-weight: 600;
+  color: #2C3E50;
+}
+
+.methodology-stamp .methodology-stamp-desc {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.methodology-stamp .methodology-run-id {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-family: "SF Mono", Monaco, monospace;
+  font-size: 0.78rem;
+}
+
+/* ============================================
+   CORPUS COVERAGE (T0.3)
+   ============================================ */
+.coverage-card {
+  background: var(--bg-card);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.coverage-card .coverage-header {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.6rem;
+}
+
+.coverage-card .coverage-subheader {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-top: 0.6rem;
+  margin-bottom: 0.3rem;
+}
+
+.coverage-card .coverage-banner {
+  padding: 0.65rem 0.9rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+  margin: 0.5rem 0 0.9rem 0;
+  line-height: 1.5;
+  font-weight: 500;
+}
+
+.coverage-card .coverage-banner-ok {
+  background: rgba(39, 174, 96, 0.10);
+  border-left: 3px solid #27AE60;
+  color: var(--text-primary);
+}
+
+.coverage-card .coverage-banner-warn {
+  background: rgba(192, 57, 43, 0.10);
+  border-left: 3px solid #C0392B;
+  color: var(--text-primary);
+}
+
+.coverage-card .coverage-funnel-wrapper {
+  overflow-x: auto;
+}
+
+.coverage-card .coverage-funnel {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin: 0.4rem 0;
+}
+
+.coverage-card .coverage-funnel th,
+.coverage-card .coverage-funnel td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  text-align: left;
+}
+
+.coverage-card .coverage-funnel th {
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.4px;
+}
+
+.coverage-card .coverage-funnel td:nth-child(2) {
+  font-weight: 600;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  width: 9rem;
+}
+
+.coverage-card .coverage-funnel td:nth-child(3) {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.coverage-card .coverage-row-input td:nth-child(2),
+.coverage-card .coverage-row-llm td:nth-child(2) {
+  color: var(--text-primary);
+}
+
+.coverage-card .coverage-row-llm {
+  background: rgba(0,0,0,0.02);
+}
+
+.coverage-card .coverage-volume {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin: 0.6rem 0;
+}
+
+.coverage-card .coverage-skip-reasons {
+  margin: 0.6rem 0;
+}
+
+.coverage-card .coverage-skip-reasons ul {
+  list-style: disc;
+  margin: 0.3rem 0 0 1.25rem;
+  padding: 0;
+  font-size: 0.85rem;
+}
+
+.coverage-card .coverage-skip-reasons li {
+  margin: 0.15rem 0;
+  color: var(--text-primary);
+}
+
+.coverage-card .coverage-citation {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin-top: 0.85rem;
+  margin-bottom: 0;
+  line-height: 1.55;
+}
+
+.coverage-card.coverage-unavailable {
+  background: rgba(0,0,0,0.02);
+}
+
+.coverage-card .coverage-unavailable-note {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0;
+  font-style: italic;
+}
+
+/* ============================================
    PARTICIPANT DISTRIBUTION (T0.2)
    ============================================ */
 .participant-spread-card {

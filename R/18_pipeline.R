@@ -78,45 +78,114 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
 
   # Determine resume point
   resume_step <- NULL
+  # T1.7 (AC4): run-dir name carries the methodology mode short-code so a
+  # reviewer scanning the outputs/ directory sees Mode 1 / 2 / 3 without
+  # opening run_metadata.json. Spec: SPRINT4_DESIGN.md line 237.
+  meth_mode <- tryCatch(config$methodology$mode, error = function(e) NULL)
   if (isTRUE(resume)) {
     latest_run <- find_latest_run(results_base)
     if (!is.null(latest_run)) {
       output_dir <- file.path(results_base, latest_run)
+      # AC5 enforcement: a finalized run is the FROZEN canonical record.
+      # Resuming into it silently overwrites analysis_report.html / CSVs /
+      # audit_log.jsonl etc. and the audit trail is lost (replay no longer
+      # reproduces the file state of the finalized run). Refuse rather
+      # than silently mutate. Spec: SPRINT4_DESIGN.md AC5 ("soft-lock with
+      # audit trail; methodology change creates new run").
+      if (is_run_finalized(output_dir)) {
+        stop(sprintf(
+          "Run %s is FINALIZED. Per AC5 (soft-lock with audit trail), a ",
+          output_dir
+        ),
+        "finalized run cannot be resumed in place -- doing so would overwrite ",
+        "the canonical outputs (report, CSVs, audit_log.jsonl) without a ",
+        "fork record. To re-run with the same methodology, pass resume=FALSE ",
+        "to start a fresh run dir. To re-run with a different methodology, ",
+        "use clone_run_with_new_mode() to fork into a new dir with ",
+        "parent_run_id linkage.",
+        call. = FALSE)
+      }
       log_info("Resuming run: {latest_run}")
     } else {
-      output_dir <- file.path(results_base, generate_run_id())
+      output_dir <- file.path(results_base,
+                               run_id_with_mode(generate_run_id(), meth_mode))
       log_info("No previous run found -- starting fresh as {basename(output_dir)}")
     }
   } else {
-    output_dir <- file.path(results_base, generate_run_id())
+    output_dir <- file.path(results_base,
+                             run_id_with_mode(generate_run_id(), meth_mode))
   }
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+  # T1.7 (AC4): stamp the methodology + run id in the console banner so a
+  # reviewer scrolling logs sees the declaration up-front.
+  log_info(stamp_methodology_console(meth_mode, basename(output_dir)))
 
   checkpoint <- init_checkpoints(
     output_dir = output_dir,
     config_hash = hash_config(config_path)
   )
 
+  # T1.6 methodology rules: generated from config.yaml's methodology block
+  # and written to outputs/<run>/rules/methodology_rules.md. The provider
+  # also carries the generated rules so ai_complete() injects them as a
+  # system-prompt prefix on every call (per AC9 -- rules in the model's
+  # context-window every turn). create_ai_provider() handles the prefix
+  # injection; here we additionally archive the rules text under the run
+  # output directory so the methodology paper can reference exactly which
+  # rules were in force during this run.
+  tryCatch(write_methodology_rules(config, output_dir),
+           error = function(e) log_warn("Could not write methodology rules: {e$message}"))
+
+  # T1.5 soft-lock + parent_run_id check. Before writing run_metadata, see
+  # if the run_dir already has a metadata file from a prior run with
+  # different methodology -- a finalized mismatch must refuse rather
+  # than silently overwriting (AC5: methodology change creates new run);
+  # an active mismatch warns but allows continuation (the user might be
+  # legitimately fixing a typo'd config mid-run).
+  status <- methodology_mismatch_status(output_dir, config)
+  if (identical(status, "mismatch_finalized")) {
+    prior <- read_run_metadata(output_dir)
+    stop(sprintf(
+      "run_dir %s is FINALIZED with methodology '%s' but config declares '%s'. ",
+      output_dir, prior$methodology_mode, config$methodology$mode
+    ),
+    "Per AC5 (soft-lock with audit trail), methodology cannot be silently ",
+    "re-declared on a finalized run. Use clone_run_with_new_mode() to fork ",
+    "into a new run directory with parent_run_id linkage.",
+    call. = FALSE)
+  } else if (identical(status, "mismatch_active")) {
+    prior <- read_run_metadata(output_dir)
+    log_warn("Methodology mismatch on active run: stored '{prior$methodology_mode}' vs config '{config$methodology$mode}'. Overwriting metadata; this is not a fork.")
+  }
+
   # Save run metadata (for cross-run and inter-model comparison).
   # `analysis_schema_version` records which output-column schema this run
   # produced; .SCHEMA_VERSION lives in R/15_comparison.R. compare_runs uses
   # this to refuse cross-schema comparisons that would silently NA-pad
   # several panels.
-  run_metadata <- list(
-    provider = config$ai$provider,
-    model_primary = provider$models$primary,
-    model_fast = provider$models$fast %||% provider$models$primary,
-    timestamp = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
-    config_hash = hash_config(config_path),
-    study_name = config$study$name,
-    research_focus = config$study$research_focus,
-    package_version = as.character(utils::packageVersion("pakhom")),
+  #
+  # T1.5: also stamps methodology_mode + parent_run_id + mode_changed_from
+  # + mode_locked_at + is_finalized so the run carries its REDCap-style
+  # state record. The init_run_state helper in R/run_state.R is the
+  # canonical writer; here we extend the helper's output with the
+  # provider/model fields the pipeline carries.
+  meta_methodology <- init_run_state(
+    run_dir          = output_dir,
+    run_id           = basename(output_dir),
+    methodology_mode = config$methodology$mode,
+    parent_run_id    = config$methodology$parent_run_id,
+    mode_changed_from = config$methodology$mode_changed_from,
+    # Provider/study fields (preserved from earlier schema)
+    provider                = config$ai$provider,
+    model_primary           = provider$models$primary,
+    model_fast              = provider$models$fast %||% provider$models$primary,
+    timestamp               = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    config_hash             = hash_config(config_path),
+    study_name              = config$study$name,
+    research_focus          = config$study$research_focus,
+    package_version         = as.character(utils::packageVersion("pakhom")),
     analysis_schema_version = .SCHEMA_VERSION
-  )
-  tryCatch(
-    jsonlite::write_json(run_metadata, file.path(output_dir, "run_metadata.json"),
-                          pretty = TRUE, auto_unbox = TRUE),
-    error = function(e) log_warn("Could not save run metadata: {e$message}")
   )
 
   # Initialize AI decision audit log (T1.4: methodology_mode auto-stamped on
@@ -215,6 +284,11 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
       raw <- load_data(db_path, tables[1])
       col_map <- detect_columns(raw, config$data$source_type, config$data)
       data <- standardize_data(raw, col_map)
+      # Multi-table loads add source_table via load_and_combine_tables;
+      # single-table runs need the same column or downstream consumers
+      # (export_theme_entry_csvs, aggregate_overall_statistics) silently
+      # render reports without source breakdown.
+      data$source_table <- tables[1]
     }
 
     preprocess_config <- config$data$preprocessing
@@ -285,7 +359,49 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   }
 
   # Generate saturation curve plot
-  saturation_plot_path <- generate_saturation_plot(coding_state, output_dir)
+  saturation_plot_path <- generate_saturation_plot(
+    coding_state, output_dir,
+    methodology_mode = config$methodology$mode,
+    run_id = basename(output_dir)
+  )
+
+  # T0.3 corpus coverage assertion: compute the funnel from preprocessed
+  # data to LLM-processed entries to coded entries, plus the headline
+  # "no silent truncation" claim. Computed once after coding completes;
+  # the report renders it as a Tier-0 transparency card. We don't have
+  # pre-preprocessing counts threaded through the pipeline yet (the
+  # data_loaded checkpoint already represents post-preprocess data), so
+  # those fields are NA -- the headline claim doesn't depend on them.
+  coverage <- tryCatch(
+    compute_corpus_coverage(
+      coding_state = coding_state,
+      data         = data,
+      n_after_preprocessing = nrow(data),
+      test_mode_sample_size = if (isTRUE(config$analysis$test_mode$enabled))
+                                config$analysis$test_mode$sample_size %||% nrow(data)
+                              else NA_integer_
+    ),
+    error = function(e) {
+      # Per AC4 ("methodology stamped on every output"), a coverage failure
+      # is itself transparency-relevant -- the audit log gets a
+      # coverage_failure record so investigators can find why the report's
+      # coverage card later renders the unavailable variant. The pipeline
+      # continues so the rest of the report still produces.
+      log_warn("Failed to compute corpus coverage: {e$message}")
+      if (!is.null(audit_log)) {
+        tryCatch(
+          log_ai_decision(audit_log, "coverage", "coverage_failure",
+                          error_message = e$message,
+                          n_input_to_coding = nrow(data),
+                          n_processed = length(coding_state$entries_processed)),
+          error = function(e2) {
+            log_warn("Audit-log entry for coverage failure also failed: {e2$message}")
+          }
+        )
+      }
+      NULL
+    }
+  )
 
   # Derive analytic sample (entries that received at least one code)
   analytic_data <- get_analytic_sample(coding_state, data)
@@ -551,16 +667,21 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   consolidated <- .build_pseudo_consolidated(coding_state)
 
   export_files <- export_results(analytic_data, theme_set, correlations_df, insights,
-                                  consolidated, output_dir)
+                                  consolidated, output_dir,
+                                  methodology_mode = config$methodology$mode)
 
   if (isTRUE(config$output$generate_correlation_plot)) {
-    create_correlation_plot(corr_results, export_files$plot_file)
+    create_correlation_plot(corr_results, export_files$plot_file,
+                             methodology_mode = config$methodology$mode,
+                             run_id = basename(output_dir))
   }
 
   # Theme network plot
   network_file <- file.path(output_dir, "theme_network.png")
   tryCatch({
-    create_theme_network(analytic_data, theme_set, output_path = network_file)
+    create_theme_network(analytic_data, theme_set, output_path = network_file,
+                          methodology_mode = config$methodology$mode,
+                          run_id = basename(output_dir))
   }, error = function(e) log_warn("Theme network plot failed: {e$message}"))
 
   # ========================================================================
@@ -578,6 +699,10 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
           jsonlite::write_json(cr$dashboard, comp_file, pretty = TRUE),
           error = function(e) log_warn("Could not save comparison data: {e$message}")
         )
+        # T1.7 (AC4): stamp the JSON output with methodology mode
+        tryCatch(stamp_methodology_json(comp_file, config$methodology$mode,
+                                          run_id = basename(output_dir)),
+                 error = function(e) log_debug("JSON stamp skipped: {e$message}"))
       }
       cr
     }, error = function(e) {
@@ -609,7 +734,8 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
       theme_group_tests = theme_group_tests,
       cooccurrence_tests = cooccurrence_tests,
       audit_log = audit_log,
-      response_cache = response_cache
+      response_cache = response_cache,
+      coverage = coverage
     )
   }
 
@@ -622,7 +748,8 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
       qdpx_path <- file.path(output_dir, paste0(make_safe_filename(config$study$name), ".qdpx"))
       export_qdpx(coding_state, analytic_data, qdpx_path,
                    theme_set = theme_set,
-                   study_name = config$study$name %||% "pakhom export")
+                   study_name = config$study$name %||% "pakhom export",
+                   methodology_mode = config$methodology$mode)
     }, error = function(e) log_warn("QDPX export failed: {e$message}"))
   }
 
@@ -635,7 +762,9 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     temporal_results <- tryCatch({
       tr <- analyze_temporal_patterns(analytic_data, theme_set, coding_state)
       if (isTRUE(tr$has_temporal_data)) {
-        generate_temporal_plots(tr, output_dir)
+        generate_temporal_plots(tr, output_dir,
+                                  methodology_mode = config$methodology$mode,
+                                  run_id = basename(output_dir))
         log_info("Temporal analysis complete: {tr$period_type} periods")
       } else {
         log_info("No parseable timestamps -- temporal analysis skipped")
@@ -657,6 +786,14 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   } else {
     log_info("Run integrity: all {length(integrity$expected)} expected files present")
   }
+
+  # T1.5: finalize the run -- methodology declaration is now locked for
+  # this canonical output. Any future change to methodology must fork a
+  # new run via clone_run_with_new_mode (which writes parent_run_id).
+  tryCatch(
+    finalize_run(output_dir),
+    error = function(e) log_warn("Could not finalize run: {e$message}")
+  )
 
   # ========================================================================
   # SUMMARY

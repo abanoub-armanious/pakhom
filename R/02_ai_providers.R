@@ -53,12 +53,39 @@ create_ai_provider <- function(provider = "openai", config = NULL) {
     max_tokens = max_tokens,
     temperature = temperature,
     context_window = as.integer(provider_config$context_window %||%
-      if (provider == "openai") 128000L else 200000L)
+      if (provider == "openai") 128000L else 200000L),
+    # T1.6 (AC9): methodology rules generated from the config and injected
+    # as a system-prompt prefix on every ai_complete() call. When `config`
+    # is a full ThematicConfig with a methodology block we generate them
+    # eagerly; otherwise this stays empty (legacy / test contexts continue
+    # to work bit-for-bit). Rules are stable for the lifetime of the
+    # provider object -- the run is the unit of methodology declaration.
+    methodology_rules = .resolve_methodology_rules(config)
   )
   class(obj) <- "AIProvider"
 
   log_info("AI provider initialized: {provider} (primary model: {obj$models$primary})")
   obj
+}
+
+#' Resolve methodology rules text from a config (helper for create_ai_provider)
+#'
+#' Returns the rules string from \code{generate_methodology_rules(config)}
+#' when \code{config} is a ThematicConfig (or a list with a methodology
+#' block). Returns "" otherwise -- the empty string is a no-op when
+#' prepended to a system prompt, so legacy / test contexts continue to
+#' work without changes.
+#' @keywords internal
+.resolve_methodology_rules <- function(config) {
+  if (is.null(config)) return("")
+  if (!inherits(config, "ThematicConfig") && !is.list(config)) return("")
+  has_methodology <- !is.null(tryCatch(config$methodology,
+                                        error = function(e) NULL))
+  if (!has_methodology) return("")
+  tryCatch(generate_methodology_rules(config), error = function(e) {
+    log_warn("Could not generate methodology rules: {e$message}")
+    ""
+  })
 }
 
 #' High-level AI completion with retry and error handling
@@ -177,6 +204,20 @@ ai_complete <- function(provider, prompt, system_prompt = NULL,
   # the same as NULL; a malformed list errors out with a clear message rather
   # than producing an opaque API 400.
   documents <- .validate_documents(documents)
+
+  # T1.6 (AC9): inject methodology rules as a system-prompt prefix on every
+  # call. The provider carries the generated rules from the run's config;
+  # the caller's system_prompt (task-specific instructions) follows. Rules
+  # come FIRST so they "frame" the call before any task-specific
+  # instruction can pull the model toward mode-violating behavior.
+  rules <- provider$methodology_rules %||% ""
+  if (nzchar(rules)) {
+    system_prompt <- if (is.null(system_prompt) || !nzchar(system_prompt)) {
+      rules
+    } else {
+      paste0(rules, "\n\n", system_prompt)
+    }
+  }
 
   last_error <- NULL
 
@@ -362,6 +403,29 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
                                    temperature, max_tokens, json_mode,
                                    response_schema = NULL,
                                    documents = NULL) {
+  # Defensive guard: forced tool_use (response_schema) produces only a
+  # tool_use block in the response with no text blocks, which means
+  # citations have nowhere to attach. The empty-citations result would be
+  # silently fine at the API level but would invisibly downgrade every
+  # quote to citation_source = "model_freeform" -- making the dashboard
+  # falsely report "model freeform (detection only)" for an Anthropic
+  # run that thought it was using the prevention layer. Refuse rather
+  # than silently mismatch what the report claims.
+  if (!is.null(response_schema) && length(documents) > 0L) {
+    stop(
+      "Anthropic Citations API (`documents`) cannot be combined with ",
+      "`response_schema` (forced tool_use): the model returns only a ",
+      "tool_use block with no text blocks for citations to attach to, ",
+      "so citations would be silently empty and every quote would ",
+      "downgrade to citation_source = 'model_freeform'. Choose one mode: ",
+      "use `documents` alone (JSON-mode prompt) for the prevention layer, ",
+      "or `response_schema` alone (without documents) for the schema-only ",
+      "path. Phase 21c's .code_entry_progressive dispatch picks the right ",
+      "one per provider.",
+      call. = FALSE
+    )
+  }
+
   # Anthropic uses 'system' as a top-level parameter, not in messages.
   # When documents are supplied (Sprint-4 T0.1 part 3b), the user message
   # content becomes a content array of one document block per source

@@ -1173,14 +1173,6 @@ parse_codebook <- function(path) {
   })
 }
 
-#' Legacy wrapper for backward compatibility
-#' @keywords internal
-.parse_qdpx_codebook <- function(path) {
-  result <- .parse_qdpx_deep(path)
-  if (is.null(result)) return(NULL)
-  result$codebook
-}
-
 #' Detect QDA tool format and parse accordingly
 #' @keywords internal
 .detect_and_parse_codebook <- function(sheet_data, path) {

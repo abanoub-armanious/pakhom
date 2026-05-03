@@ -8,7 +8,9 @@ create_theme_network(
   data,
   theme_set,
   output_path = "theme_network.png",
-  min_cooccurrence = 3
+  min_cooccurrence = 3,
+  methodology_mode = NULL,
+  run_id = NULL
 )
 }
 \arguments{
@@ -19,6 +21,11 @@ create_theme_network(
 \item{output_path}{File path for PNG output}
 
 \item{min_cooccurrence}{Minimum co-occurrence count to draw an edge (default 3)}
+
+\item{methodology_mode}{Optional character (T1.7 / AC4): when supplied,
+adds a footer caption identifying the mode + run.}
+
+\item{run_id}{Optional character: run identifier.}
 }
 \value{
 Invisible adjacency matrix, or NULL if igraph unavailable

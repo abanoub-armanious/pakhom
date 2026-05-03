@@ -90,10 +90,18 @@ test_that("export_results creates expected files", {
 
 test_that("verify_run_integrity detects complete run", {
   tmp_dir <- withr::local_tempdir()
+  # Sprint-4 update: integrity check now also requires the Tier-0 + Tier-1
+  # outputs (run_metadata.json, rules/methodology_rules.md, fabrication
+  # log, audit log, api_responses dir per AC4). Test fixture creates them.
   core_files <- c("sentiment_scores.csv", "consolidated_codes.csv",
-                   "correlations.csv", "themes.json", "analysis_report.Rmd")
+                   "correlations.csv", "themes.json", "analysis_report.Rmd",
+                   "run_metadata.json", "fabrication_log.csv",
+                   "ai_decisions.jsonl")
   for (f in core_files) file.create(file.path(tmp_dir, f))
   dir.create(file.path(tmp_dir, "theme_entries"))
+  dir.create(file.path(tmp_dir, "rules"))
+  file.create(file.path(tmp_dir, "rules", "methodology_rules.md"))
+  dir.create(file.path(tmp_dir, "api_responses"))
 
   result <- verify_run_integrity(tmp_dir, config = list())
   expect_true(result$complete)

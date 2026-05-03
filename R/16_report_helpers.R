@@ -746,10 +746,17 @@ generate_downloads_section <- function(export_files, theme_stats) {
     )
 
     q <- valid[chosen_idx, ]
+    # Guard against missing all_emotions column -- some pipelines (test
+    # fixtures, sentiment-failure paths) skip emotion analysis. Direct
+    # `q$all_emotions` triggers an "Unknown or uninitialised column"
+    # warning when the column doesn't exist; use names()-check instead.
+    emotion_val <- if ("all_emotions" %in% names(q)) {
+      q$all_emotions %||% NA_character_
+    } else NA_character_
     quotes[[label]] <- list(
       text      = truncate_text(q[[text_col]], 300),
       sentiment = round(q$sentiment_score, 2),
-      emotion   = q$all_emotions %||% NA_character_
+      emotion   = emotion_val
     )
     taken_indices <- c(taken_indices, chosen_idx)
     if (has_authors) {

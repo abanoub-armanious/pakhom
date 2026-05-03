@@ -4,12 +4,22 @@
 \alias{generate_temporal_plots}
 \title{Generate PNG plots for temporal analysis results}
 \usage{
-generate_temporal_plots(temporal_results, output_dir)
+generate_temporal_plots(
+  temporal_results,
+  output_dir,
+  methodology_mode = NULL,
+  run_id = NULL
+)
 }
 \arguments{
 \item{temporal_results}{List returned by \code{\link{analyze_temporal_patterns}}}
 
 \item{output_dir}{Directory where PNGs will be saved (created if needed)}
+
+\item{methodology_mode}{Optional character (T1.7 / AC4): when supplied,
+adds a caption to each plot identifying the mode + run id.}
+
+\item{run_id}{Optional character: run identifier.}
 }
 \value{
 Invisible character vector of file paths written
