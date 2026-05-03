@@ -13,12 +13,18 @@ test_that("create_reflection_log returns the documented shape", {
   expected_fields <- c(
     "provocations", "memos", "positionality_history",
     "reflexivity_collapse_flags", "researcher_authored_codes",
-    "researcher_authored_themes", "config_hash", "created_at",
+    "researcher_authored_themes",
+    # Schema 1.1.0 (phase 31): T0.3 attempt + explicit-skip tracking
+    "provocation_attempts", "skipped_themes",
+    "config_hash", "created_at",
     "last_updated", "schema_version"
   )
   expect_setequal(names(log), expected_fields)
   expect_length(log$provocations, 0L)
   expect_equal(nrow(log$positionality_history), 0L)
+  expect_equal(nrow(log$provocation_attempts), 0L)
+  expect_equal(nrow(log$skipped_themes), 0L)
+  expect_equal(log$schema_version, "1.1.0")
 })
 
 test_that("create_reflection_log accepts and stores config_hash", {
@@ -486,6 +492,57 @@ test_that("run_provocateur_questioning skips themes with no supporting entries",
 
   expect_equal(call_count$n, 0L)  # zero AI calls because theme had no entries
   expect_length(log$provocations, 0L)
+  # Schema 1.1.0 (phase 31): the explicit-skip is recorded with reason
+  # so compute_mode1_coverage can distinguish it from a silent skip.
+  expect_equal(nrow(log$skipped_themes), 1L)
+  expect_equal(log$skipped_themes$theme_name, "Empty")
+  expect_equal(log$skipped_themes$reason, "no_supporting_entries")
+  # No attempts should be recorded because the theme was skipped before
+  # the per-category loop even started.
+  expect_equal(nrow(log$provocation_attempts), 0L)
+})
+
+test_that("run_provocateur_questioning records one attempt row per theme x category, regardless of n_emitted", {
+  # T0.3 (Mode 1) pre-condition: a category that legitimately returns
+  # zero provocations must still appear in provocation_attempts so the
+  # coverage card can assert "every category was attempted." Conflating
+  # "AI returned []" with "we never asked" would let silent skips hide.
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  data <- .smoke_data_with_themes()
+  ts <- .smoke_theme_set()
+
+  # Mock returns empty results for all calls (legitimate "no qualifying entries")
+  empty_response <- jsonlite::toJSON(list(provocations = list()),
+                                       auto_unbox = TRUE)
+  local_mocked_bindings(
+    ai_complete = function(...) list(
+      content = empty_response, model = "m", request_id = "r",
+      usage = list(prompt_tokens = 1L, completion_tokens = 1L,
+                   total_tokens = 2L),
+      finish_reason = "stop", raw_response = list(),
+      prompt_hash = "h", citations = list()
+    ),
+    .package = "pakhom"
+  )
+
+  log <- run_provocateur_questioning(
+    data = data, theme_set = ts,
+    provider = mock_provider("anthropic"),
+    categories = c("counter_narrative", "disconfirming_evidence")
+  )
+
+  # No provocations emitted (empty AI responses), but every theme x
+  # category combo with non-empty supporting entries got an attempt row.
+  expect_length(log$provocations, 0L)
+  n_themes_with_entries <- sum(vapply(ts$themes, function(t) {
+    safe_col <- paste0("theme_membership_", make.names(t$name))
+    if (safe_col %in% names(data)) sum(data[[safe_col]] == 1L) > 0L else FALSE
+  }, logical(1)))
+  expect_equal(nrow(log$provocation_attempts),
+               n_themes_with_entries * 2L)
+  expect_true(all(log$provocation_attempts$n_emitted == 0L))
 })
 
 test_that("run_provocateur_questioning supports resume via resume_log", {

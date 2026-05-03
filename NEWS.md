@@ -1,5 +1,164 @@
 # pakhom 1.0.0
 
+## Sprint-4 phase 31: Mode 1 (Reflexive Scaffold) full orchestrator
+
+Closes the phase 30 audit's CRITICAL findings C1 + C2: Mode 1 was
+operational at the provocateur-loop level (`run_provocateur_questioning`)
+but lacked the AC4 + AC7 scaffolding that Modes 2/3 have. A Mode 1 run
+emitted only a `ResearcherReflectionLog` -- no `run_metadata.json`, no
+T0.2 spread, no T0.3 coverage, no rendered report, no `finalize_run()`
+call. AC4 ("methodology stamped on every output") and AC7 ("universal
+Tier-0 in all modes") were aspirational for Mode 1; phase 31 makes them
+operational.
+
+- **`run_mode1()` orchestrator** (new `R/mode1_orchestrator.R`). Top-level
+  Mode 1 entry point that mirrors `run_analysis()`'s scaffolding (output
+  dir + run metadata + methodology rules + audit log + fabrication log
+  + finalize_run + integrity check) but routes through the provocateur
+  loop instead of progressive coding. Produces a complete Mode 1 run
+  directory under `outputs/<run-id>_M1/` with every Tier-0/Tier-1
+  artifact a reviewer would expect, plus Mode 1-specific canonical
+  artifacts: `reflection_log.json`, `provocations.csv`,
+  `provocation_attempts.csv`, `themes.json`, `coverage_mode1.json`.
+
+- **`compute_mode1_coverage()` + `ProvocationCoverage` S3** (new in
+  `R/mode1_orchestrator.R`). Mode 1's analog of T0.3. Where Mode 2/3 assert
+  "no silent truncation in the LLM call path" (every preprocessed entry
+  reached the LLM), Mode 1 asserts **"no silent skip across themes ×
+  provocation categories"** + "the full corpus was provided to per-
+  category prompts." Distinguishes legitimate empty results (a category
+  that returned zero provocations because no qualifying entries existed)
+  from silent skips (a category that was never attempted) -- the central
+  semantic that lets the coverage card make a defensible claim.
+  `ProvocationCoverage` shares a `Tier0Coverage` virtual parent class
+  with `CorpusCoverage` so the report renderer dispatches uniformly via
+  the new `render_tier0_coverage_card()` S3 generic.
+
+- **`generate_mode1_report()`** (new `R/mode1_report.R`). Mode 1-specific
+  HTML report renderer. The existing `generate_report()` is wired to
+  coding_state + sentiment + correlations + AI synthesis -- none of
+  which exist in Mode 1, and stubbing them out would risk silent Mode 2/3
+  regressions. The Mode 1 report instead reuses atomic helpers
+  (`stamp_methodology_html`, `.build_tier0_dashboard`,
+  `.build_participant_spread_card`) and adds Mode 1-specific section
+  builders for per-theme provocations grouped by category, the Mode 1
+  coverage card via `render_tier0_coverage_card()` S3 dispatch, and a
+  deterministic executive summary that surfaces top categories, themes
+  attracting the most disconfirming evidence, and participant-
+  concentration flags.
+
+- **`compute_provocation_provenance_stats()`** (new). Mode 1's analog of
+  `compute_quote_provenance_stats()`. Walks
+  `reflection_log$provocations`, extracts each provocation's
+  `QuoteProvenance` field (built and verified by the per-category
+  function via `.citation_to_provocation`), and feeds them through
+  `quote_provenance_summary()`. Provocations from observational
+  categories (absent_voice, parts of assumption_surfacing) carry NULL
+  provenance and are excluded from the verification stats -- the Tier-0
+  dashboard's domain is verbatim claims.
+
+- **ResearcherReflectionLog schema 1.1.0**: adds `provocation_attempts`
+  and `skipped_themes` data.frames. The attempt tracker records one row
+  per (theme × category) attempt regardless of how many provocations the
+  AI emitted -- the row's existence proves "not silently skipped" while
+  the `n_emitted` column measures emission. The skipped_themes tracker
+  records themes the orchestrator bypassed with a stated reason (e.g.,
+  zero supporting entries) so the coverage card distinguishes
+  *explicit skip with stated reason* from *silent skip*. Backward-
+  compatible: 1.0.0 logs loaded as `resume_log` have the new slots
+  backfilled empty.
+
+- **`render_tier0_coverage_card()` S3 generic** (new in
+  `R/corpus_coverage.R`). Single dispatch entry point for the report's
+  Tier-0 coverage card; methods on `CorpusCoverage` (Mode 2/3, in
+  `R/17_report.R`) and `ProvocationCoverage` (Mode 1, in
+  `R/mode1_orchestrator.R`) keep the call site in `.build_rmd_content`
+  branch-free. The legacy `.build_corpus_coverage_card()` is preserved as
+  a thin compat wrapper that routes through the generic so existing tests
+  in `test-corpus_coverage.R` and `test-tier0-smoke.R` continue to pass.
+
+- **`verify_run_integrity()` mode dispatch**. The integrity-check
+  function now dispatches on `config$methodology$mode`. Mode 1 expects a
+  different artifact set (no sentiment_scores.csv, no correlations.csv,
+  no theme_entries directory; instead reflection_log.json,
+  provocations.csv, provocation_attempts.csv, coverage_mode1.json).
+  Mode 2/3 expectations unchanged.
+
+- **Bug fix**: `find_latest_run()` regex predated the T1.7 mode-suffixed
+  run dirs (phase 25-27) and silently returned NULL for ANY mode-
+  suffixed dir, breaking the resume path across all modes. Regex updated
+  to allow the optional `_M[123]` tail. Caught while writing the AC5
+  resume-finalized refusal test for Mode 1; affects Mode 2 and Mode 3
+  resume too.
+
+- **Pipeline friendly-error update**: `R/18_pipeline.R`'s Mode 1 refusal
+  message now points users at `run_mode1()` (the scaffolded entry point)
+  in addition to `run_provocateur_questioning()` (the bare loop).
+
+- **Audit-driven hardening (3 parallel general-purpose audit subagents)**.
+  The audit pattern caught real issues that unit-testing alone missed;
+  fixes applied in the same commit:
+  * **C1** `attempts_per_category` and `explicit_skip_reasons` now
+    serialize as named JSON objects (previously `auto_unbox=TRUE` on
+    named integer vectors produced anonymous arrays in
+    `coverage_mode1.json`, defeating replay/audit). `ProvocationCoverage`
+    schema bumped 1.0.0 -> 2.0.0.
+  * **H1** `compute_mode1_coverage` now partitions attempts into
+    in-scope vs out-of-scope WRT `requested_categories` (previously
+    `factor(..., levels=requested)` silently dropped unexpected-category
+    rows from `attempts_per_category` while still counting them via
+    `nrow(attempts)`, producing contradictory `recorded > expected`).
+    New fields: `n_unexpected_category_attempts`, `unexpected_categories`,
+    `no_unexpected_category_attempts`.
+  * **H2 / H3** `no_silent_skip` headline now requires
+    `n_themes_input > 0L` AND `n_themes_attempted > 0L` so degenerate
+    states (zero-themes input, all-themes-explicit-skipped) don't grade
+    as verified coverage. Coverage card banner branches accordingly with
+    distinct messages for each degenerate case.
+  * **M3** Replaced the unconditional `no_silent_corpus_truncation = TRUE`
+    boolean (which overclaimed -- the per-category prompts in
+    `R/provocateur.R` include only theme-supporting entries, not the
+    full corpus text) with two honest fields:
+    `corpus_provided_to_per_category_fns` (TRUE -- `data` IS passed) and
+    `llm_prompt_includes_full_corpus` (FALSE -- prompts only embed
+    supporting-entry text). Coverage card adds a "prompt context" note
+    explaining the constraint and flagging corpus-search retrieval as a
+    future phase. The verification ladder still catches any hallucinated
+    entry_id the LLM might invent.
+  * **A.H3** `.read_reflection_log_json` now uses `simplifyVector=FALSE`
+    and explicitly re-classes nested `Provocation` + `QuoteProvenance`
+    objects after the JSON read (previously the round-trip stripped S3
+    classes and downstream resume-time consumers gating on
+    `inherits(...)` would silently emit NA-cited rows).
+  * **A.L4** `init_run_state` is now called AFTER `create_ai_provider`
+    so `model_primary` and `model_fast` get stamped into
+    `run_metadata.json` (parity with run_analysis -- previously Mode 1
+    metadata was missing those cross-mode-comparison fields).
+  * **A.H1 / H2** Wrong-mode + finalized-resume errors use single
+    multi-line messages (parity with run_analysis's friendly-error
+    style); `find_latest_run` returning NULL on `resume=TRUE` now logs
+    "No previous run found" instead of falling through silently.
+  * **B (XSS)** Theme names from researcher-supplied input are now
+    HTML-escaped in the executive summary's concentration-flags and
+    disconfirming-evidence lines (previously a crafted theme name like
+    `<script>alert(1)</script>` would interpolate raw into the rendered
+    Rmd). The per-theme provocation section already escaped via
+    `.html_esc`; this closes the remaining unescaped path.
+  * **B (semantic)** Executive summary now distinguishes "no fabrications
+    detected" (verbatim claims existed AND none failed verification)
+    from "no verbatim claims to verify" (e.g., a Mode 1 run that only
+    used absent_voice or assumption_surfacing erased-terms produces
+    NULL-provenance provocations -- nothing to fabricate from).
+
+Phase 31 net adds ~225 tests across `test-mode1-coverage.R`,
+`test-mode1-orchestrator.R`, `test-mode1-report.R`, plus extensions to
+`test-provocateur.R` (attempt-tracking + schema 1.1.0 assertion) and
+`test-mode3-framework.R` (run_mode1 reference in the friendly-error).
+Test count: 2032 -> 2089 net (the audit-fix tests pin every issue
+listed above so the same bugs cannot regress). R CMD check stays at
+0 errors / 0 warnings / 2 routine NOTEs (21 imports + future
+timestamps -- both environmental and unchanged from prior phases).
+
 ## Pre-publication rename: thematicai -> pakhom
 
 Pre-publication rename so the package's name matches its GitHub repo and

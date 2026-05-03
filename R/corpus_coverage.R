@@ -16,6 +16,15 @@
 # is computed AFTER the coding step regardless of mode. Per AC4
 # (methodology stamped on every output), the coverage card is rendered
 # unconditionally; absence of the card is itself a failure signal.
+#
+# Mode-shape: Mode 2/3 use CorpusCoverage; Mode 1 uses ProvocationCoverage
+# (in R/mode1_orchestrator.R). Both inherit a virtual Tier0Coverage parent
+# class so the report renderer dispatches via render_tier0_coverage_card()
+# without conflating the mode-specific semantics. The headline assertion
+# differs by mode: M2/M3 says "no silent truncation" (LLM saw every
+# entry); M1 says "no silent skip" (every theme was challenged across
+# every requested category). Both are coverage claims; the underlying
+# evidence is mode-specific.
 # ==============================================================================
 
 #' Current schema version for the CorpusCoverage object
@@ -165,7 +174,14 @@ compute_corpus_coverage <- function(coding_state, data,
     computed_at              = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
     schema_version           = .CORPUS_COVERAGE_SCHEMA_VERSION
   )
-  class(obj) <- "CorpusCoverage"
+  # Multi-class: Tier0Coverage is the virtual parent that the report
+  # renderer dispatches on (via render_tier0_coverage_card). Mode 1's
+  # ProvocationCoverage shares the same parent so a single call site in
+  # the report builder handles both. CorpusCoverage methods stay
+  # specific to this class; AC7 ("universal Tier-0") is satisfied at the
+  # COMMITMENT level (both modes render a coverage card unconditionally)
+  # rather than the data-shape level (the underlying claims differ).
+  class(obj) <- c("CorpusCoverage", "Tier0Coverage")
   obj
 }
 
@@ -225,4 +241,66 @@ print.CorpusCoverage <- function(x, ...) {
     length(strsplit(trimws(s), "\\s+", perl = TRUE)[[1L]])
   }, integer(1), USE.NAMES = FALSE)
   out
+}
+
+# ==============================================================================
+# Tier-0 coverage card renderer (S3 dispatch on Tier0Coverage subclasses)
+# ==============================================================================
+# The report builder calls render_tier0_coverage_card(coverage) without
+# branching on mode -- the dispatch happens at the S3 method level.
+# Methods live with the relevant class:
+#   render_tier0_coverage_card.CorpusCoverage     -- in R/17_report.R
+#                                                    (renders Mode 2/3 funnel)
+#   render_tier0_coverage_card.ProvocationCoverage -- in R/mode1_orchestrator.R
+#                                                    (renders Mode 1 attempt
+#                                                     matrix + skipped themes)
+#   render_tier0_coverage_card.default            -- below; renders an
+#                                                    "unavailable" notice when
+#                                                    coverage is NULL or an
+#                                                    unrecognized type slips in
+#
+# AC4 ("methodology stamped on every output") forbids silent omission --
+# unavailable variant must say so explicitly so a reviewer scanning the
+# report knows the absence is reported, not hidden.
+
+#' Render the Tier-0 coverage card for a coverage object
+#'
+#' S3 generic; the renderer the HTML report calls. Method dispatched on the
+#' object's class. NULL is bypassed and routed to a fixed "unavailable"
+#' card so the call site in \code{generate_report} / \code{generate_mode1_report}
+#' does not need to branch.
+#'
+#' @param x A coverage object (CorpusCoverage, ProvocationCoverage), NULL,
+#'   or any other object (returns the unavailable variant).
+#' @param ... Method-specific arguments.
+#' @return Character HTML/markdown string for the card.
+#' @export
+render_tier0_coverage_card <- function(x, ...) {
+  if (is.null(x)) return(.tier0_coverage_card_unavailable())
+  UseMethod("render_tier0_coverage_card")
+}
+
+#' @rdname render_tier0_coverage_card
+#' @export
+render_tier0_coverage_card.default <- function(x, ...) {
+  .tier0_coverage_card_unavailable()
+}
+
+#' Unavailable-coverage card (NULL / unrecognized inputs)
+#'
+#' Per AC4, absence of a Tier-0 card is itself a transparency signal --
+#' rather than hide it, the report renders an explicit "not computed"
+#' notice. Invoked from \code{render_tier0_coverage_card} when no method
+#' matches.
+#' @keywords internal
+.tier0_coverage_card_unavailable <- function() {
+  paste0(
+    '<div class="coverage-card coverage-unavailable">\n',
+    '<div class="coverage-header">Tier-0 Coverage</div>\n',
+    '<p class="coverage-unavailable-note">Coverage data not computed ',
+    'for this report. Per Tier-0 transparency policy this absence is ',
+    'reported rather than silently omitted -- a complete pakhom run ',
+    'computes coverage as part of its finalization step.</p>\n',
+    '</div>\n\n'
+  )
 }

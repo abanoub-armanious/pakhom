@@ -49,8 +49,23 @@
 # ==============================================================================
 
 #' Current ResearcherReflectionLog schema version
+#'
+#' 1.0.0 -- initial schema (phase 30): provocations + memos +
+#'   positionality_history + reflexivity_collapse_flags +
+#'   researcher_authored_codes + researcher_authored_themes.
+#' 1.1.0 -- phase 31 (run_mode1 orchestrator): add provocation_attempts
+#'   and skipped_themes data.frames so Mode 1 can honestly assert T0.3
+#'   coverage. provocation_attempts records one row per (theme, category)
+#'   attempt regardless of how many provocations the AI emitted; the
+#'   distinction matters because a category that legitimately returns
+#'   zero provocations (e.g., counter_narrative finds no qualifying
+#'   entries) is NOT a coverage failure -- whereas a category that was
+#'   never attempted IS. skipped_themes records themes the orchestrator
+#'   bypassed (e.g., zero supporting entries) with an explicit reason,
+#'   so the coverage card distinguishes "silent skip" from "explicit
+#'   skip with stated reason."
 #' @keywords internal
-.RESEARCHER_REFLECTION_LOG_SCHEMA_VERSION <- "1.0.0"
+.RESEARCHER_REFLECTION_LOG_SCHEMA_VERSION <- "1.1.0"
 
 #' Valid provocation category names
 #' @keywords internal
@@ -91,6 +106,29 @@ create_reflection_log <- function(config_hash = NULL) {
     reflexivity_collapse_flags = list(),
     researcher_authored_codes  = list(),
     researcher_authored_themes = list(),
+    # T0.3 attempt tracking (phase 31). One row per (theme x category)
+    # attempt the orchestrator made, regardless of whether the AI emitted
+    # provocations. Lets compute_mode1_coverage assert "every theme was
+    # challenged across every requested category" without conflating
+    # "AI returned zero provocations" with "category was never attempted."
+    provocation_attempts       = data.frame(
+      theme_name   = character(0),
+      category     = character(0),
+      n_emitted    = integer(0),
+      attempted_at = character(0),
+      stringsAsFactors = FALSE
+    ),
+    # T0.3 explicit-skip tracking (phase 31). Themes the orchestrator
+    # bypassed with a stated reason (e.g., zero supporting entries). A
+    # silent skip -- a theme that should have been processed but wasn't
+    # -- is a coverage failure; an explicit skip with a stated reason is
+    # transparency. The coverage card surfaces both.
+    skipped_themes             = data.frame(
+      theme_name = character(0),
+      reason     = character(0),
+      skipped_at = character(0),
+      stringsAsFactors = FALSE
+    ),
     config_hash                = config_hash,
     created_at                 = now_iso,
     last_updated               = now_iso,
@@ -116,6 +154,16 @@ print.ResearcherReflectionLog <- function(x, ...) {
               length(x$researcher_authored_codes)))
   cat(sprintf("  Researcher-authored themes:   %d\n",
               length(x$researcher_authored_themes)))
+  # T0.3 attempt + skip tallies (schema 1.1.0+). NULL-safe so a 1.0.0
+  # log loaded by a 1.1.0 reader doesn't blow up the print method.
+  attempts <- x$provocation_attempts
+  skipped  <- x$skipped_themes
+  if (!is.null(attempts)) {
+    cat(sprintf("  Provocation attempts:         %d\n", nrow(attempts)))
+  }
+  if (!is.null(skipped)) {
+    cat(sprintf("  Themes skipped (with reason): %d\n", nrow(skipped)))
+  }
   if (length(x$provocations) > 0L) {
     cats <- vapply(x$provocations, function(p) p$category, character(1))
     tbl <- table(cats)
@@ -985,6 +1033,28 @@ run_provocateur_questioning <- function(data, theme_set, provider,
     create_reflection_log(config_hash = config$config_hash %||% NULL)
   }
 
+  # T0.3 (Mode 1): a 1.0.0 reflection log loaded as a resume_log will
+  # not have the attempt / skip slots; backfill them so coverage compute
+  # against the resumed log doesn't crash. Empty data frames here mean
+  # "no recorded attempts yet" -- the upcoming loop will append.
+  if (is.null(log$provocation_attempts)) {
+    log$provocation_attempts <- data.frame(
+      theme_name   = character(0),
+      category     = character(0),
+      n_emitted    = integer(0),
+      attempted_at = character(0),
+      stringsAsFactors = FALSE
+    )
+  }
+  if (is.null(log$skipped_themes)) {
+    log$skipped_themes <- data.frame(
+      theme_name = character(0),
+      reason     = character(0),
+      skipped_at = character(0),
+      stringsAsFactors = FALSE
+    )
+  }
+
   log_info("Provocateur: running {length(categories)} categor(ies) across {length(theme_set$themes)} theme(s)")
 
   for (t in theme_set$themes) {
@@ -1001,6 +1071,15 @@ run_provocateur_questioning <- function(data, theme_set, provider,
 
     if (nrow(theme_entries) == 0L) {
       log_warn("Provocateur: theme '{tn}' has no supporting entries; skipping.")
+      log$skipped_themes <- rbind(
+        log$skipped_themes,
+        data.frame(
+          theme_name = tn,
+          reason     = "no_supporting_entries",
+          skipped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+          stringsAsFactors = FALSE
+        )
+      )
       next
     }
 
@@ -1027,6 +1106,21 @@ run_provocateur_questioning <- function(data, theme_set, provider,
           audit_log = audit_log, response_cache = response_cache,
           fabrication_log = fabrication_log),
         list()
+      )
+      # T0.3 (Mode 1): record the attempt regardless of outcome. n_emitted
+      # may legitimately be 0 (e.g., counter_narrative finds no qualifying
+      # entries); the row's existence proves "not silently skipped." The
+      # downstream coverage check distinguishes "attempts made for every
+      # theme x category" from "every attempt produced provocations."
+      log$provocation_attempts <- rbind(
+        log$provocation_attempts,
+        data.frame(
+          theme_name   = tn,
+          category     = cat,
+          n_emitted    = as.integer(length(provs)),
+          attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+          stringsAsFactors = FALSE
+        )
       )
       if (length(provs) > 0L) {
         log$provocations <- c(log$provocations, provs)

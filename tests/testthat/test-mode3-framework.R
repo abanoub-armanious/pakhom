@@ -485,8 +485,11 @@ test_that("Pipeline source contains Mode 1 friendly-error block (dispatch is wir
 
   src <- paste(readLines(src_path), collapse = "\n")
   expect_match(src, "Mode 1 \\(Reflexive Scaffold\\)")
-  # Source points users at the dedicated Mode 1 entry point and lists
-  # alternative auto-pipeline modes
+  # Source points users at the dedicated Mode 1 entry point (phase 31:
+  # run_mode1 superseded run_provocateur_questioning as the canonical
+  # Mode 1 orchestrator -- both must be referenced so the bare-loop
+  # entry point and the scaffolded entry point are both visible)
+  expect_match(src, "run_mode1")
   expect_match(src, "run_provocateur_questioning")
   expect_match(src, "codebook_collaborative")
   expect_match(src, "framework_applied")

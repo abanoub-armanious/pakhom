@@ -131,6 +131,15 @@ export_results <- function(data, theme_set, correlations_df, insights,
 #'   `missing` (expected but not found), `complete` (logical)
 #' @export
 verify_run_integrity <- function(run_dir, config = list()) {
+  # Phase 31: dispatch on methodology mode. Mode 1 (Reflexive Scaffold)
+  # produces a different artifact set from Modes 2/3 (no sentiment, no
+  # correlations, no theme_entries directory) -- a unified expected
+  # list would silently mark every Mode 1 run as incomplete.
+  meth_mode <- tryCatch(config$methodology$mode, error = function(e) NULL)
+  if (identical(meth_mode, "reflexive_scaffold")) {
+    return(.verify_run_integrity_mode1(run_dir, config))
+  }
+
   # Core files every completed run must have
   expected <- c(
     "sentiment_scores.csv",
@@ -516,10 +525,10 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   # fabrications", T0.3 says "no silent truncation". Both are Tier-0
   # transparency cards rendered before the substantive analysis so
   # reviewers see the integrity claims first. coverage is NULL on
-  # legacy/test report calls -- the renderer degrades to an
-  # "unavailable" notice rather than crashing or omitting silently.
+  # legacy/test report calls -- the generic dispatches to the
+  # "unavailable" default rather than crashing or omitting silently.
   content <- paste0(content,
-    .build_corpus_coverage_card(coverage)
+    render_tier0_coverage_card(coverage)
   )
 
   # Inline data overview context into executive summary (Issue 4)
@@ -1283,18 +1292,19 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 #' @return Character HTML/markdown string for the card.
 #' @keywords internal
 .build_corpus_coverage_card <- function(coverage) {
-  if (is.null(coverage) || !inherits(coverage, "CorpusCoverage")) {
-    return(paste0(
-      '<div class="coverage-card coverage-unavailable">\n',
-      '<div class="coverage-header">Corpus Coverage (T0.3)</div>\n',
-      '<p class="coverage-unavailable-note">Coverage data not computed ',
-      'for this report. Per Tier-0 transparency policy this absence is ',
-      'reported rather than silently omitted -- a complete pakhom run ',
-      'computes coverage as the final step of progressive coding.</p>\n',
-      '</div>\n\n'
-    ))
-  }
+  # Phase 31: this name is preserved as a thin compat wrapper around
+  # the new render_tier0_coverage_card generic. Existing tests in
+  # test-corpus_coverage.R + test-tier0-smoke.R call this under
+  # pakhom:::.build_corpus_coverage_card; routing through the generic
+  # keeps their assertions valid while letting Mode 1 dispatch via
+  # render_tier0_coverage_card.ProvocationCoverage.
+  render_tier0_coverage_card(coverage)
+}
 
+#' @rdname render_tier0_coverage_card
+#' @export
+render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
+  coverage <- x
   ok <- isTRUE(coverage$no_silent_truncation)
   banner_class <- if (ok) "coverage-banner-ok" else "coverage-banner-warn"
   banner_msg <- if (ok) {
