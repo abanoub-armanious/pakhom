@@ -84,13 +84,21 @@ my_themes <- create_theme_set(list(
 ))
 
 # 2. Your corpus -- a tibble with std_id + std_text. theme_membership_*
-#    columns indicate which entries support each theme.
+#    columns indicate which entries support each theme. (Author IDs in
+#    std_author drive the T0.2 participant-spread metric.) In practice
+#    you'd build this tibble from a database load + your existing NVivo
+#    coding; here a small toy corpus illustrates the shape.
 my_corpus <- tibble::tibble(
-  std_id = paste0("e", 1:N),
-  std_text = c(...),
-  std_author = c(...),  # T0.2 participant spread
-  theme_membership_Adherence  = c(1, 1, 0, ...),
-  theme_membership_Resistance = c(0, 0, 1, ...)
+  std_id   = c("e1", "e2", "e3", "e4"),
+  std_text = c(
+    "I plan to take my medication every day from now on.",
+    "My doctor told me to follow this regimen carefully.",
+    "I always forget my pills; the schedule is impossible.",
+    "Side effects make me skip doses on weekends."
+  ),
+  std_author = c("alice", "bob", "carol", "dave"),
+  theme_membership_Adherence  = c(1L, 1L, 0L, 0L),
+  theme_membership_Resistance = c(0L, 0L, 1L, 1L)
 )
 
 # 3. Drive the provocateur loop with full Tier-0/Tier-1 scaffolding.

@@ -313,13 +313,16 @@ test_that("framework_prompt_block omits indicators line when none supplied", {
 
 # ---- archive_framework_spec (phase 32 / audit H1 + H2) -------------------
 
-test_that("archive_framework_spec writes byte-equivalent copy + sha256 hash", {
+test_that("archive_framework_spec writes archive + sha256 hash anchored to source", {
   spec <- load_framework_spec("tpb")
   d <- withr::local_tempdir()
   arch <- archive_framework_spec(spec, d)
   expect_true(file.exists(arch$path))
-  # Byte-equivalent: round-trip via base R + the yaml::yaml.load_file result
-  # would lose comments; assert direct file-bytes equivalence with the source.
+  # Phase 37 audit (AC4 stamp): arch$hash anchors replay-equivalence
+  # to the SOURCE spec the user supplied, not the post-stamp archive
+  # (which has a methodology comment line prepended). The hash field
+  # is therefore equal to digest(source) regardless of whether the
+  # archive has been stamped.
   expect_equal(
     digest::digest(file = spec$source_path, algo = "sha256",
                     serialize = FALSE),
@@ -330,6 +333,27 @@ test_that("archive_framework_spec writes byte-equivalent copy + sha256 hash", {
   expect_equal(arch$epistemic_stance, "positivist")
   expect_equal(arch$anomaly_handling, "bracket")
   expect_equal(arch$n_constructs, 5L)
+})
+
+test_that("archive_framework_spec stamps methodology + run_id + source-sha256 into the YAML header (AC4)", {
+  # Phase 37 audit (AC MEDIUM): archived framework_applied.yaml must
+  # carry the methodology stamp at the artifact level so a reviewer
+  # auditing a single file sees the mode declaration even out of run-
+  # dir context. The stamp is a `#` YAML comment, which yaml::yaml.load
+  # strips -- so the parsed FrameworkSpec is unchanged.
+  spec <- load_framework_spec("tpb")
+  d <- withr::local_tempdir()
+  arch <- archive_framework_spec(spec, d, run_id = "test-run-id")
+  body <- readLines(arch$path, warn = FALSE)
+  expect_match(body[1L], "^# methodology:")
+  expect_match(body[1L], "M3 - Framework Applied", fixed = TRUE)
+  expect_match(body[1L], "test-run-id", fixed = TRUE)
+  expect_match(body[2L], "^# source-sha256:")
+  expect_match(body[2L], substr(arch$hash, 1, 16), fixed = TRUE)
+  # YAML parser strips comments -- archive content is still loadable
+  reloaded <- load_framework_spec(arch$path)
+  expect_equal(reloaded$name, "Theory of Planned Behavior")
+  expect_equal(reloaded$construct_ids, spec$construct_ids)
 })
 
 test_that("archive_framework_spec preserves source extension (.json)", {

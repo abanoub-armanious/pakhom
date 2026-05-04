@@ -383,9 +383,20 @@ list_memos <- function(log, type = NULL, author = NULL,
 #' apostrophes, colons, etc.
 #'
 #' @param memo A \code{Memo} object.
+#' @param methodology_mode Optional character: methodology mode to stamp
+#'   into the frontmatter as \code{methodology_mode}. Per AC4
+#'   (methodology stamped on every output), Mode 1 memos persisted to
+#'   disk should carry the mode declaration so a memo lifted out of its
+#'   run directory still self-identifies. Defaults to
+#'   \code{"reflexive_scaffold"} (Mode 1) since memos are a Mode 1
+#'   construct; pass NULL to omit the field.
+#' @param run_id Optional character: run id to stamp into the
+#'   frontmatter alongside methodology_mode. NULL omits the field.
 #' @return Character: the full Markdown content (frontmatter + body).
 #' @export
-memo_to_markdown <- function(memo) {
+memo_to_markdown <- function(memo,
+                              methodology_mode = "reflexive_scaffold",
+                              run_id = NULL) {
   validate_class(memo, "Memo")
 
   # Build YAML frontmatter manually -- yaml::as.yaml is convenient but
@@ -406,7 +417,19 @@ memo_to_markdown <- function(memo) {
             .yaml_array(memo$linked_entries)),
     sprintf("linked_prior_memo: %s",
             if (is.na(memo$linked_prior_memo)) "null"
-            else .yaml_quote(memo$linked_prior_memo)),
+            else .yaml_quote(memo$linked_prior_memo))
+  )
+  # Phase 37 audit (AC4 MEDIUM): persist methodology + run_id on every
+  # memo so a memo file lifted out of its run dir still self-identifies.
+  if (!is.null(methodology_mode) && nzchar(methodology_mode)) {
+    yaml_lines <- c(yaml_lines,
+      sprintf("methodology_mode: %s", .yaml_quote(methodology_mode)))
+  }
+  if (!is.null(run_id) && nzchar(run_id)) {
+    yaml_lines <- c(yaml_lines,
+      sprintf("run_id: %s", .yaml_quote(run_id)))
+  }
+  yaml_lines <- c(yaml_lines,
     "---",
     "",
     memo$body,
@@ -530,9 +553,18 @@ markdown_to_memo <- function(md_text) {
 #'
 #' @param log A \code{ResearcherReflectionLog}.
 #' @param run_dir Path to the run output directory.
+#' @param methodology_mode Optional character: methodology mode to
+#'   stamp into each memo's YAML frontmatter (per AC4). Defaults to
+#'   \code{"reflexive_scaffold"} since memos are a Mode 1 construct.
+#'   Pass NULL to omit.
+#' @param run_id Optional character: run id to stamp alongside the
+#'   mode. Defaults to \code{basename(run_dir)} so a typical
+#'   \code{run_mode1} call writes the right id automatically.
 #' @return Invisibly: a character vector of the written file paths.
 #' @export
-persist_memos <- function(log, run_dir) {
+persist_memos <- function(log, run_dir,
+                            methodology_mode = "reflexive_scaffold",
+                            run_id = NULL) {
   validate_class(log, "ResearcherReflectionLog")
   if (!is.character(run_dir) || length(run_dir) != 1L || !nzchar(run_dir)) {
     stop("persist_memos: run_dir must be a single non-empty string",
@@ -545,11 +577,17 @@ persist_memos <- function(log, run_dir) {
     dir.create(memos_dir, recursive = TRUE, showWarnings = FALSE)
   }
 
+  if (is.null(run_id) || !nzchar(run_id)) {
+    run_id <- basename(run_dir)
+  }
+
   paths <- character(0)
   for (m in log$memos) {
     if (!inherits(m, "Memo")) next
     path <- file.path(memos_dir, paste0(m$id, ".md"))
-    md_text <- memo_to_markdown(m)
+    md_text <- memo_to_markdown(m,
+                                  methodology_mode = methodology_mode,
+                                  run_id = run_id)
     tryCatch({
       writeLines(md_text, path, useBytes = TRUE)
       paths <- c(paths, path)

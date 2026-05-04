@@ -179,7 +179,7 @@ verify_run_integrity <- function(run_dir, config = list()) {
     expected <- c(expected, "api_responses")
   }
   # Phase 32 (audit H1 + H2): Mode 3 must have an archived framework
-  # spec at outputs/<run>/framework_applied.{yaml|json}. The extension
+  # spec at outputs/<run>/framework_applied.{yaml|yml|json}. The extension
   # is dynamic (preserved from the source spec); accept either as
   # satisfying the archive requirement.
   framework_present <- if (identical(meth_mode, "framework_applied")) {
@@ -196,11 +196,11 @@ verify_run_integrity <- function(run_dir, config = list()) {
   # report reflects it. Done here (not via the standard `expected` list
   # above) because the extension is dynamic.
   if (identical(meth_mode, "framework_applied")) {
-    expected <- c(expected, "framework_applied.{yaml|json}")
+    expected <- c(expected, "framework_applied.{yaml|yml|json}")
     if (isTRUE(framework_present)) {
-      present <- c(present, "framework_applied.{yaml|json}")
+      present <- c(present, "framework_applied.{yaml|yml|json}")
     } else {
-      missing <- c(missing, "framework_applied.{yaml|json}")
+      missing <- c(missing, "framework_applied.{yaml|yml|json}")
     }
   }
 

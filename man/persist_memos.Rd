@@ -4,12 +4,26 @@
 \alias{persist_memos}
 \title{Persist all memos in a ResearcherReflectionLog to disk}
 \usage{
-persist_memos(log, run_dir)
+persist_memos(
+  log,
+  run_dir,
+  methodology_mode = "reflexive_scaffold",
+  run_id = NULL
+)
 }
 \arguments{
 \item{log}{A \code{ResearcherReflectionLog}.}
 
 \item{run_dir}{Path to the run output directory.}
+
+\item{methodology_mode}{Optional character: methodology mode to
+stamp into each memo's YAML frontmatter (per AC4). Defaults to
+\code{"reflexive_scaffold"} since memos are a Mode 1 construct.
+Pass NULL to omit.}
+
+\item{run_id}{Optional character: run id to stamp alongside the
+mode. Defaults to \code{basename(run_dir)} so a typical
+\code{run_mode1} call writes the right id automatically.}
 }
 \value{
 Invisibly: a character vector of the written file paths.

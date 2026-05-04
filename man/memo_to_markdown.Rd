@@ -4,10 +4,21 @@
 \alias{memo_to_markdown}
 \title{Serialize a Memo to a Markdown string with YAML frontmatter}
 \usage{
-memo_to_markdown(memo)
+memo_to_markdown(memo, methodology_mode = "reflexive_scaffold", run_id = NULL)
 }
 \arguments{
 \item{memo}{A \code{Memo} object.}
+
+\item{methodology_mode}{Optional character: methodology mode to stamp
+into the frontmatter as \code{methodology_mode}. Per AC4
+(methodology stamped on every output), Mode 1 memos persisted to
+disk should carry the mode declaration so a memo lifted out of its
+run directory still self-identifies. Defaults to
+\code{"reflexive_scaffold"} (Mode 1) since memos are a Mode 1
+construct; pass NULL to omit the field.}
+
+\item{run_id}{Optional character: run id to stamp into the
+frontmatter alongside methodology_mode. NULL omits the field.}
 }
 \value{
 Character: the full Markdown content (frontmatter + body).

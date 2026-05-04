@@ -310,11 +310,17 @@ print.FrameworkSpec <- function(x, ...) {
 #'   \code{source_path}). For built-in frameworks the source_path is
 #'   the \code{system.file()} resolution at load time.
 #' @param run_dir Path to the run output directory. Created if missing.
+#' @param run_id Optional character: run id used for the AC4
+#'   methodology stamp prepended to the archive (YAML/JSON comment).
+#'   Phase 37 audit added the stamp; \code{run_id = NULL} omits the
+#'   `| run: <id>` portion of the stamp.
 #' @return Named list with \code{path} (path of the archived file
-#'   under run_dir), \code{hash} (sha256 hex string), \code{name}
-#'   (framework$name), \code{epistemic_stance}, \code{anomaly_handling},
-#'   \code{n_constructs}, \code{schema_version}, suitable to splat into
-#'   \code{init_run_state(...)}.
+#'   under run_dir), \code{hash} (sha256 hex string of the ORIGINAL
+#'   source spec -- not the post-stamp archive bytes -- so
+#'   replay-equivalence is anchored to the source spec the user
+#'   supplied), \code{name} (framework$name), \code{epistemic_stance},
+#'   \code{anomaly_handling}, \code{n_constructs}, \code{schema_version},
+#'   suitable to splat into \code{init_run_state(...)}.
 #' @seealso \code{\link{load_framework_spec}};
 #'   \code{\link{init_run_state}} (consumes the metadata).
 #' @examples
@@ -326,7 +332,7 @@ print.FrameworkSpec <- function(x, ...) {
 #' nchar(arch$hash) == 64L  # TRUE -- sha256 hex string
 #' file.exists(arch$path)   # TRUE
 #' @export
-archive_framework_spec <- function(spec, run_dir) {
+archive_framework_spec <- function(spec, run_dir, run_id = NULL) {
   validate_class(spec, "FrameworkSpec")
   if (!is.character(run_dir) || length(run_dir) != 1L || !nzchar(run_dir)) {
     stop("archive_framework_spec: run_dir must be a single non-empty string",
@@ -357,6 +363,21 @@ archive_framework_spec <- function(spec, run_dir) {
   dest_name <- paste0("framework_applied.", ext)
   dest <- file.path(run_dir, dest_name)
 
+  # Phase 37 audit (AC4 MEDIUM): compute sha256 over the SOURCE bytes
+  # before any copy / stamp, so the returned hash anchors replay-
+  # equivalence to the user-supplied spec rather than to the post-
+  # stamp archive. The archived file gets a methodology comment
+  # prepended (idempotent, structurally invisible to YAML/JSON
+  # parsers) so AC4 ("methodology stamped on every output") holds at
+  # the artifact level too.
+  hash <- tryCatch(
+    digest::digest(file = src, algo = "sha256", serialize = FALSE),
+    error = function(e) {
+      log_warn("archive_framework_spec: could not compute sha256 of source {src}: {e$message}")
+      NA_character_
+    }
+  )
+
   ok <- file.copy(src, dest, overwrite = TRUE)
   if (!isTRUE(ok)) {
     stop(sprintf(
@@ -364,16 +385,30 @@ archive_framework_spec <- function(spec, run_dir) {
     ), call. = FALSE)
   }
 
-  # SHA-256 over the copied file's bytes -- deterministic identity for
-  # cross-run comparison + replay-equivalence checks. Computed AFTER
-  # the copy so the hash matches the on-disk file.
-  hash <- tryCatch(
-    digest::digest(file = dest, algo = "sha256", serialize = FALSE),
-    error = function(e) {
-      log_warn("archive_framework_spec: could not compute sha256 of {dest}: {e$message}")
-      NA_character_
+  # Stamp the archived file (YAML accepts `#` comments natively; JSON
+  # has no comment syntax so we wrap the JSON in stamp_methodology_json's
+  # envelope).
+  tryCatch({
+    if (ext %in% c("yaml", "yml")) {
+      body <- readLines(dest, warn = FALSE)
+      # Idempotency: skip if first line already a methodology stamp
+      if (length(body) == 0L || !grepl("^# methodology:", body[1L])) {
+        header_lines <- c(
+          sprintf("# methodology: %s%s",
+                  methodology_label("framework_applied"),
+                  if (!is.null(run_id) && nzchar(run_id))
+                    sprintf(" | run: %s", run_id) else ""),
+          sprintf("# source-sha256: %s", hash %||% "n/a"),
+          "#"
+        )
+        writeLines(c(header_lines, body), dest)
+      }
+    } else if (identical(ext, "json")) {
+      stamp_methodology_json(dest, "framework_applied", run_id = run_id)
     }
-  )
+  }, error = function(e) {
+    log_warn("archive_framework_spec: stamp failed for {dest}: {e$message}")
+  })
 
   log_info("Mode 3 framework archived: {dest_name} (sha256 {substr(hash, 1, 12)}..., {length(spec$constructs)} constructs)")
 

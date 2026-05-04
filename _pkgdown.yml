@@ -240,59 +240,20 @@ reference:
     contents:
       - verify_run_integrity
 
-  - title: "Internal Helpers"
-    desc: "Internal functions used by the pipeline (not typically called directly)"
+  - title: "Pipeline Step Helpers"
+    desc: >
+      Exported functions called from inside the pipeline that researchers
+      may also call directly for finer control (e.g., feeding external
+      coding state through enrichment + cascade independently).
     contents:
-      - starts_with(".")
-      - ai_complete
-      - ai_complete_fast
       - as_coding_results
       - compute_coding_benchmarks
-      - compute_dynamic_batches
-      - compute_embeddings
-      - create_correlation_plot
-      - detect_columns
-      - discover_study_folders
       - enrich_themes
-      - estimate_tokens
-      - export_theme_entry_csvs
-      - extract_manuscript_sections
-      - extract_significant
-      - find_latest_run
-      - find_resume_point
-      - generate_ai_synthesis
-      - generate_downloads_section
-      - generate_insights
-      - generate_run_id
-      - generate_saturation_plot
-      - generate_theme_detail_section
-      - get_emotion_interpretation
-      - hash_config
-      - interpret_correlations
-      - list_checkpoints
-      - load_and_combine_tables
-      - load_checkpoint
-      - make_anchor_id
-      - make_safe_filename
-      - "null-coalesce"
       - parse_codebook
-      - parse_json_safely
-      - parse_manuscript
-      - parse_raw_data_files
-      - prepare_correlation_data
-      - preprocess_text
-      - review_progressive_codebook
-      - review_themes
-      - safe_progress_bar
-      - save_checkpoint
-      - save_partial_checkpoint
-      - standardize_data
+
+  - title: "Package"
+    contents:
       - pakhom-package
-      - truncate_text
-      - validate_class
-      - validate_config
-      - validate_data_columns
-      - validate_provider
 
 articles:
   - title: "Getting Started"

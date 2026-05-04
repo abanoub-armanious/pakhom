@@ -71,28 +71,6 @@ methodology rules archive, and HTML report.
 See [`vignette("methodology-modes")`](https://abanoub-armanious.github.io/pakhom/articles/methodology-modes.html)
 for a worked example of each mode.
 
-## Architectural commitments
-
-These are the load-bearing commitments the codebase enforces. Each one
-is regression-tested at the integration level; the test suite (2391
-expectations as of phase 34) pins them against silent regression.
-
-- **AC1**: AI is scaffold by architecture, not by configuration.
-- **AC2**: Three modes; no fourth.
-- **AC3**: No default mode; explicit declaration mandatory.
-- **AC4**: Methodology stamped on every output (run_metadata.json,
-  every CSV/JSON header, HTML stamp, plot watermarks).
-- **AC5**: Soft-lock with audit trail; methodology change creates a new
-  run with parent_run_id linkage.
-- **AC6**: Symmetric researcher-burden obligations across modes (Mode 1
-  reflexive memos == Modes 2/3 review pause-points).
-- **AC7**: Universal Tier-0 transparency requirements in all modes.
-- **AC8**: Modes are configurations of one architecture, never separate
-  code paths.
-- **AC9**: Methodology rules generated from config and injected into
-  the model context every turn (Lin & Corley 2025 pattern).
-- **AC10**: Stage-gating via filesystem state.
-
 ## Tier-0 transparency
 
 Every mode produces three transparency artifacts addressing the most-cited
@@ -193,11 +171,26 @@ voice. The author is Coptic Egyptian.
 # Install from GitHub
 devtools::install_github("abanoub-armanious/pakhom")
 
-# Set your API key in .Renviron
+# Set your API key in .Renviron (persistent; recommended)
 usethis::edit_r_environ()
 # Add: OPENAI_API_KEY=sk-your-key-here
 # (or ANTHROPIC_API_KEY=sk-ant-... for Claude)
+# Restart R after editing.
 ```
+
+### Recommended: web-based config wizard
+
+The fastest path to a valid config is the Shiny wizard. It walks you
+through methodology choice, study metadata, data path, and provider
+selection, then writes a validated `config.yaml`:
+
+```r
+library(pakhom)
+config_wizard_app()
+```
+
+If you'd rather build the config programmatically, the per-mode
+examples below produce equivalent output.
 
 ### Mode 2 (Codebook Collaborative) — the auto-pipeline
 
@@ -330,9 +323,38 @@ independence. For reviewer-guided analysis, use single-model sequential runs.
 
 - **[Getting Started vignette](articles/getting-started.html)** -- step-by-step
   guide from installation to interpreting results
+- **[Methodology Modes vignette](articles/methodology-modes.html)** -- choosing
+  among the three modes with worked examples + a decision rubric
 - **[Function reference](reference/index.html)** -- documentation for all
   exported functions
 - **`config_wizard_app()`** -- interactive web-based config builder
+
+## For methodologists / reviewers: architectural commitments
+
+The package codifies ten load-bearing commitments. Each is regression-
+tested at the integration level (the test suite as of phase 36 has
+2391 expectations pinning them against silent regression). They are
+the contract a peer reviewer can check the package's claims against:
+
+- **AC1**: AI is scaffold by architecture, not by configuration.
+- **AC2**: Three modes; no fourth.
+- **AC3**: No default mode; explicit declaration mandatory.
+- **AC4**: Methodology stamped on every output (`run_metadata.json`,
+  every CSV/JSON header, HTML stamp, plot watermarks).
+- **AC5**: Soft-lock with audit trail; methodology change creates a new
+  run with `parent_run_id` linkage (REDCap dev/production pattern).
+- **AC6**: Symmetric researcher-burden obligations across modes (Mode 1
+  reflexive memos == Modes 2/3 review pause-points).
+- **AC7**: Universal Tier-0 transparency requirements in all modes.
+- **AC8**: Modes are configurations of one architecture, never separate
+  code paths.
+- **AC9**: Methodology rules generated from config and injected into
+  the model context every turn (Lin and Corley 2025 pattern).
+- **AC10**: Stage-gating via filesystem state.
+
+The methodology-modes vignette covers each commitment in narrative
+context. The full design document is at
+`pakhom/notes/strategic_audit/SPRINT4_DESIGN.md` Part I.
 
 ## Author
 

@@ -630,14 +630,14 @@ test_that(".build_tier0_source_block plumbs config through to bypass footnote", 
   expect_no_match(html_m2, "structurally precluded")
 })
 
-test_that("verify_run_integrity expects framework_applied.{yaml|json} when Mode 3", {
+test_that("verify_run_integrity expects framework_applied.{yaml|yml|json} when Mode 3", {
   d <- withr::local_tempdir()
   cfg <- list(methodology = list(mode = "framework_applied"),
                 output = list(generate_report = FALSE),
                 audit = list(capture_raw_responses = FALSE))
   res <- verify_run_integrity(d, cfg)
-  expect_true("framework_applied.{yaml|json}" %in% res$expected)
-  expect_true("framework_applied.{yaml|json}" %in% res$missing)
+  expect_true("framework_applied.{yaml|yml|json}" %in% res$expected)
+  expect_true("framework_applied.{yaml|yml|json}" %in% res$missing)
   expect_false(res$complete)
 
   # Now drop a fake framework_applied.yaml in run_dir
@@ -654,8 +654,8 @@ test_that("verify_run_integrity expects framework_applied.{yaml|json} when Mode 
   dir.create(file.path(d, "rules"))
   writeLines("", file.path(d, "rules", "methodology_rules.md"))
   res2 <- verify_run_integrity(d, cfg)
-  expect_false("framework_applied.{yaml|json}" %in% res2$missing)
-  expect_true("framework_applied.{yaml|json}" %in% res2$present)
+  expect_false("framework_applied.{yaml|yml|json}" %in% res2$missing)
+  expect_true("framework_applied.{yaml|yml|json}" %in% res2$present)
 })
 
 test_that("verify_run_integrity for Mode 2/Mode 3 differs only in framework expectation", {
@@ -668,11 +668,11 @@ test_that("verify_run_integrity for Mode 2/Mode 3 differs only in framework expe
                    audit = list(capture_raw_responses = FALSE))
   m2 <- verify_run_integrity(d, cfg_m2)
   m3 <- verify_run_integrity(d, cfg_m3)
-  expect_false("framework_applied.{yaml|json}" %in% m2$expected)
-  expect_true("framework_applied.{yaml|json}" %in% m3$expected)
+  expect_false("framework_applied.{yaml|yml|json}" %in% m2$expected)
+  expect_true("framework_applied.{yaml|yml|json}" %in% m3$expected)
   # All other expected files are identical
   expect_setequal(setdiff(m3$expected, m2$expected),
-                    "framework_applied.{yaml|json}")
+                    "framework_applied.{yaml|yml|json}")
 })
 
 test_that("Mode 3 report integration: generate_report writes an Rmd with Framework Declaration + bypass footnote", {

@@ -64,28 +64,38 @@ load_config <- function(config_path, overrides = list()) {
 #' entry point that pre-fills mode (and only with the warning above).
 #'
 #' @param methodology One of \code{"reflexive_scaffold"},
-#'   \code{"codebook_collaborative"}, or \code{"framework_applied"}. If
-#'   \code{NULL} (the absent-argument case), defaults to
-#'   \code{"codebook_collaborative"} with a warning.
+#'   \code{"codebook_collaborative"}, or \code{"framework_applied"}.
+#'   \strong{Mandatory}: per AC3 ("no default mode; explicit
+#'   declaration mandatory"), \code{methodology = NULL} produces an
+#'   error rather than silently defaulting. Run
+#'   \code{methodology_decision_aid()} for guidance on the choice.
 #' @return A ThematicConfig S3 object with all defaults
 #' @seealso \code{\link{methodology_decision_aid}} for guidance on choosing
 #'   a methodology mode; \code{\link{validate_methodology_mode}} for the
 #'   underlying validator.
 #' @export
 default_config <- function(methodology = NULL) {
+  # Phase 37 audit (AC HIGH): the previous behavior here violated AC3
+  # ("no default mode; explicit declaration mandatory") -- a NULL
+  # methodology argument would warn-and-default to
+  # codebook_collaborative, exactly the silent-default failure mode
+  # AC3 commits the package against. The validate_config + YAML-load
+  # paths already enforced AC3 cleanly; the programmatic
+  # default_config() entry point was the lone exception. Now matches
+  # validate_methodology_mode(allow_null = FALSE) symmetric with the
+  # rest of the package.
   if (is.null(methodology)) {
-    warning(
-      "default_config(): methodology not specified; defaulting to '",
-      .METHODOLOGY_MODE_CODEBOOK_COLLABORATIVE, "'.\n",
-      "  This is the most common choice for v1.x users but may not fit ",
-      "your study design.\n",
-      "  Run methodology_decision_aid() for guidance, or pass methodology ",
-      "explicitly\n",
-      "  (e.g., default_config(\"reflexive_scaffold\")) to suppress this ",
-      "warning.",
+    stop(
+      "default_config(): methodology argument is mandatory per AC3 ",
+      "(no default mode; explicit declaration mandatory).\n\n",
+      "Choose one of:\n",
+      "  - 'reflexive_scaffold'      (Mode 1: AI as provocateur)\n",
+      "  - 'codebook_collaborative'  (Mode 2: AI proposes, researcher gates)\n",
+      "  - 'framework_applied'       (Mode 3: AI applies your framework)\n\n",
+      "Run methodology_decision_aid() for guidance, or see ",
+      "vignette('methodology-modes') for worked examples of each mode.",
       call. = FALSE
     )
-    methodology <- .METHODOLOGY_MODE_CODEBOOK_COLLABORATIVE
   }
   validate_methodology_mode(methodology, allow_null = FALSE,
                             caller = "default_config")
@@ -547,28 +557,123 @@ print.ThematicConfig <- function(x, ...) {
 #' Create a minimal configuration file
 #'
 #' Generates a valid YAML config with sensible defaults and writes it to disk.
+#' Per T1.3 (phase 25-27) the \code{methodology} block is mandatory in
+#' every config -- this helper writes it for you given the
+#' \code{methodology} argument.
 #'
-#' @param study_name Study name
-#' @param research_focus Research focus string (required)
+#' @param methodology Methodology mode (mandatory): one of
+#'   \code{"reflexive_scaffold"} (Mode 1), \code{"codebook_collaborative"}
+#'   (Mode 2; the default), or \code{"framework_applied"} (Mode 3).
+#'   Mode 3 also requires \code{framework_spec_path}.
+#' @param study_name Study name (default \code{"Untitled Study"}).
+#' @param research_focus Research focus string. Required when no
+#'   \code{...} override supplies it.
+#' @param framework_spec_path Path to a framework spec YAML/JSON OR a
+#'   built-in alias (\code{"tpb"}, \code{"comb"}, \code{"tdf"}). Required
+#'   when \code{methodology = "framework_applied"}; ignored otherwise.
+#' @param database_path Path to the SQLite database (alias for the
+#'   internal \code{data$database} field). Modes 2/3 require a database;
+#'   Mode 1 may use a tibble passed directly to \code{run_mode1()} so
+#'   the database can be NULL for Mode 1 configs.
+#' @param output_path Where to save the YAML config file (default
+#'   \code{"config.yaml"}). The output_path alias matches the
+#'   README + vignette quickstart calls.
 #' @param concepts Character vector of core research concepts
-#' @param data_path Path to database or CSV file
-#' @param source_type Data source type: "reddit", "twitter", "generic", "clinical"
-#' @param output_dir Directory for results (default "outputs")
-#' @param provider AI provider: "openai" or "anthropic" (default "openai")
-#' @param config_path Where to save the YAML (default "config.yaml")
+#'   (informs progressive coding prompts).
+#' @param source_type Data source type: \code{"reddit"}, \code{"twitter"},
+#'   \code{"generic"}, \code{"clinical"} (default \code{"generic"}).
+#' @param output_dir Directory for analysis results (default
+#'   \code{"outputs"}).
+#' @param provider AI provider: \code{"openai"} or \code{"anthropic"}
+#'   (default \code{"openai"}).
 #' @param ... Additional overrides as dot-path = value pairs
-#' @return The path to the created config file (invisibly)
+#'   (e.g., \code{analysis.test_mode.enabled = TRUE}).
+#' @return The path to the created config file (invisibly).
+#' @examples
+#' \dontrun{
+#' # Mode 2 (Codebook Collaborative)
+#' create_config(
+#'   methodology = "codebook_collaborative",
+#'   study_name = "My Study",
+#'   research_focus = "How does X relate to Y?",
+#'   database_path = "my_data.db",
+#'   output_path = "config.yaml"
+#' )
+#'
+#' # Mode 3 (Framework Applied) with a built-in framework
+#' create_config(
+#'   methodology = "framework_applied",
+#'   framework_spec_path = "tpb",
+#'   study_name = "TPB analysis",
+#'   research_focus = "Behavioral intention -> behavior",
+#'   database_path = "my_data.db",
+#'   output_path = "config.yaml"
+#' )
+#'
+#' # Mode 1 (Reflexive Scaffold) -- corpus is supplied at run_mode1() time
+#' create_config(
+#'   methodology = "reflexive_scaffold",
+#'   study_name = "Reflexive analysis",
+#'   research_focus = "Provocation against my coded themes",
+#'   output_path = "config.yaml"
+#' )
+#' }
 #' @export
-create_config <- function(study_name = "Untitled Study", research_focus,
-                          concepts = NULL, data_path = NULL,
-                          source_type = "generic", output_dir = "outputs",
-                          provider = "openai", config_path = "config.yaml",
+create_config <- function(methodology = "codebook_collaborative",
+                          study_name = "Untitled Study",
+                          research_focus = NULL,
+                          framework_spec_path = NULL,
+                          database_path = NULL,
+                          output_path = "config.yaml",
+                          concepts = NULL,
+                          source_type = "generic",
+                          output_dir = "outputs",
+                          provider = "openai",
                           ...) {
-  if (missing(research_focus) || nchar(research_focus) == 0) {
-    stop("research_focus is required")
+  # Phase 37 audit (CRITICAL #1): the previous signature had no
+  # methodology arg, so create_config() produced configs that failed
+  # validation immediately (T1.3 requires methodology$mode + structured
+  # methodology block). The README + vignette Quick Start docs already
+  # used kwargs that didn't exist (methodology, framework_spec_path,
+  # database_path, output_path) -- a copy-paste of those docs hit
+  # "Configuration validation failed" on every kwarg. Rewriting the
+  # signature to accept those documented kwargs aligns the function
+  # with the published docs AND writes a config that validate_config()
+  # accepts on first try.
+  validate_methodology_mode(methodology, allow_null = FALSE,
+                              caller = "create_config")
+
+  if (identical(methodology, "framework_applied") &&
+      (is.null(framework_spec_path) || !nzchar(framework_spec_path))) {
+    stop("create_config: methodology = 'framework_applied' (Mode 3) ",
+         "requires framework_spec_path. Pass a built-in alias ",
+         "('tpb', 'comb', 'tdf') or a path to a custom YAML/JSON spec.",
+         call. = FALSE)
+  }
+
+  # research_focus is required for Modes 2/3 but optional for Mode 1
+  # (the corpus + theme_set are passed at run_mode1() time, not config
+  # time). Empty string is a default-to-fill-in placeholder.
+  if (is.null(research_focus) || !nzchar(research_focus)) {
+    if (identical(methodology, "reflexive_scaffold")) {
+      research_focus <- ""
+    } else {
+      stop("create_config: research_focus is required for Modes 2 + 3. ",
+           "(Mode 1 -- reflexive_scaffold -- accepts an empty focus ",
+           "since the corpus + theme_set are passed at run_mode1() ",
+           "time rather than config time.)",
+           call. = FALSE)
+    }
   }
 
   config <- list(
+    methodology = list(
+      mode = methodology,
+      framework_spec_path = framework_spec_path,
+      mode_locked_at = NULL,
+      parent_run_id = NULL,
+      mode_changed_from = NULL
+    ),
     study = list(
       name = study_name,
       research_focus = research_focus,
@@ -580,7 +685,7 @@ create_config <- function(study_name = "Untitled Study", research_focus,
     ),
     data = list(
       source_type = source_type,
-      database = data_path
+      database = database_path
     ),
     analysis = list(
       themes = list(approach = "inductive")
@@ -601,17 +706,18 @@ create_config <- function(study_name = "Untitled Study", research_focus,
   header <- paste0(
     "# =============================================================================\n",
     "# pakhom Configuration -- ", study_name, "\n",
+    "# Methodology mode: ", methodology, "\n",
     "# =============================================================================\n",
     "# Generated by create_config(). Edit as needed.\n",
-    "# Full documentation: see ?load_config\n",
+    "# Full documentation: see ?load_config + vignette('methodology-modes').\n",
     "# =============================================================================\n\n"
   )
 
   yaml_text <- yaml::as.yaml(config, indent = 2, indent.mapping.sequence = TRUE)
-  writeLines(paste0(header, yaml_text), config_path)
+  writeLines(paste0(header, yaml_text), output_path)
 
-  log_info("Config written to: {config_path}")
-  invisible(config_path)
+  log_info("Config written to: {output_path}")
+  invisible(output_path)
 }
 
 #' Interactive configuration wizard

@@ -234,7 +234,8 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     # aborts run_analysis() before any expensive coding work; the
     # output_dir is already created but contains no AI-call artifacts
     # so cleanup is straightforward.
-    framework_archive <- archive_framework_spec(framework_spec, output_dir)
+    framework_archive <- archive_framework_spec(framework_spec, output_dir,
+                                                   run_id = basename(output_dir))
   }
 
   checkpoint <- init_checkpoints(

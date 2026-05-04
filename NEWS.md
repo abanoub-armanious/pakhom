@@ -1,5 +1,109 @@
 # pakhom 1.0.0
 
+## Sprint-4 phase 37: comprehensive audit pass (3 agents, 12+ findings, 1 CRITICAL bug fixed)
+
+Three parallel audit subagents (UX surface review / AC1-AC10 cross-mode
+compliance / dead code + technical debt) caught **one CRITICAL bug**
+that would have killed first-impression adoption, plus a HIGH AC3
+violation, plus several AC4 gaps. The audit pattern continues to
+catch real issues that phase-by-phase audits hadn't surfaced.
+
+### CRITICAL fix (would have made every Quick Start fail)
+
+The README + methodology-modes vignette Quick Start examples called
+`create_config(methodology = "...", framework_spec_path = "...",
+database_path = "...", output_path = "...")` — but **none of those
+kwargs existed** in the actual function. The pre-Sprint-4 signature
+took `study_name`, `data_path`, `config_path`, etc. and produced a
+config without any methodology block. A first-time user copy-pasting
+the Quick Start hit `Configuration validation failed:` for every
+kwarg they passed and could not recover without reading source.
+
+`create_config()` rewritten to:
+- Accept `methodology` as the first arg (mandatory; per AC3)
+- Accept `framework_spec_path` (Mode 3) + validate it's set when
+  `methodology = "framework_applied"`
+- Accept `database_path` and `output_path` as the documented kwargs
+  (matches the Quick Start examples + the methodology-modes vignette)
+- Write a properly-structured `methodology = list(mode = ...,
+  framework_spec_path = ...)` block into the YAML
+- Allow Mode 1 to skip `research_focus` (corpus + theme_set are
+  passed at `run_mode1()` time, not config time)
+
+### HIGH fixes
+
+- **`default_config()` AC3 violation** (caught by AC audit). The
+  programmatic API was warn-and-defaulting to `codebook_collaborative`
+  when methodology was NULL — exactly the silent-default failure mode
+  AC3 ("no default mode; explicit declaration mandatory") commits the
+  package against. Now hard-stops with a message pointing to the
+  three valid modes + the decision aid. Symmetric with `validate_config`'s
+  YAML-load behavior. Test updated to assert the error.
+- **pkgdown reference index** (caught by UX audit) listed ~14
+  unexported functions (`validate_class`, `find_latest_run`,
+  `safe_progress_bar`, etc.) that pkgdown silently dropped or
+  warned on every build. Trimmed to only-exported entries; collapsed
+  the bloated "Internal Helpers" section into a focused "Pipeline
+  Step Helpers" section + a "Package" section.
+- **README architectural commitments** (caught by UX audit) was
+  gatekeeping-shaped at line 80, before users had reason to care.
+  Moved AC1-AC10 to a "For methodologists / reviewers" section near
+  the bottom of the README. Quick Start now opens with a "Recommended:
+  web-based config wizard" subsection (the wizards were previously
+  buried).
+
+### MEDIUM fixes (AC4 stamping gaps)
+
+- **Mode 3 framework_applied.yaml/json archive AC4 stamp** (caught by
+  AC audit). `archive_framework_spec()` previously copied the source
+  spec verbatim with no methodology stamp on the archived file. A
+  reviewer auditing the file in isolation couldn't tell it was a
+  Mode 3 stamp. Fix: archive now carries a `# methodology: M3 -
+  Framework Applied | run: <id>` comment header (YAML) or a
+  `_methodology_stamp` envelope (JSON). The replay-equivalence sha256
+  is anchored to the SOURCE bytes (computed pre-stamp), preserving
+  the contract that `arch$hash == digest(source)`. The archived file
+  remains parseable: yaml::yaml.load strips the comment header so
+  the FrameworkSpec round-trip is identical.
+- **Memo `.md` YAML frontmatter AC4 stamp** (caught by AC audit).
+  `memo_to_markdown()` + `persist_memos()` now emit
+  `methodology_mode:` + `run_id:` fields in each memo's frontmatter,
+  defaulting to `"reflexive_scaffold"` (memos are a Mode 1
+  construct). A memo file lifted out of its run dir still
+  self-identifies.
+- **Integrity sentinel string `framework_applied.{yaml|yml|json}`**
+  (caught by AC audit) — the displayed sentinel string in
+  `verify_run_integrity` only listed `yaml|json` while the
+  accept-set actually covered `.yml` too. Fixed to match the
+  accept-set + corresponding test refs updated.
+
+### Audit findings deferred to a future phase (acknowledged but not
+breaking)
+
+- `compare_models()` is exported + documented but has no callers in
+  R or tests. Audit recommended deletion. Deferred because it's
+  user-facing public API per the README + vignette — deletion would
+  be a breaking change at v1.0.0. Future phase: add a regression
+  test that exercises it (gives it a meaningful caller) OR mark as
+  superseded.
+- Researcher-review CSVs (`codebook_review.csv`, `themes_review.csv`,
+  IRR coding sheets) lack the methodology stamp. Same AC4 violation
+  as the framework archive but in a different module (`R/19_researcher_review.R`,
+  `R/11_human_verification.R`). Plumbing methodology_mode through
+  these review functions touches multiple call sites. Deferred to a
+  follow-up phase.
+- Several dead-code findings (legacy `primary_emotion` fallback in
+  sentiment; 8000-char text-truncation magic number; framework
+  prompt block hot-loop hoist) are real but low-impact. Deferred.
+- Vignette polish: `install_github("username/...")` placeholder,
+  DBI/RSQLite prereq install line, Mode 1 README corpus shape note.
+  Deferred.
+
+Tests: 2396 pass / 0 fail (2391 -> 2396 = 5 new tests pinning the
+phase 37 fixes including the framework-archive-stamp regression
+test). R CMD check stays at 0 errors / 0 warnings / 1 routine NOTE
+(only "unable to verify current time" remains).
+
 ## Sprint-4 phase 36: CRAN basics + Imports trim
 
 Bounded scope-cut between phase 35 (docs) and a future real-data

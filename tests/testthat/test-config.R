@@ -92,13 +92,19 @@ test_that("default_config(mode) sets methodology block correctly", {
   expect_null(cfg$methodology$parent_run_id)
 })
 
-test_that("default_config() with no methodology arg warns and falls back to codebook_collaborative", {
-  expect_warning(
-    cfg <- default_config(),
-    regexp = "methodology not specified"
+test_that("default_config() with no methodology arg ERRORS per AC3", {
+  # Phase 37 audit (AC HIGH): per AC3 ("no default mode; explicit
+  # declaration mandatory"), the NULL-methodology path now hard-stops
+  # rather than warn-and-default. The error message must point users
+  # at the three valid modes + the decision aid. The previous
+  # warn-and-default behavior was the lone AC3 violation in the
+  # programmatic API (validate_config + YAML-load already enforced
+  # AC3 cleanly).
+  expect_error(
+    default_config(),
+    regexp = "AC3|mandatory|reflexive_scaffold|codebook_collaborative",
+    ignore.case = TRUE
   )
-  expect_equal(cfg$methodology$mode, "codebook_collaborative")
-  expect_true(!is.null(cfg$methodology$mode_locked_at))
 })
 
 test_that("default_config(mode) is silent when methodology is passed explicitly", {

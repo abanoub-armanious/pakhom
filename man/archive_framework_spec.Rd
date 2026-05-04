@@ -4,7 +4,7 @@
 \alias{archive_framework_spec}
 \title{Archive a Mode 3 framework spec into the run output directory}
 \usage{
-archive_framework_spec(spec, run_dir)
+archive_framework_spec(spec, run_dir, run_id = NULL)
 }
 \arguments{
 \item{spec}{A \code{FrameworkSpec} object (must carry a non-NA
@@ -12,13 +12,20 @@ archive_framework_spec(spec, run_dir)
 the \code{system.file()} resolution at load time.}
 
 \item{run_dir}{Path to the run output directory. Created if missing.}
+
+\item{run_id}{Optional character: run id used for the AC4
+methodology stamp prepended to the archive (YAML/JSON comment).
+Phase 37 audit added the stamp; \code{run_id = NULL} omits the
+\verb{| run: <id>} portion of the stamp.}
 }
 \value{
 Named list with \code{path} (path of the archived file
-under run_dir), \code{hash} (sha256 hex string), \code{name}
-(framework$name), \code{epistemic_stance}, \code{anomaly_handling},
-\code{n_constructs}, \code{schema_version}, suitable to splat into
-\code{init_run_state(...)}.
+under run_dir), \code{hash} (sha256 hex string of the ORIGINAL
+source spec -- not the post-stamp archive bytes -- so
+replay-equivalence is anchored to the source spec the user
+supplied), \code{name} (framework$name), \code{epistemic_stance},
+\code{anomaly_handling}, \code{n_constructs}, \code{schema_version},
+suitable to splat into \code{init_run_state(...)}.
 }
 \description{
 Phase 32 (audit H1 + H2): a Mode 3 run loads

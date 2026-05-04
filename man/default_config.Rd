@@ -8,9 +8,11 @@ default_config(methodology = NULL)
 }
 \arguments{
 \item{methodology}{One of \code{"reflexive_scaffold"},
-\code{"codebook_collaborative"}, or \code{"framework_applied"}. If
-\code{NULL} (the absent-argument case), defaults to
-\code{"codebook_collaborative"} with a warning.}
+\code{"codebook_collaborative"}, or \code{"framework_applied"}.
+\strong{Mandatory}: per AC3 ("no default mode; explicit
+declaration mandatory"), \code{methodology = NULL} produces an
+error rather than silently defaulting. Run
+\code{methodology_decision_aid()} for guidance on the choice.}
 }
 \value{
 A ThematicConfig S3 object with all defaults
