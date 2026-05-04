@@ -1,16 +1,119 @@
 # pakhom
 
-> AI-Integrated Reflexive Thematic Analysis Following Braun & Clarke (2006)
+> AI-Assisted Reflexive Thematic Analysis with Methodology-as-Architecture
 
-**pakhom** is an R package that automates reflexive thematic analysis using
-OpenAI or Anthropic APIs. It takes a dataset of text entries (forum posts,
-survey responses, interview transcripts) and produces a publication-quality
-HTML report containing themes, codes, sentiment analysis, correlation analysis,
-and supporting evidence.
+**pakhom** is an R package that conducts AI-assisted reflexive thematic
+analysis with three methodologically-distinct operating modes. Methodology is
+codified at the **architectural** level — the AI's role is shaped by the mode
+you declare, not by user discipline at the configuration level. Every output
+carries the methodology stamp, every AI-attributed verbatim claim is verified
+against the source corpus, and every run can be replay-equivalent.
 
-You give it your data and your research question. It gives you back a complete
-thematic analysis -- including the kinds of tables, figures, and statistical
-tests you would normally produce by hand over weeks of manual coding.
+You give it your data, your research question, and the methodological posture
+you've chosen. It gives you back a complete thematic analysis — themes, codes,
+sentiment, correlations, supporting evidence, full audit trail — that a peer
+reviewer can read on the same epistemic terms as a hand-coded analysis.
+
+## Why pakhom?
+
+Most "AI for thematic analysis" tools are wrappers around an LLM call. The
+researcher specifies the data; the model returns themes; the researcher
+publishes. The methodology is implicit in the prompt, the inputs are
+opaque to reviewers, and the chosen epistemic stance lives in informal
+back-and-forth rather than the artifact itself.
+
+pakhom takes a different position. **Methodology is architecture.** A pakhom
+run declares which of three modes it operates under, and every commitment
+flowing from that mode (what the AI may produce, what the researcher must
+author, which transparency artifacts are mandatory) is enforced by the
+package code, not by configuration or convention. The result is an analysis
+that ships with its methodology *as data*, not as prose.
+
+The empirical motivation comes from three lines of evidence:
+
+- **Sarkar 2024** (CACM, *AI Should Challenge, Not Obey*) — when AI agrees,
+  three failure modes follow: dilution, distortion, deskilling. Mode 1
+  inverts this: AI as Socratic gadfly only.
+- **Jowsey et al. 2025** (PLOS One, doi:10.1371/journal.pone.0330217) — the
+  "Frankenstein" finding that Microsoft Copilot drew themes from only the
+  first 2-3 pages of data. pakhom's Tier-0 transparency layer (T0.1 quote
+  provenance + T0.2 participant spread + T0.3 corpus coverage) is
+  the architectural answer.
+- **Vikan et al. 2026** (Sage, doi:10.1177/10497323251365211) — under
+  prolonged AI use, researcher engagement collapses to verification mode.
+  Mode 1 forces the researcher back into the data through provocations;
+  Modes 2/3 carry equivalent burden through pause-points and reflexive
+  memos.
+
+The package's name, **pakhom**, is the Coptic Egyptian form of *Pachomius*
+— the desert abbot whose written **Rule** (c. 320 CE) established the genre
+of methodology-as-written-document. Pakhom (the saint) wrote the Rule that
+made monasticism reproducible; pakhom (the package) writes the rules that
+make AI-assisted thematic analysis methodologically reproducible.
+
+## Three methodology modes
+
+The mode declaration is mandatory in every config (no default). It is locked
+at run start, stamped on every output, and any change creates a fork run with
+parent_run_id linkage (REDCap dev/production pattern).
+
+| Mode | AI's role | Researcher authors | When to use |
+|---|---|---|---|
+| **`reflexive_scaffold`** (Mode 1) | Socratic gadfly: surfaces counter-narratives, absent voices, alternative interpretations, disconfirming evidence, assumption-surfacing terms | Codes + themes (typically in NVivo / ATLAS.ti) + reflexive memos | Reflexive TA, constructionist epistemology, depth over scale |
+| **`codebook_collaborative`** (Mode 2) | Proposes codes + themes; researcher gates each at pause-points | Codebook curation + theme review + reflexivity statement | Codebook TA, template TA, the auto-pipeline you'd recognize from manual coding |
+| **`framework_applied`** (Mode 3) | Applies a researcher-supplied framework verbatim; flags entries that resist the framework as anomalies | Framework spec (or pick a built-in: TPB, COM-B, TDF) + anomaly-handling decisions | Theory-driven analyses, deductive coding, content analysis |
+
+Mode 1 uses [`run_mode1()`](https://abanoub-armanious.github.io/pakhom/reference/run_mode1.html);
+Modes 2/3 use [`run_analysis()`](https://abanoub-armanious.github.io/pakhom/reference/run_analysis.html).
+Both produce a finalized run directory with full audit trail, run_metadata.json,
+methodology rules archive, and HTML report.
+
+See [`vignette("methodology-modes")`](https://abanoub-armanious.github.io/pakhom/articles/methodology-modes.html)
+for a worked example of each mode.
+
+## Architectural commitments
+
+These are the load-bearing commitments the codebase enforces. Each one
+is regression-tested at the integration level; the test suite (2391
+expectations as of phase 34) pins them against silent regression.
+
+- **AC1**: AI is scaffold by architecture, not by configuration.
+- **AC2**: Three modes; no fourth.
+- **AC3**: No default mode; explicit declaration mandatory.
+- **AC4**: Methodology stamped on every output (run_metadata.json,
+  every CSV/JSON header, HTML stamp, plot watermarks).
+- **AC5**: Soft-lock with audit trail; methodology change creates a new
+  run with parent_run_id linkage.
+- **AC6**: Symmetric researcher-burden obligations across modes (Mode 1
+  reflexive memos == Modes 2/3 review pause-points).
+- **AC7**: Universal Tier-0 transparency requirements in all modes.
+- **AC8**: Modes are configurations of one architecture, never separate
+  code paths.
+- **AC9**: Methodology rules generated from config and injected into
+  the model context every turn (Lin & Corley 2025 pattern).
+- **AC10**: Stage-gating via filesystem state.
+
+## Tier-0 transparency
+
+Every mode produces three transparency artifacts addressing the most-cited
+empirical critiques of LLM-for-TA tools:
+
+- **T0.1 quote provenance + 4-step verification ladder** — every AI-attributed
+  verbatim claim runs through strict offline match → normalized match →
+  substring search → embedding similarity. Fabricated quotes are dropped and
+  logged to `fabrication_log.csv`. Mode 1 verifies provocation citations;
+  Mode 2/3 verify coded-segment quotes. On Anthropic, the Citations API serves
+  as a prevention layer; the verification ladder is detection-in-depth.
+- **T0.2 participant spread per theme** — every theme reports
+  n_distinct_contributors + Gini coefficient + top contributor share. Themes
+  that look prevalent but rest on one heavy poster get an explicit warning
+  on the report.
+- **T0.3 corpus coverage assertion** — Modes 2/3 assert "no silent truncation
+  in the LLM call path"; Mode 1 asserts "no silent skip across themes ×
+  provocation categories." The Mode 3 + Anthropic Citations API silent bypass
+  (forced tool_use schema + Citations API are mutually exclusive at the
+  response level) is disclosed via an explicit footnote rather than left
+  invisible.
 
 ## About the name
 
@@ -84,6 +187,8 @@ voice. The author is Coptic Egyptian.
 
 ## Quick Start
 
+### Install + set API key
+
 ```r
 # Install from GitHub
 devtools::install_github("abanoub-armanious/pakhom")
@@ -91,23 +196,74 @@ devtools::install_github("abanoub-armanious/pakhom")
 # Set your API key in .Renviron
 usethis::edit_r_environ()
 # Add: OPENAI_API_KEY=sk-your-key-here
+# (or ANTHROPIC_API_KEY=sk-ant-... for Claude)
+```
 
-# Option A: Interactive config wizard (web UI)
-pakhom::config_wizard_app()
+### Mode 2 (Codebook Collaborative) — the auto-pipeline
 
-# Option B: CLI config wizard
-pakhom::config_wizard()
-
-# Option C: Create config programmatically
+```r
+# Create config (declares methodology mode + study + data + output)
 pakhom::create_config(
+  methodology = "codebook_collaborative",
   study_name = "My Study",
   research_focus = "How does X relate to Y?",
   database_path = "my_data.db",
   output_path = "config.yaml"
 )
 
-# Run the analysis
+# Run the full pipeline: progressive coding -> sentiment -> themes ->
+# correlations -> Mode 2 HTML report -> finalize_run
 results <- pakhom::run_analysis("config.yaml")
+```
+
+### Mode 3 (Framework Applied) — apply a theoretical framework
+
+```r
+# Pick a built-in framework (or supply your own YAML/JSON spec)
+pakhom::list_builtin_frameworks()
+# [1] "tpb"  "comb" "tdf"
+
+# Create a Mode 3 config -- framework is applied verbatim, anomalies
+# (entries that resist the framework) get flagged per the framework's
+# anomaly_handling policy
+pakhom::create_config(
+  methodology = "framework_applied",
+  framework_spec_path = "tpb",  # or path to your custom spec
+  study_name = "TPB analysis",
+  research_focus = "Behavioral intention -> behavior",
+  database_path = "my_data.db",
+  output_path = "config.yaml"
+)
+results <- pakhom::run_analysis("config.yaml")
+```
+
+### Mode 1 (Reflexive Scaffold) — AI as provocateur
+
+```r
+# Mode 1 expects you to author themes (e.g., in NVivo) and feed them to
+# pakhom for AI-extracted provocations. The package never writes themes
+# in this mode.
+my_themes <- pakhom::create_theme_set(list(
+  list(id = 1, name = "Adherence",
+       description = "Researcher-authored theme",
+       codes_included = c("medication", "routine"))
+))
+
+# Drive the provocateur loop with full Tier-0/Tier-1 scaffolding
+result <- pakhom::run_mode1(
+  data        = my_corpus,        # tibble with std_id + std_text
+  theme_set   = my_themes,
+  config_path = "config.yaml"     # methodology.mode = "reflexive_scaffold"
+)
+
+# Add reflexive memos (Mode 1's AC6 burden parity vs Modes 2/3)
+result$reflection_log <- pakhom::add_memo(
+  result$reflection_log,
+  body = "The 'Adherence' theme rests heavily on contributors 1-3; the AI's counter_narrative provocations suggest theme reframing is warranted.",
+  type = "theoretical",
+  linked_themes = "Adherence"
+)
+pakhom::persist_memos(result$reflection_log, result$output_dir)
 ```
 
 ## Pipeline Overview

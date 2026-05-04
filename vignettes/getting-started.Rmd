@@ -83,6 +83,36 @@ from where it left off.
 
 ---
 
+## Which mode is this vignette for?
+
+pakhom has **three methodology modes** (Reflexive Scaffold, Codebook
+Collaborative, Framework Applied). The mode declaration is mandatory in
+every config; it shapes what the AI may produce, what the researcher
+must author, and which transparency artifacts are mandatory.
+
+**This getting-started vignette covers Mode 2 (Codebook Collaborative)**
+— the auto-pipeline you'd recognize from manual codebook TA. The AI
+proposes codes + themes; you gate each at pause-points; the package
+produces a publication-quality HTML report with full audit trail.
+
+For a worked example of all three modes plus a decision rubric for
+choosing among them, see `vignette("methodology-modes")`. In short:
+
+- **Mode 1 (`reflexive_scaffold`)** — AI as Socratic gadfly; researcher
+  authors all themes + codes; pakhom contributes provocations only.
+  Use [`run_mode1()`](../reference/run_mode1.html). Best for reflexive
+  TA + constructionist epistemology.
+- **Mode 2 (`codebook_collaborative`)** — AI proposes codes + themes;
+  researcher gates each. Use [`run_analysis()`](../reference/run_analysis.html).
+  This vignette.
+- **Mode 3 (`framework_applied`)** — Apply a researcher-supplied
+  theoretical framework (TPB, COM-B, TDF, or your own) verbatim;
+  flag anomalies. Use [`run_analysis()`](../reference/run_analysis.html)
+  with `methodology.framework_spec_path` set. Best for theory-driven
+  / deductive analyses.
+
+---
+
 ## Prerequisites
 
 ### R and RStudio

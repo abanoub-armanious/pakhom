@@ -11,3 +11,5 @@
 ^docs$
 ^pkgdown$
 ^notes$
+^doc$
+^Meta$

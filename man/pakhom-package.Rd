@@ -6,11 +6,12 @@
 \alias{pakhom}
 \title{pakhom: AI-Assisted Reflexive Thematic Analysis}
 \description{
-Conducts AI-assisted reflexive thematic analysis following Braun & Clarke's
-approach. Uses progressive sequential coding, iterative bottom-up theme
-generation, and deterministic code-path cascading. Supports OpenAI and
-Anthropic providers, codebook-first learning from prior studies,
-checkpoint/resume, and publication-quality HTML reporting.
+Conducts AI-assisted reflexive thematic analysis with methodology
+codified at the architectural level. Three methodologically-distinct
+operating modes (Reflexive Scaffold, Codebook Collaborative,
+Framework Applied) shape the AI's role explicitly so the chosen
+epistemic stance is visible to reviewers, replicable across runs,
+and stamped onto every output.
 }
 \section{The name}{
 
@@ -28,33 +29,130 @@ codified the Rule; pakhom codifies the methodology-as-permission-
 structure.
 }
 
-\section{Main function}{
+\section{Three methodology modes}{
 
-\code{\link{run_analysis}} — orchestrates the full pipeline from a YAML config.
+Each mode encodes a different posture for AI agency. The mode
+declaration is mandatory in every config (no default); it is locked
+at run start, stamped on every output, and any change creates a
+fork run with parent_run_id linkage.
+\describe{
+\item{\code{reflexive_scaffold} (Mode 1)}{AI as Socratic gadfly
+(Sarkar 2024). The researcher authors codes and themes (typically
+in NVivo / ATLAS.ti); pakhom contributes the provocateur loop
+that surfaces counter-narratives, absent voices, alternative
+interpretations, disconfirming evidence, and assumption-surfacing
+terms. The AI never names themes or codes. Use \code{\link{run_mode1}}.
+Per AC6 (symmetric obligations), Mode 1's burden parity with
+Modes 2/3 is delivered through \emph{reflexive memos} -- typed
+Markdown notes round-tripped via YAML frontmatter
+(\code{\link{add_memo}}, \code{\link{persist_memos}}).}
+\item{\code{codebook_collaborative} (Mode 2)}{AI proposes codes;
+researcher gates each at the codebook + theme review pause-points.
+The auto-pipeline of \code{\link{run_analysis}}; this is what users
+coming from a codebook TA / template TA tradition will recognize.
+IRR + saturation are quality diagnostics; researcher review points
+interleave with the AI's progressive coding pass.}
+\item{\code{framework_applied} (Mode 3)}{Researcher provides a
+theoretical framework (e.g., Theory of Planned Behavior, COM-B,
+Theoretical Domains Framework -- pre-built specs ship in
+\code{inst/extdata/frameworks/}); AI applies it verbatim and
+flags entries that resist the framework as anomalies per the
+framework's anomaly_handling policy. Use \code{\link{run_analysis}}
+with \code{config$methodology$framework_spec_path} set. The
+framework spec is archived byte-equivalently into the run dir
+and its sha256 is stamped into \code{run_metadata.json}.}
+}
 }
 
-\section{Key features}{
+\section{Architectural commitments (AC1-AC10)}{
+
+These commitments are load-bearing and do not weaken across modes.
+\itemize{
+\item \strong{AC1}: AI is scaffold by architecture, not by configuration.
+\item \strong{AC2}: Three modes; no fourth.
+\item \strong{AC3}: No default mode; explicit declaration mandatory.
+\item \strong{AC4}: Methodology stamped on every output (ClinicalTrials.gov
+pattern -- run_metadata.json, every CSV/JSON header, HTML stamp).
+\item \strong{AC5}: Soft-lock with audit trail; methodology change
+creates a new run with parent_run_id linkage (REDCap dev/production
+pattern).
+\item \strong{AC6}: Symmetric researcher-burden obligations across
+modes (anti-gaming).
+\item \strong{AC7}: Universal Tier-0 transparency requirements
+(T0.1 quote provenance, T0.2 participant spread, T0.3 coverage)
+in all modes.
+\item \strong{AC8}: Modes are configurations of one architecture,
+never separate code paths.
+\item \strong{AC9}: Methodology rules generated from config and
+injected into the model context every turn.
+\item \strong{AC10}: Stage-gating via filesystem state.
+}
+}
+
+\section{Tier-0 universal transparency requirements}{
+
+Three commitments mandatory in every mode, addressing the most-cited
+empirical critiques of LLM-for-TA tools.
+\describe{
+\item{T0.1 -- Quote provenance + 4-step verification ladder}{Every
+AI-attributed verbatim claim runs through strict offline match,
+normalized match, substring search, and embedding similarity.
+Fabricated quotes are dropped silently and logged to
+\code{fabrication_log.csv}. Mode 1 + Anthropic + framework_applied
+constraints handled per provider.}
+\item{T0.2 -- Participant spread per theme}{Every theme reports
+n_distinct_contributors + Gini coefficient + top contributor share,
+so themes that look prevalent but rest on one heavy poster get
+surfaced (Jowsey et al. 2025 "Frankenstein" finding).}
+\item{T0.3 -- Whole-corpus coverage assertion}{Modes 2/3 assert
+"no silent truncation in the LLM call path" via \code{\link{compute_corpus_coverage}};
+Mode 1 asserts "no silent skip across themes x provocation
+categories" via \code{\link{compute_mode1_coverage}}. Both inherit
+a virtual \code{Tier0Coverage} parent class so the report
+dispatches uniformly via \code{\link{render_tier0_coverage_card}}.}
+}
+}
+
+\section{Main entry points}{
+
+\describe{
+\item{\code{\link{run_analysis}}}{Modes 2 + 3 orchestrator (data load
+-> coding -> sentiment -> themes -> correlations -> report ->
+finalize_run).}
+\item{\code{\link{run_mode1}}}{Mode 1 orchestrator (provocateur
+loop + memos + Mode 1 report). Mirrors run_analysis's scaffolding
+but routes through \code{\link{run_provocateur_questioning}}.}
+\item{\code{\link{create_config}} / \code{\link{config_wizard_app}}}{Create
+a config programmatically or via a Shiny wizard.}
+\item{\code{\link{load_framework_spec}}}{Load a theoretical framework
+for Mode 3 (built-in: \code{"tpb"}, \code{"comb"}, \code{"tdf"}).}
+\item{\code{\link{add_memo}} / \code{\link{persist_memos}}}{Mode 1
+reflexive memo CRUD + Markdown round-trip.}
+\item{\code{\link{compare_runs}} / \code{\link{compare_models}}}{Cross-run
+and inter-model reliability comparisons.}
+}
+}
+
+\section{Provider support}{
+
+OpenAI (GPT-4o family) and Anthropic (Claude family) with a unified
+\code{\link{ai_complete}} abstraction. Mode 3 + Anthropic structurally
+precludes the Citations API (forced \code{tool_use} schema and
+Citations API output are mutually exclusive on the same response);
+the Mode 3 report renders an explicit footnote disclosing this rather
+than letting reviewers infer a bug.
+}
+
+\section{Further reading}{
 
 \itemize{
-\item Progressive sequential coding (entries read one at a time, like NVivo)
-\item Thematic saturation detection (triangulated: code creation rate,
-reuse stability, AI self-assessment)
-\item Iterative bottom-up theme generation (codes merged into clusters
-through multiple passes until convergence)
-\item Deterministic code-path cascading (entries map to themes through codes)
-\item Code-aware sentiment analysis (sentiment scored after coding, using
-codes as context)
-\item Codebook-first learning from prior studies (QDPX, Excel, CSV codebooks
-with full theme/subtheme/code hierarchies)
-\item Researcher review points (pause after coding or theme generation)
-\item Checkpoint/resume for long-running analyses
-\item Correlation analysis of theme-sentiment relationships
-\item Anti-fabrication: every AI-attributed verbatim claim verified
-against source via a four-step ladder; fabricated quotes dropped
-and logged (Sprint-4 T0.1)
-\item Publication-quality HTML report with Tier-0 data integrity
-dashboard, saturation curves, theme narratives, and interactive
-tables
+\item \code{vignette("getting-started")} -- step-by-step Mode 2 walkthrough
+\item \code{vignette("methodology-modes")} -- choosing between the
+three modes; worked examples for each
+\item Sarkar 2024 (CACM) "AI Should Challenge, Not Obey" -- Mode 1 motivation
+\item Braun and Clarke 2022 -- reflexive TA foundation
+\item Jowsey et al. 2025 (PLOS One, doi:10.1371/journal.pone.0330217)
+-- the "Frankenstein" finding that motivated Tier-0
 }
 }
 
