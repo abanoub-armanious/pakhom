@@ -1,5 +1,136 @@
 # pakhom 1.0.0
 
+## Sprint-4 phase 34: end-to-end pipeline integration tests (+ 1 production bug fix)
+
+Closes phase 30 audit MEDIUM #4: existing tests covered components in
+isolation but had no end-to-end coverage of `run_analysis()` or
+`run_mode1()` through to `finalize_run`. The phase 30 audit memo
+explicitly noted this as the gap that "would have caught" silent
+failures like the phase 29 `apply_framework_themes`-not-populating-
+merge_history bug. Phase 34 fills the gap with 9 e2e tests + a
+smart `ai_complete` mock, and -- per the audit pattern -- the new
+e2e tests immediately surfaced one real production bug that no
+component-level test had caught.
+
+- **`R/tests/testthat/test-pipeline-e2e.R`** (new). 9 e2e tests pinning
+  AC4 / AC5 / AC7 / AC8 against silent regression:
+  * Mode 2 e2e produces the full Mode 2 artifact set + finalize_run
+    + AC4 methodology stamp in `run_metadata.json`.
+  * Mode 3 e2e archives `framework_applied.yaml` + stamps framework
+    name + sha256 hash in `run_metadata.json` + renders the Framework
+    Declaration section in the HTML report + the Mode 3 + Anthropic
+    Citations API bypass footnote fires.
+  * AC4 propagation: every CSV produced by `export_results` carries a
+    methodology stamp comment header.
+  * AC5 (cross-mode): `run_analysis(resume=TRUE)` against a finalized
+    Mode 2 run with a Mode 3 config errors with a "FINALIZED |
+    mismatch | fork" message rather than silently overwriting.
+  * AC5 (same-mode): `run_analysis(resume=TRUE)` against a finalized
+    Mode 2 run with a Mode 2 config errors rather than overwriting.
+  * AC8 (cross-mode artifacts): Mode 2 produces no `framework_applied.yaml`;
+    Mode 3 does. Both have universal Tier-0/Tier-1 artifacts. Run-dir
+    suffix carries mode short-code (`_M2` / `_M3`).
+  * AC8 (Mode 1 vs Mode 2/3): `run_mode1()` produces Mode 1-specific
+    artifacts (`reflection_log.json`, `provocations.csv`,
+    `provocation_attempts.csv`, `coverage_mode1.json`) and NOT
+    Mode 2/3 artifacts (`sentiment_scores.csv`, `correlations.csv`,
+    `theme_entries`).
+  * AC9: `run_metadata.json` captures `config_hash` for replay-
+    equivalence + the methodology rules markdown is written to
+    `outputs/<run>/rules/methodology_rules.md`.
+  * Mode 2 with `generate_report=TRUE` exercises the full Rmd render
+    path (the path that surfaced the bug below).
+
+- **Smart `ai_complete` mock** (`.smart_mock_ai_complete`): switches on
+  the `task` argument to return shape-appropriate JSON for each
+  pipeline call site (`coding`, `sentiment`, `theming`, `insight`,
+  `synthesis`, `review`, `saturation_check`). Pragmatic minimal
+  responses are enough to drive the pipeline through; production code's
+  `parse_json_safely` + `tryCatch` guards handle minor schema gaps
+  gracefully -- the e2e tests assert architectural invariants
+  (artifact set + finalize_run + stamping), not AI output content.
+
+- **Production bug fix** (`R/16_report_helpers.R`
+  `aggregate_overall_statistics`): when no `theme_membership_*` columns
+  exist BUT an `emerged_themes` column does (and is all-NA), the
+  function fell into a branch that built `themes_df` via
+  `tibble(theme_name = names(theme_tbl), ...)`. Because
+  `names(table(character(0)))` returns `NULL`, and `tibble(theme_name =
+  NULL, ...)` silently drops the column entirely, the downstream
+  `pull(theme_name)` in `generate_report()` then errored with
+  `"object 'theme_name' not found"`. The bug fired in any Mode 3 run
+  where the AI's coded constructs didn't match any framework construct
+  (`apply_framework_themes` produced an empty theme_set,
+  `cascade_theme_assignments` left `emerged_themes` all-NA). Fix:
+  coerce `names()` to `character(0)` so the column always exists.
+  Regression test added in `test-pipeline-e2e.R` against
+  `aggregate_overall_statistics` directly.
+
+- **Audit-driven hardening (1 background subagent on the e2e tests +
+  the production bug fix)**:
+  * **H1** (CRITICAL same-pattern leak) -- the audit found the SAME
+    NULL-vs-character(0) bug in the embedded Rmd plot code at
+    `R/17_report.R:1051` (the `theme-distribution` chunk). Different
+    location from the helper fix; same underlying R quirk
+    (`names(table(character(0)))` returns `NULL`,
+    `tibble(theme_name = NULL, ...)` drops the column). Would have
+    crashed inside the rendered Rmd at knit time for any all-NA
+    `emerged_themes` data. Fix: same `if (length(theme_tbl) > 0L)
+    names(theme_tbl) else character(0)` guard, embedded in the
+    string-built chunk.
+  * **H2** -- the original Mode 3 e2e exercised only the empty-theme-
+    set branch of `apply_framework_themes` because the smart mock
+    returned `code = "NEW: mock_code"` for every coding call (which
+    never matches a TPB construct id). The phase 29 silent failure
+    that motivated phase 34 lived in the OPPOSITE branch: non-empty
+    theme_set -> rebuild_code_to_theme_map -> cascade. Fix: smart
+    mock now extracts a verbatim slice from the prompt's
+    `Entry text: "..."` and accepts a `coding_code_name` parameter
+    so a Mode 3 happy-path test can feed it `coding_code_name =
+    "attitude"` to drive the construct-matching path. The mock now
+    also includes both Mode 2 fields (`code` + `code_description`
+    + `code_type`) and Mode 3 fields (`construct_id` +
+    `anomaly_reason`) so a single mock works across both modes.
+    Added Mode 3 happy-path test that asserts non-empty `theme_set`,
+    populated `merge_history$code_to_theme_map`, and at least one
+    entry assigned to a theme via `theme_membership_*`.
+  * **L3** -- `verify_run_integrity` listed `analysis_report.Rmd` as
+    unconditional but the writer lives inside `generate_report`'s
+    body (only fires when `output$generate_report = TRUE`). Spurious
+    "1 file(s) missing -- analysis_report.Rmd" warnings on every
+    legitimate `generate_report = FALSE` run. Fix: moved the Rmd to
+    the conditional block alongside the other report files.
+  * **AC2 + AC3** negative tests -- two cheap regression pins:
+    `run_analysis` rejects an unknown methodology mode (AC2: "no
+    fourth mode") AND rejects a config without an explicit
+    `methodology$mode` (AC3: "no default; explicit declaration
+    mandatory").
+  * **M1** -- AC4 propagation regex was too permissive
+    (`methodology|M2|codebook_collaborative` could match unrelated
+    content). Tightened to `^# methodology:` prefix anchor + inner
+    `M2` short-code check.
+  * **M3** -- the e2e config used `min_char` (wrong field name) when
+    production reads `min_text_length`. The wrong name was silently
+    ignored. Fix: use the correct production field name in the e2e
+    config so the fixture reflects production reality (and to flush
+    out any user copying this config as a starting point).
+  * **L1** -- AC5 same-mode test asserted `coding_calls > 0` only.
+    Tightened to exact equality with `test_mode$sample_size = 3`
+    so a regression that skips entries (or double-codes them)
+    surfaces.
+
+Phase 34 net adds 98 e2e tests + 2 production bug fixes (the original
+empty-emerged-themes bug + the same pattern in the embedded Rmd
+plot code) + the integrity-check fix for `analysis_report.Rmd`
+unconditional listing. Test count: 2293 -> 2391 net. R CMD check
+stays at 0 errors / 0 warnings / 2 routine NOTEs.
+
+The audit pattern ("write the test, find a bug") worked exactly as
+the user's standing memo predicted: the e2e tests caught the first
+production bug, the audit subagent caught the same bug pattern in a
+different location plus an entire missing test path that hid the
+phase 29 silent failure mode.
+
 ## Sprint-4 phase 33: M1.3 reflexive memos as data (Mode 1 AC6 parity)
 
 Closes phase 30 audit HIGH #2 / H5: ResearcherReflectionLog has carried

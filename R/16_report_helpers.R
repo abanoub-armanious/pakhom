@@ -272,8 +272,19 @@ aggregate_overall_statistics <- function(data, theme_set, consolidated = NULL,
     # Fallback: parse semicolon-separated emerged_themes
     all_themes <- unlist(strsplit(data$emerged_themes[!is.na(data$emerged_themes)], ";\\s*"))
     theme_tbl <- table(trimws(all_themes))
+    # Phase 34 e2e fix: names(table(character(0))) returns NULL, and
+    # tibble(theme_name = NULL, ...) drops the column entirely --
+    # which then made the downstream `pull(theme_name)` in
+    # generate_report() error with "object 'theme_name' not found".
+    # The bug fired in any Mode 3 run where the AI's coded constructs
+    # didn't match any framework construct (so apply_framework_themes
+    # produced an empty theme_set, cascade_theme_assignments left
+    # emerged_themes all-NA, and aggregate_overall_statistics fell
+    # into this branch with empty data). Coerce names() to
+    # character(0) so the column always exists.
+    theme_names_safe <- names(theme_tbl) %||% character(0)
     themes_df <- tibble(
-      theme_name = names(theme_tbl),
+      theme_name = theme_names_safe,
       n = as.integer(theme_tbl),
       pct = round(100 * as.integer(theme_tbl) / max(total, 1), 1)
     ) |> arrange(desc(n))

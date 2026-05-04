@@ -140,14 +140,18 @@ verify_run_integrity <- function(run_dir, config = list()) {
     return(.verify_run_integrity_mode1(run_dir, config))
   }
 
-  # Core files every completed run must have
+  # Core files every completed run must have. Phase 34 audit L3:
+  # analysis_report.Rmd was incorrectly listed as unconditional. The
+  # Rmd is produced only when output$generate_report=TRUE (the writer
+  # lives inside generate_report's body). Listing it here caused
+  # spurious "Run integrity: 1 file(s) missing -- analysis_report.Rmd"
+  # warnings on every legitimate generate_report=FALSE run.
   expected <- c(
     "sentiment_scores.csv",
     "consolidated_codes.csv",
     "correlations.csv",
     "themes.json",
     "theme_entries",
-    "analysis_report.Rmd",
     # Sprint-4 Tier-0 + Tier-1 outputs that MUST be present in any
     # complete run. Per AC4 (methodology stamped on every output),
     # integrity check must verify these exist -- otherwise a run that
@@ -160,7 +164,11 @@ verify_run_integrity <- function(run_dir, config = list()) {
 
   # Conditional files based on config
   if (isTRUE(config$output$generate_report)) {
-    expected <- c(expected, "analysis_report.html", "styles.css", "theme_details")
+    expected <- c(expected,
+                   "analysis_report.html",
+                   "analysis_report.Rmd",
+                   "styles.css",
+                   "theme_details")
   }
   if (isTRUE(config$output$generate_correlation_plot)) {
     expected <- c(expected, "correlation_plot.png")
@@ -1048,7 +1056,13 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     "} else {\n",
     "  all_themes <- unlist(strsplit(data$emerged_themes[!is.na(data$emerged_themes)], ';\\\\s*'))\n",
     "  theme_tbl <- sort(table(trimws(all_themes)), decreasing = TRUE)\n",
-    "  theme_data <- tibble::tibble(theme_name = names(theme_tbl), n = as.integer(theme_tbl))\n",
+    "  # Phase 34 audit H1: names(table(character(0))) returns NULL,\n",
+    "  # and tibble(theme_name = NULL, ...) drops the column. Coerce\n",
+    "  # to character(0) so theme_name always exists (mirrors the\n",
+    "  # aggregate_overall_statistics fix in R/16_report_helpers.R).\n",
+    "  theme_data <- tibble::tibble(\n",
+    "    theme_name = if (length(theme_tbl) > 0L) names(theme_tbl) else character(0),\n",
+    "    n = as.integer(theme_tbl))\n",
     "}\n",
     "theme_data <- theme_data |> dplyr::filter(n > 0) |> dplyr::arrange(dplyr::desc(n))\n",
     "theme_data$pct <- round(100 * theme_data$n / nrow(data), 1)\n\n",
