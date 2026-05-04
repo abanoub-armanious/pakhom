@@ -1,5 +1,89 @@
 # pakhom 1.0.0
 
+## Sprint-4 phase 36: CRAN basics + Imports trim
+
+Bounded scope-cut between phase 35 (docs) and a future real-data
+validation phase. Aim: address CRAN-prep low-hanging fruit so the
+package metadata + imports + machine-readable citation are all in
+shape, without spending API credits before the package is in
+submission-ready form.
+
+- **DESCRIPTION**:
+  * Title updated from "AI-Integrated Thematic Analysis Following
+    Braun and Clarke" to "AI-Assisted Reflexive Thematic Analysis
+    with Methodology-as-Architecture" -- the new title surfaces
+    the package's load-bearing architectural commitment, not just
+    the methodological tradition.
+  * Description blurb rewritten to describe the three modes, the
+    universal Tier-0 transparency commitments, and the empirical
+    motivations (Sarkar 2024, Jowsey et al. 2025, Braun and Clarke
+    2022).
+  * Added URL field (GitHub repo + pkgdown site) and BugReports
+    field per CRAN best practice.
+
+- **CITATION.cff** (NEW): machine-readable CFF 1.2.0 citation file at
+  the package root. Carries package metadata, repo links, abstract,
+  keywords, and references to the three empirical citations.
+  GitHub renders this as a "Cite this repository" widget on the repo
+  home page; tools like Zotero / Zenodo / DataCite consume it
+  automatically. .Rbuildignore'd so it doesn't ship in the CRAN
+  tarball.
+
+- **Imports -> Suggests** (clears the longstanding
+  "Imports includes 21 non-default packages" CRAN NOTE):
+  * `xml2` -> Suggests. Used only by `export_qdpx()`. Now guards
+    with `requireNamespace("xml2", ...)` and emits a friendly
+    install.packages error if missing.
+  * `corrplot` -> Suggests. Used only by `create_correlation_plot()`.
+    Falls through with a log_warn if not installed.
+  * `progress` -> Suggests. Used only by `safe_progress_bar()`.
+    Falls through to a logger-based progress indicator if not
+    installed.
+  Net: 21 non-default Imports -> 18, clearing the CRAN NOTE.
+
+- **@examples on six main entry points**: `run_analysis`,
+  `run_mode1`, `load_framework_spec`, `add_memo`,
+  `archive_framework_spec`, `compute_mode1_coverage`. Examples
+  requiring API keys / on-disk data are `\dontrun{}`-wrapped;
+  self-contained ones run live.
+
+R CMD check now: **0 errors / 0 warnings / 1 routine NOTE** (the
+"unable to verify current time" environmental NOTE is the only
+one remaining; the long-standing "21 imports" NOTE is cleared by
+the trim above). 2391 tests still pass; both vignettes
+(getting-started + methodology-modes) build cleanly.
+
+## Sprint-4 phase 35: user-facing documentation pass (Sprint-4 architecture surfacing)
+
+The README, vignette, package help page, and pkgdown reference index
+all pre-dated Sprint-4 -- the architectural story (three methodology
+modes + AC1-AC10 commitments + Tier-0 transparency + run_mode1 +
+framework specs + memos) was invisible to users reading the docs.
+Phase 35 brings the docs into alignment with the architecture.
+
+- **R/00_package.R**: expanded `?pakhom` with sections covering the
+  three methodology modes, AC1-AC10 architectural commitments, Tier-0
+  universal transparency requirements (T0.1/T0.2/T0.3), main entry
+  points (run_analysis, run_mode1, load_framework_spec, add_memo),
+  and the Mode 3 + Anthropic Citations API bypass disclosure.
+- **README.md**: added "Why pakhom?" opening with the methodology-as-
+  architecture story (citing Sarkar 2024, Jowsey et al. 2025, Vikan
+  et al. 2026), Three modes table, Architectural commitments list,
+  Tier-0 transparency section, and Quick Start expanded from one
+  Mode 2 example to one example per mode.
+- **_pkgdown.yml**: 5 new reference sections (Methodology Modes /
+  Tier-0 / Run State + Soft-Lock / Output Stamping / Methodology
+  Rules) covering the Sprint-4 surface that previously had no
+  pkgdown index entries.
+- **vignettes/methodology-modes.Rmd** (NEW; ~330 lines): worked
+  examples for each mode, decision rubric matrix, universal Tier-0
+  explanation, and replay-equivalence narrative.
+- **vignettes/getting-started.Rmd**: added "Which mode is this
+  vignette for?" callout cross-linking the new vignette.
+
+R CMD check 0/0/2 environmental, 2391 tests pass, both vignettes
+build cleanly.
+
 ## Sprint-4 phase 34: end-to-end pipeline integration tests (+ 1 production bug fix)
 
 Closes phase 30 audit MEDIUM #4: existing tests covered components in

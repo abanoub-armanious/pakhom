@@ -18,4 +18,10 @@ A progress_bar object or a no-op list with a $tick() method
 When R runs without a terminal (e.g., background jobs), the progress
 package can hang. This returns a no-op progress bar in that case.
 }
+\details{
+Phase 36 (CRAN prep): the \code{progress} package is now Suggests
+rather than Imports. When it isn't installed (or the session is
+non-interactive), this falls through to a logger-based progress
+indicator -- no functional regression, just no spinning bar.
+}
 \keyword{internal}

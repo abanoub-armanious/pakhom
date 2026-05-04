@@ -233,6 +233,33 @@ print.Memo <- function(x, ...) {
 #' @param audit_log Optional \code{AuditLog}; when supplied, a
 #'   \code{memo_added} decision is recorded.
 #' @return The updated \code{ResearcherReflectionLog}.
+#' @seealso \code{\link{make_memo}} (constructor);
+#'   \code{\link{persist_memos}} (write all memos to disk as Markdown
+#'   with YAML frontmatter); \code{\link{load_memos}} (read them back).
+#' @examples
+#' log <- create_reflection_log()
+#'
+#' # Add a theoretical memo linked to a theme
+#' log <- add_memo(
+#'   log,
+#'   body = paste0(
+#'     "Adherence themes are over-weighted by contributor X's posts.\n\n",
+#'     "Need to interrogate this concentration before publishing."
+#'   ),
+#'   type = "theoretical",
+#'   linked_themes = "Adherence"
+#' )
+#'
+#' # Add an operational memo as a revision of the prior
+#' log <- add_memo(
+#'   log,
+#'   body = "Merged codes med_routine + daily_pills into med_adherence.",
+#'   type = "operational",
+#'   linked_codes = c("med_routine", "daily_pills"),
+#'   linked_prior_memo = log$memos[[1]]$id
+#' )
+#'
+#' list_memos(log)
 #' @export
 add_memo <- function(log, body = NULL, ..., memo = NULL,
                        audit_log = NULL) {

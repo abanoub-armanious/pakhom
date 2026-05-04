@@ -156,6 +156,15 @@ three modes; worked examples for each
 }
 }
 
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/abanoub-armanious/pakhom}
+  \item \url{https://abanoub-armanious.github.io/pakhom/}
+  \item Report bugs at \url{https://github.com/abanoub-armanious/pakhom/issues}
+}
+
+}
 \author{
 \strong{Maintainer}: Abanoub J. Armanious \email{armaniousabanoub@gmail.com}
 

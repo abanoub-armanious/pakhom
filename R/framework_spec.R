@@ -72,6 +72,22 @@
 #'   names (e.g., \code{"tpb"}, \code{"comb"}, \code{"tdf"}), loads from
 #'   \code{inst/extdata/frameworks/}.
 #' @return A \code{FrameworkSpec} S3 object.
+#' @seealso \code{\link{list_builtin_frameworks}};
+#'   \code{\link{archive_framework_spec}} (writes a verbatim copy +
+#'   sha256 to a Mode 3 run dir); \code{\link{framework_prompt_block}}
+#'   (formats the spec for AI system prompts).
+#' @examples
+#' # Load a built-in framework by alias
+#' tpb <- load_framework_spec("tpb")
+#' print(tpb)
+#'
+#' list_builtin_frameworks()
+#' # [1] "tpb"  "comb" "tdf"
+#'
+#' \dontrun{
+#' # Load a custom spec from disk (YAML or JSON)
+#' my_framework <- load_framework_spec("path/to/my_framework.yaml")
+#' }
 #' @export
 load_framework_spec <- function(path) {
   if (!is.character(path) || length(path) != 1L || !nzchar(path)) {
@@ -299,6 +315,16 @@ print.FrameworkSpec <- function(x, ...) {
 #'   (framework$name), \code{epistemic_stance}, \code{anomaly_handling},
 #'   \code{n_constructs}, \code{schema_version}, suitable to splat into
 #'   \code{init_run_state(...)}.
+#' @seealso \code{\link{load_framework_spec}};
+#'   \code{\link{init_run_state}} (consumes the metadata).
+#' @examples
+#' spec <- load_framework_spec("tpb")
+#' tmp <- tempfile()
+#' dir.create(tmp)
+#' arch <- archive_framework_spec(spec, tmp)
+#' arch$relative_path  # "framework_applied.yaml"
+#' nchar(arch$hash) == 64L  # TRUE -- sha256 hex string
+#' file.exists(arch$path)   # TRUE
 #' @export
 archive_framework_spec <- function(spec, run_dir) {
   validate_class(spec, "FrameworkSpec")

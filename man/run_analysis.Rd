@@ -2,21 +2,68 @@
 % Please edit documentation in R/18_pipeline.R
 \name{run_analysis}
 \alias{run_analysis}
-\title{Run the full thematic analysis pipeline}
+\title{Run the full thematic analysis pipeline (Mode 2 + Mode 3)}
 \usage{
 run_analysis(config_path, resume = FALSE, config_overrides = list())
 }
 \arguments{
-\item{config_path}{Path to YAML config file}
+\item{config_path}{Path to YAML config file. The config must declare
+\code{methodology$mode} as one of \code{"codebook_collaborative"}
+or \code{"framework_applied"} (Mode 1 has its own entry point).
+For Mode 3, the config must also set
+\code{methodology$framework_spec_path} to a built-in framework
+alias (\code{"tpb"}, \code{"comb"}, \code{"tdf"}) or a path to a
+custom framework YAML/JSON.}
 
-\item{resume}{Logical; if TRUE, resume from last checkpoint}
+\item{resume}{Logical; if TRUE, resume from last checkpoint. Per AC5
+(soft-lock with audit trail), a finalized run cannot be resumed
+in place -- doing so would overwrite the canonical outputs without
+a fork record. Use \code{\link{clone_run_with_new_mode}} to fork
+into a new run dir.}
 
-\item{config_overrides}{Named list of dot-path overrides}
+\item{config_overrides}{Named list of dot-path overrides applied
+after config load. Useful for batch runs.}
 }
 \value{
-List with data, analytic_data, coding_state, theme_set, correlations, etc.
+Invisible list with \code{data}, \code{analytic_data},
+\code{coding_state}, \code{theme_set}, \code{correlations},
+\code{insights}, \code{learning_context}, \code{comparison_result},
+\code{export_files}, \code{output_dir}, \code{config},
+\code{integrity}.
 }
 \description{
 Orchestrates all steps from data loading through report generation.
-Supports checkpoint/resume for expensive API operations.
+Supports checkpoint/resume for expensive API operations. Drives Modes
+2 (Codebook Collaborative) and 3 (Framework Applied); Mode 1
+(Reflexive Scaffold) uses \code{\link{run_mode1}} instead.
+}
+\examples{
+\dontrun{
+# Mode 2 (Codebook Collaborative) -- the auto-pipeline
+create_config(
+  methodology = "codebook_collaborative",
+  study_name = "My Study",
+  research_focus = "How does X relate to Y?",
+  database_path = "my_data.db",
+  output_path = "config.yaml"
+)
+result <- run_analysis("config.yaml")
+
+# Mode 3 (Framework Applied) -- apply a theoretical framework
+create_config(
+  methodology = "framework_applied",
+  framework_spec_path = "tpb",  # built-in TPB; or path to custom spec
+  study_name = "TPB analysis",
+  research_focus = "Behavioral intention -> behavior",
+  database_path = "my_data.db",
+  output_path = "config.yaml"
+)
+result <- run_analysis("config.yaml")
+}
+}
+\seealso{
+\code{\link{run_mode1}} (Mode 1 entry point);
+\code{\link{create_config}} (config builder);
+\code{\link{load_framework_spec}} (Mode 3 framework loader);
+\code{vignette("methodology-modes")} (per-mode worked examples).
 }

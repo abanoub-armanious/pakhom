@@ -561,6 +561,16 @@ create_correlation_plot <- function(results, output_path,
                                       run_id = NULL) {
   log_info("Creating correlation plot...")
 
+  # Phase 36 (CRAN prep): corrplot moved to Suggests. Skip the plot
+  # (with a friendly log line) when the package isn't installed,
+  # rather than crashing -- the rest of the pipeline produces full
+  # correlation results in correlations.csv regardless.
+  if (!requireNamespace("corrplot", quietly = TRUE)) {
+    log_warn("corrplot package not installed; skipping correlation plot. ",
+             "Install with: install.packages('corrplot')")
+    return(invisible(NULL))
+  }
+
   cm <- results$correlation_matrix
   pa <- results$p_adjusted
 

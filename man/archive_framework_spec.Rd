@@ -41,3 +41,16 @@ Per AC4 ("methodology stamped on every output"), the archive is
 mandatory for any Mode 3 run -- absence of the archive is a coverage
 failure flagged by \code{verify_run_integrity}.
 }
+\examples{
+spec <- load_framework_spec("tpb")
+tmp <- tempfile()
+dir.create(tmp)
+arch <- archive_framework_spec(spec, tmp)
+arch$relative_path  # "framework_applied.yaml"
+nchar(arch$hash) == 64L  # TRUE -- sha256 hex string
+file.exists(arch$path)   # TRUE
+}
+\seealso{
+\code{\link{load_framework_spec}};
+\code{\link{init_run_state}} (consumes the metadata).
+}

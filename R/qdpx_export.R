@@ -485,6 +485,15 @@ export_qdpx <- function(coding_state, data, output_path,
                          methodology_mode = NULL) {
 
   # --- Input validation -------------------------------------------------------
+  # Phase 36 (CRAN prep): xml2 moved to Suggests. QDPX export is the
+  # only module that touches XML, so the guard lives here. The rest of
+  # the pipeline (HTML report, CSV exports, etc.) doesn't need xml2.
+  if (!requireNamespace("xml2", quietly = TRUE)) {
+    stop("export_qdpx requires the 'xml2' package. Install with: ",
+         "install.packages('xml2'). The rest of pakhom works without it; ",
+         "QDPX export is only needed for QDA-software interoperability ",
+         "(NVivo, ATLAS.ti, MAXQDA).", call. = FALSE)
+  }
   if (!inherits(coding_state, "ProgressiveCodingState")) {
     stop("coding_state must be a ProgressiveCodingState object")
   }

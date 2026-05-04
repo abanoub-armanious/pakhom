@@ -36,13 +36,16 @@ with \code{config_path}.}
 T0.3 coverage assertion to the supplied subset.}
 
 \item{resume}{Logical; if TRUE, look for a prior Mode 1 run dir and
-resume the provocateur loop from its reflection_log.json.}
+resume the provocateur loop from its reflection_log.json. Memos
+are also rehydrated from \code{outputs/<run>/memos/<id>.md} (the
+canonical persistence layer per AC4).}
 
 \item{config_overrides}{Named list of dot-path config overrides.}
 }
 \value{
 Invisibly: a list with \code{output_dir}, \code{reflection_log},
-\code{theme_set}, \code{coverage}, \code{theme_stats}, \code{config}.
+\code{theme_set}, \code{coverage}, \code{theme_stats}, \code{config},
+\code{integrity}, \code{artifact_paths}.
 }
 \description{
 Top-level Mode 1 entry point. Where \code{\link{run_analysis}} runs the
@@ -61,4 +64,39 @@ absent voice, alternative interpretation, disconfirming evidence, and
 assumption surfacing. This function takes the researcher's finished
 theme set as input and surfaces the AI's challenges to it as
 verifiable, citation-anchored provocations.
+}
+\examples{
+\dontrun{
+# 1. Author your themes elsewhere (e.g., NVivo) and load them.
+#    pakhom never writes themes in Mode 1.
+my_themes <- create_theme_set(list(
+  list(id = 1, name = "Adherence",
+       description = "Researcher-authored: medication adherence",
+       codes_included = c("med_routine", "daily_pills"))
+))
+
+# 2. Run the provocateur loop with full Tier-0/Tier-1 scaffolding
+result <- run_mode1(
+  data        = my_corpus,        # tibble with std_id + std_text
+  theme_set   = my_themes,
+  config_path = "config.yaml"     # methodology.mode = "reflexive_scaffold"
+)
+
+# 3. Add reflexive memos (Mode 1's AC6 burden parity vs Modes 2/3)
+result$reflection_log <- add_memo(
+  result$reflection_log,
+  body = "The 'Adherence' theme rests heavily on contributors 1-3.",
+  type = "theoretical",
+  linked_themes = "Adherence"
+)
+persist_memos(result$reflection_log, result$output_dir)
+}
+}
+\seealso{
+\code{\link{run_analysis}} (Mode 2/3 entry point);
+\code{\link{run_provocateur_questioning}} (the bare provocateur
+loop without scaffolding); \code{\link{add_memo}} (Mode 1
+reflexive memo CRUD); \code{\link{compute_mode1_coverage}}
+(T0.3 coverage compute);
+\code{vignette("methodology-modes")} (per-mode worked examples).
 }

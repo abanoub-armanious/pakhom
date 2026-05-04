@@ -42,3 +42,33 @@ The chain is the audit trail. This is intentional per the Birks/
 Chapman/Francis 2025 "Memoing in qualitative research: two decades on"
 guidance that memo evolution itself is data.
 }
+\examples{
+log <- create_reflection_log()
+
+# Add a theoretical memo linked to a theme
+log <- add_memo(
+  log,
+  body = paste0(
+    "Adherence themes are over-weighted by contributor X's posts.\n\n",
+    "Need to interrogate this concentration before publishing."
+  ),
+  type = "theoretical",
+  linked_themes = "Adherence"
+)
+
+# Add an operational memo as a revision of the prior
+log <- add_memo(
+  log,
+  body = "Merged codes med_routine + daily_pills into med_adherence.",
+  type = "operational",
+  linked_codes = c("med_routine", "daily_pills"),
+  linked_prior_memo = log$memos[[1]]$id
+)
+
+list_memos(log)
+}
+\seealso{
+\code{\link{make_memo}} (constructor);
+\code{\link{persist_memos}} (write all memos to disk as Markdown
+with YAML frontmatter); \code{\link{load_memos}} (read them back).
+}

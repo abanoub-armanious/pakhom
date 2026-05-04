@@ -36,3 +36,22 @@ coding pipeline keys constructs by id). Validation errors point at
 the specific construct that failed so users with a malformed spec
 get an actionable message.
 }
+\examples{
+# Load a built-in framework by alias
+tpb <- load_framework_spec("tpb")
+print(tpb)
+
+list_builtin_frameworks()
+# [1] "tpb"  "comb" "tdf"
+
+\dontrun{
+# Load a custom spec from disk (YAML or JSON)
+my_framework <- load_framework_spec("path/to/my_framework.yaml")
+}
+}
+\seealso{
+\code{\link{list_builtin_frameworks}};
+\code{\link{archive_framework_spec}} (writes a verbatim copy +
+sha256 to a Mode 3 run dir); \code{\link{framework_prompt_block}}
+(formats the spec for AI system prompts).
+}

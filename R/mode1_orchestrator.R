@@ -123,7 +123,26 @@
 #' @return A \code{ProvocationCoverage} S3 object (also inherits
 #'   \code{Tier0Coverage}).
 #' @seealso \code{\link{compute_corpus_coverage}} for the Mode 2/3
-#'   counterpart.
+#'   counterpart; \code{\link{render_tier0_coverage_card}} (the S3
+#'   generic that dispatches on the shared \code{Tier0Coverage}
+#'   parent class).
+#' @examples
+#' \dontrun{
+#' # After a run_mode1 invocation:
+#' result <- run_mode1(data = my_corpus, theme_set = my_themes,
+#'                       config_path = "config.yaml")
+#'
+#' # The coverage object is already on result$coverage; or recompute:
+#' cov <- compute_mode1_coverage(
+#'   reflection_log      = result$reflection_log,
+#'   theme_set           = result$theme_set,
+#'   data                = my_corpus,
+#'   requested_categories = c("counter_narrative", "disconfirming_evidence")
+#' )
+#' cov$no_silent_skip       # headline boolean
+#' cov$attempts_per_category # named list keyed by category
+#' print(cov)
+#' }
 #' @export
 compute_mode1_coverage <- function(reflection_log, theme_set, data,
                                     requested_categories =
@@ -981,10 +1000,45 @@ compute_mode1_theme_stats <- function(data, theme_set, reflection_log) {
 #'   (defaults to all five). Restricting this here also restricts the
 #'   T0.3 coverage assertion to the supplied subset.
 #' @param resume Logical; if TRUE, look for a prior Mode 1 run dir and
-#'   resume the provocateur loop from its reflection_log.json.
+#'   resume the provocateur loop from its reflection_log.json. Memos
+#'   are also rehydrated from \code{outputs/<run>/memos/<id>.md} (the
+#'   canonical persistence layer per AC4).
 #' @param config_overrides Named list of dot-path config overrides.
 #' @return Invisibly: a list with \code{output_dir}, \code{reflection_log},
-#'   \code{theme_set}, \code{coverage}, \code{theme_stats}, \code{config}.
+#'   \code{theme_set}, \code{coverage}, \code{theme_stats}, \code{config},
+#'   \code{integrity}, \code{artifact_paths}.
+#' @seealso \code{\link{run_analysis}} (Mode 2/3 entry point);
+#'   \code{\link{run_provocateur_questioning}} (the bare provocateur
+#'   loop without scaffolding); \code{\link{add_memo}} (Mode 1
+#'   reflexive memo CRUD); \code{\link{compute_mode1_coverage}}
+#'   (T0.3 coverage compute);
+#'   \code{vignette("methodology-modes")} (per-mode worked examples).
+#' @examples
+#' \dontrun{
+#' # 1. Author your themes elsewhere (e.g., NVivo) and load them.
+#' #    pakhom never writes themes in Mode 1.
+#' my_themes <- create_theme_set(list(
+#'   list(id = 1, name = "Adherence",
+#'        description = "Researcher-authored: medication adherence",
+#'        codes_included = c("med_routine", "daily_pills"))
+#' ))
+#'
+#' # 2. Run the provocateur loop with full Tier-0/Tier-1 scaffolding
+#' result <- run_mode1(
+#'   data        = my_corpus,        # tibble with std_id + std_text
+#'   theme_set   = my_themes,
+#'   config_path = "config.yaml"     # methodology.mode = "reflexive_scaffold"
+#' )
+#'
+#' # 3. Add reflexive memos (Mode 1's AC6 burden parity vs Modes 2/3)
+#' result$reflection_log <- add_memo(
+#'   result$reflection_log,
+#'   body = "The 'Adherence' theme rests heavily on contributors 1-3.",
+#'   type = "theoretical",
+#'   linked_themes = "Adherence"
+#' )
+#' persist_memos(result$reflection_log, result$output_dir)
+#' }
 #' @export
 run_mode1 <- function(data, theme_set,
                        config_path = NULL, config = NULL,

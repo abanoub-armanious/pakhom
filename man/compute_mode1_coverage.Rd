@@ -58,7 +58,27 @@ regardless of how many provocations the AI emitted, so this function
 can answer "was the attempt made?" independently from "did the
 attempt produce output?".
 }
+\examples{
+\dontrun{
+# After a run_mode1 invocation:
+result <- run_mode1(data = my_corpus, theme_set = my_themes,
+                      config_path = "config.yaml")
+
+# The coverage object is already on result$coverage; or recompute:
+cov <- compute_mode1_coverage(
+  reflection_log      = result$reflection_log,
+  theme_set           = result$theme_set,
+  data                = my_corpus,
+  requested_categories = c("counter_narrative", "disconfirming_evidence")
+)
+cov$no_silent_skip       # headline boolean
+cov$attempts_per_category # named list keyed by category
+print(cov)
+}
+}
 \seealso{
 \code{\link{compute_corpus_coverage}} for the Mode 2/3
-counterpart.
+counterpart; \code{\link{render_tier0_coverage_card}} (the S3
+generic that dispatches on the shared \code{Tier0Coverage}
+parent class).
 }

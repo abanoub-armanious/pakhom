@@ -98,16 +98,23 @@ generate_run_id <- function() {
 #' When R runs without a terminal (e.g., background jobs), the progress
 #' package can hang. This returns a no-op progress bar in that case.
 #'
+#' Phase 36 (CRAN prep): the \code{progress} package is now Suggests
+#' rather than Imports. When it isn't installed (or the session is
+#' non-interactive), this falls through to a logger-based progress
+#' indicator -- no functional regression, just no spinning bar.
+#'
 #' @param format Progress bar format string
 #' @param total Total number of ticks
 #' @return A progress_bar object or a no-op list with a $tick() method
-#' @importFrom progress progress_bar
 #' @keywords internal
 safe_progress_bar <- function(format, total) {
-  if (interactive() || isatty(stderr())) {
-    progress_bar$new(format = format, total = total, clear = FALSE)
+  has_progress <- requireNamespace("progress", quietly = TRUE)
+  if (has_progress && (interactive() || isatty(stderr()))) {
+    progress::progress_bar$new(format = format, total = total,
+                                  clear = FALSE)
   } else {
-    # No-op progress bar for non-interactive/background mode
+    # No-op progress bar for non-interactive/background mode (or when
+    # the progress package isn't installed, since it's now Suggests).
     counter <- 0L
     list(tick = function() {
       counter <<- counter + 1L

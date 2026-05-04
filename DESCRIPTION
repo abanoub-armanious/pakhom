@@ -1,22 +1,33 @@
 Package: pakhom
-Title: AI-Integrated Thematic Analysis Following Braun and Clarke
+Title: AI-Assisted Reflexive Thematic Analysis with Methodology-as-Architecture
 Version: 1.0.0
 Authors@R: person(given = c("Abanoub", "J."), family = "Armanious",
     role = c("aut", "cre"), email = "armaniousabanoub@gmail.com")
-Description: Conducts AI-assisted reflexive thematic analysis (Braun & Clarke,
-    2006) on online discussion forum data using OpenAI or Anthropic APIs. Features
-    codebook-first learning from previous manual analyses, progressive sequential
-    coding (one entry at a time), embedding-augmented iterative bottom-up theme
-    emergence with co-occurrence context, deterministic code-path theme assignment,
-    triangulated thematic saturation detection, and inter-model reliability via
-    cross-run comparison. Supports checkpoint/resume, mid-pipeline researcher
-    review (CSV or QDPX format), QDPX export for QDA software interoperability,
-    AI decision audit trails (JSONL), within-run longitudinal analysis, and
-    publication-quality HTML reports. The package name 'pakhom' (Coptic for
-    'eagle') honors Saint Pachomius the Great (c. 292-348 CE), whose written
-    Rule of communal discipline established the genre of methodology-as-written-
+Description: Conducts AI-assisted reflexive thematic analysis with three
+    methodologically-distinct operating modes (reflexive scaffold, codebook
+    collaborative, framework applied). Methodology is codified at the
+    architectural level: the AI's role is shaped by the mode declared in
+    the config, not by user discipline at the configuration level. Universal
+    Tier-0 transparency requirements (quote provenance via a 4-step
+    verification ladder, participant spread per theme, whole-corpus coverage
+    assertion) are mandatory in every mode. Supports OpenAI and Anthropic
+    providers, soft-lock and parent_run_id for replay-equivalent runs,
+    methodology rules auto-injected into every model context, mid-pipeline
+    researcher review (CSV or QDPX), QDPX export for QDA-software
+    interoperability, AI decision audit trails (JSONL), reflexive memos as
+    data with Markdown round-trip, framework specs (Theory of Planned
+    Behavior, COM-B, Theoretical Domains Framework included as built-ins),
+    and publication-quality HTML reports. Empirically motivated by Sarkar
+    2024 (CACM, AI Should Challenge Not Obey), Jowsey et al. 2025 (PLOS
+    One, the Frankenstein finding), and Braun and Clarke 2022 (reflexive
+    thematic analysis). The package name 'pakhom' (Coptic for 'eagle')
+    honors Saint Pachomius the Great (c. 292-348 CE), whose written Rule
+    of communal discipline established the genre of methodology-as-written-
     document, of which this package is a digital descendant. Development
     assisted by Claude (Anthropic).
+URL: https://github.com/abanoub-armanious/pakhom,
+    https://abanoub-armanious.github.io/pakhom/
+BugReports: https://github.com/abanoub-armanious/pakhom/issues
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -32,23 +43,22 @@ Imports:
     RSQLite,
     httr2,
     stringdist,
-    corrplot,
     ggplot2,
     scales,
     rmarkdown,
     knitr,
-    progress,
     logger,
     tictoc,
     rlang,
     tools,
-    xml2,
     digest
 Suggests:
     cli,
+    corrplot,
     htmltools,
     pdftools,
     pkgdown,
+    progress,
     purrr,
     readxl,
     shiny,
@@ -57,6 +67,7 @@ Suggests:
     testthat (>= 3.0.0),
     tidyr,
     withr,
+    xml2,
     DT,
     furrr,
     future,

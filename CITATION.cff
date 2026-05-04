@@ -1,0 +1,83 @@
+cff-version: 1.2.0
+title: "pakhom: AI-Assisted Reflexive Thematic Analysis with Methodology-as-Architecture"
+message: >-
+  If you use this package in research, please cite it using the metadata below.
+type: software
+authors:
+  - given-names: Abanoub
+    family-names: Armanious
+    name-particle: J.
+    email: armaniousabanoub@gmail.com
+    affiliation: ""
+identifiers:
+  - type: url
+    value: "https://github.com/abanoub-armanious/pakhom"
+    description: GitHub repository
+  - type: url
+    value: "https://abanoub-armanious.github.io/pakhom/"
+    description: Package website (pkgdown)
+repository-code: "https://github.com/abanoub-armanious/pakhom"
+url: "https://abanoub-armanious.github.io/pakhom/"
+abstract: >-
+  pakhom is an R package that conducts AI-assisted reflexive thematic
+  analysis with three methodologically-distinct operating modes (Reflexive
+  Scaffold, Codebook Collaborative, Framework Applied). Methodology is
+  codified at the architectural level: the AI's role is shaped by the
+  mode declared in the config, not by user discipline at the configuration
+  level. Universal Tier-0 transparency requirements (quote provenance via
+  a 4-step verification ladder, participant spread per theme, whole-corpus
+  coverage assertion) are mandatory in every mode. The package name is the
+  Coptic Egyptian form of Pachomius, the desert abbot whose written Rule
+  established the genre of methodology-as-written-document.
+keywords:
+  - thematic analysis
+  - reflexive thematic analysis
+  - qualitative research
+  - AI-assisted analysis
+  - large language models
+  - methodology
+  - reproducibility
+  - R package
+license: MIT
+version: 1.0.0
+date-released: 2026-05-04
+references:
+  - type: article
+    authors:
+      - family-names: Sarkar
+        given-names: Advait
+    title: "AI Should Challenge, Not Obey"
+    journal: "Communications of the ACM"
+    year: 2024
+    month: 10
+    notes: "Empirical motivation for Mode 1 (Reflexive Scaffold)."
+  - type: article
+    authors:
+      - family-names: Jowsey
+        given-names: Tanisha
+      - family-names: Braun
+        given-names: Virginia
+      - family-names: Clarke
+        given-names: Victoria
+      - family-names: Lupton
+        given-names: Deborah
+      - family-names: Fine
+        given-names: Michelle
+    title: >-
+      A Frankenstein-like assemblage: An evaluation of Microsoft Copilot's
+      attempts at thematic analysis.
+    journal: "PLOS ONE"
+    year: 2025
+    doi: "10.1371/journal.pone.0330217"
+    notes: "Empirical motivation for the Tier-0 transparency layer."
+  - type: book
+    authors:
+      - family-names: Braun
+        given-names: Virginia
+      - family-names: Clarke
+        given-names: Victoria
+    title: "Thematic Analysis: A Practical Guide"
+    publisher:
+      name: SAGE
+    year: 2022
+    notes: "Reflexive thematic analysis methodological foundation."
