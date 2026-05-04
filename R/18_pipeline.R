@@ -125,7 +125,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   # T1.7 (AC4): run-dir name carries the methodology mode short-code so a
   # reviewer scanning the outputs/ directory sees Mode 1 / 2 / 3 without
   # opening run_metadata.json. Spec: SPRINT4_DESIGN.md line 237.
-  meth_mode <- tryCatch(config$methodology$mode, error = function(e) NULL)
+  meth_mode <- .config_methodology_mode(config)
 
   # AC2 mode dispatch: refuse Mode 1 BEFORE creating output_dir so a
   # mistaken Mode 1 invocation doesn't leave a stranded empty run dir
@@ -352,7 +352,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   # the CSV is the audit artifact for the methodology paper's
   # fabrication-rate KPI. NULL on init failure so callers degrade gracefully.
   fabrication_log <- tryCatch(
-    init_fabrication_log(output_dir),
+    init_fabrication_log(output_dir, methodology_mode = config$methodology$mode),
     error = function(e) { log_warn("Fabrication log init failed: {e$message}"); NULL }
   )
 
@@ -561,7 +561,8 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
         data = analytic_data,
         coding_state = coding_state,
         config = config$analysis$human_verification,
-        output_dir = output_dir
+        output_dir = output_dir,
+        methodology_mode = config$methodology$mode
       )
     }, error = function(e) {
       log_warn("Human verification failed: {e$message}")
@@ -605,7 +606,8 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     if (isTRUE(config$analysis$review_points$after_coding)) {
       review_result <- review_progressive_codebook(coding_state, output_dir,
                                                     audit_log = audit_log,
-                                                    irr_result = irr_result)
+                                                    irr_result = irr_result,
+                                                    methodology_mode = config$methodology$mode)
       if (review_result$status == "exported") {
         log_info("Pipeline paused for codebook review (iteration {review_iteration}).")
         log_info("Edit 'codebook_review.csv', save as 'codebook_reviewed.csv',")
@@ -684,7 +686,8 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     # PAUSE POINT B: Researcher review of themes
     # ------------------------------------------------------------------
     if (isTRUE(config$analysis$review_points$after_themes)) {
-      review_result <- review_themes(theme_set, output_dir, audit_log = audit_log)
+      review_result <- review_themes(theme_set, output_dir, audit_log = audit_log,
+                                       methodology_mode = config$methodology$mode)
       if (review_result$status == "exported") {
         log_info("Pipeline paused for theme review (iteration {review_iteration}).")
         log_info("Re-run with resume = TRUE after reviewing.")

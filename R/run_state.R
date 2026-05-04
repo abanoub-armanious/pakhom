@@ -22,6 +22,14 @@
 # and 6 commit pakhom against.
 # ==============================================================================
 
+#' Schema version for run_metadata.json (T1.4 / T1.5)
+#'
+#' Consumers (replay_run, summarize_audit_log) read this to gate
+#' back-compat reads. Bumped when the metadata schema changes
+#' incompatibly.
+#' @keywords internal
+.RUN_METADATA_SCHEMA_VERSION <- "1.0.0"
+
 #' Path to the run-metadata JSON for a run directory
 #' @keywords internal
 .run_metadata_path <- function(run_dir) {
@@ -140,7 +148,7 @@ init_run_state <- function(run_dir, run_id, methodology_mode,
     is_finalized        = FALSE,
     finalized_at        = NULL,
     created_at          = now_iso,
-    schema_version      = "1.0.0"
+    schema_version      = .RUN_METADATA_SCHEMA_VERSION
   )
   extra <- list(...)
   for (nm in names(extra)) meta[[nm]] <- extra[[nm]]

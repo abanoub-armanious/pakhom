@@ -216,6 +216,33 @@ test_that("log_fabrication appends one row per fabricated quote", {
   expect_equal(flog$state$n_logged, 2L)
 })
 
+test_that("init_fabrication_log stamps the CSV when methodology_mode is set, and appends survive the stamp", {
+  # Audit A HIGH (phase 38): fabrication_log.csv was a user-facing
+  # run-dir artifact that AC4 missed -- the audit log flagged it as
+  # the only T0.1 artifact without a methodology stamp.
+  td <- withr::local_tempdir()
+  flog <- init_fabrication_log(td, methodology_mode = "framework_applied")
+  lines <- readLines(flog$path)
+  expect_match(lines[1], "^# methodology: M3 - Framework Applied")
+  expect_equal(lines[2], "#")
+  expect_match(lines[3], "^timestamp,quote_id")
+
+  # Appending a row must not disturb the stamp lines.
+  fab <- make_quote("doc1", "test", SRC, 0L, 30L, "fake quote")
+  fab <- verify_quote(fab, SRC)
+  log_fabrication(flog, fab)
+  lines2 <- readLines(flog$path)
+  expect_equal(length(lines2), 4L)            # 2 stamp + header + 1 row
+  expect_match(lines2[1], "^# methodology:")  # stamp survived append
+  expect_match(lines2[3], "^timestamp,quote_id")
+
+  # Reading with comment = "#" gives a parseable tibble (the path a
+  # downstream methodology-paper analysis script would use).
+  df <- readr::read_csv(flog$path, show_col_types = FALSE, comment = "#")
+  expect_equal(nrow(df), 1L)
+  expect_true("verification_status" %in% names(df))
+})
+
 test_that("log_fabrication silently no-ops on non-fabricated quotes", {
   # The CSV is for fabrications only. Drifted, unverified, and verified
   # quotes have other render-time treatments and don't go in here.

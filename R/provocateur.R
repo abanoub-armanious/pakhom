@@ -78,6 +78,14 @@
 #' @keywords internal
 .RESEARCHER_REFLECTION_LOG_SCHEMA_VERSION <- "1.2.0"
 
+#' Schema version for individual Provocation S3 objects.
+#'
+#' Tracks the structure of a single provocation record (separate from
+#' the parent ResearcherReflectionLog version). Bumped when the
+#' Provocation schema changes incompatibly.
+#' @keywords internal
+.PROVOCATION_SCHEMA_VERSION <- "1.0.0"
+
 #' Valid provocation category names
 #' @keywords internal
 .VALID_PROVOCATION_CATEGORIES <- c(
@@ -246,7 +254,7 @@ make_provocation <- function(category, theme_name, reason,
     ai_call_id        = ai_call_id,
     prompted_at       = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
     researcher_action = NA_character_,  # set later by review UI: opened|memo_added|theme_revised|dismissed
-    schema_version    = "1.0.0"
+    schema_version    = .PROVOCATION_SCHEMA_VERSION
   )
   class(obj) <- "Provocation"
   obj

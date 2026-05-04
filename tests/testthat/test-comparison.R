@@ -444,3 +444,95 @@ test_that("list_available_runs reports schema_version and schema_compatible", {
   expect_true(all(result$schema_version == "1.0"))
   expect_true(all(result$schema_compatible))
 })
+
+# ==============================================================================
+# compare_models: inter-model wrapper
+# ==============================================================================
+
+# Helper: set up two fixture run dirs, optionally rewriting one's metadata so
+# the runs report distinct provider/model combinations.
+.copy_fixtures_for_compare_models <- function(target_dir, second_provider = "openai",
+                                                second_model = "gpt-4o") {
+  for (run_name in c("run_2026-01-01_120000", "run_2026-01-02_120000")) {
+    src <- file.path(fixture_dir, run_name)
+    dst <- file.path(target_dir, run_name)
+    dir.create(dst, recursive = TRUE)
+    file.copy(list.files(src, full.names = TRUE), dst, recursive = TRUE)
+  }
+  if (!identical(second_provider, "openai") || !identical(second_model, "gpt-4o")) {
+    meta_path <- file.path(target_dir, "run_2026-01-02_120000", "run_metadata.json")
+    meta <- jsonlite::fromJSON(meta_path)
+    meta$provider <- second_provider
+    meta$model_primary <- second_model
+    jsonlite::write_json(meta, meta_path, pretty = TRUE, auto_unbox = TRUE)
+  }
+}
+
+test_that("compare_models returns NULL when fewer than 2 runs are present", {
+  tmp <- withr::local_tempdir()
+  dir.create(file.path(tmp, "run_2026-01-01_120000"))
+  expect_null(compare_models(tmp))
+})
+
+test_that("compare_models flags is_inter_model = FALSE when both runs used the same model", {
+  tmp <- withr::local_tempdir()
+  .copy_fixtures_for_compare_models(tmp)
+  result <- compare_models(tmp)
+  expect_s3_class(result, "ComparisonResult")
+  expect_false(isTRUE(result$is_inter_model))
+  expect_equal(length(result$unique_models), 1L)
+  expect_equal(result$unique_models[1], "openai/gpt-4o")
+})
+
+test_that("compare_models flags is_inter_model = TRUE when runs used different models", {
+  tmp <- withr::local_tempdir()
+  .copy_fixtures_for_compare_models(tmp,
+                                     second_provider = "anthropic",
+                                     second_model = "claude-sonnet-4-6")
+  result <- compare_models(tmp)
+  expect_s3_class(result, "ComparisonResult")
+  expect_true(isTRUE(result$is_inter_model))
+  expect_setequal(result$unique_models,
+                  c("openai/gpt-4o", "anthropic/claude-sonnet-4-6"))
+  expect_equal(length(result$models_used), 2L)
+})
+
+test_that(".load_run_snapshot reads stamped CSVs without choking on the AC4 comment header", {
+  # Audit A CRITICAL (phase 38): pre-fix, the read_csv calls in
+  # .load_run_snapshot didn't pass comment="#" so a stamped CSV's first
+  # line ("# methodology: ...") would have been parsed as a malformed
+  # header, silently breaking compare_runs() for every Sprint-4 run.
+  tmp <- withr::local_tempdir()
+  run_dir <- file.path(tmp, "run_2026-05-04_120000")
+  src <- file.path(fixture_dir, "run_2026-01-01_120000")
+  dir.create(run_dir, recursive = TRUE)
+  file.copy(list.files(src, full.names = TRUE), run_dir, recursive = TRUE)
+  for (fn in c("sentiment_scores.csv", "consolidated_codes.csv",
+               "correlations.csv")) {
+    stamp_methodology_csv(file.path(run_dir, fn),
+                           "codebook_collaborative", run_id = "r1")
+  }
+  snap <- pakhom:::.load_run_snapshot(run_dir)
+  expect_s3_class(snap$sentiment, "tbl_df")
+  expect_s3_class(snap$codes, "tbl_df")
+  expect_s3_class(snap$correlations, "tbl_df")
+  # Sanity: the data columns survived (the parse didn't treat the stamp
+  # as the header).
+  expect_true("std_id" %in% names(snap$sentiment))
+  expect_true("code_text" %in% names(snap$codes))
+})
+
+test_that("compare_models decorates the result with models_used and unique_models slots", {
+  tmp <- withr::local_tempdir()
+  .copy_fixtures_for_compare_models(tmp,
+                                     second_provider = "anthropic",
+                                     second_model = "claude-opus-4-7")
+  result <- compare_models(tmp)
+  # The decoration must be visible to downstream consumers (the
+  # cross-model agreement reporting in the methodology paper relies
+  # on these fields, so they're load-bearing -- not just metadata).
+  expect_true(all(c("is_inter_model", "models_used", "unique_models") %in% names(result)))
+  expect_named(result$models_used,
+               c("run_2026-01-01_120000", "run_2026-01-02_120000"),
+               ignore.order = TRUE)
+})

@@ -745,3 +745,90 @@ test_that("codebook review logs decisions to audit log", {
     expect_true("code_renamed" %in% decision_types)
   })
 })
+
+# ==============================================================================
+# 9. AC4: methodology stamping on review CSV exports (T1.7)
+# ==============================================================================
+
+test_that("review_progressive_codebook stamps the export when methodology_mode is set", {
+  withr::with_tempdir({
+    cs <- make_coding_state()
+    review_progressive_codebook(cs, getwd(),
+                                 methodology_mode = "codebook_collaborative")
+    export_path <- file.path("researcher_review", "codebook_review.csv")
+    expect_true(file.exists(export_path))
+    head <- readLines(export_path, n = 2L)
+    expect_match(head[1], "^# methodology: M2 - Codebook Collaborative")
+    expect_equal(head[2], "#")
+    # readr with comment = "#" still parses correctly
+    df <- readr::read_csv(export_path, show_col_types = FALSE, comment = "#")
+    expect_true("code_key" %in% names(df))
+    expect_equal(nrow(df), 2L)
+  })
+})
+
+test_that("review_progressive_codebook does NOT stamp when methodology_mode is NULL", {
+  withr::with_tempdir({
+    cs <- make_coding_state()
+    review_progressive_codebook(cs, getwd())
+    export_path <- file.path("researcher_review", "codebook_review.csv")
+    head <- readLines(export_path, n = 1L)
+    expect_false(grepl("^# methodology:", head))
+  })
+})
+
+test_that("review_themes stamps both review and disposition CSVs", {
+  withr::with_tempdir({
+    themes <- list(
+      list(id = 1L, name = "Theme A", description = "Desc A",
+           codes_included = c("Code A"))
+    )
+    ts <- create_theme_set(themes)
+    review_themes(ts, getwd(),
+                   methodology_mode = "framework_applied")
+    review_path <- file.path("researcher_review", "themes_review.csv")
+    disp_path <- file.path("researcher_review", "review_disposition.csv")
+    expect_match(readLines(review_path, n = 1L), "^# methodology: M3 - Framework Applied")
+    expect_match(readLines(disp_path, n = 1L), "^# methodology: M3 - Framework Applied")
+  })
+})
+
+test_that("read_review_disposition reads through a methodology stamp", {
+  withr::with_tempdir({
+    review_dir <- file.path(getwd(), "researcher_review")
+    dir.create(review_dir, recursive = TRUE)
+    disp_path <- file.path(review_dir, "review_disposition.csv")
+    readr::write_csv(tibble::tibble(disposition = "revise_codebook"), disp_path)
+    # Stamp the file -- simulating what review_themes() now does
+    stamp_methodology_csv(disp_path, "codebook_collaborative", run_id = "r1")
+    # The user's intent must survive; the prior bug returned "continue"
+    # because read_csv treated the stamp as a malformed header.
+    expect_equal(read_review_disposition(getwd()), "revise_codebook")
+  })
+})
+
+test_that("review_progressive_codebook reads a stamped reviewed file (round-trip)", {
+  withr::with_tempdir({
+    cs <- make_coding_state()
+    reviewed <- tibble::tibble(
+      code_key = c("code_a", "code_b"),
+      code_name = c("Code A", "Code B"),
+      action = c("delete", "rename"),
+      new_name = c(NA_character_, "Code B Renamed"),
+      merge_into = NA_character_,
+      new_description = NA_character_,
+      split_name = NA_character_,
+      researcher_memo = NA_character_
+    )
+    write_reviewed_codebook(getwd(), reviewed)
+    reviewed_path <- file.path("researcher_review", "codebook_reviewed.csv")
+    # Simulate the user keeping the methodology stamp in the file
+    stamp_methodology_csv(reviewed_path, "codebook_collaborative", run_id = "r1")
+    result <- review_progressive_codebook(cs, getwd(),
+                                           methodology_mode = "codebook_collaborative")
+    # The reviewed actions must apply correctly even with the stamp present
+    expect_equal(result$status, "applied")
+    expect_false("code_a" %in% names(result$coding_state$codebook))
+    expect_equal(result$coding_state$codebook[["code_b"]]$code_name, "Code B Renamed")
+  })
+})

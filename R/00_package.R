@@ -168,6 +168,12 @@ NULL
 .SENTIMENT_POSITIVE_THRESHOLD <- 0.2
 .DEFAULT_SIMILARITY_THRESHOLD <- 0.85
 
+# Maximum entry/manuscript text length passed to the LLM. Long entries are
+# truncated to this cap before being included in a prompt; the T0.1
+# verification ladder still validates against the FULL untruncated text so
+# any quote the model fabricates from beyond-cap content gets dropped.
+.MAX_ENTRY_CHARS <- 8000L
+
 # -- Methodology modes (multi-mode architecture, T1.3) -------------------------
 # Each mode encodes a methodologically coherent posture for AI agency:
 #   * reflexive_scaffold     -- AI as provocateur; researcher does all

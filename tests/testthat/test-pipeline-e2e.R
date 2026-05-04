@@ -419,9 +419,10 @@ test_that("AC4: Mode 2 run_analysis stamps the methodology mode on every CSV out
   for (csv in csvs) {
     first_line <- readLines(csv, n = 1L, warn = FALSE)
     if (length(first_line) == 0L) next
-    # fabrication_log.csv is written line-by-line during coding and
-    # does not get stamped (it's an append-only audit log).
-    if (basename(csv) == "fabrication_log.csv") next
+    # fabrication_log.csv is now also stamped (phase 38, audit A finding):
+    # init_fabrication_log writes the header then prepends the methodology
+    # stamp; subsequent log_fabrication appends rows below. The header
+    # comment lines aren't disturbed by the appends.
     expect_match(first_line, "^# methodology:",
                   info = sprintf("CSV without methodology stamp prefix: %s",
                                  basename(csv)))

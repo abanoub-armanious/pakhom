@@ -43,7 +43,7 @@
 #' @export
 generate_methodology_rules <- function(config) {
   if (is.null(config)) return("")
-  mode <- tryCatch(config$methodology$mode, error = function(e) NULL)
+  mode <- .config_methodology_mode(config)
   rules <- character(0)
 
   # Mode-specific rules

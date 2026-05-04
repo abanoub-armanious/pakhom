@@ -313,19 +313,23 @@ list_available_runs <- function(results_base) {
     if (file.exists(f)) tibble::as_tibble(jsonlite::fromJSON(f)) else NULL
   }, error = function(e) NULL)
 
+  # comment = "#" so the AC4 methodology stamp on the file head (added
+  # by stamp_methodology_csv in export_results) doesn't get parsed as
+  # a malformed header row -- otherwise compare_runs() silently breaks
+  # on every Sprint-4 run.
   sentiment <- tryCatch({
     f <- file.path(run_dir, "sentiment_scores.csv")
-    if (file.exists(f)) readr::read_csv(f, show_col_types = FALSE) else NULL
+    if (file.exists(f)) readr::read_csv(f, show_col_types = FALSE, comment = "#") else NULL
   }, error = function(e) NULL)
 
   codes <- tryCatch({
     f <- file.path(run_dir, "consolidated_codes.csv")
-    if (file.exists(f)) readr::read_csv(f, show_col_types = FALSE) else NULL
+    if (file.exists(f)) readr::read_csv(f, show_col_types = FALSE, comment = "#") else NULL
   }, error = function(e) NULL)
 
   correlations <- tryCatch({
     f <- file.path(run_dir, "correlations.csv")
-    if (file.exists(f)) readr::read_csv(f, show_col_types = FALSE) else NULL
+    if (file.exists(f)) readr::read_csv(f, show_col_types = FALSE, comment = "#") else NULL
   }, error = function(e) NULL)
 
   # Load run metadata (provider/model info for inter-model comparison)

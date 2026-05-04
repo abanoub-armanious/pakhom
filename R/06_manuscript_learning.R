@@ -371,7 +371,7 @@ parse_raw_data_files <- function(raw_data_dir, max_files = NULL, seed = NULL) {
 #' @return LearningContext S3 object
 #' @export
 generate_learning_context <- function(studies, max_codebook_chars = 20000,
-                                       max_manuscript_chars = 8000,
+                                       max_manuscript_chars = .MAX_ENTRY_CHARS,
                                        max_raw_samples = 5) {
   if (!inherits(studies, "PreviousStudies") || studies$n_studies == 0) {
     log_warn("No previous studies available for learning context")

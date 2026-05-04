@@ -149,6 +149,7 @@ is currently in CSV, Excel, or another format, you can convert it:
 
 ```{r}
 # Convert a CSV to SQLite
+# install.packages(c("DBI", "RSQLite"))   # if not already installed
 library(DBI)
 library(RSQLite)
 
@@ -196,8 +197,8 @@ SQLite `.db` file using whatever method you prefer.
 # Install from a local copy of the package:
 devtools::install("path/to/pakhom")
 
-# Or if hosted on GitHub:
-# devtools::install_github("username/pakhom")
+# Or install directly from GitHub:
+# devtools::install_github("abanoub-armanious/pakhom")
 ```
 
 If you see errors about missing packages, install them first:

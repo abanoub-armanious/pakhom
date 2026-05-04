@@ -213,7 +213,7 @@ analyze_sentiment <- function(data, provider, config = list(),
         data$sentiment_score[idx] <- pmin(1, pmax(-1, as.numeric(results_data$sentiment_score[j])))
         data$confidence[idx] <- pmin(1, pmax(0, as.numeric(results_data$confidence[j])))
         data$emotion_intensity[idx] <- pmin(1, pmax(0, as.numeric(results_data$emotion_intensity[j])))
-        # Multi-label emotions: extract from either new "emotions" array or legacy "primary_emotion"
+        # Multi-label emotions: extract from the "emotions" array
         data$all_emotions[idx] <- .extract_emotions(results_data, j, is_dataframe = TRUE)
       }
     }
@@ -224,7 +224,7 @@ analyze_sentiment <- function(data, provider, config = list(),
         data$sentiment_score[idx] <- pmin(1, pmax(-1, as.numeric(item$sentiment_score)))
         data$confidence[idx] <- pmin(1, pmax(0, as.numeric(item$confidence)))
         data$emotion_intensity[idx] <- pmin(1, pmax(0, as.numeric(item$emotion_intensity)))
-        # Multi-label emotions: extract from either new "emotions" array or legacy "primary_emotion"
+        # Multi-label emotions: extract from the "emotions" array
         data$all_emotions[idx] <- .extract_emotions(item, NULL, is_dataframe = FALSE)
       }
     }
@@ -242,7 +242,9 @@ analyze_sentiment <- function(data, provider, config = list(),
 
 #' Extract multi-label emotions from AI response
 #'
-#' Handles both the new "emotions" array format and legacy "primary_emotion" single string.
+#' Handles the structured-outputs "emotions" array format (T1.2 schema lock:
+#' .sentiment_schema requires `emotions` and forbids extra properties, so a
+#' legacy `primary_emotion` field is architecturally unreachable here).
 #' Returns a semicolon-separated all_emotions string.
 #' @param item Data frame row or list item from parsed AI response
 #' @param j Row index (only used when is_dataframe = TRUE)
@@ -253,7 +255,7 @@ analyze_sentiment <- function(data, provider, config = list(),
   emotions_raw <- NULL
 
   if (is_dataframe) {
-    # New format: "emotions" column containing JSON array or character vector
+    # "emotions" column containing JSON array or character vector
     if ("emotions" %in% names(item)) {
       val <- item$emotions[j]
       if (is.list(val)) {
@@ -262,7 +264,7 @@ analyze_sentiment <- function(data, provider, config = list(),
         emotions_raw <- val
       }
     }
-    # Also check for pre-joined "all_emotions" column (semicolon-separated string)
+    # Pre-joined "all_emotions" column (semicolon-separated string)
     if ((is.null(emotions_raw) || length(emotions_raw) == 0) &&
         "all_emotions" %in% names(item)) {
       val <- as.character(item$all_emotions[j])
@@ -270,30 +272,18 @@ analyze_sentiment <- function(data, provider, config = list(),
         emotions_raw <- trimws(unlist(strsplit(val, ";\\s*")))
       }
     }
-    # Legacy fallback: "primary_emotion" column -- convert to all_emotions format
-    if ((is.null(emotions_raw) || length(emotions_raw) == 0) &&
-        "primary_emotion" %in% names(item)) {
-      val <- as.character(item$primary_emotion[j])
-      if (!is.na(val) && nchar(val) > 0) return(val)
-    }
   } else {
-    # List item: new format has $emotions as a character vector
+    # List item: "emotions" as a character vector
     if (!is.null(item$emotions)) {
       emotions_raw <- unlist(item$emotions)
     }
-    # Also check for pre-joined all_emotions string
+    # Pre-joined all_emotions string
     if ((is.null(emotions_raw) || length(emotions_raw) == 0) &&
         !is.null(item$all_emotions)) {
       val <- as.character(item$all_emotions)
       if (!is.na(val) && nchar(val) > 0) {
         emotions_raw <- trimws(unlist(strsplit(val, ";\\s*")))
       }
-    }
-    # Legacy fallback: convert primary_emotion to all_emotions format
-    if ((is.null(emotions_raw) || length(emotions_raw) == 0) &&
-        !is.null(item$primary_emotion)) {
-      val <- as.character(item$primary_emotion)
-      if (!is.na(val) && nchar(val) > 0) return(val)
     }
   }
 

@@ -235,7 +235,9 @@ results <- pakhom::run_analysis("config.yaml")
 ```r
 # Mode 1 expects you to author themes (e.g., in NVivo) and feed them to
 # pakhom for AI-extracted provocations. The package never writes themes
-# in this mode.
+# in this mode. For the expected shape of `my_corpus` (a tibble with
+# std_id + std_text, optional std_author), see
+# vignette("methodology-modes").
 my_themes <- pakhom::create_theme_set(list(
   list(id = 1, name = "Adherence",
        description = "Researcher-authored theme",

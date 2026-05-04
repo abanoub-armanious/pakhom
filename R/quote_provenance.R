@@ -527,9 +527,14 @@ verify_quotes <- function(quotes, corpus_lookup, provider = NULL) {
 #' aggregations that are easier on a wide CSV than nested JSONL.
 #'
 #' @param output_dir Run output directory (where the CSV is written).
+#' @param methodology_mode Optional methodology mode (T1.7 / AC4). When
+#'   non-NULL, the CSV header is preceded by a comment-style methodology
+#'   stamp identifying the mode and run id, so a reviewer picking up the
+#'   bare CSV sees the methodology declaration. NULL skips stamping
+#'   (legacy / test callers).
 #' @return A FabricationLog S3 object.
 #' @export
-init_fabrication_log <- function(output_dir) {
+init_fabrication_log <- function(output_dir, methodology_mode = NULL) {
   stopifnot(is.character(output_dir), length(output_dir) == 1L)
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
   log_path <- file.path(output_dir, "fabrication_log.csv")
@@ -544,6 +549,16 @@ init_fabrication_log <- function(output_dir) {
   con <- file(log_path, open = "w")
   writeLines(paste(header, collapse = ","), con = con)
   close(con)
+
+  # T1.7 / AC4: stamp the file with the methodology mode so any
+  # downstream consumer sees the declaration up-front. log_fabrication's
+  # append path uses raw cat() to add rows but does not touch the
+  # header lines, so the stamp survives subsequent appends.
+  if (!is.null(methodology_mode)) {
+    tryCatch(stamp_methodology_csv(log_path, methodology_mode,
+                                     run_id = basename(output_dir)),
+             error = function(e) log_debug("CSV stamp skipped: {e$message}"))
+  }
 
   # Env-backed counter so log_fabrication's increments survive pass-by-value.
   state <- new.env(parent = emptyenv())

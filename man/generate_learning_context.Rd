@@ -7,7 +7,7 @@
 generate_learning_context(
   studies,
   max_codebook_chars = 20000,
-  max_manuscript_chars = 8000,
+  max_manuscript_chars = .MAX_ENTRY_CHARS,
   max_raw_samples = 5
 )
 }

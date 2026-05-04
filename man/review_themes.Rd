@@ -4,12 +4,18 @@
 \alias{review_themes}
 \title{Export theme review sheet and apply modifications on resume}
 \usage{
-review_themes(theme_set, output_dir, audit_log = NULL)
+review_themes(theme_set, output_dir, audit_log = NULL, methodology_mode = NULL)
 }
 \arguments{
 \item{theme_set}{ThemeSet S3 object}
 
 \item{output_dir}{Pipeline output directory}
+
+\item{audit_log}{Optional AuditLog}
+
+\item{methodology_mode}{Optional methodology mode (T1.7 / AC4). When
+non-NULL, the exported review and disposition CSVs are stamped with
+a comment header. NULL skips stamping (legacy / test callers).}
 }
 \value{
 List with status and updated theme_set

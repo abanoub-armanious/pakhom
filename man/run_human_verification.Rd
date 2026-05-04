@@ -9,7 +9,8 @@ run_human_verification(
   coding_state,
   config = list(),
   output_dir = ".",
-  checkpoint = NULL
+  checkpoint = NULL,
+  methodology_mode = NULL
 )
 }
 \arguments{
@@ -22,6 +23,11 @@ run_human_verification(
 \item{output_dir}{Output directory path}
 
 \item{checkpoint}{CheckpointManager (or NULL)}
+
+\item{methodology_mode}{Optional methodology mode (T1.7 / AC4). When
+non-NULL, every IRR CSV produced is stamped with a comment header
+identifying the mode and run id. NULL skips stamping (legacy /
+test callers).}
 }
 \value{
 List with status ("exported", "completed"), irr_stats, sample_ids

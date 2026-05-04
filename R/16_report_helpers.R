@@ -1102,7 +1102,7 @@ generate_downloads_section <- function(export_files, theme_stats) {
 #' @keywords internal
 .tier0_citations_api_bypass_footnote <- function(config = NULL) {
   if (is.null(config)) return("")
-  meth_mode <- tryCatch(config$methodology$mode, error = function(e) NULL)
+  meth_mode <- .config_methodology_mode(config)
   provider  <- tryCatch(config$ai$provider,      error = function(e) NULL)
   if (!identical(meth_mode, "framework_applied")) return("")
   if (!identical(provider, "anthropic")) return("")

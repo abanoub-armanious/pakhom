@@ -795,7 +795,7 @@ compute_mode1_theme_stats <- function(data, theme_set, reflection_log) {
                    "styles.css")
   }
   if (isTRUE(config$audit$capture_raw_responses %||% TRUE)) {
-    expected <- c(expected, "api_responses")
+    expected <- c(expected, config$audit$response_cache_dir %||% "api_responses")
   }
 
   present <- expected[file.exists(file.path(run_dir, expected))]
@@ -1091,7 +1091,7 @@ run_mode1 <- function(data, theme_set,
   if (is.null(config)) {
     config <- load_config(config_path, overrides = config_overrides)
   }
-  meth_mode <- tryCatch(config$methodology$mode, error = function(e) NULL)
+  meth_mode <- .config_methodology_mode(config)
   if (!identical(meth_mode, "reflexive_scaffold")) {
     # Audit A H1 (phase 31): use a single multi-line message for parity
     # with run_analysis()'s Mode 1 refusal -- a reviewer hitting either
@@ -1241,7 +1241,7 @@ run_mode1 <- function(data, theme_set,
   )
 
   fabrication_log <- tryCatch(
-    init_fabrication_log(output_dir),
+    init_fabrication_log(output_dir, methodology_mode = config$methodology$mode),
     error = function(e) { log_warn("Fabrication log init failed: {e$message}"); NULL }
   )
 

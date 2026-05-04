@@ -489,8 +489,7 @@ compute_provocation_provenance_stats <- function(reflection_log) {
                                        integrity = NULL,
                                        self_contained = TRUE) {
 
-  meth_mode <- tryCatch(config$methodology$mode,
-                          error = function(e) "reflexive_scaffold")
+  meth_mode <- .config_methodology_mode(config) %||% "reflexive_scaffold"
   research_focus <- config$study$research_focus %||% "Mode 1 reflexive analysis"
   safe_focus <- gsub("'", "''", .html_esc(research_focus))
   sc_flag <- if (isTRUE(self_contained)) "true" else "false"

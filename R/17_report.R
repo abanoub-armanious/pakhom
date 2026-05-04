@@ -135,7 +135,7 @@ verify_run_integrity <- function(run_dir, config = list()) {
   # produces a different artifact set from Modes 2/3 (no sentiment, no
   # correlations, no theme_entries directory) -- a unified expected
   # list would silently mark every Mode 1 run as incomplete.
-  meth_mode <- tryCatch(config$methodology$mode, error = function(e) NULL)
+  meth_mode <- .config_methodology_mode(config)
   if (identical(meth_mode, "reflexive_scaffold")) {
     return(.verify_run_integrity_mode1(run_dir, config))
   }
@@ -174,9 +174,11 @@ verify_run_integrity <- function(run_dir, config = list()) {
     expected <- c(expected, "correlation_plot.png")
   }
   # T1.4: when raw-response capture is enabled (default TRUE), the
-  # api_responses/ directory MUST exist for replay_run() to work.
+  # response-cache directory MUST exist for replay_run() to work.
+  # Honor config$audit$response_cache_dir so a customized cache dir
+  # doesn't surface as a false-positive missing artifact.
   if (isTRUE(config$audit$capture_raw_responses %||% TRUE)) {
-    expected <- c(expected, "api_responses")
+    expected <- c(expected, config$audit$response_cache_dir %||% "api_responses")
   }
   # Phase 32 (audit H1 + H2): Mode 3 must have an archived framework
   # spec at outputs/<run>/framework_applied.{yaml|yml|json}. The extension
@@ -542,7 +544,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   # who picks up the rendered HTML sees the mode declaration before the
   # substantive analysis. Built from config (the canonical source) with
   # a fallback "Unknown methodology" for legacy runs without a config.
-  meth_mode <- tryCatch(config$methodology$mode, error = function(e) NULL)
+  meth_mode <- .config_methodology_mode(config)
   content <- paste0(content,
     stamp_methodology_html(meth_mode, run_id = run_id), '\n'
   )

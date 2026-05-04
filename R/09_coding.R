@@ -260,6 +260,14 @@ run_progressive_coding <- function(data, provider, config = list(),
     learning_context = learning_context
   )
 
+  # Mode 3: framework prompt block is loop-invariant (depends only on
+  # framework_spec, not on the per-entry state). Compute once before the
+  # loop -- otherwise a 150-entry corpus pays 150 redundant validate_class()
+  # + paste calls.
+  framework_prompt_text <- if (!is.null(framework_spec)) {
+    framework_prompt_block(framework_spec)
+  } else NULL
+
   batch_delay <- provider$rate_limits$delay_between_batches %||% 0.5
 
   # Saturation tracking state
@@ -313,7 +321,8 @@ run_progressive_coding <- function(data, provider, config = list(),
       audit_log = audit_log,
       response_cache = response_cache,
       fabrication_log = fabrication_log,
-      framework_spec = framework_spec
+      framework_spec = framework_spec,
+      framework_prompt_text = framework_prompt_text
     )
 
     # Track this entry in the O(1) lists
@@ -520,7 +529,8 @@ run_progressive_coding <- function(data, provider, config = list(),
                                      audit_log = NULL,
                                      response_cache = NULL,
                                      fabrication_log = NULL,
-                                     framework_spec = NULL) {
+                                     framework_spec = NULL,
+                                     framework_prompt_text = NULL) {
   # Three coding paths, dispatched by mode + provider:
   #   1. FRAMEWORK (Mode 3): framework_spec is non-NULL -> AI applies
   #      researcher's a-priori constructs verbatim; "anomaly" code captures
@@ -541,9 +551,13 @@ run_progressive_coding <- function(data, provider, config = list(),
   # only allowed code names). In Mode 2, the AI sees the growing
   # codebook so it can reuse codes.
   if (use_framework) {
+    # framework_prompt_text is hoisted out of the loop in run_progressive_coding;
+    # fall back to recomputing only for direct callers (e.g., tests) that
+    # didn't pre-compute.
+    fpt <- framework_prompt_text %||% framework_prompt_block(framework_spec)
     system_prompt <- paste0(
       base_system_prompt, "\n\n",
-      framework_prompt_block(framework_spec)
+      fpt
     )
   } else {
     codebook_summary <- .build_codebook_summary(state, max_codes = 80,
@@ -561,9 +575,9 @@ run_progressive_coding <- function(data, provider, config = list(),
     )
   }
 
-  truncated_text <- substr(text, 1, 8000)
-  if (nchar(text) > 8000) {
-    log_debug("Entry {entry_id}: text truncated from {nchar(text)} to 8000 chars")
+  truncated_text <- substr(text, 1, .MAX_ENTRY_CHARS)
+  if (nchar(text) > .MAX_ENTRY_CHARS) {
+    log_debug("Entry {entry_id}: text truncated from {nchar(text)} to {.MAX_ENTRY_CHARS} chars")
   }
 
   # Path-specific user prompt + ai_complete kwargs.
@@ -1086,7 +1100,7 @@ run_progressive_coding <- function(data, provider, config = list(),
   # report rendering). The bridge stores source_text_sha256 over the source
   # text we pass it; later verify_quote re-hashes the FULL entry text and
   # compares. To keep these in sync (and avoid spurious "drifted" status on
-  # long entries where the prompt was truncated to 8000 chars but the
+  # long entries where the prompt was truncated to .MAX_ENTRY_CHARS but the
   # verifier sees the full text), we substitute the full text into the
   # documents copy passed to the bridge. Anthropic's citation indices are
   # computed against the truncated prompt text, but since the truncation is

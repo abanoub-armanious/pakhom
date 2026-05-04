@@ -17,11 +17,16 @@
 #' @param config Human verification config section
 #' @param output_dir Output directory path
 #' @param checkpoint CheckpointManager (or NULL)
+#' @param methodology_mode Optional methodology mode (T1.7 / AC4). When
+#'   non-NULL, every IRR CSV produced is stamped with a comment header
+#'   identifying the mode and run id. NULL skips stamping (legacy /
+#'   test callers).
 #' @return List with status ("exported", "completed"), irr_stats, sample_ids
 #' @export
 run_human_verification <- function(data, coding_state,
                                     config = list(), output_dir = ".",
-                                    checkpoint = NULL) {
+                                    checkpoint = NULL,
+                                    methodology_mode = NULL) {
   config$sample_size <- config$sample_size %||% 20L
   config$seed <- config$seed %||% 42L
   config$max_codes_per_entry <- config$max_codes_per_entry %||% 8L
@@ -41,6 +46,15 @@ run_human_verification <- function(data, coding_state,
   sample_data <- data[sample_idx, ]
 
   sample_ids <- as.character(sample_data$std_id)
+
+  # T1.7 / AC4: helper closes over methodology_mode + output_dir so the
+  # call sites below stay one-line. Mirrors the export_results pattern.
+  .stamp <- function(path) {
+    if (is.null(methodology_mode) || !file.exists(path)) return(invisible(NULL))
+    tryCatch(stamp_methodology_csv(path, methodology_mode,
+                                     run_id = basename(output_dir)),
+             error = function(e) log_debug("CSV stamp skipped: {e$message}"))
+  }
 
   # Check if completed human sheet already exists
   if (file.exists(completed_path)) {
@@ -75,6 +89,7 @@ run_human_verification <- function(data, coding_state,
     blank_sheet[[cc]] <- ""
   }
   readr::write_csv(blank_sheet, blank_path)
+  .stamp(blank_path)
   log_info("  Exported: {blank_path}")
 
   # Export codebook from ProgressiveCodingState
@@ -87,6 +102,7 @@ run_human_verification <- function(data, coding_state,
     )
     codebook_df <- codebook_df[order(-codebook_df$frequency), ]
     readr::write_csv(codebook_df, codebook_path)
+    .stamp(codebook_path)
     log_info("  Exported codebook: {codebook_path} ({nrow(codebook_df)} codes)")
   }
 
@@ -112,6 +128,7 @@ run_human_verification <- function(data, coding_state,
     }
   }
   readr::write_csv(ai_sheet, ai_ref_path)
+  .stamp(ai_ref_path)
   log_info("  Exported AI reference: {ai_ref_path}")
 
   log_info("Human verification files exported to: {irr_dir}")
@@ -138,8 +155,10 @@ run_human_verification <- function(data, coding_state,
 
 .compute_irr_agreement <- function(human_path, ai_path, codebook_path,
                                     sample_ids, max_codes) {
+  # comment="#" so a methodology stamp at the file head survives the
+  # round-trip through the user's spreadsheet edit.
   human_df <- tryCatch(
-    readr::read_csv(human_path, show_col_types = FALSE),
+    readr::read_csv(human_path, show_col_types = FALSE, comment = "#"),
     error = function(e) {
       log_error("Could not read human coding sheet: {e$message}")
       return(NULL)
@@ -147,7 +166,7 @@ run_human_verification <- function(data, coding_state,
   )
 
   ai_df <- tryCatch(
-    readr::read_csv(ai_path, show_col_types = FALSE),
+    readr::read_csv(ai_path, show_col_types = FALSE, comment = "#"),
     error = function(e) {
       log_error("Could not read AI reference sheet: {e$message}")
       return(NULL)
@@ -167,7 +186,7 @@ run_human_verification <- function(data, coding_state,
   all_codes <- character(0)
   if (file.exists(codebook_path)) {
     codebook <- tryCatch(
-      readr::read_csv(codebook_path, show_col_types = FALSE),
+      readr::read_csv(codebook_path, show_col_types = FALSE, comment = "#"),
       error = function(e) NULL
     )
     if (!is.null(codebook) && "code_text" %in% names(codebook)) {

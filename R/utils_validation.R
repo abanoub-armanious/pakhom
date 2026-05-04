@@ -92,3 +92,24 @@ validate_methodology_mode <- function(mode, allow_null = FALSE,
   invisible(TRUE)
 }
 
+#' Read \code{config$methodology$mode} defensively
+#'
+#' Several pipeline + report sites need to read the methodology mode out
+#' of a config that may be a bare list (where \code{$methodology} is
+#' absent) or a partially-built ThematicConfig. This helper centralizes
+#' the tryCatch-on-NULL pattern so future drift in one site can't
+#' diverge from the others.
+#'
+#' Returns \code{NULL} when the field is missing, NA, or empty -- the
+#' "unknown methodology" path the various stamping helpers handle.
+#' @param config A list or ThematicConfig.
+#' @return Character scalar mode, or \code{NULL}.
+#' @keywords internal
+.config_methodology_mode <- function(config) {
+  mode <- tryCatch(config$methodology$mode, error = function(e) NULL)
+  if (is.null(mode) || length(mode) != 1L || is.na(mode) || !nzchar(mode)) {
+    return(NULL)
+  }
+  as.character(mode)
+}
+

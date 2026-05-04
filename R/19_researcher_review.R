@@ -29,10 +29,17 @@
 #'
 #' @param coding_state ProgressiveCodingState
 #' @param output_dir Pipeline output directory
+#' @param audit_log Optional AuditLog
+#' @param irr_result Optional IRR result list
+#' @param methodology_mode Optional methodology mode (T1.7 / AC4). When
+#'   non-NULL, the exported review CSV is stamped with a comment header
+#'   identifying the mode and run id. NULL skips stamping (legacy /
+#'   test callers).
 #' @return List with status ("exported" or "applied") and updated coding_state
 #' @keywords internal
 review_progressive_codebook <- function(coding_state, output_dir,
-                                         audit_log = NULL, irr_result = NULL) {
+                                         audit_log = NULL, irr_result = NULL,
+                                         methodology_mode = NULL) {
   review_dir <- file.path(output_dir, "researcher_review")
   dir.create(review_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -41,8 +48,10 @@ review_progressive_codebook <- function(coding_state, output_dir,
 
   if (file.exists(reviewed_path)) {
     log_info("Found researcher-reviewed codebook -- applying modifications...")
+    # comment="#" so a methodology stamp at the file head survives
+    # the round-trip through the user's spreadsheet edit.
     reviewed <- tryCatch(
-      readr::read_csv(reviewed_path, show_col_types = FALSE),
+      readr::read_csv(reviewed_path, show_col_types = FALSE, comment = "#"),
       error = function(e) {
         log_error("Could not read reviewed codebook: {e$message}")
         return(NULL)
@@ -289,6 +298,13 @@ review_progressive_codebook <- function(coding_state, output_dir,
 
   review_df <- review_df[order(-review_df$frequency), ]
   readr::write_csv(review_df, export_path)
+  # T1.7 / AC4: stamp the export so the reviewer sees the methodology
+  # before they touch the file. Idempotent + readr-comment-safe.
+  if (!is.null(methodology_mode)) {
+    tryCatch(stamp_methodology_csv(export_path, methodology_mode,
+                                     run_id = basename(output_dir)),
+             error = function(e) log_debug("CSV stamp skipped: {e$message}"))
+  }
 
   log_info("Exported codebook review sheet: {export_path}")
   log_info("  {nrow(review_df)} codes for review")
@@ -309,9 +325,14 @@ review_progressive_codebook <- function(coding_state, output_dir,
 #'
 #' @param theme_set ThemeSet S3 object
 #' @param output_dir Pipeline output directory
+#' @param audit_log Optional AuditLog
+#' @param methodology_mode Optional methodology mode (T1.7 / AC4). When
+#'   non-NULL, the exported review and disposition CSVs are stamped with
+#'   a comment header. NULL skips stamping (legacy / test callers).
 #' @return List with status and updated theme_set
 #' @keywords internal
-review_themes <- function(theme_set, output_dir, audit_log = NULL) {
+review_themes <- function(theme_set, output_dir, audit_log = NULL,
+                          methodology_mode = NULL) {
   review_dir <- file.path(output_dir, "researcher_review")
   dir.create(review_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -321,8 +342,10 @@ review_themes <- function(theme_set, output_dir, audit_log = NULL) {
   # If reviewed file exists, apply modifications
   if (file.exists(reviewed_path)) {
     log_info("Found researcher-reviewed themes file -- applying modifications...")
+    # comment="#" so a methodology stamp at the file head survives
+    # the round-trip through the user's spreadsheet edit.
     reviewed <- tryCatch(
-      readr::read_csv(reviewed_path, show_col_types = FALSE),
+      readr::read_csv(reviewed_path, show_col_types = FALSE, comment = "#"),
       error = function(e) {
         log_error("Could not read reviewed themes file: {e$message}")
         return(NULL)
@@ -578,10 +601,22 @@ review_themes <- function(theme_set, output_dir, audit_log = NULL) {
   )
 
   readr::write_csv(review_sheet, export_path)
+  # T1.7 / AC4: stamp the export so the reviewer sees the methodology
+  # before they touch the file.
+  if (!is.null(methodology_mode)) {
+    tryCatch(stamp_methodology_csv(export_path, methodology_mode,
+                                     run_id = basename(output_dir)),
+             error = function(e) log_debug("CSV stamp skipped: {e$message}"))
+  }
 
   disp_df <- tibble::tibble(disposition = "continue")
   disp_path <- file.path(review_dir, "review_disposition.csv")
   readr::write_csv(disp_df, disp_path)
+  if (!is.null(methodology_mode)) {
+    tryCatch(stamp_methodology_csv(disp_path, methodology_mode,
+                                     run_id = basename(output_dir)),
+             error = function(e) log_debug("CSV stamp skipped: {e$message}"))
+  }
   log_info("Theme review sheet exported: {export_path}")
   log_info("  Review the {nrow(review_sheet)} themes. For each theme, set 'action' to:")
   log_info("    'keep'   - Keep as-is (or set 'new_name'/'new_description' to modify)")
@@ -607,8 +642,11 @@ review_themes <- function(theme_set, output_dir, audit_log = NULL) {
 read_review_disposition <- function(output_dir) {
   disp_path <- file.path(output_dir, "researcher_review", "review_disposition.csv")
   if (!file.exists(disp_path)) return("continue")
+  # comment="#" so a methodology stamp at the file head doesn't poison
+  # the parse and silently downgrade the user's "revise_codebook"
+  # intent to the default "continue".
   disp <- tryCatch(
-    readr::read_csv(disp_path, show_col_types = FALSE),
+    readr::read_csv(disp_path, show_col_types = FALSE, comment = "#"),
     error = function(e) return(data.frame(disposition = "continue"))
   )
   if (is.null(disp) || !"disposition" %in% names(disp) || nrow(disp) == 0) {

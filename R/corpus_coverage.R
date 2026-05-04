@@ -129,7 +129,7 @@ compute_corpus_coverage <- function(coding_state, data,
   # Byte and word counts over the entries actually processed (whether
   # coded or skipped -- they were ALL sent to the LLM, which is the
   # coverage claim). Computed from std_text in the input data so
-  # truncation in the LLM prompt (8000-char cap in
+  # truncation in the LLM prompt (.MAX_ENTRY_CHARS cap in
   # .build_progressive_schema_user_prompt) doesn't deflate the figure.
   text_processed <- data$std_text[data$std_id %in% matched_ids]
   bytes_processed <- sum(nchar(text_processed, type = "bytes"),

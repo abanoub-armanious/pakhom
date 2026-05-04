@@ -367,3 +367,127 @@ test_that("compute_irr_agreement returns error for missing files", {
   expect_equal(result$n_entries, 0L)
   expect_true(is.na(result$cohens_kappa))
 })
+
+# ==============================================================================
+# AC4: methodology stamping on IRR CSV exports (T1.7)
+# ==============================================================================
+
+test_that("run_human_verification stamps all 3 exported IRR CSVs", {
+  tmp_dir <- tempfile("irr_stamp_")
+  dir.create(tmp_dir, recursive = TRUE)
+  on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+
+  data <- tibble::tibble(
+    std_id = paste0("e_", 1:6),
+    std_text = paste0("Sample ", 1:6)
+  )
+  cs <- create_coding_state()
+  cs$codebook[["c1"]] <- list(
+    code_name = "C1", description = "d", type = "descriptive",
+    frequency = 3L, entry_ids = paste0("e_", 1:3),
+    coded_segments = list()
+  )
+  for (i in 1:6) {
+    cs$entry_results[[paste0("e_", i)]] <- list(
+      codes_assigned = "c1", skipped = FALSE, coded_segments = list()
+    )
+  }
+
+  result <- run_human_verification(
+    data, cs,
+    config = list(sample_size = 4, seed = 7, max_codes_per_entry = 4),
+    output_dir = tmp_dir,
+    methodology_mode = "codebook_collaborative"
+  )
+  expect_equal(result$status, "exported")
+
+  irr_dir <- file.path(tmp_dir, "irr")
+  paths <- c(
+    file.path(irr_dir, "human_coding_sheet.csv"),
+    file.path(irr_dir, "codebook.csv"),
+    file.path(irr_dir, "ai_codes_reference.csv")
+  )
+  for (p in paths) {
+    expect_true(file.exists(p))
+    expect_match(readLines(p, n = 1L),
+                 "^# methodology: M2 - Codebook Collaborative")
+  }
+})
+
+test_that("run_human_verification does NOT stamp when methodology_mode is NULL", {
+  tmp_dir <- tempfile("irr_nostamp_")
+  dir.create(tmp_dir, recursive = TRUE)
+  on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+
+  data <- tibble::tibble(
+    std_id = paste0("e_", 1:4),
+    std_text = paste0("Sample ", 1:4)
+  )
+  cs <- create_coding_state()
+  cs$codebook[["c1"]] <- list(
+    code_name = "C1", description = "d", type = "descriptive",
+    frequency = 2L, entry_ids = paste0("e_", 1:2),
+    coded_segments = list()
+  )
+  for (i in 1:4) {
+    cs$entry_results[[paste0("e_", i)]] <- list(
+      codes_assigned = "c1", skipped = FALSE, coded_segments = list()
+    )
+  }
+
+  run_human_verification(
+    data, cs,
+    config = list(sample_size = 3, seed = 1, max_codes_per_entry = 3),
+    output_dir = tmp_dir
+  )
+  blank <- file.path(tmp_dir, "irr", "human_coding_sheet.csv")
+  expect_false(grepl("^# methodology:", readLines(blank, n = 1L)))
+})
+
+test_that(".compute_irr_agreement reads through methodology stamps in completed sheet", {
+  tmp_dir <- tempfile("irr_roundtrip_")
+  dir.create(tmp_dir, recursive = TRUE)
+  on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+  irr_dir <- file.path(tmp_dir, "irr")
+  dir.create(irr_dir, recursive = TRUE)
+
+  human <- tibble::tibble(
+    entry_id = paste0("e_", 1:3),
+    code_1 = c("sleep issues", "anxiety", "exhaustion"),
+    code_2 = rep("", 3)
+  )
+  ai <- tibble::tibble(
+    entry_id = paste0("e_", 1:3),
+    code_1 = c("sleep issues", "anxiety", "fatigue"),
+    code_2 = rep("", 3)
+  )
+  codebook <- tibble::tibble(
+    code_text = c("sleep issues", "anxiety", "exhaustion", "fatigue"),
+    description = "d", code_type = "descriptive", frequency = 1L
+  )
+
+  human_path <- file.path(irr_dir, "human_coding_sheet_completed.csv")
+  ai_path <- file.path(irr_dir, "ai_codes_reference.csv")
+  cb_path <- file.path(irr_dir, "codebook.csv")
+  readr::write_csv(human, human_path)
+  readr::write_csv(ai, ai_path)
+  readr::write_csv(codebook, cb_path)
+
+  # Stamp all three: simulates a real run where the user kept the stamps
+  # when they edited the human coding sheet.
+  stamp_methodology_csv(human_path, "codebook_collaborative", run_id = "r1")
+  stamp_methodology_csv(ai_path, "codebook_collaborative", run_id = "r1")
+  stamp_methodology_csv(cb_path, "codebook_collaborative", run_id = "r1")
+
+  result <- pakhom:::.compute_irr_agreement(
+    human_path, ai_path, cb_path,
+    sample_ids = paste0("e_", 1:3),
+    max_codes = 3
+  )
+
+  # Stamp must not poison the comparison: 2 of 3 entries match exactly,
+  # the third differs (exhaustion vs fatigue).
+  expect_null(result$error)
+  expect_equal(result$n_entries, 3L)
+  expect_true(result$percent_agreement >= 50)
+})
