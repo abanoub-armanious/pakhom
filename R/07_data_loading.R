@@ -148,6 +148,51 @@ load_and_combine_tables <- function(db_path, table_names, source_type = "reddit"
     combined <- bind_rows(lapply(standardized, function(df) select(df, all_of(common_cols))))
   }
 
+  # Defense-in-depth (phase 39): downstream callers (coding_state,
+  # fabrication log, per-theme exports, quote provenance) all use
+  # std_id as a primary key. If duplicates slip through (e.g., a
+  # column-mapping misconfiguration that pulls a non-unique field, or
+  # legitimate id collisions across input tables), every consumer
+  # silently corrupts. Detect duplicates here and auto-recover by
+  # prefixing std_id with the source_table name. Cannot silently
+  # continue.
+  if ("std_id" %in% names(combined)) {
+    n_dup <- sum(duplicated(combined$std_id))
+    if (n_dup > 0L) {
+      log_warn(paste0(
+        "Detected {n_dup} duplicate std_id value(s) after combining tables. ",
+        "Auto-recovering by prefixing std_id with source_table ",
+        "(e.g., 'posts:abc123', 'comments:def456'). If this is unexpected, ",
+        "check your column_mappings -- a non-unique id column may have ",
+        "been picked. To suppress: set explicit_columns$id_column to a ",
+        "row-unique field in your config."
+      ))
+      if ("source_table" %in% names(combined)) {
+        combined$std_id <- paste0(combined$source_table, ":", combined$std_id)
+        # Re-check; if duplicates persist after prefixing, REFUSE -- the
+        # input is structurally broken (same id appearing twice within a
+        # single table, which standardize_data should not allow).
+        n_dup2 <- sum(duplicated(combined$std_id))
+        if (n_dup2 > 0L) {
+          stop(sprintf(paste0(
+            "After auto-prefixing std_id with source_table, %d duplicate(s) ",
+            "remain. This means a single source table has internally ",
+            "duplicate id values -- the input data is corrupt. Inspect the ",
+            "table that contains the duplicates and fix at the source."
+          ), n_dup2), call. = FALSE)
+        }
+      } else {
+        # No source_table column means we can't prefix safely. Refuse
+        # rather than ship corruption.
+        stop(sprintf(paste0(
+          "%d duplicate std_id value(s) after combining and no ",
+          "source_table column available to disambiguate. Set ",
+          "explicit_columns$id_column to a row-unique field."
+        ), n_dup), call. = FALSE)
+      }
+    }
+  }
+
   log_info("Combined {nrow(combined)} entries from {length(standardized)} tables")
   combined
 }

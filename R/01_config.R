@@ -346,7 +346,13 @@ print.ThematicConfig <- function(x, ...) {
       ),
       column_mappings = list(
         reddit = list(
-          id = c("post_id", "comment_id", "id"),
+          # ORDER MATTERS: detect_columns picks the FIRST candidate that
+          # exists. Reddit comments tables typically carry both
+          # `comment_id` (the row's own id) AND `post_id` (the parent
+          # post's id). If `post_id` came first, every comment under the
+          # same parent would collapse onto a single std_id, silently
+          # corrupting coding_state$entry_results. Phase 39 finding.
+          id = c("comment_id", "post_id", "id"),
           text = c("text", "comment_body", "body", "selftext"),
           author = c("author", "username"),
           timestamp = c("created_utc", "created", "date"),

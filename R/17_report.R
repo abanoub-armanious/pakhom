@@ -170,8 +170,25 @@ verify_run_integrity <- function(run_dir, config = list()) {
                    "styles.css",
                    "theme_details")
   }
+  # Phase 39: correlation_plot.png is conditionally produced. Even when
+  # generate_correlation_plot=TRUE, create_correlation_plot legitimately
+  # skips when the matrix has <2 variables (small samples / sparse
+  # theme-membership). Expecting the file unconditionally surfaces a
+  # false-positive integrity warning. Treat the plot as expected only
+  # when correlations.csv carries at least one data row -- if the
+  # correlation stage produced no pairs, the plot is correctly absent.
   if (isTRUE(config$output$generate_correlation_plot)) {
-    expected <- c(expected, "correlation_plot.png")
+    corr_csv <- file.path(run_dir, "correlations.csv")
+    has_corr_rows <- tryCatch({
+      if (file.exists(corr_csv)) {
+        df <- readr::read_csv(corr_csv, show_col_types = FALSE,
+                                comment = "#")
+        nrow(df) > 0L
+      } else FALSE
+    }, error = function(e) FALSE)
+    if (has_corr_rows) {
+      expected <- c(expected, "correlation_plot.png")
+    }
   }
   # T1.4: when raw-response capture is enabled (default TRUE), the
   # response-cache directory MUST exist for replay_run() to work.
@@ -1661,12 +1678,29 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     content <- paste0(content, corr_interpretation$summary, "\n\n")
   }
 
+  # Phase 39: correlation_plot.png is conditionally produced (skipped
+  # when the correlation matrix has <2 variables, e.g. small samples).
+  # Reference the image only when it actually exists on disk; otherwise
+  # render a one-line note explaining the absence so the reader doesn't
+  # see a broken-image icon in the HTML.
+  plot_path <- export_files$plot_file %||%
+                 file.path(dirname(export_files$correlations_file %||% "."),
+                            "correlation_plot.png")
+  plot_block <- if (!is.null(plot_path) && file.exists(plot_path)) {
+    paste0("![Correlation Matrix](", basename(plot_path), ")\n\n",
+           "*Cells display correlation coefficients; intensity reflects |r|. ",
+           "Effect sizes and 95% confidence intervals are the primary inferential ",
+           "tools (see Overview above for the exploratory-framing rationale).*\n\n")
+  } else {
+    paste0("*No correlation plot was produced for this run. The correlation ",
+           "matrix had fewer than 2 variables -- typically because the analytic ",
+           "sample is too small for theme-membership pairs to overlap. The ",
+           "table below still reports any pair-level associations that did ",
+           "compute.*\n\n")
+  }
   content <- paste0(content,
     "## Correlation Matrix\n\n",
-    "![Correlation Matrix](", basename(export_files$plot_file %||% "correlation_plot.png"), ")\n\n",
-    "*Cells display correlation coefficients; intensity reflects |r|. ",
-    "Effect sizes and 95% confidence intervals are the primary inferential ",
-    "tools (see Overview above for the exploratory-framing rationale).*\n\n",
+    plot_block,
     "## Exploratory Associations\n\n",
     "_Sorted by absolute effect size (|r|). The table reports correlations ",
     "with their 95% confidence intervals and three p-value adjustments (raw, ",

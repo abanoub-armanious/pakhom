@@ -658,6 +658,57 @@ test_that("verify_run_integrity expects framework_applied.{yaml|yml|json} when M
   expect_true("framework_applied.{yaml|yml|json}" %in% res2$present)
 })
 
+test_that("verify_run_integrity does NOT expect correlation_plot.png when correlations.csv has no rows", {
+  # Phase 39: small samples (or any run with no overlapping theme-pair
+  # data) produce a 0-row correlations.csv and skip the plot. The
+  # integrity check should treat the plot as expected only when there's
+  # actually data to plot.
+  d <- withr::local_tempdir()
+  cfg <- list(methodology = list(mode = "codebook_collaborative"),
+                output = list(generate_report = FALSE,
+                                generate_correlation_plot = TRUE),
+                audit = list(capture_raw_responses = FALSE))
+  # Drop a header-only correlations.csv (the pipeline writes this when
+  # there are no correlation pairs to extract)
+  writeLines("var1,var2,correlation,p_value,significant,effect_size",
+             file.path(d, "correlations.csv"))
+  res <- verify_run_integrity(d, cfg)
+  expect_false("correlation_plot.png" %in% res$expected)
+})
+
+test_that("verify_run_integrity DOES expect correlation_plot.png when correlations.csv has data rows", {
+  d <- withr::local_tempdir()
+  cfg <- list(methodology = list(mode = "codebook_collaborative"),
+                output = list(generate_report = FALSE,
+                                generate_correlation_plot = TRUE),
+                audit = list(capture_raw_responses = FALSE))
+  writeLines(c("var1,var2,correlation,p_value,significant,effect_size",
+               "a,b,0.5,0.01,TRUE,medium"),
+             file.path(d, "correlations.csv"))
+  res <- verify_run_integrity(d, cfg)
+  expect_true("correlation_plot.png" %in% res$expected)
+  # And it gets flagged as missing because we didn't drop the PNG
+  expect_true("correlation_plot.png" %in% res$missing)
+})
+
+test_that("verify_run_integrity reads stamped correlations.csv (round-trip with comment header)", {
+  # Defense-in-depth: the new heuristic reads correlations.csv with
+  # comment="#" so a stamped CSV doesn't poison the row-count.
+  d <- withr::local_tempdir()
+  cfg <- list(methodology = list(mode = "codebook_collaborative"),
+                output = list(generate_report = FALSE,
+                                generate_correlation_plot = TRUE),
+                audit = list(capture_raw_responses = FALSE))
+  csv_path <- file.path(d, "correlations.csv")
+  writeLines(c("var1,var2,correlation,p_value,significant,effect_size",
+               "a,b,0.5,0.01,TRUE,medium"),
+             csv_path)
+  stamp_methodology_csv(csv_path, "codebook_collaborative", run_id = "r1")
+  res <- verify_run_integrity(d, cfg)
+  # Stamped + has data row -> still expected
+  expect_true("correlation_plot.png" %in% res$expected)
+})
+
 test_that("verify_run_integrity for Mode 2/Mode 3 differs only in framework expectation", {
   d <- withr::local_tempdir()
   cfg_m2 <- list(methodology = list(mode = "codebook_collaborative"),

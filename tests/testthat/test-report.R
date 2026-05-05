@@ -123,9 +123,17 @@ test_that("verify_run_integrity detects missing files", {
 test_that("verify_run_integrity checks conditional files from config", {
   tmp_dir <- withr::local_tempdir()
   core_files <- c("sentiment_scores.csv", "consolidated_codes.csv",
-                   "correlations.csv", "themes.json", "analysis_report.Rmd")
+                   "themes.json", "analysis_report.Rmd")
   for (f in core_files) file.create(file.path(tmp_dir, f))
   dir.create(file.path(tmp_dir, "theme_entries"))
+  # Phase 39: correlation_plot.png is now expected only when
+  # correlations.csv has at least one data row (small samples
+  # legitimately produce a 0-row correlations.csv and skip the plot).
+  # Drop a one-row correlations.csv so the integrity check expects the
+  # plot to exist -- the test's intent.
+  writeLines(c("var1,var2,correlation,p_value,significant,effect_size",
+               "a,b,0.5,0.01,TRUE,medium"),
+             file.path(tmp_dir, "correlations.csv"))
 
   # With report enabled, should expect HTML + styles + theme_details
   config <- list(output = list(generate_report = TRUE, generate_correlation_plot = TRUE))
