@@ -240,7 +240,11 @@ list_available_runs <- function(results_base) {
   }
 
   run_ids <- basename(dirs)
-  dates <- as.Date(sub("^run_(\\d{4}-\\d{2}-\\d{2})_\\d{6}$", "\\1", run_ids))
+  # Phase 40: same mode-suffix accommodation as .discover_run_dirs above.
+  # Without the optional `(_M[123])?` capture, sub() leaves mode-suffixed
+  # ids unchanged and as.Date() then errors on the unparseable string.
+  dates <- as.Date(sub("^run_(\\d{4}-\\d{2}-\\d{2})_\\d{6}(_M[123])?$",
+                         "\\1", run_ids))
 
   # Cheaply read just run_metadata.json to get schema info, without loading
   # full snapshots
@@ -275,7 +279,14 @@ list_available_runs <- function(results_base) {
   if (!dir.exists(results_base)) return(character(0))
 
   all_dirs <- list.dirs(results_base, full.names = FALSE, recursive = FALSE)
-  run_dirs <- grep("^run_\\d{4}-\\d{2}-\\d{2}_\\d{6}$", all_dirs, value = TRUE)
+  # The optional _M[123] tail accommodates the T1.7 mode-suffixed run dirs
+  # (run_id_with_mode in R/output_stamping.R). Without it, compare_runs()
+  # and compare_models() silently see 0 runs for ANY Sprint-4 production
+  # run dir. find_latest_run was fixed for the same issue in phase 31;
+  # phase 40+ smoke caught the .discover_run_dirs miss. Without this
+  # tail, list_available_runs() also returns empty for Sprint-4 runs.
+  run_dirs <- grep("^run_\\d{4}-\\d{2}-\\d{2}_\\d{6}(_M[123])?$",
+                    all_dirs, value = TRUE)
 
   if (length(run_dirs) == 0) return(character(0))
 

@@ -1089,6 +1089,27 @@ run_provocateur_questioning <- function(data, theme_set, provider,
 
   log_info("Provocateur: running {length(categories)} categor(ies) across {length(theme_set$themes)} theme(s)")
 
+  # Phase 40 finding: Mode 1's contract is that the supplied data
+  # carries entries-to-themes mapping in EITHER (a) one or more
+  # theme_membership_<safe_name> indicator columns or (b) an
+  # emerged_themes character column with semicolon-separated theme
+  # names. If neither shape is present, every theme will look "empty"
+  # and the user gets a per-theme "no supporting entries" warning that
+  # masks the real problem (missing input shape). Detect that up front
+  # so the user gets one actionable message, not N silent skips.
+  any_membership_col <- any(grepl("^theme_membership_", names(data)))
+  has_emerged_themes <- "emerged_themes" %in% names(data)
+  if (!any_membership_col && !has_emerged_themes) {
+    log_warn(paste0(
+      "Provocateur: input data has no `theme_membership_<safe_name>` columns ",
+      "AND no `emerged_themes` column. Mode 1 maps entries to themes via one ",
+      "of these shapes -- without them, every theme will appear to have no ",
+      "supporting entries. Consumers typically pass `all_entries_by_theme.csv` ",
+      "from a prior Mode 2 run, or build emerged_themes from their own coding ",
+      "tool's exports."
+    ))
+  }
+
   for (t in theme_set$themes) {
     tn <- t$name
     safe_col <- paste0("theme_membership_", make.names(tn))
@@ -1102,12 +1123,20 @@ run_provocateur_questioning <- function(data, theme_set, provider,
     }
 
     if (nrow(theme_entries) == 0L) {
-      log_warn("Provocateur: theme '{tn}' has no supporting entries; skipping.")
+      # Distinguish the two possible reasons: input shape missing entirely
+      # vs theme genuinely empty (this theme's name doesn't appear anywhere
+      # in the input mapping).
+      reason <- if (!any_membership_col && !has_emerged_themes) {
+        "missing_membership_input"
+      } else {
+        "no_supporting_entries"
+      }
+      log_warn("Provocateur: theme '{tn}' has no supporting entries; skipping (reason: {reason}).")
       log$skipped_themes <- rbind(
         log$skipped_themes,
         data.frame(
           theme_name = tn,
-          reason     = "no_supporting_entries",
+          reason     = reason,
           skipped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
           stringsAsFactors = FALSE
         )

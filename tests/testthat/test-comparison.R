@@ -20,6 +20,49 @@ test_that(".discover_run_dirs finds and sorts run directories correctly", {
   expect_true(grepl("run_2026-01-02", dirs[2]))
 })
 
+test_that(".discover_run_dirs accepts T1.7 mode-suffixed run dirs (_M1, _M2, _M3)", {
+  # Phase 40 finding: the regex was `^run_\d{4}-\d{2}-\d{2}_\d{6}$`
+  # without the optional `_M[123]` suffix, so EVERY Sprint-4 production
+  # run dir (which carries the methodology short-code as a directory
+  # suffix per R/output_stamping.R::run_id_with_mode) was silently
+  # filtered out -- compare_runs() and list_available_runs() saw 0
+  # runs across every real Sprint-4 production output. find_latest_run
+  # was fixed for the same issue in phase 31; .discover_run_dirs was
+  # missed.
+  tmp <- withr::local_tempdir()
+  for (suffix in c("_M1", "_M2", "_M3", "")) {
+    d <- file.path(tmp, sprintf("run_2026-05-04_120000%s", suffix))
+    dir.create(d, recursive = TRUE)
+    # discover_run_dirs requires themes.json to consider a run "complete"
+    writeLines("[]", file.path(d, "themes.json"))
+  }
+  dirs <- .discover_run_dirs(tmp)
+  expect_equal(length(dirs), 4L)
+  basenames <- basename(dirs)
+  expect_true("run_2026-05-04_120000_M1" %in% basenames)
+  expect_true("run_2026-05-04_120000_M2" %in% basenames)
+  expect_true("run_2026-05-04_120000_M3" %in% basenames)
+  expect_true("run_2026-05-04_120000" %in% basenames)
+})
+
+test_that(".discover_run_dirs still rejects non-run patterns even with mode-suffix tail", {
+  tmp <- withr::local_tempdir()
+  for (name in c("run_2026-05-04_120000_M1",   # legitimate
+                 "run_2026-05-04_120000_M9",    # invalid mode code
+                 "run_2026-05-04_120000_M22",   # invalid two-digit
+                 "run_2026-05-04_M2",            # missing time
+                 "run_2026-05-04_120000_extra", # extra suffix
+                 "old_run_2026-05-04_120000")) { # different prefix
+    d <- file.path(tmp, name)
+    dir.create(d, recursive = TRUE)
+    writeLines("[]", file.path(d, "themes.json"))
+  }
+  dirs <- .discover_run_dirs(tmp)
+  # Only the legitimate one should be picked up
+  expect_equal(length(dirs), 1L)
+  expect_equal(basename(dirs[1]), "run_2026-05-04_120000_M1")
+})
+
 test_that(".discover_run_dirs ignores non-run directories and incomplete runs", {
   tmp <- withr::local_tempdir()
   dir.create(file.path(tmp, "run_2026-01-01_120000"))

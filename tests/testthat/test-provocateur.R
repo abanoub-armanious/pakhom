@@ -502,6 +502,34 @@ test_that("run_provocateur_questioning skips themes with no supporting entries",
   expect_equal(nrow(log$provocation_attempts), 0L)
 })
 
+test_that("run_provocateur_questioning surfaces missing-membership-input as a distinct skip reason", {
+  # Phase 40 finding: when input data carries NEITHER any
+  # theme_membership_<safe_name> column NOR an emerged_themes column,
+  # every theme would silently grade as "no supporting entries", which
+  # masks a real input-shape misconfiguration. The improved error
+  # surfaces the missing-input case as a distinct reason and prepends
+  # an upfront log_warn pointing the user at the right input shapes.
+  data <- tibble::tibble(
+    std_id   = paste0("e", 1:5),
+    std_text = paste("text", 1:5)
+    # NO theme_membership_* column, NO emerged_themes column
+  )
+  ts <- create_theme_set(list(
+    list(id = 1, name = "Theme A", description = "", codes_included = "x"),
+    list(id = 2, name = "Theme B", description = "", codes_included = "y")
+  ))
+
+  log <- suppressWarnings(run_provocateur_questioning(
+    data = data, theme_set = ts,
+    provider = mock_provider("openai")
+  ))
+
+  expect_equal(nrow(log$skipped_themes), 2L)
+  # The new, more-specific reason
+  expect_true(all(log$skipped_themes$reason == "missing_membership_input"))
+  expect_setequal(log$skipped_themes$theme_name, c("Theme A", "Theme B"))
+})
+
 test_that("run_provocateur_questioning records one attempt row per theme x category, regardless of n_emitted", {
   # T0.3 (Mode 1) pre-condition: a category that legitimately returns
   # zero provocations must still appear in provocation_attempts so the
