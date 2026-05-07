@@ -278,6 +278,13 @@ print.ThematicConfig <- function(x, ...) {
 
     ai = list(
       provider = "openai",
+      # Phase 50f: per-entry text character cap. NULL = auto (derive
+      # from provider$context_window: ~40% of context, ~4 chars/token,
+      # floored at 8000). Positive integer = explicit override.
+      # Replaces the legacy hardcoded .MAX_ENTRY_CHARS = 8000L which
+      # silently truncated long-form entries (interviews, multi-paragraph
+      # posts) regardless of model context window.
+      max_entry_chars = NULL,
       multi_model = list(
         enabled = FALSE,
         models = list()  # list of list(provider, model, api_key_env)
@@ -403,13 +410,14 @@ print.ThematicConfig <- function(x, ...) {
         batch_size = 15
       ),
       coding = list(
-        min_code_frequency = 1,
-        include_in_vivo = TRUE,
-        code_style = "descriptive",
+        # Phase 50e: removed 5 dead config knobs that were declared but
+        # never read by any R/ code path: min_code_frequency,
+        # code_style, use_fallback_extraction, fallback_keyword_patterns,
+        # clean_excerpts. Audit confirmed each had zero non-declaration
+        # references in R/.
+        include_in_vivo = TRUE,    # Live: gates "in vivo codes" prompt
+                                    #   sentence at R/09_coding.R:1190
         max_retries_per_entry = 2,
-        use_fallback_extraction = TRUE,
-        fallback_keyword_patterns = NULL,  # NULL = use built-in patterns; or list of list(pattern, code, type)
-        clean_excerpts = TRUE,
         # Coding guideline parameters (NULL = use benchmarks from prior analyses, or package defaults)
         segment_length_min = NULL,   # Min coded segment length in characters (default: 30)
         segment_length_max = NULL,   # Max coded segment length in characters (default: 200)
@@ -423,22 +431,26 @@ print.ThematicConfig <- function(x, ...) {
         ai_assessment_interval = 200L
       ),
       themes = list(
+        # Phase 50e: removed 8 dead config knobs that were declared but
+        # never gated production behavior: min_subthemes_per_theme,
+        # max_subthemes_per_theme, review_iterations,
+        # auto_split_dominant, enrich_missing_fields,
+        # strict_assignment_validation, max_rebalance_iterations,
+        # membership_threshold. Audit confirmed each had zero
+        # non-declaration references (or only Shiny-wizard / vignette
+        # surfacing of a knob that did nothing).
+        # min_themes / max_themes / max_theme_proportion are kept for
+        # now -- they're consumed only by the methodology-appendix
+        # display in R/17_report.R but pair with the upcoming
+        # algorithm rewrite (Phase 51+) and will be revisited then.
         min_themes = NULL,       # Optional guidance; NULL = data-driven theme count
         max_themes = NULL,       # Optional guidance; NULL = data-driven theme count
         include_subthemes = TRUE,
-        min_subthemes_per_theme = NULL,  # Optional; NULL = organic subtheme generation
-        max_subthemes_per_theme = NULL,  # Optional; NULL = organic subtheme generation
         include_quotes = TRUE,
         quotes_per_theme = 3,
         approach = "inductive",
-        review_iterations = 1,
-        max_theme_proportion = 0.60,
-        auto_split_dominant = FALSE,
-        enrich_missing_fields = TRUE,
-        strict_assignment_validation = TRUE,
-        max_rebalance_iterations = 3,
+        max_theme_proportion = 0.60,  # Display warning threshold; rewrite revisits
         multi_label_assignment = TRUE,
-        membership_threshold = 0.15,
         ai_batch_size = NULL  # NULL = dynamic (token-aware); integer = fixed batch size
       ),
       correlations = list(

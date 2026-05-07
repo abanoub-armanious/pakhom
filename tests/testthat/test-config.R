@@ -23,11 +23,10 @@ test_that("default_config has expected AI settings", {
 
 test_that("default_config has expected analysis settings", {
   cfg <- default_config("codebook_collaborative")
-  # Theme count constraints are NULL by default (data-driven)
+  # Theme count constraints are NULL by default (data-driven).
+  # Phase 50e removed min/max_subthemes_per_theme as dead knobs.
   expect_null(cfg$analysis$themes$min_themes)
   expect_null(cfg$analysis$themes$max_themes)
-  expect_null(cfg$analysis$themes$min_subthemes_per_theme)
-  expect_null(cfg$analysis$themes$max_subthemes_per_theme)
   expect_true(cfg$analysis$themes$max_theme_proportion > 0)
   expect_true(cfg$analysis$themes$max_theme_proportion <= 1)
   expect_true(cfg$analysis$correlations$use_multi_label)
@@ -38,7 +37,7 @@ test_that("default_config has new config fields", {
   expect_null(cfg$study$researcher_positionality)
   expect_null(cfg$data$explicit_columns)
   expect_type(cfg$data$preprocessing$custom_cleaning_rules, "list")
-  expect_null(cfg$analysis$coding$fallback_keyword_patterns)
+  # Phase 50e: removed `fallback_keyword_patterns` as dead knob.
   # New reflexivity fields
   expect_null(cfg$study$research_paradigm)
   expect_null(cfg$study$reflexive_notes)

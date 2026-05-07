@@ -166,7 +166,12 @@ NULL
 # -- Package-level constants (fallback defaults for config-driven values) -------
 .SENTIMENT_NEGATIVE_THRESHOLD <- -0.2
 .SENTIMENT_POSITIVE_THRESHOLD <- 0.2
-.DEFAULT_SIMILARITY_THRESHOLD <- 0.85
+# Phase 50e: removed .DEFAULT_SIMILARITY_THRESHOLD <- 0.85 --
+# was declared but never read. The two distinct similarity thresholds
+# in the package (.QUOTE_EMBEDDING_VERIFICATION_THRESHOLD in
+# R/quote_provenance.R for T0.1 verification, and the embedding-
+# similarity hint in R/13_themes.R::.run_merge_pass) carry their own
+# cited values.
 
 # Maximum per-entry text length passed to the LLM during coding. Long
 # entries are truncated to this cap before being included in a prompt;

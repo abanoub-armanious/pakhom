@@ -114,7 +114,7 @@ mock_config <- function() {
       themes = list(
         min_themes = 3, max_themes = 10,
         multi_label_assignment = TRUE,
-        membership_threshold = 0.15,
+        # Phase 50e: removed `membership_threshold = 0.15` (was dead).
         max_theme_proportion = 0.60
       ),
       correlations = list(

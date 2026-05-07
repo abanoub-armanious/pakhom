@@ -926,3 +926,43 @@ test_that("T0.1 part 3b: Anthropic citations path handles multiple segments with
   expect_setequal(names(state$codebook),
                   c("sleep_diff", "medication_efficacy"))
 })
+
+# ==============================================================================
+# Phase 50f: .effective_max_entry_chars context-window-aware truncation
+# ==============================================================================
+
+test_that(".effective_max_entry_chars derives from provider context window", {
+  prov_gpt4o <- structure(list(context_window = 128000L), class = "AIProvider")
+  prov_claude <- structure(list(context_window = 200000L), class = "AIProvider")
+  # ~40% * cw * 4 chars/token
+  expect_equal(pakhom:::.effective_max_entry_chars(prov_gpt4o, list()), 204800L)
+  expect_equal(pakhom:::.effective_max_entry_chars(prov_claude, list()), 320000L)
+})
+
+test_that(".effective_max_entry_chars honors config override (researcher explicit cap)", {
+  prov <- structure(list(context_window = 128000L), class = "AIProvider")
+  expect_equal(
+    pakhom:::.effective_max_entry_chars(prov, list(ai = list(max_entry_chars = 5000L))),
+    5000L
+  )
+  # 0 / negative override is ignored (falls through to derived)
+  expect_equal(
+    pakhom:::.effective_max_entry_chars(prov, list(ai = list(max_entry_chars = 0L))),
+    204800L
+  )
+})
+
+test_that(".effective_max_entry_chars floors at .MAX_ENTRY_CHARS for tiny-context models", {
+  prov_tiny <- structure(list(context_window = 4000L), class = "AIProvider")  # 4K tokens
+  # 0.40 * 4000 * 4 = 6400; floor at 8000
+  expect_equal(pakhom:::.effective_max_entry_chars(prov_tiny, list()), 8000L)
+})
+
+test_that(".effective_max_entry_chars is robust to NULL/missing provider (R-quirk: is.na(NULL))", {
+  # Phase 50f bug caught at implementation: is.na(NULL) returns logical(0)
+  # which trips the if-condition. Must guard with length check first.
+  expect_equal(pakhom:::.effective_max_entry_chars(NULL, list()), 8000L)
+  expect_equal(pakhom:::.effective_max_entry_chars(list(), list()), 8000L)
+  prov_no_cw <- structure(list(), class = "AIProvider")
+  expect_equal(pakhom:::.effective_max_entry_chars(prov_no_cw, list()), 8000L)
+})

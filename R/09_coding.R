@@ -14,6 +14,42 @@
 
 .PARTIAL_CHECKPOINT_INTERVAL <- 50L
 
+#' Compute the effective per-entry character cap given a provider + config
+#'
+#' Phase 50f replacement for the hardcoded \code{.MAX_ENTRY_CHARS = 8000L}.
+#' Resolution order:
+#' \enumerate{
+#'   \item If \code{config$ai$max_entry_chars} is a positive integer, use
+#'     it verbatim (researcher's explicit override).
+#'   \item Otherwise, derive from \code{provider$context_window} (in
+#'     tokens) by reserving ~60\% for system prompt + codebook + LLM
+#'     completion and assigning the remaining ~40\% to per-entry text.
+#'     Convert tokens to chars at ~4 chars/token (English averages
+#'     4.0-4.5 chars per BPE token; 4 is a conservative under-estimate
+#'     so we don't over-fill context).
+#'   \item Floor at 8000L (the legacy default) so behavior is never
+#'     worse than the prior hardcode for very-small-context models.
+#' }
+#'
+#' @param provider AIProvider object with \code{$context_window}
+#' @param config Pipeline config (reads \code{config$ai$max_entry_chars})
+#' @return Integer character cap.
+#' @keywords internal
+.effective_max_entry_chars <- function(provider, config = list()) {
+  override <- tryCatch(config$ai$max_entry_chars, error = function(e) NULL)
+  if (!is.null(override) && is.numeric(override) && length(override) == 1L &&
+      override > 0L) {
+    return(as.integer(override))
+  }
+  cw <- tryCatch(as.integer(provider$context_window), error = function(e) NULL)
+  # MEMORY.md R-quirk: is.na(NULL) returns logical(0); guard with !is.null first
+  if (is.null(cw) || length(cw) == 0L || is.na(cw) || cw <= 0L) {
+    return(.MAX_ENTRY_CHARS)
+  }
+  derived <- as.integer(floor(0.40 * cw * 4))   # ~40% of context, 4 chars/token
+  max(derived, .MAX_ENTRY_CHARS)                 # never below the legacy floor
+}
+
 # ==============================================================================
 # S3 class: ProgressiveCodingState
 # ==============================================================================
@@ -143,7 +179,8 @@ run_progressive_coding <- function(data, provider, config = list(),
                                     framework_spec = NULL) {
   config$max_retries_per_entry <- config$max_retries_per_entry %||% 1L
   config$include_in_vivo <- config$include_in_vivo %||% TRUE
-  config$code_style <- config$code_style %||% "descriptive"
+  # Phase 50e: removed `config$code_style %||% "descriptive"` --
+  # the value was set but never read.
   config$checkpoint_interval <- config$checkpoint_interval %||% .PARTIAL_CHECKPOINT_INTERVAL
 
   # Saturation detection configuration
@@ -575,9 +612,19 @@ run_progressive_coding <- function(data, provider, config = list(),
     )
   }
 
-  truncated_text <- substr(text, 1, .MAX_ENTRY_CHARS)
-  if (nchar(text) > .MAX_ENTRY_CHARS) {
-    log_debug("Entry {entry_id}: text truncated from {nchar(text)} to {.MAX_ENTRY_CHARS} chars")
+  # Phase 50f: auto-context-aware per-entry truncation. Was previously
+  # hardcoded at .MAX_ENTRY_CHARS = 8000L, which used only ~1.5% of
+  # gpt-4o's 128K-token context; long-form entries (interviews,
+  # essays, multi-paragraph Reddit posts) lost everything past
+  # character 8001 -- biasing the codebook toward early-narrative
+  # content. Effective cap: scale to ~40% of the model's context
+  # window in chars (assuming ~4 chars/token), reserving the rest
+  # for system prompt + codebook + completion. Override via
+  # config$ai$max_entry_chars if user wants explicit control.
+  effective_max_chars <- .effective_max_entry_chars(provider, config)
+  truncated_text <- substr(text, 1, effective_max_chars)
+  if (nchar(text) > effective_max_chars) {
+    log_debug("Entry {entry_id}: text truncated from {nchar(text)} to {effective_max_chars} chars")
   }
 
   # Path-specific user prompt + ai_complete kwargs.
