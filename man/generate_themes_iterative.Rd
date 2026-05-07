@@ -2,7 +2,7 @@
 % Please edit documentation in R/13_themes.R
 \name{generate_themes_iterative}
 \alias{generate_themes_iterative}
-\title{Generate themes through iterative bottom-up merging}
+\title{Generate themes via HAC + AI-judged divisive tree walk}
 \usage{
 generate_themes_iterative(
   coding_state,
@@ -16,33 +16,39 @@ generate_themes_iterative(
 )
 }
 \arguments{
-\item{coding_state}{ProgressiveCodingState}
+\item{coding_state}{\code{ProgressiveCodingState}}
 
-\item{provider}{AIProvider object}
+\item{provider}{\code{AIProvider} object}
 
-\item{config}{Theme config section}
+\item{config}{Theme config section (most legacy knobs are now ignored;
+the algorithm has no merge-pass parameters)}
 
-\item{learning_context}{LearningContext (or NULL)}
+\item{learning_context}{Optional \code{LearningContext}}
 
 \item{research_focus}{Research focus string}
 
-\item{concepts}{Character vector of core research concepts (or NULL)}
+\item{concepts}{Optional character vector of core research concepts}
 
-\item{audit_log}{An AuditLog object (from \code{init_audit_log}) for
-recording each merge decision (merge or standalone) and the final
-theme structure, or NULL to disable audit logging for this step.}
+\item{audit_log}{Optional \code{AuditLog} for recording each AI decision}
 
-\item{response_cache}{An optional ResponseCache object (from
-\code{\link{init_response_cache}}). When provided, raw API responses
-for each per-item theming ai_complete() call are written to the cache
-and referenced from the audit log (T1.4). Pass \code{NULL} to skip
-raw-response capture.}
+\item{response_cache}{Optional \code{ResponseCache} for raw response capture}
 }
 \value{
-ThemeSet S3 object with merge_history attached
+\code{ThemeSet} S3 object with merge_history attached. The
+merge_history$tree_walk field carries the HAC tree + per-node
+decisions for replay (Phase 52 audit trail).
 }
 \description{
-Starting from individual codes, the AI groups codes with similar narratives
-into clusters through multiple passes. Each pass merges clusters that share
-higher-level patterns. Stops when no more productive merges exist.
+Phase 52 algorithm. Computes pairwise distance between codes (cosine on
+code-name embeddings; Jaccard fallback on entry-id sets when embeddings
+are unavailable), runs hierarchical agglomerative clustering (HAC,
+ward.D2 linkage), then walks the resulting dendrogram top-down with an
+AI judge at every internal node deciding coherent_theme /
+split_required / atomic_outlier. For each identified theme, walks one
+level deeper for subthemes.
+}
+\details{
+The function name retains its pre-Phase-52 form for back-compat with
+the single production caller (R/18_pipeline.R) and existing test
+fixtures. A future cleanup phase may rename to \code{generate_themes()}.
 }

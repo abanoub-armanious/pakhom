@@ -228,37 +228,82 @@
   )
 }
 
-#' Schema for the per-item theming merge-decision response (.run_merge_pass)
+#' Schema for AI-judged divisive cluster evaluation (Phase 52)
+#'
+#' Used by .evaluate_cluster() during the top-down HAC tree walk in
+#' generate_themes_iterative(). Replaces the pre-Phase-52 sequential-
+#' merge schema (action = merge|standalone). The new shape enforces
+#' three load-bearing bias mitigations (Phase 49 audit + Phase 52
+#' design):
+#'
+#' (a) Articulation requirement -- the AI must write the central
+#'     organizing concept BEFORE its decision. If forcing one feels
+#'     artificial it must say so explicitly there. This is the single
+#'     load-bearing field for avoiding kitchen-sink themes.
+#' (b) Decision is a closed three-valued enum (coherent_theme /
+#'     split_required / atomic_outlier) so the AI cannot hedge with
+#'     "maybe" or "yes with caveats".
+#' (c) The rationale field requires the AI to address the most-distant
+#'     code pair specifically -- the prompt always shows this pair, and
+#'     the rationale must engage with whether the articulated principle
+#'     covers BOTH its endpoints.
 #'
 #' \preformatted{
 #'   {
-#'     "action": "merge"|"standalone",
-#'     "merge_into": integer|null,             // 1-based cluster index when merging
-#'     "updated_label": string|null,
-#'     "updated_description": string|null,
-#'     "rationale": string
+#'     "central_organizing_concept": string,    // mandatory articulation
+#'     "decision": "coherent_theme" | "split_required" | "atomic_outlier",
+#'     "proposed_name":        string | null,   // null unless coherent_theme
+#'     "proposed_description": string | null,   // null unless coherent_theme
+#'     "rationale":            string           // engages w/ most-distant pair
 #'   }
 #' }
-#'
-#' merge_into / updated_label / updated_description are nullable because
-#' they're meaningless when action = "standalone". Strict mode requires
-#' them in the schema; nullable lets the model emit null cleanly.
 #' @keywords internal
-.theming_schema <- function() {
+.theme_decision_schema <- function() {
   list(
     type                  = "object",
     additionalProperties  = FALSE,
-    required              = list("action", "merge_into", "updated_label",
-                                  "updated_description", "rationale"),
+    required              = list("central_organizing_concept", "decision",
+                                  "proposed_name", "proposed_description",
+                                  "rationale"),
     properties = list(
-      action = list(
-        type = "string",
-        enum = list("merge", "standalone")
+      central_organizing_concept = list(
+        type        = "string",
+        description = paste0(
+          "Articulate the conceptual organizing principle that unifies ALL ",
+          "the codes in this cluster. If forcing one feels artificial -- ",
+          "if the most distant code pair stretches the principle -- say so ",
+          "explicitly here. This articulation is the BASIS for the decision."
+        )
       ),
-      merge_into          = list(type = list("integer", "null")),
-      updated_label       = list(type = list("string", "null")),
-      updated_description = list(type = list("string", "null")),
-      rationale           = list(type = "string")
+      decision = list(
+        type = "string",
+        enum = list("coherent_theme", "split_required", "atomic_outlier")
+      ),
+      proposed_name = list(
+        type        = list("string", "null"),
+        description = paste0(
+          "5-12 word theme/subtheme name (null unless decision is ",
+          "coherent_theme). Should sound like a research finding."
+        )
+      ),
+      proposed_description = list(
+        type        = list("string", "null"),
+        description = paste0(
+          "1-2 sentence description (null unless decision is coherent_theme). ",
+          "What the central organizing concept IS, in researcher voice."
+        )
+      ),
+      rationale = list(
+        type        = "string",
+        description = paste0(
+          "Why this decision? Address the most-distant code pair shown ",
+          "above specifically: does the principle you articulated cover ",
+          "BOTH endpoints? If split_required, what is the conceptual ",
+          "fault line that runs through the cluster? If atomic_outlier, ",
+          "why does this code (or tightly-bound set) not fit any larger ",
+          "theme?"
+        )
+      )
     )
   )
 }

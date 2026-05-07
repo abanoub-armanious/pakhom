@@ -11,7 +11,7 @@ test_that("all six task schemas pass .validate_schema", {
     coding     = pakhom:::.coding_schema(),
     saturation = pakhom:::.saturation_schema(),
     sentiment  = pakhom:::.sentiment_schema(),
-    theming    = pakhom:::.theming_schema(),
+    theming    = pakhom:::.theme_decision_schema(),  # Phase 52: was .theming_schema
     insight    = pakhom:::.insight_schema(),
     synthesis  = pakhom:::.synthesis_schema()
   )
@@ -27,7 +27,7 @@ test_that("schemas serialize via jsonlite without losing structure", {
     pakhom:::.coding_schema(),
     pakhom:::.saturation_schema(),
     pakhom:::.sentiment_schema(),
-    pakhom:::.theming_schema(),
+    pakhom:::.theme_decision_schema(),
     pakhom:::.insight_schema(),
     pakhom:::.synthesis_schema()
   )
@@ -119,15 +119,29 @@ test_that(".sentiment_schema reflects the emotion_categories argument", {
   expect_setequal(unlist(enum), c("joy", "sadness", "neutral"))
 })
 
-test_that(".theming_schema marks merge-only fields as nullable", {
-  s <- pakhom:::.theming_schema()
-  # merge_into / updated_label / updated_description are nullable because
-  # they're meaningless when action = "standalone" but strict mode requires
-  # all properties present.
-  expect_true("null" %in% unlist(s$properties$merge_into$type))
-  expect_true("null" %in% unlist(s$properties$updated_label$type))
-  expect_true("null" %in% unlist(s$properties$updated_description$type))
-  # rationale is required and non-null in both branches.
+test_that(".theme_decision_schema enforces Phase 52 bias mitigations", {
+  s <- pakhom:::.theme_decision_schema()
+  # The articulation field is the single load-bearing bias mitigation
+  # against kitchen-sink themes: the AI must write the central organizing
+  # concept BEFORE its decision. If forcing one feels artificial it must
+  # say so there.
+  expect_true("central_organizing_concept" %in% unlist(s$required))
+  expect_equal(s$properties$central_organizing_concept$type, "string")
+
+  # Decision is a closed three-valued enum. No hedging.
+  expect_equal(s$properties$decision$type, "string")
+  expect_setequal(unlist(s$properties$decision$enum),
+                  c("coherent_theme", "split_required", "atomic_outlier"))
+
+  # proposed_name + proposed_description are nullable because they only
+  # apply when decision is coherent_theme. Strict mode still requires
+  # them in the schema; nullable lets the model emit null cleanly.
+  expect_true("null" %in% unlist(s$properties$proposed_name$type))
+  expect_true("null" %in% unlist(s$properties$proposed_description$type))
+
+  # rationale is required and non-null. The prompt instructs the model to
+  # address the most-distant pair specifically; the field type stays
+  # plain string (the prompt enforces semantics, not the schema).
   expect_equal(s$properties$rationale$type, "string")
 })
 

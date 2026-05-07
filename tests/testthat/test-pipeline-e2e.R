@@ -114,12 +114,17 @@
         })
       ), auto_unbox = TRUE),
 
+      # Phase 52: theming schema is now .theme_decision_schema() (HAC tree
+      # walk). The mock returns split_required so each branch of the HAC
+      # tree resolves to atomic outliers at the leaves -- producing one
+      # theme per code, which keeps the mock pipeline functional without
+      # requiring real embeddings + AI judgment.
       "theming" = jsonlite::toJSON(list(
-        action = "standalone",
-        merge_into = NULL,
-        updated_label = NULL,
-        updated_description = NULL,
-        rationale = "mocked: kept standalone"
+        central_organizing_concept = "mocked: no unifying principle",
+        decision = "split_required",
+        proposed_name = NULL,
+        proposed_description = NULL,
+        rationale = "mocked: defaulting to split for test coverage"
       ), auto_unbox = TRUE, null = "null"),
 
       "insight" = jsonlite::toJSON(list(

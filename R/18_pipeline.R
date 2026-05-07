@@ -2,8 +2,9 @@
 # Main Pipeline Orchestrator -- run_analysis()
 # ==============================================================================
 # Inductive-first pipeline: codebook-first learning -> progressive sequential
-# coding -> code-aware sentiment -> iterative bottom-up theme merging ->
-# deterministic code-path cascading -> correlations -> report.
+# coding -> code-aware sentiment -> HAC + AI-judged divisive tree walk for
+# theme generation (Phase 52) -> deterministic code-path cascading ->
+# correlations -> report.
 # ==============================================================================
 
 #' Run the full thematic analysis pipeline (Mode 2 + Mode 3)
@@ -656,7 +657,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     }
 
     # ------------------------------------------------------------------
-    # STEP 5: Iterative bottom-up theme generation
+    # STEP 5: Theme generation (HAC + AI-judged divisive tree walk; Phase 52)
     # ------------------------------------------------------------------
     if (review_iteration == 1L && "themes_generated" %in% completed) {
       log_info("\n[STEP 5] Loading themes from checkpoint...")
@@ -672,7 +673,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
       }
       save_checkpoint(checkpoint, "themes_generated", theme_set)
     } else {
-      log_info("\n[STEP 5] Generating themes via iterative bottom-up merging...")
+      log_info("\n[STEP 5] Generating themes via HAC + AI-judged divisive tree walk...")
       theme_set <- generate_themes_iterative(
         coding_state, provider, config$analysis$themes,
         learning_context = learning_context,

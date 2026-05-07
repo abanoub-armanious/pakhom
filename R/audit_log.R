@@ -51,7 +51,8 @@
   "quote_verified",                   # T0.1
   "quote_fabricated",                 # T0.1
   "quote_drifted",                    # T0.1: source corpus changed since attribution
-  "coverage_failure"                  # T0.3: corpus-coverage computation failed
+  "coverage_failure",                 # T0.3: corpus-coverage computation failed
+  "cluster_decision"                  # Phase 52: HAC tree-walk per-node verdict
 )
 
 # -- Constructor ---------------------------------------------------------------

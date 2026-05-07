@@ -207,3 +207,103 @@ test_that("theme_membership columns are created", {
   expect_true(membership_col %in% names(result))
   expect_equal(result[[membership_col]][1], 1L)
 })
+
+# ==============================================================================
+# Phase 52: HAC + AI-judged divisive tree walk
+# ==============================================================================
+
+test_that("Phase 52: .leaves_under_node resolves internal node to leaf indices", {
+  # Build a tiny hclust tree from 3 codes with hand-crafted distances
+  d <- as.dist(matrix(c(0, 0.1, 0.9,
+                         0.1, 0.0, 0.8,
+                         0.9, 0.8, 0.0),
+                       nrow = 3, byrow = TRUE))
+  hac <- stats::hclust(d, method = "ward.D2")
+  # The merge matrix encodes: row 1 merges leaves 1+2 (closest pair);
+  # row 2 merges that cluster with leaf 3.
+  # Internal node 1 should resolve to leaves c(1, 2); node 2 (root) to c(1, 2, 3).
+  expect_setequal(pakhom:::.leaves_under_node(hac, 1L), c(1L, 2L))
+  expect_setequal(pakhom:::.leaves_under_node(hac, 2L), c(1L, 2L, 3L))
+  # Negative input is the leaf-passthrough convention
+  expect_equal(pakhom:::.leaves_under_node(hac, -2L), 2L)
+})
+
+test_that("Phase 52: .compute_code_distance_matrix Jaccard fallback when no embeddings", {
+  state <- create_coding_state()
+  state$codebook[["a"]] <- list(
+    code_name = "Code A", description = "", type = "descriptive",
+    frequency = 2L, entry_ids = c("e1", "e2"), coded_segments = list()
+  )
+  state$codebook[["b"]] <- list(
+    code_name = "Code B", description = "", type = "descriptive",
+    frequency = 2L, entry_ids = c("e1", "e3"), coded_segments = list()
+  )
+  state$codebook[["c"]] <- list(
+    code_name = "Code C", description = "", type = "descriptive",
+    frequency = 2L, entry_ids = c("e4", "e5"), coded_segments = list()
+  )
+  codes <- pakhom:::.extract_codes_from_state(state)
+
+  # Provider with no embedding model -> Jaccard fallback
+  fake_provider <- list(
+    provider = "anthropic",
+    models = list(primary = "claude", embedding = NULL)
+  )
+  class(fake_provider) <- "AIProvider"
+
+  d <- pakhom:::.compute_code_distance_matrix(codes, state, fake_provider)
+  expect_equal(attr(d, "metric"), "jaccard_entry_ids")
+  m <- as.matrix(d)
+  # A and B share entry e1 (1 of 3 union) -> Jaccard distance = 1 - 1/3 = 0.667
+  expect_equal(m["a", "b"], 1 - 1/3, tolerance = 1e-6)
+  # A and C share no entries -> Jaccard distance = 1
+  expect_equal(m["a", "c"], 1)
+  # Symmetry + zero diagonal
+  expect_equal(diag(m), c(a = 0, b = 0, c = 0))
+  expect_equal(m, t(m))
+})
+
+test_that("Phase 52: generate_themes_iterative single-code corpus produces 1-theme ThemeSet without AI", {
+  state <- create_coding_state()
+  state$codebook[["only"]] <- list(
+    code_name = "Solo Code", description = "the only code",
+    type = "descriptive", frequency = 1L,
+    entry_ids = "e1", coded_segments = list()
+  )
+  state$entry_results[["e1"]] <- list(codes_assigned = "only", skipped = FALSE)
+
+  fake_provider <- list(
+    provider = "anthropic",
+    models = list(primary = "claude", embedding = NULL),
+    methodology_rules = ""
+  )
+  class(fake_provider) <- "AIProvider"
+
+  ts <- generate_themes_iterative(state, fake_provider, config = list())
+  expect_s3_class(ts, "ThemeSet")
+  expect_equal(n_themes(ts), 1L)
+  expect_equal(ts$themes[[1]]$name, "Solo Code")
+  # rebuild_code_to_theme_map populated the lookup
+  expect_equal(ts$merge_history$code_to_theme_map[["only"]], "Solo Code")
+})
+
+test_that("Phase 52: generate_themes_iterative empty codebook returns empty ThemeSet", {
+  state <- create_coding_state()
+  fake_provider <- list(
+    provider = "anthropic",
+    models = list(primary = "claude", embedding = NULL),
+    methodology_rules = ""
+  )
+  class(fake_provider) <- "AIProvider"
+
+  ts <- generate_themes_iterative(state, fake_provider, config = list())
+  expect_s3_class(ts, "ThemeSet")
+  expect_equal(n_themes(ts), 0L)
+})
+
+test_that("Phase 52: cluster_decision is a valid audit log decision_type", {
+  # Phase 52 audit CRITICAL-6a: production runs with audit_log != NULL
+  # would abort if cluster_decision were not registered. Pin this by
+  # asserting it's in the validator's allow-list.
+  expect_true("cluster_decision" %in% pakhom:::.valid_decision_types)
+})
