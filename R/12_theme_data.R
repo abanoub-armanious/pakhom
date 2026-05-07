@@ -1,31 +1,277 @@
 # ==============================================================================
-# ThemeSet S3 Class — Canonical Theme Data Representation
+# Theme Hierarchy S3 Classes — Themes -> Subthemes -> Codes -> Segments
 # ==============================================================================
-# Eliminates the dual-format (data.frame vs list) bug from the old script.
-# Every AI response producing themes goes through normalize_theme_result()
-# immediately after fromJSON(). All downstream code works exclusively with
-# ThemeSet objects — no is.data.frame() checks needed anywhere else.
+# Phase 51 rewrite. Themes own first-class Subthemes which own Code objects;
+# each Code carries its own coded_segments inline so a saved themes.json is
+# self-contained for reproducibility (no coding_state companion file required).
+#
+# Back-compat (used by existing callers and by older themes.json fixtures):
+# - theme$codes_included        denormalised character vector of code NAMES
+# - theme$subthemes_structured  alias for theme$subthemes
+# Both are recomputed automatically whenever the canonical theme$subthemes
+# changes via .recompute_theme_denorm().
 # ==============================================================================
 
 #' Required fields for each theme within a ThemeSet
-.THEME_REQUIRED_FIELDS <- c("id", "name", "description", "codes_included")
+.THEME_REQUIRED_FIELDS <- c("id", "name", "description")
 
 #' Default values for optional theme fields
 .THEME_DEFAULTS <- list(
   prevalence = "medium",
   sentiment_tendency = "neutral",
-  subthemes = character(0),
-  subthemes_structured = NULL,
   supporting_quotes = character(0),
   keywords = character(0),
   narrative = "",
   entry_count = 0L
 )
 
+# ==============================================================================
+# Code S3 — atomic leaf in the theme hierarchy
+# ==============================================================================
+
+#' Create a Code S3 object
+#'
+#' Atomic leaf in the theme hierarchy. Carries name, description, type,
+#' frequency, entry_ids, and coded_segments inline so a saved ThemeSet is
+#' self-contained: a researcher with just themes.json can verify every quote
+#' without needing the original coding_state.
+#'
+#' @param key Code key (codebook lookup key, e.g., "med_helps")
+#' @param name Human-readable code name (e.g., "Medication helps binge control")
+#' @param description Code description
+#' @param type Code type (e.g., "descriptive", "framework_construct", "anomaly")
+#' @param frequency How many entries are coded with this code
+#' @param entry_ids Character vector of entry std_ids
+#' @param coded_segments List of coded-segment records (each with entry_id,
+#'   text, offsets, QuoteProvenance)
+#' @return Code S3 object
+#' @export
+create_code_object <- function(key, name = NULL, description = "",
+                                 type = "descriptive", frequency = 0L,
+                                 entry_ids = character(0),
+                                 coded_segments = list()) {
+  obj <- list(
+    key            = as.character(key),
+    name           = as.character(name %||% key),
+    description    = as.character(description %||% ""),
+    type           = as.character(type %||% "descriptive"),
+    frequency      = as.integer(frequency %||% 0L),
+    entry_ids      = as.character(entry_ids %||% character(0)),
+    coded_segments = if (is.null(coded_segments)) list() else coded_segments
+  )
+  class(obj) <- "Code"
+  obj
+}
+
+#' Hydrate a Code S3 from a coding_state codebook entry
+#' @param key Codebook key
+#' @param coding_state ProgressiveCodingState
+#' @return Code S3 (stub if key not found in codebook)
+#' @keywords internal
+.code_from_codebook <- function(key, coding_state) {
+  cb <- coding_state$codebook[[key]]
+  if (is.null(cb)) return(create_code_object(key = key))
+  create_code_object(
+    key            = key,
+    name           = cb$code_name %||% key,
+    description    = cb$description %||% "",
+    type           = cb$type %||% "descriptive",
+    frequency      = cb$frequency %||% 0L,
+    entry_ids      = unique(cb$entry_ids %||% character(0)),
+    coded_segments = cb$coded_segments %||% list()
+  )
+}
+
+#' Print method for Code
+#' @param x Code object
+#' @param ... ignored
+#' @export
+print.Code <- function(x, ...) {
+  cat(sprintf("<Code> %s (key=%s, type=%s, n=%d)\n",
+              x$name, x$key, x$type, length(x$entry_ids)))
+  invisible(x)
+}
+
+# ==============================================================================
+# Subtheme S3 — first-class container for codes within a Theme
+# ==============================================================================
+
+#' Create a Subtheme S3 object
+#'
+#' First-class container that holds a set of Code objects within a Theme.
+#' Use NA_character_ for name when codes are not yet sub-grouped (a "virtual"
+#' subtheme that will be populated by Phase 52's clustering).
+#'
+#' @param name Subtheme name; NA_character_ for virtual/ungrouped
+#' @param description Subtheme description
+#' @param codes List of Code S3 objects (or character vector of code names —
+#'   coerced to stub Codes for use in tests / non-coding-state contexts)
+#' @return Subtheme S3 object
+#' @export
+create_subtheme <- function(name = NA_character_, description = "",
+                              codes = list()) {
+  if (is.character(codes)) {
+    codes <- lapply(codes, function(cn) create_code_object(key = cn, name = cn))
+  } else if (is.list(codes)) {
+    codes <- lapply(codes, function(c) {
+      if (inherits(c, "Code")) return(c)
+      if (is.list(c) && !is.null(c$key)) {
+        return(create_code_object(
+          key            = c$key,
+          name           = c$name %||% c$key,
+          description    = c$description %||% "",
+          type           = c$type %||% "descriptive",
+          frequency      = c$frequency %||% 0L,
+          entry_ids      = c$entry_ids %||% character(0),
+          coded_segments = c$coded_segments %||% list()
+        ))
+      }
+      if (is.character(c) && length(c) == 1L) {
+        return(create_code_object(key = c, name = c))
+      }
+      stop("Cannot coerce subtheme code: ", paste(class(c), collapse = "/"))
+    })
+  } else {
+    stop("Subtheme codes must be a list or character vector")
+  }
+
+  obj <- list(
+    name        = if (is.na(name)) NA_character_ else as.character(name),
+    description = as.character(description %||% ""),
+    codes       = codes
+  )
+  class(obj) <- "Subtheme"
+  obj
+}
+
+#' Number of codes in a Subtheme
+#' @param subtheme Subtheme S3
+#' @return Integer
+#' @export
+subtheme_n_codes <- function(subtheme) {
+  validate_class(subtheme, "Subtheme")
+  length(subtheme$codes)
+}
+
+#' Code names (display) within a Subtheme
+#' @param subtheme Subtheme S3
+#' @return Character vector
+#' @export
+subtheme_code_names <- function(subtheme) {
+  validate_class(subtheme, "Subtheme")
+  if (length(subtheme$codes) == 0L) return(character(0))
+  vapply(subtheme$codes, function(c) c$name, character(1))
+}
+
+#' Code keys within a Subtheme
+#' @param subtheme Subtheme S3
+#' @return Character vector
+#' @export
+subtheme_code_keys <- function(subtheme) {
+  validate_class(subtheme, "Subtheme")
+  if (length(subtheme$codes) == 0L) return(character(0))
+  vapply(subtheme$codes, function(c) c$key, character(1))
+}
+
+#' Print method for Subtheme
+#' @param x Subtheme object
+#' @param ... ignored
+#' @export
+print.Subtheme <- function(x, ...) {
+  nm <- if (is.na(x$name)) "<virtual / ungrouped>" else x$name
+  cat(sprintf("<Subtheme> %s (%d codes)\n", nm, length(x$codes)))
+  invisible(x)
+}
+
+# ==============================================================================
+# Theme-level getters (work on a single theme — a plain list with class fields)
+# ==============================================================================
+
+#' Flatten Code S3 objects across all subthemes of a theme
+#' @param theme A theme list (one element of theme_set$themes)
+#' @return List of Code S3 objects
+#' @export
+theme_code_objects <- function(theme) {
+  if (is.null(theme$subthemes) || length(theme$subthemes) == 0L) return(list())
+  out <- list()
+  for (s in theme$subthemes) {
+    if (inherits(s, "Subtheme")) {
+      out <- c(out, s$codes)
+    }
+  }
+  out
+}
+
+#' Flatten code names across all subthemes of a theme (back-compat with codes_included)
+#' @param theme A theme list
+#' @return Character vector of code NAMES
+#' @export
+theme_codes <- function(theme) {
+  objs <- theme_code_objects(theme)
+  if (length(objs) == 0L) return(character(0))
+  unname(vapply(objs, function(c) c$name, character(1)))
+}
+
+#' Flatten code keys across all subthemes of a theme
+#' @param theme A theme list
+#' @return Character vector of code KEYS
+#' @export
+theme_code_keys <- function(theme) {
+  objs <- theme_code_objects(theme)
+  if (length(objs) == 0L) return(character(0))
+  unname(vapply(objs, function(c) c$key, character(1)))
+}
+
+#' Flatten coded_segments across all codes of a theme
+#' @param theme A theme list
+#' @return Flat list of segment records
+#' @export
+theme_segments <- function(theme) {
+  objs <- theme_code_objects(theme)
+  out <- list()
+  for (c in objs) {
+    if (length(c$coded_segments) > 0L) {
+      out <- c(out, c$coded_segments)
+    }
+  }
+  out
+}
+
+#' Number of subthemes in a theme (excludes virtual single-subtheme wrappers)
+#' @param theme A theme list
+#' @return Integer
+#' @export
+theme_n_subthemes <- function(theme) {
+  if (is.null(theme$subthemes) || length(theme$subthemes) == 0L) return(0L)
+  # Count only named (non-virtual) subthemes
+  named <- vapply(theme$subthemes, function(s) {
+    inherits(s, "Subtheme") && !is.na(s$name) && nchar(s$name) > 0L
+  }, logical(1))
+  sum(named)
+}
+
+#' Recompute denormalised back-compat fields on a theme from its subthemes
+#' @keywords internal
+.recompute_theme_denorm <- function(theme) {
+  theme$codes_included        <- theme_codes(theme)
+  theme$subthemes_structured  <- theme$subthemes
+  theme
+}
+
+# ==============================================================================
+# ThemeSet S3 — top-level container
+# ==============================================================================
+
 #' Create a ThemeSet object (canonical internal representation)
 #'
-#' @param themes List of theme lists, each with at minimum: id, name,
-#'   description, codes_included
+#' Accepts both the new hierarchy shape (themes with first-class Subtheme S3
+#' objects) and the legacy flat shape (themes with codes_included character
+#' vectors). Legacy input is wrapped into a single virtual Subtheme per theme.
+#'
+#' @param themes List of theme lists. Each theme requires id and name; codes
+#'   and subthemes follow either the new (subthemes = list of Subtheme S3) or
+#'   legacy (codes_included = character vector, subthemes = character vector)
+#'   shape.
 #' @param thematic_map Character description of inter-theme relationships
 #' @param analysis_notes Character reflexive notes
 #' @param review_notes List of review results (or NULL)
@@ -37,97 +283,137 @@ create_theme_set <- function(themes, thematic_map = "",
                              split_history = NULL) {
   stopifnot(is.list(themes))
 
-  # Ensure each theme has required fields and defaults
-
   themes <- lapply(seq_along(themes), function(i) {
     t <- themes[[i]]
     t$id <- as.integer(t$id %||% i)
     if (is.null(t$name) || is.na(t$name) || nchar(t$name) == 0) {
       stop(sprintf("Theme %d is missing a 'name' field", i))
     }
-
     if (is.null(t$description)) t$description <- ""
-    if (is.null(t$codes_included)) t$codes_included <- character(0)
 
-    # Flatten codes_included if nested
-    t$codes_included <- as.character(unlist(t$codes_included))
-    t$codes_included <- t$codes_included[!is.na(t$codes_included) & nchar(t$codes_included) > 0]
+    # Determine the canonical theme$subthemes (list of Subtheme S3)
+    has_new_subthemes <- is.list(t$subthemes) && length(t$subthemes) > 0L &&
+                          all(vapply(t$subthemes, inherits, logical(1), "Subtheme"))
 
-    # Apply defaults for optional fields (skip subthemes — handled above)
-    for (field in names(.THEME_DEFAULTS)) {
-      if (field %in% c("subthemes", "subthemes_structured")) next
-      if (is.null(t[[field]])) {
-        t[[field]] <- .THEME_DEFAULTS[[field]]
+    if (!has_new_subthemes) {
+      legacy_codes <- t$codes_included
+      if (is.list(legacy_codes)) legacy_codes <- as.character(unlist(legacy_codes))
+      if (is.null(legacy_codes)) legacy_codes <- character(0)
+      legacy_codes <- legacy_codes[!is.na(legacy_codes) & nchar(legacy_codes) > 0L]
+
+      # Where did the caller record subthemes?
+      legacy_sts <- t$subthemes_structured %||% t$subthemes
+
+      st_objs <- .legacy_subthemes_to_objects(legacy_sts, legacy_codes)
+      if (length(st_objs) == 0L) {
+        # No usable subtheme info — wrap all codes in one virtual Subtheme
+        st_objs <- list(create_subtheme(
+          name = NA_character_, description = "", codes = legacy_codes
+        ))
       }
-    }
-    # Only apply subtheme defaults if not already set by the branching above
-    if (is.null(t$subthemes)) t$subthemes <- character(0)
-    if (!"subthemes_structured" %in% names(t)) t$subthemes_structured <- NULL
-
-    # Handle structured subthemes (objects with name + description)
-    # jsonlite::fromJSON with simplifyVector=TRUE turns [{name:...,description:...}]
-    # into a data.frame, not a list-of-lists. Must handle both formats,
-    # plus plain character vectors from simplified JSON arrays.
-    if (is.character(t$subthemes) && length(t$subthemes) > 0) {
-      # Plain character vector of subtheme names (e.g., from simplifyVector)
-      t$subthemes_structured <- NULL
-    } else if (is.data.frame(t$subthemes) && "name" %in% names(t$subthemes)) {
-      # data.frame format from jsonlite (most common)
-      t$subthemes_structured <- lapply(seq_len(nrow(t$subthemes)), function(r) {
-        as.list(t$subthemes[r, , drop = FALSE])
-      })
-      t$subthemes <- as.character(t$subthemes$name)
-    } else if (is.list(t$subthemes) && length(t$subthemes) > 0 &&
-        !is.null(t$subthemes[[1]]) && is.list(t$subthemes[[1]]) &&
-        !is.null(t$subthemes[[1]]$name)) {
-      # list-of-lists format (from simplifyVector=FALSE or manual construction)
-      t$subthemes_structured <- t$subthemes
-      t$subthemes <- vapply(t$subthemes, function(s) {
-        s$name %||% as.character(s)
-      }, character(1))
-    } else if (is.list(t$subthemes)) {
-      t$subthemes <- as.character(unlist(t$subthemes))
-      t$subthemes_structured <- NULL
+      t$subthemes <- st_objs
     }
 
-    # Flatten other list-type fields
+    # Apply field defaults (skip subthemes/codes — handled above; subthemes_structured + codes_included are denormalised below)
+    for (field in names(.THEME_DEFAULTS)) {
+      if (is.null(t[[field]])) t[[field]] <- .THEME_DEFAULTS[[field]]
+    }
+
+    # Recompute back-compat denormalised fields
+    t <- .recompute_theme_denorm(t)
+
+    # Flatten other list-type fields that came from jsonlite
     if (is.list(t$supporting_quotes)) t$supporting_quotes <- as.character(unlist(t$supporting_quotes))
-    if (is.list(t$keywords)) t$keywords <- as.character(unlist(t$keywords))
+    if (is.list(t$keywords))          t$keywords          <- as.character(unlist(t$keywords))
 
     t
   })
 
   obj <- list(
-    themes = themes,
-    thematic_map = thematic_map %||% "",
+    themes         = themes,
+    thematic_map   = thematic_map %||% "",
     analysis_notes = analysis_notes %||% "",
-    review_notes = review_notes,
-    split_history = split_history %||% list()
+    review_notes   = review_notes,
+    split_history  = split_history %||% list()
   )
   class(obj) <- "ThemeSet"
   obj
 }
 
+#' Convert legacy subtheme representations into a list of Subtheme S3 objects
+#'
+#' Handles the formats jsonlite emits:
+#' - data.frame with name + description columns (simplifyVector = TRUE)
+#' - list-of-lists with $name + $description
+#' - plain character vector of subtheme names (no code mapping known)
+#' - existing list of Subtheme S3 (passes through)
+#'
+#' If no per-subtheme code mapping is present, returns an empty list and the
+#' caller wraps all codes in a single virtual Subtheme.
+#' @keywords internal
+.legacy_subthemes_to_objects <- function(legacy_sts, all_code_names) {
+  if (is.null(legacy_sts)) return(list())
+  if (is.character(legacy_sts) && length(legacy_sts) == 0L) return(list())
+
+  # Already Subtheme S3 list — pass through
+  if (is.list(legacy_sts) && length(legacy_sts) > 0L &&
+      all(vapply(legacy_sts, inherits, logical(1), "Subtheme"))) {
+    return(legacy_sts)
+  }
+
+  # data.frame from jsonlite simplifyVector = TRUE
+  if (is.data.frame(legacy_sts) && "name" %in% names(legacy_sts)) {
+    return(lapply(seq_len(nrow(legacy_sts)), function(r) {
+      .one_legacy_subtheme(as.list(legacy_sts[r, , drop = FALSE]), all_code_names)
+    }))
+  }
+
+  # list-of-lists with $name
+  if (is.list(legacy_sts) && length(legacy_sts) > 0L &&
+      is.list(legacy_sts[[1]]) && !is.null(legacy_sts[[1]]$name)) {
+    return(lapply(legacy_sts, function(s) .one_legacy_subtheme(s, all_code_names)))
+  }
+
+  # Plain character vector — no code mapping known; caller will fall back to virtual
+  list()
+}
+
+#' Build one Subtheme S3 from a legacy list/row representation
+#' @keywords internal
+.one_legacy_subtheme <- function(s, all_code_names) {
+  raw_codes <- s$codes %||% s$code_keys %||% s$code_names
+  if (is.list(raw_codes)) raw_codes <- as.character(unlist(raw_codes))
+  if (is.null(raw_codes)) raw_codes <- character(0)
+  raw_codes <- raw_codes[!is.na(raw_codes) & nchar(raw_codes) > 0L]
+
+  use_codes <- if (length(raw_codes) > 0L) raw_codes else all_code_names
+
+  create_subtheme(
+    name        = s$name %||% NA_character_,
+    description = s$description %||% "",
+    codes       = use_codes
+  )
+}
+
 #' Normalize raw AI theme output to canonical ThemeSet
 #'
 #' Call this immediately after fromJSON() on any AI response that produces
-#' themes. Handles both data.frame and list formats transparently.
+#' themes. Handles both data.frame and list formats transparently and the
+#' legacy (flat codes_included) wire format.
 #'
 #' @param raw_result Parsed JSON from AI (may be df or list)
-#' @return ThemeSet S3 object (always list-based internally)
+#' @return ThemeSet S3 object
 #' @export
 normalize_theme_result <- function(raw_result) {
   if (inherits(raw_result, "ThemeSet")) return(raw_result)
 
-  # Extract the themes array from various wrapper formats
-
-  themes_raw <- NULL
-  thematic_map <- ""
+  themes_raw     <- NULL
+  thematic_map   <- ""
   analysis_notes <- ""
 
   if (is.list(raw_result) && !is.data.frame(raw_result)) {
-    themes_raw <- raw_result$themes %||% raw_result
-    thematic_map <- raw_result$thematic_map %||% ""
+    themes_raw     <- raw_result$themes %||% raw_result
+    thematic_map   <- raw_result$thematic_map %||% ""
     analysis_notes <- raw_result$analysis_notes %||% ""
   } else if (is.data.frame(raw_result)) {
     themes_raw <- raw_result
@@ -137,13 +423,11 @@ normalize_theme_result <- function(raw_result) {
     stop("Cannot normalize theme result: no themes found in input")
   }
 
-  # Convert data.frame rows to list-of-lists
   if (is.data.frame(themes_raw)) {
     themes_list <- lapply(seq_len(nrow(themes_raw)), function(i) {
       row <- as.list(themes_raw[i, , drop = FALSE])
-      # Unbox single-element list columns
       for (nm in names(row)) {
-        if (is.list(row[[nm]]) && length(row[[nm]]) == 1) {
+        if (is.list(row[[nm]]) && length(row[[nm]]) == 1L) {
           row[[nm]] <- row[[nm]][[1]]
         }
       }
@@ -151,19 +435,13 @@ normalize_theme_result <- function(raw_result) {
     })
   } else if (is.list(themes_raw)) {
     themes_list <- themes_raw
-    # Handle case where it's a single theme not wrapped in a list
-    if (!is.null(themes_raw$name)) {
-      themes_list <- list(themes_raw)
-    }
+    if (!is.null(themes_raw$name)) themes_list <- list(themes_raw)
   } else {
     stop("Cannot normalize theme result: unexpected type ", class(themes_raw))
   }
 
-  create_theme_set(
-    themes = themes_list,
-    thematic_map = thematic_map,
-    analysis_notes = analysis_notes
-  )
+  create_theme_set(themes = themes_list, thematic_map = thematic_map,
+                    analysis_notes = analysis_notes)
 }
 
 #' Extract theme names from ThemeSet
@@ -185,6 +463,13 @@ n_themes <- function(theme_set) {
 }
 
 #' Convert ThemeSet to tibble for export/inspection
+#'
+#' Flattens to a per-theme tibble (one row per theme). Subtheme structure is
+#' summarized via subtheme name + description columns; per-subtheme detail is
+#' available through the hierarchy (subtheme_name resolves to first
+#' subtheme$name, etc.). Per-subtheme detail tables are produced separately
+#' by the report renderer.
+#'
 #' @param theme_set ThemeSet object
 #' @return tibble with one row per theme
 #' @export
@@ -198,21 +483,16 @@ theme_set_to_tibble <- function(theme_set) {
     prevalence = vapply(theme_set$themes, function(t) t$prevalence, character(1)),
     sentiment_tendency = vapply(theme_set$themes, function(t) t$sentiment_tendency, character(1)),
     entry_count = vapply(theme_set$themes, function(t) as.integer(t$entry_count), integer(1)),
-    n_codes = vapply(theme_set$themes, function(t) length(t$codes_included), integer(1)),
+    n_codes = vapply(theme_set$themes, function(t) length(theme_codes(t)), integer(1)),
+    n_subthemes = vapply(theme_set$themes, function(t) theme_n_subthemes(t), integer(1)),
     codes_included = vapply(theme_set$themes, function(t) {
-      paste(t$codes_included, collapse = "; ")
+      paste(theme_codes(t), collapse = "; ")
     }, character(1)),
     subthemes = vapply(theme_set$themes, function(t) {
-      paste(t$subthemes, collapse = "; ")
+      paste(.subtheme_names_no_virtual(t), collapse = "; ")
     }, character(1)),
     subtheme_descriptions = vapply(theme_set$themes, function(t) {
-      if (!is.null(t$subthemes_structured)) {
-        paste(vapply(t$subthemes_structured, function(s) {
-          paste0(s$name %||% "", ": ", s$description %||% "")
-        }, character(1)), collapse = "; ")
-      } else {
-        ""
-      }
+      .subtheme_name_desc_pairs(t)
     }, character(1)),
     keywords = vapply(theme_set$themes, function(t) {
       paste(t$keywords, collapse = "; ")
@@ -226,6 +506,29 @@ theme_set_to_tibble <- function(theme_set) {
   )
 }
 
+#' Subtheme names omitting virtual (NA-named) wrappers
+#' @keywords internal
+.subtheme_names_no_virtual <- function(theme) {
+  if (is.null(theme$subthemes) || length(theme$subthemes) == 0L) return(character(0))
+  nms <- vapply(theme$subthemes, function(s) {
+    if (inherits(s, "Subtheme")) s$name %||% NA_character_ else NA_character_
+  }, character(1))
+  nms[!is.na(nms) & nchar(nms) > 0L]
+}
+
+#' Subtheme name+description pairs for tibble serialization
+#' @keywords internal
+.subtheme_name_desc_pairs <- function(theme) {
+  if (is.null(theme$subthemes) || length(theme$subthemes) == 0L) return("")
+  pairs <- character(0)
+  for (s in theme$subthemes) {
+    if (!inherits(s, "Subtheme")) next
+    if (is.na(s$name) || nchar(s$name %||% "") == 0L) next
+    pairs <- c(pairs, paste0(s$name, ": ", s$description %||% ""))
+  }
+  paste(pairs, collapse = "; ")
+}
+
 #' Print method for ThemeSet
 #' @param x ThemeSet object
 #' @param ... Additional arguments (ignored)
@@ -233,9 +536,12 @@ theme_set_to_tibble <- function(theme_set) {
 print.ThemeSet <- function(x, ...) {
   cat(sprintf("ThemeSet with %d themes:\n", n_themes(x)))
   for (t in x$themes) {
-    cat(sprintf("  [%d] %s (%s prevalence, %s sentiment, %d codes)\n",
+    n_sub <- theme_n_subthemes(t)
+    n_codes <- length(theme_codes(t))
+    sub_str <- if (n_sub > 0L) sprintf("%d subthemes, ", n_sub) else ""
+    cat(sprintf("  [%d] %s (%s prevalence, %s sentiment, %s%d codes)\n",
                 t$id, t$name, t$prevalence, t$sentiment_tendency,
-                length(t$codes_included)))
+                sub_str, n_codes))
   }
   if (nchar(x$thematic_map) > 0) {
     cat(sprintf("\nThematic map: %s\n", substr(x$thematic_map, 1, 200)))
@@ -263,11 +569,7 @@ prune_empty_themes <- function(theme_set) {
     removed_names <- vapply(theme_set$themes[!keep_idx], function(t) t$name, character(1))
     log_info("Pruning {n_removed} empty theme(s): {paste(removed_names, collapse = ', ')}")
     theme_set$themes <- theme_set$themes[keep_idx]
-
-    # Re-number IDs sequentially
-    for (i in seq_along(theme_set$themes)) {
-      theme_set$themes[[i]]$id <- i
-    }
+    for (i in seq_along(theme_set$themes)) theme_set$themes[[i]]$id <- i
   }
 
   theme_set
@@ -277,54 +579,54 @@ prune_empty_themes <- function(theme_set) {
 #'
 #' After the researcher modifies the theme structure (reassigning codes,
 #' creating/splitting themes), the merge_history$code_to_theme_map becomes
-#' stale. This function rebuilds it from the current ThemeSet by walking
-#' all themes and resolving code names back to code keys via the codebook.
+#' stale. This function rebuilds it by walking the canonical hierarchy
+#' (theme$subthemes -> Subtheme$codes -> Code$key) and resolving code names
+#' back to code keys via the codebook for back-compat with legacy callers
+#' that recorded code names rather than keys.
 #'
 #' @param theme_set ThemeSet with modified themes
-#' @param coding_state ProgressiveCodingState for code name → key resolution
+#' @param coding_state ProgressiveCodingState for code name -> key resolution
 #' @return ThemeSet with updated merge_history$code_to_theme_map
 #' @keywords internal
 rebuild_code_to_theme_map <- function(theme_set, coding_state) {
   validate_class(theme_set, "ThemeSet")
 
-  # Build reverse lookup: code_name -> code_key
+  # Reverse lookup: code_name -> code_key
   name_to_key <- list()
   for (key in names(coding_state$codebook)) {
     cn <- coding_state$codebook[[key]]$code_name
-    name_to_key[[cn]] <- key
-    # Also map by key itself (codes_included may use either)
-    name_to_key[[key]] <- key
+    name_to_key[[cn]]   <- key
+    name_to_key[[key]]  <- key
   }
 
-  code_to_theme <- list()
+  resolve_key <- function(code_or_key) {
+    if (is.null(code_or_key)) return(NULL)
+    if (!is.null(name_to_key[[code_or_key]])) return(name_to_key[[code_or_key]])
+    NULL
+  }
+
+  code_to_theme    <- list()
   code_to_subtheme <- list()
 
   for (theme in theme_set$themes) {
-    for (code_name in theme$codes_included) {
-      key <- name_to_key[[code_name]]
-      if (!is.null(key)) {
-        code_to_theme[[key]] <- theme$name
-      }
-    }
-    # Also handle subthemes_structured if present
-    if (!is.null(theme$subthemes_structured)) {
-      for (st in theme$subthemes_structured) {
-        for (code_name in st$codes %||% character(0)) {
-          key <- name_to_key[[code_name]]
-          if (!is.null(key)) {
-            code_to_subtheme[[key]] <- st$name
-          }
+    if (is.null(theme$subthemes) || length(theme$subthemes) == 0L) next
+    for (s in theme$subthemes) {
+      if (!inherits(s, "Subtheme")) next
+      for (code in s$codes) {
+        # Prefer the explicit Code$key; fall back to resolving Code$name
+        k <- resolve_key(code$key) %||% resolve_key(code$name)
+        if (is.null(k)) next
+        code_to_theme[[k]] <- theme$name
+        if (!is.na(s$name) && nchar(s$name %||% "") > 0L) {
+          code_to_subtheme[[k]] <- s$name
         }
       }
     }
   }
 
-  if (is.null(theme_set$merge_history)) {
-    theme_set$merge_history <- list()
-  }
-  theme_set$merge_history$code_to_theme_map <- code_to_theme
+  if (is.null(theme_set$merge_history)) theme_set$merge_history <- list()
+  theme_set$merge_history$code_to_theme_map    <- code_to_theme
   theme_set$merge_history$code_to_subtheme_map <- code_to_subtheme
 
   theme_set
 }
-

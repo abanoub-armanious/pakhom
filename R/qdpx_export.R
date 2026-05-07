@@ -114,22 +114,22 @@
     theme_name <- code_to_theme_map[[code_key]]
     subtheme_name <- code_to_subtheme_map[[code_key]]
 
-    # Fallback: if no merge_history map, try matching codes_included in themes
+    # Fallback: if no merge_history map, walk Theme -> Subtheme -> Code
+    # hierarchy directly. Phase 51: subthemes hold Code S3 objects rather
+    # than bare strings, so resolve subtheme membership by Code$name.
     if (is.null(theme_name)) {
       for (t in theme_set$themes) {
-        if (code_name %in% t$codes_included) {
-          theme_name <- t$name
-          # Try to find subtheme from subthemes_structured
-          if (!is.null(t$subthemes_structured)) {
-            for (s in t$subthemes_structured) {
-              if (!is.null(s$codes) && code_name %in% s$codes) {
-                subtheme_name <- s$name
-                break
-              }
-            }
+        if (!(code_name %in% theme_codes(t))) next
+        theme_name <- t$name
+        for (s in t$subthemes %||% list()) {
+          if (!inherits(s, "Subtheme")) next
+          if (is.na(s$name) || nchar(s$name %||% "") == 0L) next
+          if (code_name %in% subtheme_code_names(s)) {
+            subtheme_name <- s$name
+            break
           }
-          break
         }
+        break
       }
     }
 
@@ -301,14 +301,17 @@
       # Add subtheme nodes
       if (length(subtheme_codes) > 0) {
         for (sname in names(subtheme_codes)) {
-          # Find subtheme description if available
+          # Find subtheme description if available. Phase 51:
+          # subthemes_structured is now a list of Subtheme S3 objects;
+          # add an inherits() guard so any non-S3 element (defensive
+          # against hand-built ThemeSets) is skipped rather than crashing
+          # on `s$name` access.
           sdesc <- ""
-          if (!is.null(theme$subthemes_structured)) {
-            for (s in theme$subthemes_structured) {
-              if (identical(s$name, sname)) {
-                sdesc <- s$description %||% ""
-                break
-              }
+          for (s in theme$subthemes %||% list()) {
+            if (!inherits(s, "Subtheme")) next
+            if (identical(s$name, sname)) {
+              sdesc <- s$description %||% ""
+              break
             }
           }
           sub_guid <- .qdpx_guid("subtheme")

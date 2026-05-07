@@ -10,9 +10,10 @@ normalize_theme_result(raw_result)
 \item{raw_result}{Parsed JSON from AI (may be df or list)}
 }
 \value{
-ThemeSet S3 object (always list-based internally)
+ThemeSet S3 object
 }
 \description{
 Call this immediately after fromJSON() on any AI response that produces
-themes. Handles both data.frame and list formats transparently.
+themes. Handles both data.frame and list formats transparently and the
+legacy (flat codes_included) wire format.
 }

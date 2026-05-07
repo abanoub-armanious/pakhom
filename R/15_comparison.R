@@ -819,11 +819,18 @@ list_available_runs <- function(results_base) {
   codes_a <- if ("codes_included" %in% names(themes_a)) themes_a$codes_included else rep("", length(names_a))
   codes_b <- if ("codes_included" %in% names(themes_b)) themes_b$codes_included else rep("", length(names_b))
 
+  # Phase 51 audit M2: themes.json now writes codes_included as a JSON
+  # array (Phase 50a), so jsonlite::fromJSON + as_tibble surfaces it as a
+  # list-column. Use `[[i]]` (not `[i]`) to extract the actual character
+  # vector or string from each row — `[i]` on a list-column returns a
+  # length-1 sublist that breaks .code_jaccard's trimws() call. The old
+  # ";"-joined string format (still in tests/testthat/fixtures/) surfaces
+  # as a plain character column where `[[i]]` and `[i]` are equivalent.
   code_sim <- matrix(0, nrow = length(names_a), ncol = length(names_b))
   for (i in seq_along(names_a)) {
     for (j in seq_along(names_b)) {
       code_sim[i, j] <- .code_jaccard(
-        codes_a[i] %||% "", codes_b[j] %||% ""
+        codes_a[[i]] %||% "", codes_b[[j]] %||% ""
       )
     }
   }

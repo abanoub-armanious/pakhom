@@ -109,6 +109,35 @@ export_results <- function(data, theme_set, correlations_df, insights,
   # length-1 vectors to scalars.
   themes_file <- file.path(output_dir, "themes.json")
   themes_json <- lapply(theme_set$themes, function(t) {
+    # Phase 51: walk the canonical Theme -> Subtheme -> Code hierarchy.
+    # Flat codes_included + flat subthemes character vectors stay for
+    # back-compat with downstream consumers; subthemes_structured carries
+    # the full hierarchy with per-code metadata (key, name, desc, freq,
+    # n_segments). Full coded_segments + QuoteProvenance live in the
+    # per-theme detail files (see export_theme_entry_csvs).
+    flat_code_names <- theme_codes(t)
+    flat_subtheme_names <- .subtheme_names_no_virtual(t)
+
+    structured <- lapply(t$subthemes %||% list(), function(s) {
+      if (!inherits(s, "Subtheme")) return(NULL)
+      list(
+        name        = if (is.na(s$name)) NA_character_ else s$name,
+        description = s$description %||% "",
+        codes = lapply(s$codes %||% list(), function(c) {
+          list(
+            key         = c$key %||% "",
+            name        = c$name %||% "",
+            description = c$description %||% "",
+            type        = c$type %||% "descriptive",
+            frequency   = as.integer(c$frequency %||% 0L),
+            entry_ids   = I(as.character(c$entry_ids %||% character(0))),
+            n_segments  = length(c$coded_segments %||% list())
+          )
+        })
+      )
+    })
+    structured <- Filter(Negate(is.null), structured)
+
     list(
       id                   = as.integer(t$id %||% 0L),
       name                 = t$name %||% "",
@@ -116,10 +145,11 @@ export_results <- function(data, theme_set, correlations_df, insights,
       prevalence           = t$prevalence %||% NA_character_,
       sentiment_tendency   = t$sentiment_tendency %||% NA_character_,
       entry_count          = as.integer(t$entry_count %||% 0L),
-      n_codes              = length(t$codes_included %||% character(0)),
-      codes_included       = I(as.character(t$codes_included %||% character(0))),
-      subthemes            = I(as.character(t$subthemes %||% character(0))),
-      subthemes_structured = t$subthemes_structured %||% list(),
+      n_codes              = length(flat_code_names),
+      n_subthemes          = length(flat_subtheme_names),
+      codes_included       = I(flat_code_names),
+      subthemes            = I(flat_subtheme_names),
+      subthemes_structured = structured,
       keywords             = I(as.character(t$keywords %||% character(0))),
       narrative            = t$narrative %||% "",
       supporting_quotes    = I(as.character(t$supporting_quotes %||% character(0)))
@@ -2727,12 +2757,15 @@ sentiment_colors <- c(
       '</div>\n'
     )
 
-    # Subthemes (structured with descriptions when available)
+    # Subthemes (Phase 51: ts$subthemes_structured is a list of Subtheme S3
+    # objects with virtual NA-named wrappers already filtered out by
+    # aggregate_theme_statistics, so this is a clean render).
     if (!is.null(ts$subthemes_structured) && length(ts$subthemes_structured) > 0) {
       html <- paste0(html, '<h2>Subthemes</h2>\n<div class="subthemes-list">\n')
       for (s in ts$subthemes_structured) {
-        s_name <- s$name %||% as.character(s)
+        s_name <- s$name %||% ""
         s_desc <- s$description %||% ""
+        if (is.na(s_name) || nchar(s_name) == 0L) next
         html <- paste0(html,
           '<div class="subtheme-item" style="margin-bottom: 0.5rem;">\n',
           '<strong>', .html_esc(s_name), '</strong>',
@@ -2740,7 +2773,7 @@ sentiment_colors <- c(
           '\n</div>\n')
       }
       html <- paste0(html, '</div>\n')
-    } else if (length(ts$subthemes) > 0 && !all(is.na(unlist(ts$subthemes)))) {
+    } else if (length(ts$subthemes) > 0 && !all(is.na(ts$subthemes))) {
       subs <- ts$subthemes[!is.na(ts$subthemes) & nchar(as.character(ts$subthemes)) > 0]
       if (length(subs) > 0) {
         html <- paste0(html, '<h2>Subthemes</h2>\n<div>\n')

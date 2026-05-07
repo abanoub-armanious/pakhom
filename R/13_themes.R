@@ -215,28 +215,36 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
 
   merge_history$final_themes <- theme_structure$themes
 
-  # Build ThemeSet
+  # Build ThemeSet — first-class Subtheme S3 + Code S3 hierarchy
   theme_list <- lapply(seq_along(theme_structure$themes), function(i) {
     t <- theme_structure$themes[[i]]
 
-    subthemes_structured <- if (!is.null(t$subthemes) && length(t$subthemes) > 0) {
-      lapply(t$subthemes, function(s) {
-        list(name = s$name, description = s$description %||% "")
+    if (!is.null(t$subthemes) && length(t$subthemes) > 0L) {
+      subthemes <- lapply(t$subthemes, function(s) {
+        create_subtheme(
+          name        = s$name %||% NA_character_,
+          description = s$description %||% "",
+          codes       = lapply(s$code_keys %||% character(0),
+                                function(k) .code_from_codebook(k, coding_state))
+        )
       })
-    } else NULL
+    } else {
+      # Single virtual Subtheme wrapping every code in the theme; Phase 52's
+      # divisive clustering will populate real subthemes.
+      subthemes <- list(create_subtheme(
+        name        = NA_character_,
+        description = "",
+        codes       = lapply(t$all_code_keys %||% character(0),
+                              function(k) .code_from_codebook(k, coding_state))
+      ))
+    }
 
     list(
-      id = i,
-      name = t$name,
-      description = t$description %||% "",
-      codes_included = vapply(t$all_code_keys, function(k) {
-        coding_state$codebook[[k]]$code_name %||% k
-      }, character(1)),
-      subthemes = if (!is.null(subthemes_structured)) {
-        vapply(subthemes_structured, function(s) s$name, character(1))
-      } else character(0),
-      subthemes_structured = subthemes_structured,
-      prevalence = "medium",
+      id                 = i,
+      name               = t$name,
+      description        = t$description %||% "",
+      subthemes          = subthemes,
+      prevalence         = "medium",
       sentiment_tendency = "neutral"
     )
   })
@@ -683,7 +691,8 @@ apply_framework_themes <- function(coding_state, framework_spec) {
   themes <- list()
   next_id <- 1L
 
-  # Each construct -> one theme (when at least one entry was coded with it)
+  # Each construct -> one theme (when at least one entry was coded with it).
+  # Build first-class Subtheme containing the construct's hydrated Code.
   for (c in framework_spec$constructs) {
     cb_entry <- coding_state$codebook[[c$id]]
     if (is.null(cb_entry) || (cb_entry$frequency %||% 0L) == 0L) next
@@ -691,10 +700,12 @@ apply_framework_themes <- function(coding_state, framework_spec) {
       id              = next_id,
       name            = c$name,
       description     = c$description,
-      codes_included  = c$id,
+      subthemes       = list(create_subtheme(
+        name = NA_character_, description = "",
+        codes = list(.code_from_codebook(c$id, coding_state))
+      )),
       keywords        = c$example_indicators %||% character(0),
-      subthemes       = character(0),
-      framework_construct_id = c$id  # mode-specific marker
+      framework_construct_id = c$id
     )
     next_id <- next_id + 1L
   }
@@ -713,9 +724,11 @@ apply_framework_themes <- function(coding_state, framework_spec) {
         "first-class output rather than forced into a construct that ",
         "doesn't fit."
       ),
-      codes_included  = "anomaly",
+      subthemes       = list(create_subtheme(
+        name = NA_character_, description = "",
+        codes = list(.code_from_codebook("anomaly", coding_state))
+      )),
       keywords        = character(0),
-      subthemes       = character(0),
       framework_construct_id = "anomaly"
     )
   }
@@ -818,7 +831,11 @@ enrich_themes <- function(theme_set, data, coding_state = NULL,
     # detect Mode 3 themes via the framework_construct_id marker and
     # preserve their keywords. Mode 2 keeps the existing behavior.
     if (is.null(theme_set$themes[[i]]$framework_construct_id)) {
-      theme_set$themes[[i]]$keywords <- theme_set$themes[[i]]$codes_included
+      # Phase 51: read from the canonical hierarchy via theme_codes() rather
+      # than the denormalised codes_included field. Avoids any staleness
+      # risk if a future caller mutates subthemes between create_theme_set()
+      # and enrich_themes() without recomputing the denorm.
+      theme_set$themes[[i]]$keywords <- theme_codes(theme_set$themes[[i]])
     }
   }
 

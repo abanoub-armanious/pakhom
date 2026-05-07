@@ -427,8 +427,14 @@ test_that("enrich_themes preserves Mode 3 keywords (HIGH 3 regression)", {
   }, logical(1)))]]
   # Example indicators from TPB intention include "I plan to..." etc.
   expect_true(any(grepl("plan", intention_theme$keywords)))
-  # codes_included is just the construct id (single string)
-  expect_equal(intention_theme$codes_included, "intention")
+  # Phase 51: codes_included is now the denormalised character vector of
+  # code NAMES across the theme's hierarchy. For Mode 3 framework themes
+  # this is the construct's display name (which shows in the report and
+  # JSON) rather than the construct id (technical key). The id is still
+  # the canonical lookup key in coding_state$codebook + resolves through
+  # rebuild_code_to_theme_map for cascade.
+  expect_equal(intention_theme$codes_included, "Behavioral intention")
+  expect_equal(theme_code_keys(intention_theme), "intention")
 })
 
 test_that("run_progressive_coding refuses Mode 3 resume from a Mode 2 state (BLOCKER 2)", {

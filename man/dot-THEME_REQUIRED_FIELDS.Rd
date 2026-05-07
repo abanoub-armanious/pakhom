@@ -5,7 +5,7 @@
 \alias{.THEME_REQUIRED_FIELDS}
 \title{Required fields for each theme within a ThemeSet}
 \format{
-An object of class \code{character} of length 4.
+An object of class \code{character} of length 3.
 }
 \usage{
 .THEME_REQUIRED_FIELDS

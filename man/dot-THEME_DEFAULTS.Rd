@@ -5,7 +5,7 @@
 \alias{.THEME_DEFAULTS}
 \title{Default values for optional theme fields}
 \format{
-An object of class \code{list} of length 8.
+An object of class \code{list} of length 6.
 }
 \usage{
 .THEME_DEFAULTS

@@ -271,14 +271,18 @@
     n_codes_at_emergence <- 0L
 
     if (!is.null(coding_state) && inherits(coding_state, "ProgressiveCodingState")) {
-      # Get codes belonging to this theme from the ThemeSet
-      theme_obj  <- theme_set$themes[[i]]
-      theme_codes <- tolower(theme_obj$codes_included)
+      # Get codes belonging to this theme from the ThemeSet.
+      # Phase 51 audit M1: code_birth_log is keyed by codebook KEYS, not
+      # display names. Use theme_code_keys() (canonical) rather than the
+      # denormalised codes_included (which holds display names) so birth
+      # lookups don't silently miss when key != name.
+      theme_obj <- theme_set$themes[[i]]
+      birth_keys <- tolower(theme_code_keys(theme_obj))
 
-      if (length(theme_codes) > 0 && !is.null(coding_state$saturation$code_birth_log)) {
+      if (length(birth_keys) > 0 && !is.null(coding_state$saturation$code_birth_log)) {
         birth_log <- coding_state$saturation$code_birth_log
         # Find entries where these codes were first created
-        code_births <- vapply(theme_codes, function(code_key) {
+        code_births <- vapply(birth_keys, function(code_key) {
           entry_idx <- birth_log[[code_key]]
           if (is.null(entry_idx)) return(NA_integer_)
           as.integer(entry_idx)

@@ -363,6 +363,19 @@ review_themes <- function(theme_set, output_dir, audit_log = NULL,
     reviewed$action <- tolower(trimws(reviewed$action))
     themes <- theme_set$themes
 
+    # Phase 51: researcher CRUD operates on the flat codes_included field
+    # for ergonomics (CSV is a flat list of codes, not a hierarchy). Drop
+    # the canonical Subtheme S3 list before mutation so create_theme_set()
+    # at the end rebuilds subthemes from the post-edit codes_included via
+    # the back-compat path. Phase 52's clustering re-derives subtheme
+    # structure on demand if a researcher wants it after manual edits.
+    themes <- lapply(themes, function(t) {
+      t$codes_included       <- theme_codes(t)
+      t$subthemes            <- NULL
+      t$subthemes_structured <- NULL
+      t
+    })
+
     # Build list of themes to keep, with modifications
     new_themes <- list()
     merge_targets <- list()  # source_name -> target_name

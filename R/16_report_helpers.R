@@ -35,6 +35,15 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
     }
     n <- nrow(entries)
 
+    # Phase 51: subthemes are first-class Subtheme S3 objects under the
+    # new hierarchy. The report renderer wants only named (non-virtual)
+    # subthemes, so filter out NA-named virtual wrappers here at the
+    # aggregation boundary.
+    real_subtheme_names  <- .subtheme_names_no_virtual(t)
+    real_subtheme_objs   <- Filter(function(s) {
+      inherits(s, "Subtheme") && !is.na(s$name) && nchar(s$name %||% "") > 0L
+    }, t$subthemes %||% list())
+
     # Guard: empty themes get NA stats instead of NaN
     if (n == 0) {
       theme_stats[[tn]] <- list(
@@ -48,8 +57,8 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
         emotions = tibble(emotion = character(), n = integer(), pct = numeric()),
         participant_spread = .empty_participant_spread(),
         keywords = t$keywords %||% character(0),
-        subthemes = t$subthemes %||% character(0),
-        subthemes_structured = t$subthemes_structured,
+        subthemes = real_subtheme_names,
+        subthemes_structured = real_subtheme_objs,
         prevalence = t$prevalence %||% "unknown",
         quotes_with_context = list()
       )
@@ -119,9 +128,9 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
       intensity = intensity,
       emotions = emotions,
       participant_spread = participant_spread,
-      keywords = t$keywords %||% t$codes_included[seq_len(min(5, length(t$codes_included)))],
-      subthemes = t$subthemes %||% character(0),
-      subthemes_structured = t$subthemes_structured,
+      keywords = t$keywords %||% theme_codes(t)[seq_len(min(5, length(theme_codes(t))))],
+      subthemes = real_subtheme_names,
+      subthemes_structured = real_subtheme_objs,
       prevalence = t$prevalence %||% "unknown",
       quotes_with_context = quotes
     )

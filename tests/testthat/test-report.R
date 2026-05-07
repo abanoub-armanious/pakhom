@@ -106,12 +106,21 @@ test_that("themes.json serializes codes_included / subthemes / keywords as JSON 
     theme_membership_Sleep.Disruption     = c(1L, 1L, 1L, 0L, 0L, 0L),
     theme_membership_Treatment.Efficacy   = c(0L, 0L, 0L, 1L, 1L, 1L)
   )
-  # Mock theme_set with multi-element character vectors
+  # Phase 51: themes.json now serializes the canonical Theme -> Subtheme ->
+  # Code hierarchy. Build the test fixture with first-class Subtheme S3
+  # objects mirroring what generate_themes_iterative() produces in
+  # production.
   ts <- create_theme_set(list(
     list(id = 1, name = "Sleep Disruption",
          description = "Themes about sleep disturbances",
-         codes_included = c("insomnia", "fragmented sleep", "early waking"),
-         subthemes = c("difficulty falling asleep", "night waking"),
+         subthemes = list(
+           create_subtheme(name = "difficulty falling asleep",
+                           description = "trouble onset",
+                           codes = c("insomnia", "early waking")),
+           create_subtheme(name = "night waking",
+                           description = "fragmented sleep cycle",
+                           codes = c("fragmented sleep"))
+         ),
          keywords = c("sleep", "insomnia"),
          supporting_quotes = c("Quote A", "Quote B"),
          entry_count = 3L,
