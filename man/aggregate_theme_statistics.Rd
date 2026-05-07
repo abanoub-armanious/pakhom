@@ -4,7 +4,12 @@
 \alias{aggregate_theme_statistics}
 \title{Aggregate per-theme statistics for report}
 \usage{
-aggregate_theme_statistics(data, theme_set, consolidated = NULL)
+aggregate_theme_statistics(
+  data,
+  theme_set,
+  consolidated = NULL,
+  quotes_per_theme = 3L
+)
 }
 \arguments{
 \item{data}{tibble with theme_membership_* or emerged_themes columns}
@@ -12,6 +17,10 @@ aggregate_theme_statistics(data, theme_set, consolidated = NULL)
 \item{theme_set}{ThemeSet object}
 
 \item{consolidated}{ConsolidatedCodes list (or NULL)}
+
+\item{quotes_per_theme}{Integer; number of representative quotes to
+select per theme. Wired through from
+\code{config$analysis$themes$quotes_per_theme}; defaults to 3.}
 }
 \value{
 Named list of theme stats (one per theme)

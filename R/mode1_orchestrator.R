@@ -670,12 +670,16 @@ render_tier0_coverage_card.ProvocationCoverage <- function(x, ...) {
 #' @param theme_set Researcher-authored ThemeSet.
 #' @param reflection_log Populated ResearcherReflectionLog (post
 #'   provocateur loop).
+#' @param quotes_per_theme Integer; number of representative quotes to
+#'   select per theme. Wired through from
+#'   \code{config$analysis$themes$quotes_per_theme}; defaults to 3.
 #' @return Named list keyed by theme name, each value a list with
 #'   \code{n_entries}, \code{participant_spread}, \code{provocations}
 #'   (count by category + total), \code{quotes} (raw representative
 #'   quotes -- NOT sentiment-sorted because Mode 1 has no sentiment).
 #' @export
-compute_mode1_theme_stats <- function(data, theme_set, reflection_log) {
+compute_mode1_theme_stats <- function(data, theme_set, reflection_log,
+                                        quotes_per_theme = 3L) {
   if (!inherits(theme_set, "ThemeSet")) {
     stop("theme_set must be a ThemeSet object", call. = FALSE)
   }
@@ -725,7 +729,7 @@ compute_mode1_theme_stats <- function(data, theme_set, reflection_log) {
 
     # Raw representative quotes -- first-N excerpts from the supporting
     # entries. Mode 1 has no sentiment to sort by, so we use entry order.
-    n_quotes_to_show <- min(3L, nrow(entries))
+    n_quotes_to_show <- min(quotes_per_theme, nrow(entries))
     text_col <- if ("std_text" %in% names(entries)) "std_text"
                 else if ("original_text" %in% names(entries)) "original_text"
                 else NA_character_
@@ -1314,7 +1318,8 @@ run_mode1 <- function(data, theme_set,
     }
   )
   theme_stats <- tryCatch(
-    compute_mode1_theme_stats(data, theme_set, reflection_log),
+    compute_mode1_theme_stats(data, theme_set, reflection_log,
+                                quotes_per_theme = config$analysis$themes$quotes_per_theme %||% 3L),
     error = function(e) {
       log_warn("Mode 1 theme stats compute failed: {e$message}")
       list()

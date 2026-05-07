@@ -394,7 +394,16 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     log_info("\n[STEP 1] Loading previous analyses (codebook-first)...")
     tryCatch({
       studies <- load_previous_studies(config$learning$base_dir, config$learning)
-      learning_context <- generate_learning_context(studies)
+      # Phase 50c: thread the user's config-set limits through.
+      # Previously this call took function defaults, which stuck
+      # max_manuscript_chars at .MAX_ENTRY_CHARS=8000 -- ignoring the
+      # user's config$learning$max_manuscript_chars (12000 default).
+      learning_context <- generate_learning_context(
+        studies,
+        max_codebook_chars = config$learning$max_codebook_chars %||% 20000L,
+        max_manuscript_chars = config$learning$max_manuscript_chars %||% 12000L,
+        max_raw_samples = config$learning$max_raw_samples %||% 5L
+      )
       learning_context <- generate_learning_reflection(learning_context, provider,
                                                          audit_log = audit_log,
                                                          response_cache = response_cache)
@@ -745,7 +754,8 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   analytic_data <- cascade_theme_assignments(analytic_data, coding_state, theme_set)
 
   # Enrich themes with entry counts, sentiment, quotes
-  theme_set <- enrich_themes(theme_set, analytic_data, coding_state)
+  theme_set <- enrich_themes(theme_set, analytic_data, coding_state,
+                               quotes_per_theme = config$analysis$themes$quotes_per_theme %||% 3L)
 
   # Safety net: prune any themes that ended up with zero entries
   # (shouldn't happen with code-path cascading, but guard against edge cases)

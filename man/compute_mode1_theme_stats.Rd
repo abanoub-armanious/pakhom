@@ -4,7 +4,12 @@
 \alias{compute_mode1_theme_stats}
 \title{Compute per-theme statistics for a Mode 1 run}
 \usage{
-compute_mode1_theme_stats(data, theme_set, reflection_log)
+compute_mode1_theme_stats(
+  data,
+  theme_set,
+  reflection_log,
+  quotes_per_theme = 3L
+)
 }
 \arguments{
 \item{data}{Tibble with std_id, std_text, plus theme_membership_*
@@ -15,6 +20,10 @@ T0.2 spread is desired.}
 
 \item{reflection_log}{Populated ResearcherReflectionLog (post
 provocateur loop).}
+
+\item{quotes_per_theme}{Integer; number of representative quotes to
+select per theme. Wired through from
+\code{config$analysis$themes$quotes_per_theme}; defaults to 3.}
 }
 \value{
 Named list keyed by theme name, each value a list with

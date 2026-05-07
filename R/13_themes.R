@@ -745,9 +745,13 @@ apply_framework_themes <- function(coding_state, framework_spec) {
 #' @param theme_set ThemeSet object
 #' @param data Tibble with theme_membership_* and sentiment columns
 #' @param coding_state ProgressiveCodingState (optional)
+#' @param quotes_per_theme Integer; number of representative quotes to
+#'   select per theme. Wired through from
+#'   \code{config$analysis$themes$quotes_per_theme}; defaults to 3.
 #' @return Enriched ThemeSet
 #' @export
-enrich_themes <- function(theme_set, data, coding_state = NULL) {
+enrich_themes <- function(theme_set, data, coding_state = NULL,
+                            quotes_per_theme = 3L) {
   validate_class(theme_set, "ThemeSet")
 
   # Use theme_membership_* columns for entry counting (deterministic)
@@ -790,7 +794,8 @@ enrich_themes <- function(theme_set, data, coding_state = NULL) {
       # call .select_representative_quotes (which is spread-aware and
       # respects sentiment positions), then preserve the ordered
       # character-vector shape that aggregate_theme_statistics expects.
-      selected <- .select_representative_quotes(theme_entries, n_quotes = 3)
+      selected <- .select_representative_quotes(theme_entries,
+                                                   n_quotes = quotes_per_theme)
       ordered_labels <- intersect(
         c("most_negative", "median", "most_positive"),
         names(selected)

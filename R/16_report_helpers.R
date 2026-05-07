@@ -9,9 +9,13 @@
 #' @param data tibble with theme_membership_* or emerged_themes columns
 #' @param theme_set ThemeSet object
 #' @param consolidated ConsolidatedCodes list (or NULL)
+#' @param quotes_per_theme Integer; number of representative quotes to
+#'   select per theme. Wired through from
+#'   \code{config$analysis$themes$quotes_per_theme}; defaults to 3.
 #' @return Named list of theme stats (one per theme)
 #' @export
-aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL) {
+aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
+                                         quotes_per_theme = 3L) {
   validate_class(theme_set, "ThemeSet")
 
   theme_stats <- list()
@@ -103,7 +107,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL) {
         )
       }
     } else {
-      quotes <- .select_representative_quotes(entries, n_quotes = 3)
+      quotes <- .select_representative_quotes(entries, n_quotes = quotes_per_theme)
     }
 
     theme_stats[[tn]] <- list(

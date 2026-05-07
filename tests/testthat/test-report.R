@@ -86,6 +86,89 @@ test_that("export_results creates expected files", {
   expect_true(file.exists(files$themes_file))
 })
 
+# Phase 50a regression test — themes.json preserves codes_included as
+# a JSON array, not as a ";"-collapsed string. The Phase 48 output-quality
+# audit incorrectly flagged "codes_included length 1 across all themes"
+# as a merge-tree corruption; the actual cause was the tibble-then-write
+# path collapsing character vectors to scalar strings. This test pins
+# the array-shape behavior so it can't regress.
+test_that("themes.json serializes codes_included / subthemes / keywords as JSON arrays (not ;-collapsed strings)", {
+  tmp_dir <- withr::local_tempdir()
+  data <- tibble::tibble(
+    std_id = paste0("e", 1:6),
+    std_text = paste("text", 1:6),
+    sentiment_score = c(-0.5, 0, 0.5, -0.3, 0.1, 0.4),
+    all_emotions = "joy",
+    emotion_intensity = 0.5,
+    emerged_themes = c(rep("Sleep Disruption", 3), rep("Treatment Efficacy", 3)),
+    n_themes = 1L,
+    source_table = "posts",
+    theme_membership_Sleep.Disruption     = c(1L, 1L, 1L, 0L, 0L, 0L),
+    theme_membership_Treatment.Efficacy   = c(0L, 0L, 0L, 1L, 1L, 1L)
+  )
+  # Mock theme_set with multi-element character vectors
+  ts <- create_theme_set(list(
+    list(id = 1, name = "Sleep Disruption",
+         description = "Themes about sleep disturbances",
+         codes_included = c("insomnia", "fragmented sleep", "early waking"),
+         subthemes = c("difficulty falling asleep", "night waking"),
+         keywords = c("sleep", "insomnia"),
+         supporting_quotes = c("Quote A", "Quote B"),
+         entry_count = 3L,
+         prevalence = "high",
+         sentiment_tendency = "negative"),
+    # Single-element vector — must STILL serialize as array, not unboxed scalar
+    list(id = 2, name = "Single Code Theme",
+         description = "Theme with one code",
+         codes_included = c("solo_code"),
+         subthemes = character(0),
+         keywords = character(0),
+         supporting_quotes = character(0),
+         entry_count = 1L,
+         prevalence = "low",
+         sentiment_tendency = "neutral")
+  ))
+
+  files <- export_results(
+    data = data, theme_set = ts,
+    correlations_df = tibble::tibble(),
+    insights = list(key_findings = list()),
+    consolidated = list(codes = tibble::tibble(
+      code_text = "x", frequency = 1L, code_type = "ai")),
+    output_dir = tmp_dir
+  )
+
+  # Read back the themes.json with array-preserving parser
+  themes_json <- jsonlite::fromJSON(files$themes_file, simplifyVector = FALSE)
+  payload <- themes_json$`_payload` %||% themes_json   # in case AC4 stamp wraps it
+
+  # Theme 1 has 3 codes -- must serialize as 3-element array
+  t1 <- payload[[1]]
+  expect_type(t1$codes_included, "list")           # JSON array -> R list
+  expect_equal(length(t1$codes_included), 3L)
+  expect_setequal(unlist(t1$codes_included),
+                  c("insomnia", "fragmented sleep", "early waking"))
+
+  # Theme 2 has 1 code -- the bug was that auto_unbox collapsed it to
+  # a scalar string. Must STILL serialize as a 1-element array.
+  t2 <- payload[[2]]
+  expect_type(t2$codes_included, "list")
+  expect_equal(length(t2$codes_included), 1L)
+  expect_equal(t2$codes_included[[1]], "solo_code")
+
+  # Same shape for subthemes + keywords + supporting_quotes
+  expect_type(t1$subthemes, "list")
+  expect_equal(length(t1$subthemes), 2L)
+  expect_type(t1$keywords, "list")
+  expect_equal(length(t1$keywords), 2L)
+  expect_type(t1$supporting_quotes, "list")
+  expect_equal(length(t1$supporting_quotes), 2L)
+
+  # Empty-vector theme: empty array, not null
+  expect_type(t2$subthemes, "list")
+  expect_equal(length(t2$subthemes), 0L)
+})
+
 # --- verify_run_integrity tests ---
 
 test_that("verify_run_integrity detects complete run", {

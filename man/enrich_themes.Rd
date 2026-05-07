@@ -4,7 +4,7 @@
 \alias{enrich_themes}
 \title{Enrich themes with entry counts, sentiment, and quotes}
 \usage{
-enrich_themes(theme_set, data, coding_state = NULL)
+enrich_themes(theme_set, data, coding_state = NULL, quotes_per_theme = 3L)
 }
 \arguments{
 \item{theme_set}{ThemeSet object}
@@ -12,6 +12,10 @@ enrich_themes(theme_set, data, coding_state = NULL)
 \item{data}{Tibble with theme_membership_* and sentiment columns}
 
 \item{coding_state}{ProgressiveCodingState (optional)}
+
+\item{quotes_per_theme}{Integer; number of representative quotes to
+select per theme. Wired through from
+\code{config$analysis$themes$quotes_per_theme}; defaults to 3.}
 }
 \value{
 Enriched ThemeSet

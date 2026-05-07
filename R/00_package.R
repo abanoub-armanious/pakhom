@@ -168,10 +168,15 @@ NULL
 .SENTIMENT_POSITIVE_THRESHOLD <- 0.2
 .DEFAULT_SIMILARITY_THRESHOLD <- 0.85
 
-# Maximum entry/manuscript text length passed to the LLM. Long entries are
-# truncated to this cap before being included in a prompt; the T0.1
-# verification ladder still validates against the FULL untruncated text so
-# any quote the model fabricates from beyond-cap content gets dropped.
+# Maximum per-entry text length passed to the LLM during coding. Long
+# entries are truncated to this cap before being included in a prompt;
+# the T0.1 verification ladder still validates against the FULL
+# untruncated text so any quote the model fabricates from beyond-cap
+# content gets dropped. Phase 50c: the manuscript-learning module no
+# longer shares this constant -- it carries its own cap
+# (`max_manuscript_chars`, default 12000, configurable via
+# config$learning$max_manuscript_chars). Phase 50f will replace this
+# constant with a context-window-aware computation.
 .MAX_ENTRY_CHARS <- 8000L
 
 # -- Methodology modes (multi-mode architecture, T1.3) -------------------------

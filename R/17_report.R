@@ -97,9 +97,36 @@ export_results <- function(data, theme_set, correlations_df, insights,
   export_files$correlations_file <- correlations_file
 
   # --- Themes JSON ---
+  # Phase 50a: bypass theme_set_to_tibble() for JSON. The tibble form
+  # collapses codes_included/subthemes/keywords into ";"-delimited strings
+  # (R/12_theme_data.R::theme_set_to_tibble), which is correct for CSV
+  # cells but WRONG for JSON consumers. Phase 48 audit caught this:
+  # downstream tools (and the plan-comparison agents) saw codes_included
+  # as a single string of length 1 and assumed the merge tree had
+  # corrupted the codes. The merge tree is fine; the JSON serialization
+  # just needed to preserve the in-memory character-vector shape. Wrap
+  # array-typed fields in I() so jsonlite::auto_unbox doesn't collapse
+  # length-1 vectors to scalars.
   themes_file <- file.path(output_dir, "themes.json")
-  themes_json <- theme_set_to_tibble(theme_set)
-  jsonlite::write_json(themes_json, themes_file, pretty = TRUE, auto_unbox = TRUE)
+  themes_json <- lapply(theme_set$themes, function(t) {
+    list(
+      id                   = as.integer(t$id %||% 0L),
+      name                 = t$name %||% "",
+      description          = t$description %||% "",
+      prevalence           = t$prevalence %||% NA_character_,
+      sentiment_tendency   = t$sentiment_tendency %||% NA_character_,
+      entry_count          = as.integer(t$entry_count %||% 0L),
+      n_codes              = length(t$codes_included %||% character(0)),
+      codes_included       = I(as.character(t$codes_included %||% character(0))),
+      subthemes            = I(as.character(t$subthemes %||% character(0))),
+      subthemes_structured = t$subthemes_structured %||% list(),
+      keywords             = I(as.character(t$keywords %||% character(0))),
+      narrative            = t$narrative %||% "",
+      supporting_quotes    = I(as.character(t$supporting_quotes %||% character(0)))
+    )
+  })
+  jsonlite::write_json(themes_json, themes_file, pretty = TRUE,
+                        auto_unbox = TRUE, null = "null", force = TRUE)
   if (!is.null(methodology_mode)) {
     tryCatch(stamp_methodology_json(themes_file, methodology_mode,
                                       run_id = basename(output_dir)),
@@ -393,8 +420,12 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   log_info("Generating HTML report...")
   tic("Report generation")
 
-  # Aggregate statistics
-  theme_stats <- aggregate_theme_statistics(data, theme_set, consolidated)
+  # Aggregate statistics. Phase 50d: thread the user's
+  # quotes_per_theme config through; was previously hardcoded to 3
+  # at R/16_report_helpers.R:106 + R/13_themes.R:793 even when the
+  # user set a different value in config$analysis$themes$quotes_per_theme.
+  theme_stats <- aggregate_theme_statistics(data, theme_set, consolidated,
+                                              quotes_per_theme = config$analysis$themes$quotes_per_theme %||% 3L)
   overall_stats <- aggregate_overall_statistics(data, theme_set, consolidated,
                                                  learning_context, config)
 
