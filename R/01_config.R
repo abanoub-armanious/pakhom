@@ -192,14 +192,6 @@ validate_config <- function(config) {
     }
   }
 
-  # Validate theme settings
-  tc <- config$analysis$themes
-  if (!is.null(tc$min_themes) && !is.null(tc$max_themes)) {
-    if (tc$min_themes > tc$max_themes) {
-      errors <- c(errors, "analysis.themes.min_themes cannot exceed max_themes")
-    }
-  }
-
   # Validate output dir
   output_dir <- config$output$results_dir
   if (is.null(output_dir)) {
@@ -431,27 +423,23 @@ print.ThematicConfig <- function(x, ...) {
         ai_assessment_interval = 200L
       ),
       themes = list(
-        # Phase 50e: removed 8 dead config knobs that were declared but
-        # never gated production behavior: min_subthemes_per_theme,
-        # max_subthemes_per_theme, review_iterations,
-        # auto_split_dominant, enrich_missing_fields,
+        # Phase 53 cleanup of Phase 52 audit deferral: removed five more
+        # dead theme knobs (min_themes, max_themes, max_theme_proportion,
+        # multi_label_assignment, ai_batch_size). Per C1 (AI decides when
+        # to stop) the count + proportion knobs were never gating real
+        # algorithm behavior -- they were display-only in the methodology
+        # appendix and validation glue. multi_label_assignment had no
+        # effect (cascade_theme_assignments always produces multi-label).
+        # ai_batch_size was never read (theming is one AI call per HAC
+        # node, not a batched task). Phase 50e removed the prior 8 dead
+        # knobs (min_subthemes_per_theme, max_subthemes_per_theme,
+        # review_iterations, auto_split_dominant, enrich_missing_fields,
         # strict_assignment_validation, max_rebalance_iterations,
-        # membership_threshold. Audit confirmed each had zero
-        # non-declaration references (or only Shiny-wizard / vignette
-        # surfacing of a knob that did nothing).
-        # min_themes / max_themes / max_theme_proportion are kept for
-        # now -- they're consumed only by the methodology-appendix
-        # display in R/17_report.R but pair with the upcoming
-        # algorithm rewrite (Phase 51+) and will be revisited then.
-        min_themes = NULL,       # Optional guidance; NULL = data-driven theme count
-        max_themes = NULL,       # Optional guidance; NULL = data-driven theme count
+        # membership_threshold).
         include_subthemes = TRUE,
         include_quotes = TRUE,
         quotes_per_theme = 3,
-        approach = "inductive",
-        max_theme_proportion = 0.60,  # Display warning threshold; rewrite revisits
-        multi_label_assignment = TRUE,
-        ai_batch_size = NULL  # NULL = dynamic (token-aware); integer = fixed batch size
+        approach = "inductive"
       ),
       correlations = list(
         method = "spearman",

@@ -11,14 +11,7 @@
   codes,
   distance_matrix,
   co_occurrence,
-  provider,
-  research_focus,
-  concept_str,
-  calibration_text,
-  reflexivity_block,
-  audit_log,
-  response_cache,
-  walk_state
+  walk_ctx
 )
 }
 \description{

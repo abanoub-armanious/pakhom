@@ -390,20 +390,12 @@ config_wizard_app <- function(output_path = "config.yaml") {
 
     shiny::hr(),
 
-    # Themes (iterative bottom-up)
-    shiny::h4("Theme Generation (Iterative Merge)"),
-    shiny::fluidRow(
-      shiny::column(4, shiny::selectInput("merge_strategy", "Merge Strategy",
-                                          choices = c("Auto (convergence)" = "auto",
-                                                      "Manual (pause each pass)" = "manual"),
-                                          selected = "auto", width = "100%")),
-      shiny::column(4, shiny::numericInput("max_merge_passes", "Max Merge Passes", value = 5,
-                                           min = 1, max = 10, width = "100%")),
-      shiny::column(4, shiny::numericInput("min_merges_continue", "Min Merges to Continue", value = 2,
-                                           min = 1, max = 10, width = "100%"))
-    ),
-    shiny::div(class = "help-text",
-               "Codes are iteratively merged bottom-up. Themes and subthemes emerge from the merge depth."),
+    # Phase 53: removed the "Theme Generation (Iterative Merge)" UI
+    # block. The pre-Phase-52 sequential pairwise insertion algorithm
+    # (max_merge_passes / min_merges_continue / merge_strategy) was
+    # replaced by HAC + AI-judged divisive tree walk in Phase 52, which
+    # has no merge-pass parameters. Per C1 the AI decides where to cut
+    # the dendrogram; there's nothing for the wizard to gate.
 
     shiny::hr(),
 
@@ -578,9 +570,10 @@ config_wizard_app <- function(output_path = "config.yaml") {
         ai_assessment_interval = val("ai_assessment_interval", 200)
       ),
       themes = list(
-        merge_strategy = val("merge_strategy", "auto"),
-        max_merge_passes = val("max_merge_passes", 5),
-        min_merges_to_continue = val("min_merges_continue", 2),
+        # Phase 53: removed dead pre-Phase-52 merge-pass knobs
+        # (merge_strategy, max_merge_passes, min_merges_to_continue).
+        # Phase 52's HAC + AI-judged tree walk has no merge passes;
+        # the AI decides where to cut the dendrogram.
         include_subthemes = TRUE,
         include_quotes = TRUE
       ),
@@ -618,11 +611,9 @@ config_wizard_app <- function(output_path = "config.yaml") {
   pos <- val("positionality")
   if (!is.null(pos)) config$study$researcher_positionality <- pos
 
-  # Add theme min/max if provided (NA means unset)
-  min_t <- input$min_themes
-  max_t <- input$max_themes
-  if (!is.null(min_t) && !is.na(min_t)) config$analysis$themes$min_themes <- min_t
-  if (!is.null(max_t) && !is.na(max_t)) config$analysis$themes$max_themes <- max_t
+  # Phase 53: theme min/max inputs were dead per C1 (AI decides when to
+  # stop). The wizard UI may still render them for display; this glue is
+  # removed so they don't get wired into the config.
 
   # Add learning if enabled
   if (isTRUE(input$learning_enabled)) {

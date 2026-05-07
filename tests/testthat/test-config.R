@@ -23,12 +23,20 @@ test_that("default_config has expected AI settings", {
 
 test_that("default_config has expected analysis settings", {
   cfg <- default_config("codebook_collaborative")
-  # Theme count constraints are NULL by default (data-driven).
+  # Phase 53 cleanup of Phase 52 audit deferral: min_themes / max_themes /
+  # max_theme_proportion / multi_label_assignment / ai_batch_size are
+  # removed (they were dead per C1 -- never gated algorithm behavior).
   # Phase 50e removed min/max_subthemes_per_theme as dead knobs.
   expect_null(cfg$analysis$themes$min_themes)
   expect_null(cfg$analysis$themes$max_themes)
-  expect_true(cfg$analysis$themes$max_theme_proportion > 0)
-  expect_true(cfg$analysis$themes$max_theme_proportion <= 1)
+  expect_null(cfg$analysis$themes$max_theme_proportion)
+  expect_null(cfg$analysis$themes$multi_label_assignment)
+  expect_null(cfg$analysis$themes$ai_batch_size)
+  # Surviving theme knobs are display-only; verify they keep their defaults.
+  expect_true(cfg$analysis$themes$include_subthemes)
+  expect_true(cfg$analysis$themes$include_quotes)
+  expect_equal(cfg$analysis$themes$quotes_per_theme, 3)
+  expect_equal(cfg$analysis$themes$approach, "inductive")
   expect_true(cfg$analysis$correlations$use_multi_label)
 })
 
@@ -47,9 +55,15 @@ test_that("default_config has new config fields", {
   expect_equal(cfg$analysis$review_points$format, "csv")
 })
 
-test_that("default_config has multi-label assignment enabled", {
+test_that("default_config: multi-label entry assignment is structural (correlations dispatch)", {
+  # Phase 53: multi_label_assignment under analysis$themes was a dead
+  # knob and is removed. Multi-label behavior is now structural in
+  # cascade_theme_assignments (entries flow into every theme that
+  # contains any of their codes) and in correlations dispatch via
+  # use_multi_label.
   cfg <- default_config("codebook_collaborative")
-  expect_true(cfg$analysis$themes$multi_label_assignment)
+  expect_null(cfg$analysis$themes$multi_label_assignment)
+  expect_true(cfg$analysis$correlations$use_multi_label)
 })
 
 test_that("validate_config errors on missing research_focus", {

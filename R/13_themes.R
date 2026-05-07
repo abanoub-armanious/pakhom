@@ -62,6 +62,9 @@
 #' @param concepts Optional character vector of core research concepts
 #' @param audit_log Optional \code{AuditLog} for recording each AI decision
 #' @param response_cache Optional \code{ResponseCache} for raw response capture
+#' @param live_tracker Optional \code{LiveTracker} (Phase 53). When provided,
+#'   the cluster snapshot is rewritten after every AI decision so a
+#'   researcher can `cat outputs/<run>/live/code_to_cluster.json` mid-run.
 #' @return \code{ThemeSet} S3 object with merge_history attached. The
 #'   merge_history$tree_walk field carries the HAC tree + per-node
 #'   decisions for replay (Phase 52 audit trail).
@@ -71,7 +74,8 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
                                        research_focus = "",
                                        concepts = NULL,
                                        audit_log = NULL,
-                                       response_cache = NULL) {
+                                       response_cache = NULL,
+                                       live_tracker = NULL) {
   if (!inherits(coding_state, "ProgressiveCodingState")) {
     stop("coding_state must be a ProgressiveCodingState object")
   }
@@ -119,7 +123,12 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
   # 3. Co-occurrence (used for prompt context; computed once, reused)
   co_occurrence <- .compute_code_cooccurrence(coding_state)
 
-  # 4. AI tree walk for THEMES (top-down divisive)
+  # 4. Build the walk context (Phase 53 cleanup of Phase 52 audit
+  # MEDIUM-8: the prior implementation passed 14 positional/named args
+  # to .evaluate_cluster, .walk_for_themes, and .walk_for_subthemes;
+  # the consolidation into walk_ctx + walk_state environment makes the
+  # call sites readable and lets us add live_tracker without growing
+  # the signature again).
   research_focus_str <- as.character(research_focus %||% "")
   concept_str <- if (!is.null(concepts) && length(concepts) > 0) {
     paste(concepts, collapse = ", ")
@@ -135,31 +144,44 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
     )
   }
 
-  walk_state <- list(
-    decisions       = list(),
-    n_calls         = 0L,
-    n_failed_calls  = 0L
+  # walk_state lives in an environment so child closures can mutate it
+  # in place without R's `<<-` super-assignment. Matches the pattern in
+  # R/audit_log.R and is idiomatic R.
+  walk_state <- new.env(parent = emptyenv())
+  walk_state$decisions      <- list()
+  walk_state$n_calls        <- 0L
+  walk_state$n_failed_calls <- 0L
+  walk_state$themes_so_far  <- list()  # for live snapshots; populated as walks complete
+
+  walk_ctx <- list(
+    provider          = provider,
+    research_focus    = research_focus_str,
+    concept_str       = concept_str,
+    calibration_text  = calibration_text,
+    reflexivity_block = config$reflexivity_block %||% "",
+    audit_log         = audit_log,
+    response_cache    = response_cache,
+    live_tracker      = live_tracker,
+    walk_state        = walk_state
   )
 
+  # 5. AI tree walk for THEMES (top-down divisive)
   themes_raw <- .walk_for_themes(
-    hac_node_idx     = nrow(hac$merge),
-    hac              = hac,
-    codes            = codes,
-    distance_matrix  = dist_matrix,
-    co_occurrence    = co_occurrence,
-    provider         = provider,
-    research_focus   = research_focus_str,
-    concept_str      = concept_str,
-    calibration_text = calibration_text,
-    reflexivity_block = config$reflexivity_block %||% "",
-    audit_log        = audit_log,
-    response_cache   = response_cache,
-    walk_state       = walk_state
+    hac_node_idx    = nrow(hac$merge),
+    hac             = hac,
+    codes           = codes,
+    distance_matrix = dist_matrix,
+    co_occurrence   = co_occurrence,
+    walk_ctx        = walk_ctx
   )
 
   log_info("Theme walk produced {length(themes_raw)} theme(s) from {walk_state$n_calls} AI decision(s)")
+  walk_state$themes_so_far <- .with_code_keys(themes_raw, codes)
+  live_snapshot_clusters(live_tracker, walk_status = "theme_walk_complete",
+                          walk_state = walk_state,
+                          themes_so_far = walk_state$themes_so_far)
 
-  # 5. AI tree walk for SUBTHEMES within each theme (one level deeper)
+  # 6. AI tree walk for SUBTHEMES within each theme (one level deeper)
   themes_raw <- lapply(themes_raw, function(t) {
     if (length(t$code_indices) <= 1L) {
       # Single-code theme -- no subtheme structure
@@ -171,25 +193,22 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
     }
 
     t$subtheme_groups <- .walk_for_subthemes(
-      theme_name        = t$name,
-      theme_node_idx    = t$node_idx,
-      hac               = hac,
-      codes             = codes,
-      distance_matrix   = dist_matrix,
-      co_occurrence     = co_occurrence,
-      provider          = provider,
-      research_focus    = research_focus_str,
-      concept_str       = concept_str,
-      calibration_text  = calibration_text,
-      reflexivity_block = config$reflexivity_block %||% "",
-      audit_log         = audit_log,
-      response_cache    = response_cache,
-      walk_state        = walk_state
+      theme_name      = t$name,
+      theme_node_idx  = t$node_idx,
+      hac             = hac,
+      codes           = codes,
+      distance_matrix = dist_matrix,
+      co_occurrence   = co_occurrence,
+      walk_ctx        = walk_ctx
     )
     t
   })
 
   log_info("Total AI decisions across theme + subtheme walks: {walk_state$n_calls}")
+  walk_state$themes_so_far <- .with_code_keys(themes_raw, codes)
+  live_snapshot_clusters(live_tracker, walk_status = "subtheme_walk_complete",
+                          walk_state = walk_state,
+                          themes_so_far = walk_state$themes_so_far)
 
   # 6. Build ThemeSet (Phase 51 hierarchy)
   theme_list <- lapply(seq_along(themes_raw), function(i) {
@@ -414,10 +433,7 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
 #'
 #' @keywords internal
 .walk_for_themes <- function(hac_node_idx, hac, codes, distance_matrix,
-                              co_occurrence, provider, research_focus,
-                              concept_str, calibration_text,
-                              reflexivity_block,
-                              audit_log, response_cache, walk_state) {
+                              co_occurrence, walk_ctx) {
   leaves <- .leaves_under_node(hac, hac_node_idx)
 
   # Single-leaf node -- always an atomic theme
@@ -430,21 +446,14 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
 
   # Ask the AI to evaluate this cluster
   decision <- .evaluate_cluster(
-    cluster_leaves    = leaves,
-    node_idx          = hac_node_idx,
-    level_label       = "THEME",
-    parent_label      = NULL,
-    codes             = codes,
-    distance_matrix   = distance_matrix,
-    co_occurrence     = co_occurrence,
-    provider          = provider,
-    research_focus    = research_focus,
-    concept_str       = concept_str,
-    calibration_text  = calibration_text,
-    reflexivity_block = reflexivity_block,
-    audit_log         = audit_log,
-    response_cache    = response_cache,
-    walk_state        = walk_state
+    cluster_leaves  = leaves,
+    node_idx        = hac_node_idx,
+    level_label     = "THEME",
+    parent_label    = NULL,
+    codes           = codes,
+    distance_matrix = distance_matrix,
+    co_occurrence   = co_occurrence,
+    walk_ctx        = walk_ctx
   )
 
   if (decision$decision %in% c("coherent_theme", "atomic_outlier")) {
@@ -459,15 +468,9 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
   # split_required -- recurse into both children of this internal node
   pair <- hac$merge[hac_node_idx, ]
   left_themes  <- .walk_for_themes(.child_node_arg(pair[1]), hac, codes,
-                                    distance_matrix, co_occurrence, provider,
-                                    research_focus, concept_str,
-                                    calibration_text, reflexivity_block,
-                                    audit_log, response_cache, walk_state)
+                                    distance_matrix, co_occurrence, walk_ctx)
   right_themes <- .walk_for_themes(.child_node_arg(pair[2]), hac, codes,
-                                    distance_matrix, co_occurrence, provider,
-                                    research_focus, concept_str,
-                                    calibration_text, reflexivity_block,
-                                    audit_log, response_cache, walk_state)
+                                    distance_matrix, co_occurrence, walk_ctx)
   c(left_themes, right_themes)
 }
 
@@ -485,10 +488,7 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
 #'
 #' @keywords internal
 .walk_for_subthemes <- function(theme_name, theme_node_idx, hac, codes,
-                                  distance_matrix, co_occurrence, provider,
-                                  research_focus, concept_str,
-                                  calibration_text, reflexivity_block,
-                                  audit_log, response_cache, walk_state) {
+                                  distance_matrix, co_occurrence, walk_ctx) {
   # Single-leaf theme -- no subtheme structure
   if (theme_node_idx < 0L) {
     return(list(list(
@@ -513,21 +513,14 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
     }
 
     decision <- .evaluate_cluster(
-      cluster_leaves    = child_leaves,
-      node_idx          = if (child < 0L) NA_integer_ else as.integer(child),
-      level_label       = "SUBTHEME",
-      parent_label      = theme_name,
-      codes             = codes,
-      distance_matrix   = distance_matrix,
-      co_occurrence     = co_occurrence,
-      provider          = provider,
-      research_focus    = research_focus,
-      concept_str       = concept_str,
-      calibration_text  = calibration_text,
-      reflexivity_block = reflexivity_block,
-      audit_log         = audit_log,
-      response_cache    = response_cache,
-      walk_state        = walk_state
+      cluster_leaves  = child_leaves,
+      node_idx        = if (child < 0L) NA_integer_ else as.integer(child),
+      level_label     = "SUBTHEME",
+      parent_label    = theme_name,
+      codes           = codes,
+      distance_matrix = distance_matrix,
+      co_occurrence   = co_occurrence,
+      walk_ctx        = walk_ctx
     )
 
     if (decision$decision == "coherent_theme") {
@@ -609,6 +602,19 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
   paste(codes[[top]]$name, "(and related)")
 }
 
+#' Add code_keys to theme records for the live cluster snapshot
+#'
+#' Theme records produced by the walks carry \code{code_indices} (positions
+#' in the codes list); the live snapshot writer wants the actual codebook
+#' keys for human-readable output. This helper resolves the mapping.
+#' @keywords internal
+.with_code_keys <- function(themes_raw, codes) {
+  lapply(themes_raw, function(t) {
+    t$code_keys <- vapply(t$code_indices, function(i) codes[[i]]$key, character(1))
+    t
+  })
+}
+
 # ==============================================================================
 # Single AI decision call
 # ==============================================================================
@@ -628,10 +634,21 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
 .evaluate_cluster <- function(cluster_leaves, node_idx, level_label,
                                 parent_label = NULL,
                                 codes, distance_matrix, co_occurrence,
-                                provider, research_focus, concept_str,
-                                calibration_text, reflexivity_block,
-                                audit_log, response_cache, walk_state) {
-  walk_state$n_calls <<- walk_state$n_calls + 1L
+                                walk_ctx) {
+  # Phase 53 cleanup of Phase 52 audit MEDIUM-8 + LOW-10:
+  # walk_state is now an environment, mutated in place without `<<-`.
+  # walk_ctx packs the long parameter list from the pre-cleanup version.
+  walk_state        <- walk_ctx$walk_state
+  provider          <- walk_ctx$provider
+  research_focus    <- walk_ctx$research_focus
+  concept_str       <- walk_ctx$concept_str
+  calibration_text  <- walk_ctx$calibration_text
+  reflexivity_block <- walk_ctx$reflexivity_block
+  audit_log         <- walk_ctx$audit_log
+  response_cache    <- walk_ctx$response_cache
+  live_tracker      <- walk_ctx$live_tracker
+
+  walk_state$n_calls <- walk_state$n_calls + 1L
   call_idx <- walk_state$n_calls
 
   cluster_summary <- .summarize_cluster_for_prompt(
@@ -719,7 +736,7 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
     parse_json_safely(ai_result$content)
   }, error = function(e) {
     log_warn("Theme decision call {call_idx} failed: {e$message}; defaulting to split_required")
-    walk_state$n_failed_calls <<- walk_state$n_failed_calls + 1L
+    walk_state$n_failed_calls <- walk_state$n_failed_calls + 1L
     NULL
   })
 
@@ -793,7 +810,7 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
   }
 
   # Record into walk_state for replay + audit
-  walk_state$decisions[[length(walk_state$decisions) + 1L]] <<- list(
+  walk_state$decisions[[length(walk_state$decisions) + 1L]] <- list(
     call_idx     = call_idx,
     level        = level_label,
     parent       = parent_label %||% NA_character_,
@@ -805,6 +822,14 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
     name         = decision_record$proposed_name %||% NA_character_,
     rationale    = decision_record$rationale
   )
+
+  # Phase 53 / C3: rewrite code_to_cluster.json after every AI decision so a
+  # researcher can `cat outputs/<run>/live/code_to_cluster.json` and see the
+  # in-progress decision trace. Themes-so-far is captured during recursion;
+  # the final theme list is snapshotted again after the walks complete.
+  live_snapshot_clusters(live_tracker, walk_status = "in_progress",
+                          walk_state = walk_state,
+                          themes_so_far = walk_state$themes_so_far %||% list())
 
   if (!is.null(audit_log)) {
     # NB: pass the verdict as `verdict = ...` (not `decision = ...`) so R's

@@ -2137,23 +2137,16 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   if (is.null(config)) config <- list()
   provider_name <- config$ai$provider %||% "openai"
   model_name <- config$ai[[provider_name]]$models$primary %||% "N/A"
-  min_themes <- config$analysis$themes$min_themes
-  max_themes <- config$analysis$themes$max_themes
-  max_prop <- (config$analysis$themes$max_theme_proportion %||% 0.60) * 100
 
-  theme_range_str <- if (!is.null(min_themes) && !is.null(max_themes)) {
-    paste0(min_themes, "-", max_themes, " (soft guidance)")
-  } else {
-    "Data-driven (no fixed range)"
-  }
-
-  # Expanded configuration table
+  # Phase 53: theme range / max proportion / multi-label rows replaced by
+  # the algorithm row. Per C1 (AI decides when to stop) those knobs no
+  # longer gate behavior; the methodology appendix now reports the
+  # algorithm itself rather than dead config values.
   fast_model <- config$ai[[provider_name]]$models$fast %||% model_name
   reasoning_model <- config$ai[[provider_name]]$models$reasoning %||% "N/A"
   corr_method <- config$analysis$correlations$method %||% "spearman"
   p_adjust <- config$analysis$correlations$adjust_method %||% "bonferroni"
   dynamic_corr <- if (isTRUE(config$analysis$correlations$dynamic_method)) "Yes (per-pair)" else "No"
-  multi_label <- if (isTRUE(config$analysis$themes$multi_label_assignment)) "Yes" else "No"
 
   content <- paste0(content,
     "## AI Models and Configuration\n\n",
@@ -2163,9 +2156,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "| Primary Model | ", model_name, " |\n",
     "| Fast Model (sentiment) | ", fast_model, " |\n",
     "| Reasoning Model (themes, review) | ", reasoning_model, " |\n",
-    "| Theme Range | ", theme_range_str, " |\n",
-    "| Max Theme Proportion | ", max_prop, "% |\n",
-    "| Multi-Label Assignment | ", multi_label, " |\n",
+    "| Theme generation | HAC (ward.D2 linkage, cosine distance on code-name embeddings; Jaccard fallback) + AI-judged divisive tree walk |\n",
     "| Correlation Method | ", corr_method, " |\n",
     "| Dynamic Method Selection | ", dynamic_corr, " |\n",
     "| P-Value Adjustment | ", p_adjust, " |\n\n"

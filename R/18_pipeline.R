@@ -357,6 +357,17 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     error = function(e) { log_warn("Fabrication log init failed: {e$message}"); NULL }
   )
 
+  # Phase 53 / C3: initialize the live tracker. Writes three streamed/snapshot
+  # artifacts under outputs/<run>/live/ -- code_assignments.jsonl (append-only
+  # event log), codebook_live.json (atomic-rewrite snapshot of the current
+  # codebook), code_to_cluster.json (atomic-rewrite snapshot of theme/subtheme
+  # hierarchy as the HAC tree walk produces themes). Researchers can `tail -F`
+  # or `cat` these during a long run to watch the analysis evolve.
+  live_tracker <- tryCatch(
+    init_live_tracker(output_dir),
+    error = function(e) { log_warn("Live tracker init failed: {e$message}"); NULL }
+  )
+
   if (isTRUE(resume)) {
     resume_step <- find_resume_point(checkpoint)
     if (!is.null(resume_step)) {
@@ -505,7 +516,8 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
       audit_log = audit_log,
       response_cache = response_cache,
       fabrication_log = fabrication_log,
-      framework_spec = framework_spec
+      framework_spec = framework_spec,
+      live_tracker = live_tracker
     )
 
     save_checkpoint(checkpoint, "progressive_coding", coding_state)
@@ -680,7 +692,8 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
         research_focus = config$study$research_focus,
         concepts = concepts,
         audit_log = audit_log,
-        response_cache = response_cache
+        response_cache = response_cache,
+        live_tracker = live_tracker
       )
 
       if (is.null(theme_set)) {

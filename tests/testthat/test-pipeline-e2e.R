@@ -242,8 +242,9 @@
       coding = list(progressive = TRUE, max_retries_per_entry = 1,
                        checkpoint_interval = 50),
       human_verification = list(enabled = FALSE),
-      themes = list(merge_strategy = "auto", max_merge_passes = 2,
-                       min_merges_to_continue = 1, include_subthemes = FALSE),
+      # Phase 53: removed dead pre-Phase-52 knobs (merge_strategy,
+      # max_merge_passes, min_merges_to_continue).
+      themes = list(include_subthemes = FALSE),
       correlations = list(method = "spearman",
                               adjust_method = "bonferroni",
                               min_observations = 3, min_theme_entries = 1,

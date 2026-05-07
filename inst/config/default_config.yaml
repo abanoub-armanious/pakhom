@@ -250,23 +250,15 @@ analysis:
     ai_assessment_interval: 200   # Ask the AI every N coded entries whether novel patterns remain.
 
   themes:
-    min_themes: ~                 # NULL = data-driven theme count.
-    max_themes: ~
-    include_subthemes: true
-    min_subthemes_per_theme: ~
-    max_subthemes_per_theme: ~
-    include_quotes: true
-    quotes_per_theme: 3
-    approach: "inductive"         # "inductive" or "deductive".
-    review_iterations: 1
-    max_theme_proportion: 0.60    # If any theme attracts > this fraction of entries, flag for split.
-    auto_split_dominant: false
-    enrich_missing_fields: true
-    strict_assignment_validation: true
-    max_rebalance_iterations: 3
-    multi_label_assignment: true  # Entries can belong to multiple themes (recommended).
-    membership_threshold: 0.15
-    ai_batch_size: ~              # NULL = dynamic; integer = fixed batch size.
+    # Per C1 (AI decides when to stop), pakhom does not gate theme generation
+    # on hardcoded counts or proportions. The HAC + AI-judged divisive tree
+    # walk (Phase 52) cuts the dendrogram wherever the AI articulates a
+    # coherent central organizing concept. The knobs that survived Phase
+    # 50e + 53 cleanup are display-only.
+    include_subthemes: true       # Walk one level deeper for subthemes within each theme.
+    include_quotes: true          # Render representative quotes in the per-theme report.
+    quotes_per_theme: 3           # Number of representative quotes selected per theme.
+    approach: "inductive"         # "inductive" (Mode 2) or "deductive" (Mode 3 framework).
 
   correlations:
     method: "spearman"            # "spearman", "pearson", or "kendall".

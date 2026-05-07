@@ -16,7 +16,8 @@ run_progressive_coding(
   audit_log = NULL,
   response_cache = NULL,
   fabrication_log = NULL,
-  framework_spec = NULL
+  framework_spec = NULL,
+  live_tracker = NULL
 )
 }
 \arguments{
@@ -62,6 +63,13 @@ Applied), the codebook is pre-populated with the framework's
 constructs and the AI is constrained to apply them verbatim
 (no NEW: prefix path). Anomaly segments go to a dedicated
 "anomaly" key. NULL preserves Mode 2 (free-form codebook) behavior.}
+
+\item{live_tracker}{Optional \code{LiveTracker} (Phase 53; from
+\code{\link{init_live_tracker}}). When provided, every coded
+segment streams to \code{outputs/<run>/live/code_assignments.jsonl}
+and \code{codebook_live.json} is rewritten after every entry so a
+researcher can \code{tail -F} or \code{cat} those files mid-run.
+Pass \code{NULL} (default) to disable.}
 }
 \value{
 ProgressiveCodingState with all entries processed

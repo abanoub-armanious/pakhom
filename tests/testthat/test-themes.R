@@ -27,7 +27,6 @@ test_that("cascade_theme_assignments maps entries through codes deterministicall
          codes_included = "Sleep disruption")
   ))
   ts$merge_history <- list(
-    passes = list(),
     code_to_theme_map = list(med_helps = "Medication Benefits",
                               sleep_bad = "Sleep Problems"),
     code_to_subtheme_map = list()
@@ -63,7 +62,6 @@ test_that("cascade_theme_assignments handles skipped entries", {
     list(id = 1, name = "Theme A", description = "", codes_included = "code1")
   ))
   ts$merge_history <- list(
-    passes = list(),
     code_to_theme_map = list(x = "Theme A"),
     code_to_subtheme_map = list()
   )
@@ -195,7 +193,6 @@ test_that("theme_membership columns are created", {
     list(id = 1, name = "Theme One", description = "", codes_included = "Code A")
   ))
   ts$merge_history <- list(
-    passes = list(),
     code_to_theme_map = list(a = "Theme One"),
     code_to_subtheme_map = list()
   )
@@ -306,4 +303,195 @@ test_that("Phase 52: cluster_decision is a valid audit log decision_type", {
   # would abort if cluster_decision were not registered. Pin this by
   # asserting it's in the validator's allow-list.
   expect_true("cluster_decision" %in% pakhom:::.valid_decision_types)
+})
+
+# Phase 52 deferred audit tests (added in Phase 53 cleanup pass) ------------
+# These require mocking ai_complete to exercise the AI-decision paths
+# (.evaluate_cluster) without burning real API credits.
+
+.fake_provider_for_theming <- function() {
+  fp <- list(
+    provider          = "openai",
+    models            = list(primary = "gpt-4o", embedding = NULL),
+    methodology_rules = "",
+    temperature       = list(theming = 0.4),
+    max_tokens        = list(theming = 2000)
+  )
+  class(fp) <- "AIProvider"
+  fp
+}
+
+.three_code_state <- function() {
+  state <- create_coding_state()
+  for (k in c("a", "b", "c")) {
+    state$codebook[[k]] <- list(
+      code_name = paste("Code", toupper(k)), description = "",
+      type = "descriptive", frequency = 1L,
+      entry_ids = paste0("e", k), coded_segments = list()
+    )
+  }
+  state
+}
+
+test_that("Phase 52: .evaluate_cluster coherent_theme path produces a single theme", {
+  state <- .three_code_state()
+  testthat::local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt, task,
+                            temperature, response_schema, ...) {
+      list(
+        content = jsonlite::toJSON(list(
+          central_organizing_concept = paste(
+            "All three codes describe the daily lived experience of taking ",
+            "medication while managing competing routines."),
+          decision = "coherent_theme",
+          proposed_name = "Medication management routines",
+          proposed_description = "How participants integrate doses into daily life.",
+          rationale = paste(
+            "All three codes orbit the daily-life integration concept; even ",
+            "the most distant pair shares this organizing principle.")
+        ), auto_unbox = TRUE, null = "null"),
+        usage = list()
+      )
+    },
+    .package = "pakhom"
+  )
+
+  ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
+                                     config = list())
+  expect_s3_class(ts, "ThemeSet")
+  expect_equal(n_themes(ts), 1L)
+  expect_equal(ts$themes[[1]]$name, "Medication management routines")
+})
+
+test_that("Phase 52: .evaluate_cluster split_required cascade produces N atomic themes", {
+  state <- .three_code_state()
+  testthat::local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt, task,
+                            temperature, response_schema, ...) {
+      list(
+        content = jsonlite::toJSON(list(
+          central_organizing_concept = "no single principle covers the cluster",
+          decision = "split_required",
+          proposed_name = NULL,
+          proposed_description = NULL,
+          rationale = "the most-distant pair cannot share a principle"
+        ), auto_unbox = TRUE, null = "null"),
+        usage = list()
+      )
+    },
+    .package = "pakhom"
+  )
+
+  ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
+                                     config = list())
+  # 3 codes + always-split = recurse to leaves = 3 single-code themes
+  expect_equal(n_themes(ts), 3L)
+})
+
+test_that("Phase 52: AI failure increments n_failed_calls + returns split_required", {
+  state <- .three_code_state()
+  call_count <- 0L
+  testthat::local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt, task,
+                            temperature, response_schema, ...) {
+      call_count <<- call_count + 1L
+      # Single-code AI failure (1 of 2 internal nodes) -- below the 25%
+      # threshold, so circuit breaker doesn't fire.
+      if (call_count == 1L) stop("simulated network failure")
+      list(
+        content = jsonlite::toJSON(list(
+          central_organizing_concept = "no single principle covers the cluster",
+          decision = "split_required",
+          proposed_name = NULL, proposed_description = NULL,
+          rationale = "the most-distant pair cannot share a principle"
+        ), auto_unbox = TRUE, null = "null"),
+        usage = list()
+      )
+    },
+    .package = "pakhom"
+  )
+
+  ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
+                                     config = list())
+  # AI failure defaults to split_required at the failed node -> recurse to
+  # leaves; downstream nodes succeed -> 3 single-code themes total.
+  expect_equal(n_themes(ts), 3L)
+})
+
+test_that("Phase 52: articulation enforcement forces split on vacuous coherent_theme", {
+  # The schema requires central_organizing_concept but cannot enforce a
+  # minimum length. .evaluate_cluster post-validates and forces a split
+  # when the articulation is < 30 chars on a coherent_theme verdict.
+  state <- .three_code_state()
+  testthat::local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt, task,
+                            temperature, response_schema, ...) {
+      list(
+        content = jsonlite::toJSON(list(
+          # Vacuous one-word articulation -- 10 chars, well below the 30-char min
+          central_organizing_concept = "strategies",
+          decision = "coherent_theme",
+          proposed_name = "Strategies",
+          proposed_description = "...",
+          rationale = "..."
+        ), auto_unbox = TRUE, null = "null"),
+        usage = list()
+      )
+    },
+    .package = "pakhom"
+  )
+
+  # Note: the articulation-enforcement warning goes through logger::log_warn()
+  # (stderr), not R's warning() machinery, so expect_warning doesn't catch
+  # it. We assert behavior instead: forced split at every node -> all three
+  # codes atomic-outlier themes.
+  ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
+                                     config = list())
+  expect_equal(n_themes(ts), 3L)
+})
+
+test_that("Phase 52: circuit breaker aborts theme generation at >25% failure rate", {
+  # Build a 6-code state so we have enough HAC nodes (5) to see the
+  # circuit breaker threshold. With every call failing the breaker fires
+  # once n_failed_calls >= 4 AND > floor(n_calls * 0.25) which happens
+  # at the 4th failed call.
+  state <- create_coding_state()
+  for (k in letters[1:6]) {
+    state$codebook[[k]] <- list(
+      code_name = paste("Code", toupper(k)), description = "",
+      type = "descriptive", frequency = 1L,
+      entry_ids = paste0("e", k), coded_segments = list()
+    )
+  }
+  testthat::local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt, task,
+                            temperature, response_schema, ...) {
+      stop("simulated provider outage")
+    },
+    .package = "pakhom"
+  )
+  expect_error(
+    suppressWarnings(generate_themes_iterative(state, .fake_provider_for_theming(),
+                                                  config = list())),
+    "Theme generation aborted"
+  )
+})
+
+test_that("Phase 52: .coalesce_virtual_subtheme_groups merges adjacent NA-named groups", {
+  groups <- list(
+    list(name = NA_character_, description = "", code_indices = c(1L, 2L)),
+    list(name = NA_character_, description = "", code_indices = 3L),
+    list(name = "Named subtheme", description = "d", code_indices = c(4L, 5L)),
+    list(name = NA_character_, description = "", code_indices = 6L)
+  )
+  out <- pakhom:::.coalesce_virtual_subtheme_groups(groups)
+  expect_length(out, 3L)
+  # First two NA-named groups coalesced into one
+  expect_true(is.na(out[[1]]$name))
+  expect_setequal(out[[1]]$code_indices, c(1L, 2L, 3L))
+  # Named subtheme survives unchanged
+  expect_equal(out[[2]]$name, "Named subtheme")
+  # Trailing NA-named group survives standalone
+  expect_true(is.na(out[[3]]$name))
+  expect_equal(out[[3]]$code_indices, 6L)
 })

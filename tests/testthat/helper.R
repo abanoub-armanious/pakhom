@@ -112,10 +112,11 @@ mock_config <- function() {
     ),
     analysis = list(
       themes = list(
-        min_themes = 3, max_themes = 10,
-        multi_label_assignment = TRUE,
-        # Phase 50e: removed `membership_threshold = 0.15` (was dead).
-        max_theme_proportion = 0.60
+        # Phase 53: removed dead theme knobs (min_themes, max_themes,
+        # multi_label_assignment, max_theme_proportion). Per C1 the
+        # algorithm has no count thresholds; per Phase 52 audit cleanup
+        # multi_label_assignment had no effect and was display-only.
+        include_subthemes = TRUE
       ),
       correlations = list(
         method = "spearman",

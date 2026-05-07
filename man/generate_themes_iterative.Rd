@@ -12,7 +12,8 @@ generate_themes_iterative(
   research_focus = "",
   concepts = NULL,
   audit_log = NULL,
-  response_cache = NULL
+  response_cache = NULL,
+  live_tracker = NULL
 )
 }
 \arguments{
@@ -32,6 +33,10 @@ the algorithm has no merge-pass parameters)}
 \item{audit_log}{Optional \code{AuditLog} for recording each AI decision}
 
 \item{response_cache}{Optional \code{ResponseCache} for raw response capture}
+
+\item{live_tracker}{Optional \code{LiveTracker} (Phase 53). When provided,
+the cluster snapshot is rewritten after every AI decision so a
+researcher can \verb{cat outputs/<run>/live/code_to_cluster.json} mid-run.}
 }
 \value{
 \code{ThemeSet} S3 object with merge_history attached. The

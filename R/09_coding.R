@@ -165,6 +165,12 @@ create_coding_state <- function(learning_context = NULL, config_hash = NULL) {
 #'   constructs and the AI is constrained to apply them verbatim
 #'   (no NEW: prefix path). Anomaly segments go to a dedicated
 #'   "anomaly" key. NULL preserves Mode 2 (free-form codebook) behavior.
+#' @param live_tracker Optional \code{LiveTracker} (Phase 53; from
+#'   \code{\link{init_live_tracker}}). When provided, every coded
+#'   segment streams to \code{outputs/<run>/live/code_assignments.jsonl}
+#'   and \code{codebook_live.json} is rewritten after every entry so a
+#'   researcher can \code{tail -F} or \code{cat} those files mid-run.
+#'   Pass \code{NULL} (default) to disable.
 #' @return ProgressiveCodingState with all entries processed
 #' @export
 run_progressive_coding <- function(data, provider, config = list(),
@@ -176,7 +182,8 @@ run_progressive_coding <- function(data, provider, config = list(),
                                     audit_log = NULL,
                                     response_cache = NULL,
                                     fabrication_log = NULL,
-                                    framework_spec = NULL) {
+                                    framework_spec = NULL,
+                                    live_tracker = NULL) {
   config$max_retries_per_entry <- config$max_retries_per_entry %||% 1L
   config$include_in_vivo <- config$include_in_vivo %||% TRUE
   # Phase 50e: removed `config$code_style %||% "descriptive"` --
@@ -375,13 +382,50 @@ run_progressive_coding <- function(data, provider, config = list(),
         log_ai_decision(audit_log, "coding", "entry_skipped",
                         entry_id = entry_id, reason = er$skip_reason %||% "no_relevant_content")
       }
-    } else if (!is.null(audit_log)) {
-      # Log each coded segment
-      for (seg in er$coded_segments) {
-        log_ai_decision(audit_log, "coding", "code_assignment",
-                        entry_id = entry_id, code_name = seg$code_name,
-                        code_key = seg$code_key)
+    } else {
+      # Phase 53 / C3: stream every (entry, code, segment) assignment to
+      # the live tracker so a researcher can `tail -F` the artifact during
+      # a long run. Done in the same loop as audit-log emission so the
+      # two stay in lockstep. The is_new_code flag is computed against
+      # codes_before; codebook_snapshot is rewritten at end-of-entry below.
+      if (!is.null(audit_log) || !is.null(live_tracker)) {
+        codes_before_set <- if (!is.null(live_tracker)) {
+          # Snapshot of codebook keys BEFORE this entry, so we can flag
+          # newly-created codes as is_new_code = TRUE in the live event log.
+          if (codes_before == 0L) character(0L) else
+            head(names(state$codebook), codes_before)
+        } else NULL
+
+        for (seg in er$coded_segments) {
+          if (!is.null(audit_log)) {
+            log_ai_decision(audit_log, "coding", "code_assignment",
+                            entry_id = entry_id, code_name = seg$code_name,
+                            code_key = seg$code_key)
+          }
+          if (!is.null(live_tracker)) {
+            live_tracker <- live_record_assignment(
+              tracker     = live_tracker,
+              entry_id    = entry_id,
+              code_key    = seg$code_key,
+              code_name   = seg$code_name,
+              segment     = seg,
+              is_new_code = !(seg$code_key %in% codes_before_set),
+              entry_index = idx
+            )
+          }
+        }
       }
+    }
+
+    # Phase 53 / C3: rewrite codebook_live.json after every entry (cadence
+    # configurable via init_live_tracker(codebook_snapshot_every = N); the
+    # default 1 = after every entry).
+    if (!is.null(live_tracker)) {
+      live_tracker <- live_snapshot_codebook(
+        tracker     = live_tracker,
+        codebook    = state$codebook,
+        entry_index = idx
+      )
     }
 
     # Compute n_coded NOW (used by both code-birth tracking and saturation
@@ -551,6 +595,12 @@ run_progressive_coding <- function(data, provider, config = list(),
     log_info("  Saturation:        reached at entry {state$saturation$reached_at_entry} ({state$saturation$reached_at_coded} coded)")
   } else {
     log_info("  Saturation:        not reached (all entries processed)")
+  }
+
+  # Phase 53 / C3: force a final codebook_live.json snapshot regardless of
+  # cadence so the on-disk state always reflects post-coding reality.
+  if (!is.null(live_tracker)) {
+    live_snapshot_codebook(live_tracker, state$codebook, force = TRUE)
   }
 
   state
