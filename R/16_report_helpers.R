@@ -273,7 +273,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
 #'     entry has \code{median}, \code{mad}, \code{mean}, \code{sd}
 #'   \item \code{example_quotes}: character vector of representative
 #'     quotes tagged with per-entry metric values
-#'     (e.g. \samp{"I take it nightly... [Drug Rating: 8; Like Count: 12]"})
+#'     (e.g. \samp{"<quote text>... [<metric_a>: 8; <metric_b>: 12]"})
 #' }
 #'
 #' Virtual NA-named subtheme wrappers (added by the ThemeSet hierarchy
@@ -378,7 +378,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
 #' selection as \code{.select_representative_quotes} (so the quotes span
 #' the sentiment range when available), then formats each as the entry's
 #' text followed by a bracketed metric-tag block:
-#' \samp{"quote text" [Drug Rating: 8; Like Count: 12]}
+#' \samp{"<quote text>" [<metric_a>: 8; <metric_b>: 12]}
 #'
 #' When the entry is missing a metric, that metric is omitted from the
 #' tag (rather than printing "NA"); when all metrics are missing the
@@ -427,7 +427,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
 
 #' Format a bracketed metric-tag block for one entry row
 #'
-#' \samp{[Drug Rating: 8; Like Count: 12]} -- one metric=value pair per metric
+#' \samp{[<metric_a>: 8; <metric_b>: 12]} -- one metric=value pair per metric
 #' column the entry has a non-NA value for, semicolon-separated, wrapped
 #' in square brackets. Returns the empty string when the row is missing
 #' all metric values (so the renderer can omit the tag entirely).

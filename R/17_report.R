@@ -1488,7 +1488,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 #'   \item \strong{Examples of comments} -- up to N representative quotes
 #'     (sentiment-positioned when sentiment_score is available),
 #'     each tagged with the source entry's metric values as
-#'     \samp{[Drug Rating: 8; Like Count: 12]}.
+#'     \samp{[<metric_a>: 8; <metric_b>: 12]}.
 #' }
 #'
 #' Returns the empty string when:
@@ -1513,9 +1513,9 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   metric_cols <- ts$metric_cols %||% character(0)
 
   # Build header row. Pretty-print metric column names (underscores ->
-  # spaces) so the header reads "Drug Rating" rather than "Drug_Rating"
-  # while the underlying data column stays canonical. Matches dayvigo
-  # paper-style table conventions.
+  # spaces) so e.g. a "drug_rating" column heads as "drug rating" in the
+  # rendered table while the underlying data column stays canonical.
+  # Paper-style table convention; dataset-agnostic (no hardcoded names).
   .pretty_metric <- function(mc) gsub("_+", " ", mc)
   header_cells <- c("Subtheme", "n")
   for (mc in metric_cols) {
@@ -1571,7 +1571,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     # Phase 55 audit MEDIUM-15: clarify that the bracketed metric tags
     # after each example quote are the SOURCE ENTRY's metric values,
     # NOT subtheme aggregates. Without this preface a reader could
-    # confuse a per-entry "[Drug Rating: 8]" with a Median(MAD) cell.
+    # confuse a per-entry "[<metric>: 8]" with a Median(MAD) cell.
     "<p class=\"subtheme-table-caption\"><em>",
     "Median(MAD) and Mean(SD) columns are subtheme aggregates; the ",
     "bracketed values after each example comment are that source ",

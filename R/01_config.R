@@ -369,7 +369,12 @@ print.ThematicConfig <- function(x, ...) {
           text = c("text", "content", "body", "comment"),
           author = c("author", "user", "username"),
           timestamp = c("date", "timestamp", "created"),
-          metrics = c("score", "rating", "likes")
+          # generic source-type has no known schema; metric detection
+          # falls through to .detect_metric_columns() auto-detect
+          # (any numeric column that isn't internal or theme_membership_*).
+          # Per-source-type metric hints belong only where the source has
+          # a known schema (reddit, drugscom).
+          metrics = character(0)
         )
       )
     ),
