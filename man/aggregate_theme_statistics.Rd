@@ -8,7 +8,8 @@ aggregate_theme_statistics(
   data,
   theme_set,
   consolidated = NULL,
-  quotes_per_theme = 3L
+  quotes_per_theme = 3L,
+  config = NULL
 )
 }
 \arguments{
@@ -21,9 +22,19 @@ aggregate_theme_statistics(
 \item{quotes_per_theme}{Integer; number of representative quotes to
 select per theme. Wired through from
 \code{config$analysis$themes$quotes_per_theme}; defaults to 3.}
+
+\item{config}{Optional ThematicConfig or config list. When supplied,
+\code{config$data$column_mappings$metric_columns} is used as the
+explicit metric allowlist for the per-subtheme paper-style tables
+(Phase 55). When NULL or empty, metrics auto-detect from the data
+via \code{\link{.detect_metric_columns}}.}
 }
 \value{
-Named list of theme stats (one per theme)
+Named list of theme stats (one per theme). Each theme entry
+carries a \code{subtheme_stats} list (Phase 55) with one element
+per real subtheme: n, per-metric Median(MAD) + Mean(SD), and
+metric-tagged example quotes -- the paper-style per-subtheme rows
+the report renders into a table inside each theme's card.
 }
 \description{
 Aggregate per-theme statistics for report

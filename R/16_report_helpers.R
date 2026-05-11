@@ -12,14 +12,28 @@
 #' @param quotes_per_theme Integer; number of representative quotes to
 #'   select per theme. Wired through from
 #'   \code{config$analysis$themes$quotes_per_theme}; defaults to 3.
-#' @return Named list of theme stats (one per theme)
+#' @param config Optional ThematicConfig or config list. When supplied,
+#'   \code{config$data$column_mappings$metric_columns} is used as the
+#'   explicit metric allowlist for the per-subtheme paper-style tables
+#'   (Phase 55). When NULL or empty, metrics auto-detect from the data
+#'   via \code{\link{.detect_metric_columns}}.
+#' @return Named list of theme stats (one per theme). Each theme entry
+#'   carries a \code{subtheme_stats} list (Phase 55) with one element
+#'   per real subtheme: n, per-metric Median(MAD) + Mean(SD), and
+#'   metric-tagged example quotes -- the paper-style per-subtheme rows
+#'   the report renders into a table inside each theme's card.
 #' @export
 aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
-                                         quotes_per_theme = 3L) {
+                                         quotes_per_theme = 3L,
+                                         config = NULL) {
   validate_class(theme_set, "ThemeSet")
 
   theme_stats <- list()
   total <- nrow(data)
+
+  # Phase 55: dataset-agnostic metric column detection. Used for paper-
+  # style per-subtheme summary tables + metric-tagged example quotes.
+  metric_cols <- .detect_metric_columns(data, config)
 
   for (t in theme_set$themes) {
     tn <- t$name
@@ -65,6 +79,8 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
         keywords = t$keywords %||% character(0),
         subthemes = real_subtheme_names,
         subthemes_structured = real_subtheme_objs,
+        subtheme_stats = list(),
+        metric_cols = metric_cols,
         prevalence = t$prevalence %||% "unknown",
         theme_kind = theme_kind,
         quotes_with_context = list()
@@ -126,6 +142,19 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
       quotes <- .select_representative_quotes(entries, n_quotes = quotes_per_theme)
     }
 
+    # Phase 55: per-subtheme paper-style statistics. For each REAL
+    # (non-virtual) subtheme of this theme, compute n + Median(MAD) +
+    # Mean(SD) for each auto-detected metric column + metric-tagged
+    # example quotes. The renderer turns this list into a table inside
+    # the theme's card. Themes without subthemes (or with only the
+    # virtual NA-named wrapper) get an empty list.
+    subtheme_stats <- .compute_subtheme_statistics(
+      theme         = t,
+      data          = data,
+      metric_cols   = metric_cols,
+      quotes_per_subtheme = quotes_per_theme
+    )
+
     theme_stats[[tn]] <- list(
       name = tn,
       description = t$description %||% "",
@@ -138,6 +167,8 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
       keywords = t$keywords %||% theme_codes(t)[seq_len(min(5, length(theme_codes(t))))],
       subthemes = real_subtheme_names,
       subthemes_structured = real_subtheme_objs,
+      subtheme_stats = subtheme_stats,
+      metric_cols = metric_cols,
       prevalence = t$prevalence %||% "unknown",
       theme_kind = theme_kind,
       quotes_with_context = quotes
@@ -145,6 +176,300 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
   }
 
   theme_stats
+}
+
+# ==============================================================================
+# Phase 55: dataset-agnostic metric helpers + per-subtheme stats
+# ==============================================================================
+# The paper-style per-theme tables in dayvigo / ozempic / vyvanse-quality
+# analyses show one row per subtheme with: n, Median(MAD) <metric>,
+# Mean(SD) <metric>, Examples of comments tagged [metric: value; ...].
+# Phase 55 implements that surface in pakhom while staying dataset-
+# agnostic: metrics auto-detect from any column_map$metrics override or
+# fall back to "any numeric column the package didn't engineer."
+
+#' Detect metric columns in a data frame, dataset-agnostically
+#'
+#' Returns the names of numeric columns in \code{data} that can sensibly
+#' be summarized as quantitative metrics in per-theme + per-subtheme
+#' tables. Package-internal columns (those pakhom engineers itself --
+#' sentiment_score, emotion_intensity, theme_membership_*, etc.) are
+#' excluded; everything else numeric is a candidate.
+#'
+#' Explicit override path: when \code{config$data$column_mappings$metric_columns}
+#' is non-empty, those names are used verbatim (intersected with the data's
+#' columns to avoid referencing missing fields). This matches the explicit
+#' \code{detect_columns()} mapping path in \code{R/07_data_loading.R}.
+#'
+#' Mirrors (and consolidates) the inline detection in
+#' \code{compute_correlations} (R/14_correlations.R:82-106; Phase 50b).
+#' Future cleanup: refactor that site to call this helper.
+#'
+#' @param data tibble with the analytical data (post-cascade)
+#' @param config Optional ThematicConfig or config list
+#' @param explicit Optional character vector of metric column names to
+#'   use verbatim (intersected with the data's columns). Bypasses the
+#'   config dig. Used by \code{compute_correlations} which already has
+#'   a flat \code{config$metric_columns} field at hand.
+#'
+#' @section Caveat -- sentiment_score collision:
+#'   The auto-detect path excludes \code{sentiment_score} (the package-
+#'   engineered column from R/10_sentiment.R) by name. If a user's
+#'   corpus happens to have its own \code{sentiment_score} numeric
+#'   column that they want treated AS A METRIC, the auto-detect silently
+#'   drops it. Workaround: supply an explicit override via
+#'   \code{config$data$column_mappings$metric_columns} (or the direct
+#'   \code{explicit=} arg) -- the override path returns the requested
+#'   columns verbatim, bypassing the internal-column exclusion. The
+#'   same collision applies to any other internal name
+#'   (\code{emotion_intensity}, \code{n_themes}, etc.).
+#' @return Character vector of metric column names (possibly empty)
+#' @keywords internal
+.detect_metric_columns <- function(data, config = NULL, explicit = NULL) {
+  # Direct injection path (used by callers with a pre-resolved override)
+  if (!is.null(explicit) && length(explicit) > 0L) {
+    return(intersect(as.character(explicit), names(data)))
+  }
+
+  # Config-dig path
+  if (!is.null(config)) {
+    if (inherits(config, "ThematicConfig")) {
+      explicit <- config$data$column_mappings$metric_columns
+    } else if (is.list(config)) {
+      explicit <- config$data$column_mappings$metric_columns %||%
+                    config$column_mappings$metric_columns %||%
+                    config$metric_columns
+    }
+  }
+  if (!is.null(explicit) && length(explicit) > 0L) {
+    return(intersect(as.character(explicit), names(data)))
+  }
+
+  # Auto-detect: numeric, not package-internal, not theme_membership_*
+  internal_cols <- c(
+    "std_id", "std_text", "std_author", "std_timestamp", "original_text",
+    "sentiment_score", "emotion_intensity", "confidence",
+    "all_emotions", "emerged_themes", "n_themes", "source_table",
+    "subtheme_assignments", ".parsed_ts"
+  )
+  is_internal <- function(nm) {
+    nm %in% internal_cols || grepl("^theme_membership_", nm)
+  }
+  keep <- vapply(names(data), function(nm) {
+    !is_internal(nm) && is.numeric(data[[nm]])
+  }, logical(1))
+  names(data)[keep]
+}
+
+#' Compute per-subtheme statistics for a theme (paper-style)
+#'
+#' For each REAL (non-virtual, named) subtheme of \code{theme}, returns
+#' a record carrying:
+#' \itemize{
+#'   \item \code{name}: subtheme name
+#'   \item \code{description}: subtheme description (1-2 sentences)
+#'   \item \code{n}: entries that contributed to this subtheme
+#'   \item \code{metric_stats}: list keyed by metric column name; each
+#'     entry has \code{median}, \code{mad}, \code{mean}, \code{sd}
+#'   \item \code{example_quotes}: character vector of representative
+#'     quotes tagged with per-entry metric values
+#'     (e.g. \samp{"I take it nightly... [Drug Rating: 8; Like Count: 12]"})
+#' }
+#'
+#' Virtual NA-named subtheme wrappers (added by the ThemeSet hierarchy
+#' for themes without AI-clustered subthemes) are skipped. Themes with
+#' only virtual subthemes return an empty list -- the renderer falls
+#' back to the theme-level summary in that case.
+#'
+#' Membership: an entry belongs to subtheme S if its
+#' \code{subtheme_assignments} column (populated by
+#' \code{cascade_theme_assignments}) contains S's name. When that
+#' column is absent we fall back to "every entry in the theme is in
+#' every subtheme" (degenerate but non-fatal -- the table still renders,
+#' just without entry-level filtering).
+#'
+#' @param theme A theme list (one element of \code{theme_set$themes})
+#' @param data Analytical tibble with theme_membership_* +
+#'   subtheme_assignments columns
+#' @param metric_cols Character vector of metric column names
+#'   (from \code{.detect_metric_columns})
+#' @param quotes_per_subtheme Integer; default 3
+#' @return Named list (one per real subtheme) of stat records
+#' @keywords internal
+.compute_subtheme_statistics <- function(theme, data, metric_cols,
+                                            quotes_per_subtheme = 3L) {
+  if (is.null(theme$subthemes) || length(theme$subthemes) == 0L) {
+    return(list())
+  }
+
+  # Restrict to entries belonging to THIS theme. Reuse the same
+  # membership signal aggregate_theme_statistics uses.
+  tn <- theme$name
+  safe_col <- paste0("theme_membership_", make.names(tn))
+  theme_entries <- if (safe_col %in% names(data)) {
+    data[data[[safe_col]] == 1L, ]
+  } else if ("emerged_themes" %in% names(data)) {
+    data[!is.na(data$emerged_themes) &
+           grepl(tn, data$emerged_themes, fixed = TRUE), ]
+  } else {
+    data[0, ]
+  }
+
+  out <- list()
+  for (s in theme$subthemes) {
+    if (!inherits(s, "Subtheme")) next
+    snm <- s$name %||% NA_character_
+    if (is.na(snm) || nchar(snm %||% "") == 0L) next  # virtual wrapper
+
+    # Entries within this subtheme: filter the theme's entries by the
+    # subtheme_assignments column (semicolon-separated names; same
+    # serialization cascade_theme_assignments produces).
+    sub_entries <- if ("subtheme_assignments" %in% names(theme_entries)) {
+      theme_entries[
+        !is.na(theme_entries$subtheme_assignments) &
+          grepl(snm, theme_entries$subtheme_assignments, fixed = TRUE), ]
+    } else {
+      theme_entries  # fallback: theme-wide
+    }
+    n_sub <- nrow(sub_entries)
+
+    # Per-metric Median(MAD) + Mean(SD)
+    metric_stats <- list()
+    for (mc in metric_cols) {
+      if (!mc %in% names(sub_entries)) next
+      vals <- suppressWarnings(as.numeric(sub_entries[[mc]]))
+      vals <- vals[!is.na(vals)]
+      if (length(vals) == 0L) {
+        metric_stats[[mc]] <- list(median = NA_real_, mad = NA_real_,
+                                     mean = NA_real_, sd = NA_real_,
+                                     n_observed = 0L)
+        next
+      }
+      metric_stats[[mc]] <- list(
+        median     = round(stats::median(vals), 2),
+        mad        = round(stats::mad(vals), 2),
+        mean       = round(mean(vals), 2),
+        sd         = round(stats::sd(vals), 2),
+        n_observed = length(vals)
+      )
+    }
+
+    # Example quotes tagged with metric values per entry
+    example_quotes <- .select_metric_tagged_quotes(
+      entries = sub_entries,
+      metric_cols = metric_cols,
+      n_quotes = quotes_per_subtheme
+    )
+
+    out[[snm]] <- list(
+      name           = snm,
+      description    = s$description %||% "",
+      n              = n_sub,
+      metric_stats   = metric_stats,
+      example_quotes = example_quotes
+    )
+  }
+  out
+}
+
+#' Select representative example quotes tagged with per-entry metric values
+#'
+#' Picks up to \code{n_quotes} entries using the same sentiment-positioned
+#' selection as \code{.select_representative_quotes} (so the quotes span
+#' the sentiment range when available), then formats each as the entry's
+#' text followed by a bracketed metric-tag block:
+#' \samp{"quote text" [Drug Rating: 8; Like Count: 12]}
+#'
+#' When the entry is missing a metric, that metric is omitted from the
+#' tag (rather than printing "NA"); when all metrics are missing the
+#' tag itself is omitted.
+#'
+#' @keywords internal
+.select_metric_tagged_quotes <- function(entries, metric_cols, n_quotes = 3L) {
+  if (nrow(entries) == 0L) return(character(0))
+
+  text_col <- if ("std_text" %in% names(entries)) "std_text"
+              else if ("original_text" %in% names(entries)) "original_text"
+              else NA_character_
+  if (is.na(text_col)) return(character(0))
+
+  # Sentiment-positioned selection when sentiment_score is available and
+  # there are enough entries to span the range; else first-N. We pick
+  # ROW INDICES (not just text) so the metric-tag can read the source
+  # row's metric columns alongside the text -- something the existing
+  # .select_representative_quotes helper doesn't preserve.
+  if ("sentiment_score" %in% names(entries) &&
+      any(!is.na(entries$sentiment_score)) &&
+      nrow(entries) >= 2L) {
+    ord <- order(entries$sentiment_score, na.last = NA)
+    n_valid <- length(ord)
+    target_slots <- if (n_quotes >= 3L && n_valid >= 3L) {
+      c(ord[1], ord[ceiling(n_valid / 2L)], ord[n_valid])
+    } else if (n_quotes >= 2L && n_valid >= 2L) {
+      c(ord[1], ord[n_valid])
+    } else {
+      ord[1]
+    }
+    picked_idx <- target_slots[seq_len(min(length(target_slots), n_quotes))]
+  } else {
+    picked_idx <- seq_len(min(n_quotes, nrow(entries)))
+  }
+
+  vapply(picked_idx, function(i) {
+    if (is.na(i)) return(NA_character_)
+    row <- entries[i, , drop = FALSE]
+    q <- substr(as.character(row[[text_col]] %||% ""), 1, 280)
+    if (nchar(q) == 0L) return(NA_character_)
+    tag <- .format_metric_tag(row, metric_cols)
+    if (nzchar(tag)) paste0(q, " ", tag) else q
+  }, character(1)) |> stats::na.omit() |> as.character()
+}
+
+#' Format a bracketed metric-tag block for one entry row
+#'
+#' \samp{[Drug Rating: 8; Like Count: 12]} -- one metric=value pair per metric
+#' column the entry has a non-NA value for, semicolon-separated, wrapped
+#' in square brackets. Returns the empty string when the row is missing
+#' all metric values (so the renderer can omit the tag entirely).
+#'
+#' @keywords internal
+.format_metric_tag <- function(row, metric_cols) {
+  if (is.null(row) || is.null(metric_cols) || length(metric_cols) == 0L) return("")
+  parts <- character(0)
+  for (mc in metric_cols) {
+    if (!mc %in% names(row)) next
+    val <- row[[mc]]
+    if (length(val) == 0L || is.na(val[1])) next
+    parts <- c(parts, sprintf("%s: %s", mc, .format_metric_value(val[1])))
+  }
+  if (length(parts) == 0L) return("")
+  paste0("[", paste(parts, collapse = "; "), "]")
+}
+
+#' Pretty-print a single metric value (round numeric; preserve int)
+#' @keywords internal
+.format_metric_value <- function(x) {
+  if (is.numeric(x)) {
+    # Integer-looking values print without trailing .0
+    if (abs(x - round(x)) < 1e-9) format(as.integer(round(x)))
+    else format(round(x, 2))
+  } else {
+    as.character(x)
+  }
+}
+
+#' Format a per-metric Median(MAD) or Mean(SD) summary as a string
+#'
+#' "8.0 (1.5)" -- one summary statistic + its variability measure in
+#' parentheses. Returns "n/a" when the value is NA so the renderer
+#' produces a meaningful cell rather than NaN/NA artifacts.
+#'
+#' @keywords internal
+.format_metric_summary <- function(center, spread, digits = 2L) {
+  if (is.na(center) || is.na(spread)) return("n/a")
+  sprintf("%s (%s)",
+          format(round(as.numeric(center), digits), nsmall = digits),
+          format(round(as.numeric(spread), digits), nsmall = digits))
 }
 
 # ==============================================================================

@@ -79,31 +79,13 @@ prepare_correlation_data <- function(data, theme_set, config = list()) {
     }
   }
 
-  # Phase 50b: dataset-agnostic metric detection. Previously this site
-  # had a hardcoded allowlist `c("score", "num_comments", "upvote_ratio",
-  # "rating", "likes")` which silently filtered out any metric column
-  # not in that list -- a real break for novel corpora. Replace with:
-  # (1) explicit `config$metric_columns` override if user knows their
-  #     metric column names; OR
-  # (2) auto-detect numeric columns in `data` that aren't package-internal
-  #     standardized columns. This is dataset-agnostic by construction.
-  metric_columns <- config$metric_columns
-  if (is.null(metric_columns) || length(metric_columns) == 0L) {
-    # Internal columns the package generates itself + theme-membership
-    # indicator pattern. Anything else numeric is a candidate metric.
-    internal_cols <- c(
-      "std_id", "std_text", "std_author", "std_timestamp", "original_text",
-      "sentiment_score", "emotion_intensity", "confidence",
-      "all_emotions", "emerged_themes", "n_themes", "source_table"
-    )
-    is_internal <- function(nm) {
-      nm %in% internal_cols || grepl("^theme_membership_", nm)
-    }
-    metric_columns <- vapply(names(data), function(nm) {
-      !is_internal(nm) && is.numeric(data[[nm]])
-    }, logical(1))
-    metric_columns <- names(data)[metric_columns]
-  }
+  # Phase 50b: dataset-agnostic metric detection. The original site had
+  # a hardcoded allowlist that broke novel corpora. Phase 55 consolidated
+  # the detection helper into R/16_report_helpers.R so correlations +
+  # the per-subtheme paper-style table share one definition of "what
+  # counts as a metric." Pass the local `config$metric_columns` as the
+  # explicit override; the helper falls back to auto-detect otherwise.
+  metric_columns <- .detect_metric_columns(data, explicit = config$metric_columns)
   for (mc in metric_columns) {
     if (mc %in% names(data) && is.numeric(data[[mc]])) {
       corr_data[[mc]] <- data[[mc]]

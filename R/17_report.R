@@ -364,6 +364,102 @@ export_theme_entry_csvs <- function(data, theme_set, output_dir,
   theme_csv_files
 }
 
+#' Export per-theme paper-style subtheme-summary CSVs (Phase 55)
+#'
+#' Complement to \code{export_theme_entry_csvs}: for each theme, writes
+#' a CSV with ONE ROW PER REAL SUBTHEME with paper-style columns
+#' (Subtheme name, description, n, Median+MAD + Mean+SD per auto-
+#' detected metric, examples of comments tagged with metric values).
+#'
+#' Output structure:
+#' \itemize{
+#'   \item \code{theme_summaries/<safe_theme_name>.csv} -- one per theme
+#'         with non-empty subtheme_stats
+#'   \item \code{theme_summaries/all_subthemes.csv} -- master with
+#'         theme_name + subtheme rows from every theme
+#' }
+#'
+#' Themes with no real subthemes (only the virtual NA-named wrapper)
+#' OR with empty subtheme_stats are skipped -- they're already covered
+#' by the per-entry CSVs and the theme card.
+#'
+#' @param theme_stats Per-theme stats list from
+#'   \code{aggregate_theme_statistics()} (Phase 55+: must carry
+#'   \code{subtheme_stats} + \code{metric_cols}).
+#' @param output_dir Run directory.
+#' @param methodology_mode Optional methodology mode for AC4 stamping.
+#' @return Named list of file info per theme.
+#' @export
+export_theme_subtheme_summary_csvs <- function(theme_stats, output_dir,
+                                                 methodology_mode = NULL) {
+  summ_dir <- file.path(output_dir, "theme_summaries")
+  dir.create(summ_dir, recursive = TRUE, showWarnings = FALSE)
+
+  files <- list()
+  master_rows <- list()
+
+  for (tn in names(theme_stats)) {
+    ts <- theme_stats[[tn]]
+    st_stats <- ts$subtheme_stats %||% list()
+    if (length(st_stats) == 0L) next  # no real subthemes / virtual-only
+    metric_cols <- ts$metric_cols %||% character(0)
+
+    # Build a row-wise tibble: one row per subtheme.
+    rows <- lapply(names(st_stats), function(snm) {
+      s <- st_stats[[snm]]
+      row <- list(
+        theme           = tn,
+        subtheme        = s$name %||% snm,
+        description     = s$description %||% "",
+        n               = as.integer(s$n %||% 0L)
+      )
+      for (mc in metric_cols) {
+        ms <- s$metric_stats[[mc]] %||% list()
+        row[[paste0(mc, "_median")]] <- as.numeric(ms$median %||% NA_real_)
+        row[[paste0(mc, "_mad")]]    <- as.numeric(ms$mad    %||% NA_real_)
+        row[[paste0(mc, "_mean")]]   <- as.numeric(ms$mean   %||% NA_real_)
+        row[[paste0(mc, "_sd")]]     <- as.numeric(ms$sd     %||% NA_real_)
+        row[[paste0(mc, "_n_obs")]]  <- as.integer(ms$n_observed %||% 0L)
+      }
+      row$examples_of_comments <- paste(s$example_quotes %||% character(0),
+                                          collapse = " || ")
+      row
+    })
+    df <- do.call(rbind, lapply(rows, as.data.frame, stringsAsFactors = FALSE))
+
+    safe_name <- make_safe_filename(tn)
+    csv_path <- file.path(summ_dir, paste0(safe_name, ".csv"))
+    readr::write_csv(df, csv_path)
+    if (!is.null(methodology_mode)) {
+      tryCatch(stamp_methodology_csv(csv_path, methodology_mode,
+                                       run_id = basename(output_dir)),
+               error = function(e) log_debug("CSV stamp skipped: {e$message}"))
+    }
+    files[[tn]] <- list(
+      file_path     = csv_path,
+      relative_path = file.path("theme_summaries", paste0(safe_name, ".csv"))
+    )
+    master_rows[[tn]] <- df
+  }
+
+  if (length(master_rows) > 0L) {
+    # Some themes may have different metric column sets when the data
+    # changes across themes (e.g., test fixtures). dplyr::bind_rows
+    # handles the union safely; rbind would error on column mismatch.
+    master_df <- dplyr::bind_rows(master_rows)
+    master_path <- file.path(summ_dir, "all_subthemes.csv")
+    readr::write_csv(master_df, master_path)
+    if (!is.null(methodology_mode)) {
+      tryCatch(stamp_methodology_csv(master_path, methodology_mode,
+                                       run_id = basename(output_dir)),
+               error = function(e) log_debug("CSV stamp skipped: {e$message}"))
+    }
+  }
+
+  log_info("Exported {length(files)} per-theme subtheme-summary CSV(s)")
+  files
+}
+
 #' Generate the full HTML analysis report
 #'
 #' Builds an Rmd file from data and renders it to HTML.
@@ -455,7 +551,8 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   # at R/16_report_helpers.R:106 + R/13_themes.R:793 even when the
   # user set a different value in config$analysis$themes$quotes_per_theme.
   theme_stats <- aggregate_theme_statistics(data, theme_set, consolidated,
-                                              quotes_per_theme = config$analysis$themes$quotes_per_theme %||% 3L)
+                                              quotes_per_theme = config$analysis$themes$quotes_per_theme %||% 3L,
+                                              config = config)
   overall_stats <- aggregate_overall_statistics(data, theme_set, consolidated,
                                                  learning_context, config)
 
@@ -532,6 +629,23 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   theme_detail_files <- .generate_theme_detail_htmls(
     theme_stats, theme_order, export_files, output_dir,
     data = data, coding_results = coding_results
+  )
+
+  # Phase 55: paper-style per-theme subtheme summary CSVs. One CSV per
+  # theme (one row per subtheme; columns include Median(MAD) + Mean(SD)
+  # per auto-detected metric + examples-of-comments) plus a master
+  # all_subthemes.csv. Methodology-stamped per AC4 when in a real run.
+  meth_mode <- .config_methodology_mode(config)
+  tryCatch(
+    export_theme_subtheme_summary_csvs(
+      theme_stats     = theme_stats,
+      output_dir      = output_dir,
+      methodology_mode = meth_mode
+    ),
+    error = function(e) {
+      log_warn("Per-theme subtheme-summary CSV export skipped: {e$message}")
+      list()
+    }
   )
 
   # Ensure pandoc is available (RStudio bundles it, but CLI runs may not find it)
@@ -1291,6 +1405,16 @@ generate_report <- function(data, theme_set, correlations_df, insights,
       )
     }
 
+    # Phase 55: per-subtheme paper-style table. One row per real
+    # subtheme: name, n, Median(MAD) + Mean(SD) for each auto-detected
+    # metric column, examples-of-comments column with quotes tagged
+    # [metric: value; ...]. Matches the dayvigo/ozempic/vyvanse paper
+    # layout. Skipped when the theme has no real subthemes (only the
+    # virtual NA-named wrapper from the hierarchy) or when no metrics
+    # were auto-detected.
+    content <- paste0(content,
+      .build_subtheme_summary_table(ts))
+
     # T0.2 participant distribution: count, Gini, top contributor share, with
     # a concentration warning when one author dominates. Renders an
     # "unavailable" variant when std_author isn't present (preserves the
@@ -1346,6 +1470,118 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   }
 
   content
+}
+
+# ==============================================================================
+# Phase 55: paper-style per-subtheme summary table
+# ==============================================================================
+
+#' Render the per-theme, per-subtheme summary table (Phase 55)
+#'
+#' Returns an HTML/Markdown block containing a table with one row per
+#' real (non-virtual) subtheme of the theme:
+#' \itemize{
+#'   \item \strong{Subtheme} -- subtheme name + description (truncated)
+#'   \item \strong{n} -- entries in this subtheme
+#'   \item For each auto-detected metric column: two cells, Median(MAD)
+#'     and Mean(SD), formatted as "<center> (<spread>)".
+#'   \item \strong{Examples of comments} -- up to N representative quotes
+#'     (sentiment-positioned when sentiment_score is available),
+#'     each tagged with the source entry's metric values as
+#'     \samp{[Drug Rating: 8; Like Count: 12]}.
+#' }
+#'
+#' Returns the empty string when:
+#' \itemize{
+#'   \item the theme has no real subthemes (only the virtual NA-named
+#'     wrapper from the Phase 51 hierarchy), \emph{OR}
+#'   \item the dataset has no detectable metric columns AND no real
+#'     subthemes.
+#' }
+#' If subthemes exist but no metric columns do, the table renders with
+#' just the Subtheme, n, and Examples columns -- still useful for
+#' surfacing the hierarchy.
+#'
+#' @param ts Per-theme stats object from \code{aggregate_theme_statistics}
+#'   (must carry \code{subtheme_stats} + \code{metric_cols}, Phase 55+).
+#' @return Character HTML+markdown string for the table block.
+#' @keywords internal
+.build_subtheme_summary_table <- function(ts) {
+  st_stats <- ts$subtheme_stats %||% list()
+  if (length(st_stats) == 0L) return("")  # virtual-only or no subthemes
+
+  metric_cols <- ts$metric_cols %||% character(0)
+
+  # Build header row. Pretty-print metric column names (underscores ->
+  # spaces) so the header reads "Drug Rating" rather than "Drug_Rating"
+  # while the underlying data column stays canonical. Matches dayvigo
+  # paper-style table conventions.
+  .pretty_metric <- function(mc) gsub("_+", " ", mc)
+  header_cells <- c("Subtheme", "n")
+  for (mc in metric_cols) {
+    header_cells <- c(header_cells,
+                       sprintf("Median(MAD) %s", .html_esc(.pretty_metric(mc))),
+                       sprintf("Mean(SD) %s",    .html_esc(.pretty_metric(mc))))
+  }
+  header_cells <- c(header_cells, "Examples of comments")
+  header_row <- paste0("<tr><th>",
+                       paste(header_cells, collapse = "</th><th>"),
+                       "</th></tr>")
+
+  # Build one body row per subtheme
+  body_rows <- vapply(names(st_stats), function(snm) {
+    s <- st_stats[[snm]]
+    cells <- c(
+      sprintf("<div class=\"st-name\"><strong>%s</strong></div>%s",
+               .html_esc(s$name %||% snm),
+               if (nzchar(s$description %||% ""))
+                 paste0("<div class=\"st-desc\"><em>",
+                         .html_esc(s$description), "</em></div>")
+               else ""),
+      format(as.integer(s$n %||% 0L))
+    )
+
+    for (mc in metric_cols) {
+      mstats <- s$metric_stats[[mc]] %||% list()
+      cells <- c(cells,
+        .format_metric_summary(mstats$median %||% NA_real_,
+                                 mstats$mad %||% NA_real_),
+        .format_metric_summary(mstats$mean %||% NA_real_,
+                                 mstats$sd %||% NA_real_))
+    }
+
+    # Examples-of-comments: stack quotes vertically
+    quotes <- s$example_quotes %||% character(0)
+    quotes_block <- if (length(quotes) == 0L) {
+      "<em>(no representative quotes)</em>"
+    } else {
+      paste(vapply(quotes, function(q) {
+        paste0("<div class=\"st-quote\">", .html_esc(q), "</div>")
+      }, character(1)), collapse = "")
+    }
+    cells <- c(cells, quotes_block)
+
+    paste0("<tr><td>",
+            paste(cells, collapse = "</td><td>"),
+            "</td></tr>")
+  }, character(1))
+
+  paste0(
+    "<h3>Subthemes (per-subtheme summary)</h3>\n\n",
+    # Phase 55 audit MEDIUM-15: clarify that the bracketed metric tags
+    # after each example quote are the SOURCE ENTRY's metric values,
+    # NOT subtheme aggregates. Without this preface a reader could
+    # confuse a per-entry "[Drug Rating: 8]" with a Median(MAD) cell.
+    "<p class=\"subtheme-table-caption\"><em>",
+    "Median(MAD) and Mean(SD) columns are subtheme aggregates; the ",
+    "bracketed values after each example comment are that source ",
+    "entry's metric values.</em></p>\n\n",
+    "<div class=\"subtheme-table-wrapper\">\n",
+    "<table class=\"subtheme-summary-table\">\n",
+    "<thead>", header_row, "</thead>\n",
+    "<tbody>", paste(body_rows, collapse = "\n"), "</tbody>\n",
+    "</table>\n</div>\n\n"
+  )
 }
 
 # ==============================================================================

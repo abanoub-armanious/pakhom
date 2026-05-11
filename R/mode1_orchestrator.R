@@ -673,13 +673,23 @@ render_tier0_coverage_card.ProvocationCoverage <- function(x, ...) {
 #' @param quotes_per_theme Integer; number of representative quotes to
 #'   select per theme. Wired through from
 #'   \code{config$analysis$themes$quotes_per_theme}; defaults to 3.
-#' @return Named list keyed by theme name, each value a list with
+#' @param config Optional ThematicConfig (or config list). When supplied
+#'   (Phase 55), \code{config$data$column_mappings$metric_columns} is
+#'   used to detect dataset-specific metric columns for the per-theme
+#'   Median(MAD) + Mean(SD) summary line in the Mode 1 report. When NULL
+#'   or empty, metrics auto-detect from the data via
+#'   \code{\link{.detect_metric_columns}}.
+#' @return Named list keyed by theme name. Each value carries
 #'   \code{n_entries}, \code{participant_spread}, \code{provocations}
 #'   (count by category + total), \code{quotes} (raw representative
-#'   quotes -- NOT sentiment-sorted because Mode 1 has no sentiment).
+#'   quotes -- NOT sentiment-sorted because Mode 1 has no sentiment),
+#'   plus Phase 55 fields: \code{metric_cols} (character vector) and
+#'   \code{metric_stats} (named list of per-metric Median/MAD/Mean/SD/
+#'   n_observed records).
 #' @export
 compute_mode1_theme_stats <- function(data, theme_set, reflection_log,
-                                        quotes_per_theme = 3L) {
+                                        quotes_per_theme = 3L,
+                                        config = NULL) {
   if (!inherits(theme_set, "ThemeSet")) {
     stop("theme_set must be a ThemeSet object", call. = FALSE)
   }
@@ -687,6 +697,12 @@ compute_mode1_theme_stats <- function(data, theme_set, reflection_log,
     stop("reflection_log must be a ResearcherReflectionLog object",
          call. = FALSE)
   }
+
+  # Phase 55: dataset-agnostic metric column detection (Mode 1 light
+  # touch). Mode 1 themes are researcher-supplied + flat (no AI sub-
+  # themes), so we compute the same per-metric Median(MAD) + Mean(SD)
+  # at the THEME level (not per-subtheme).
+  metric_cols <- .detect_metric_columns(data, config)
 
   # Build a fast lookup: provocations by theme name x category
   provs_by_theme <- list()
@@ -749,6 +765,29 @@ compute_mode1_theme_stats <- function(data, theme_set, reflection_log,
       items = list()
     )
 
+    # Phase 55: per-metric Median(MAD) + Mean(SD) for each auto-detected
+    # metric column. Mode 1 has no subthemes (researcher-supplied flat
+    # themes), so these stats live at the THEME level.
+    metric_stats <- list()
+    for (mc in metric_cols) {
+      if (!mc %in% names(entries)) next
+      vals <- suppressWarnings(as.numeric(entries[[mc]]))
+      vals <- vals[!is.na(vals)]
+      if (length(vals) == 0L) {
+        metric_stats[[mc]] <- list(median = NA_real_, mad = NA_real_,
+                                     mean = NA_real_, sd = NA_real_,
+                                     n_observed = 0L)
+        next
+      }
+      metric_stats[[mc]] <- list(
+        median     = round(stats::median(vals), 2),
+        mad        = round(stats::mad(vals), 2),
+        mean       = round(mean(vals), 2),
+        sd         = round(stats::sd(vals), 2),
+        n_observed = length(vals)
+      )
+    }
+
     out[[tn]] <- list(
       name              = tn,
       description       = t$description %||% "",
@@ -760,7 +799,9 @@ compute_mode1_theme_stats <- function(data, theme_set, reflection_log,
         items       = provs_meta$items
       ),
       quotes            = quote_items,
-      keywords          = t$keywords %||% character(0)
+      keywords          = t$keywords %||% character(0),
+      metric_cols       = metric_cols,
+      metric_stats      = metric_stats
     )
   }
   out
@@ -1319,7 +1360,8 @@ run_mode1 <- function(data, theme_set,
   )
   theme_stats <- tryCatch(
     compute_mode1_theme_stats(data, theme_set, reflection_log,
-                                quotes_per_theme = config$analysis$themes$quotes_per_theme %||% 3L),
+                                quotes_per_theme = config$analysis$themes$quotes_per_theme %||% 3L,
+                                config = config),
     error = function(e) {
       log_warn("Mode 1 theme stats compute failed: {e$message}")
       list()

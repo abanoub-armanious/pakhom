@@ -8,7 +8,8 @@ compute_mode1_theme_stats(
   data,
   theme_set,
   reflection_log,
-  quotes_per_theme = 3L
+  quotes_per_theme = 3L,
+  config = NULL
 )
 }
 \arguments{
@@ -24,12 +25,22 @@ provocateur loop).}
 \item{quotes_per_theme}{Integer; number of representative quotes to
 select per theme. Wired through from
 \code{config$analysis$themes$quotes_per_theme}; defaults to 3.}
+
+\item{config}{Optional ThematicConfig (or config list). When supplied
+(Phase 55), \code{config$data$column_mappings$metric_columns} is
+used to detect dataset-specific metric columns for the per-theme
+Median(MAD) + Mean(SD) summary line in the Mode 1 report. When NULL
+or empty, metrics auto-detect from the data via
+\code{\link{.detect_metric_columns}}.}
 }
 \value{
-Named list keyed by theme name, each value a list with
+Named list keyed by theme name. Each value carries
 \code{n_entries}, \code{participant_spread}, \code{provocations}
 (count by category + total), \code{quotes} (raw representative
-quotes -- NOT sentiment-sorted because Mode 1 has no sentiment).
+quotes -- NOT sentiment-sorted because Mode 1 has no sentiment),
+plus Phase 55 fields: \code{metric_cols} (character vector) and
+\code{metric_stats} (named list of per-metric Median/MAD/Mean/SD/
+n_observed records).
 }
 \description{
 Mode 1's analog of \code{aggregate_theme_statistics} for Mode 2/3.

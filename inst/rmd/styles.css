@@ -1059,3 +1059,66 @@ table:not(.dataTable) tr:hover td {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
 }
+/* ========================================================================
+ * Phase 55: paper-style per-subtheme summary table
+ * ====================================================================== */
+
+.subtheme-table-wrapper {
+  margin: 1rem 0 1.5rem 0;
+  overflow-x: auto;
+}
+
+.subtheme-summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.subtheme-summary-table thead th {
+  background: var(--primary, #2c3e50);
+  color: white;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: left;
+  vertical-align: bottom;
+  border-bottom: 2px solid #1a252f;
+  white-space: nowrap;
+}
+
+.subtheme-summary-table tbody td {
+  padding: 0.6rem 0.7rem;
+  border-bottom: 1px solid var(--bg-light, #ecf0f1);
+  vertical-align: top;
+}
+
+.subtheme-summary-table tbody tr:hover td {
+  background: var(--bg-light, #f8f9fa);
+}
+
+.subtheme-summary-table .st-name {
+  margin-bottom: 0.25rem;
+}
+
+.subtheme-summary-table .st-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary, #5a6c7d);
+  margin-top: 0.2rem;
+}
+
+.subtheme-summary-table .st-quote {
+  margin: 0.25rem 0;
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--bg-light, #dfe4e8);
+  font-style: italic;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.subtheme-table-caption {
+  font-size: 0.78rem;
+  color: var(--text-secondary, #5a6c7d);
+  margin: -0.5rem 0 0.5rem 0;
+  line-height: 1.4;
+}

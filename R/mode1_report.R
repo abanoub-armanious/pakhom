@@ -259,6 +259,31 @@ compute_provocation_provenance_stats <- function(reflection_log) {
               if (ts$provocations$total == 1L) "" else "s")
     )
 
+    # Phase 55: per-theme metric stats line (Mode 1 light touch). One
+    # Median(MAD) + Mean(SD) per auto-detected metric column. Mode 1
+    # themes are researcher-supplied + flat (no AI subthemes), so
+    # there's no per-subtheme table -- just a one-liner per theme.
+    if (length(ts$metric_cols %||% character(0)) > 0L) {
+      stat_parts <- character(0)
+      for (mc in ts$metric_cols) {
+        ms <- ts$metric_stats[[mc]] %||% list()
+        if (is.null(ms$n_observed) || ms$n_observed == 0L) next
+        stat_parts <- c(stat_parts, sprintf(
+          "%s: Median(MAD) = %s; Mean(SD) = %s",
+          .html_esc(mc),
+          .format_metric_summary(ms$median, ms$mad),
+          .format_metric_summary(ms$mean, ms$sd)
+        ))
+      }
+      if (length(stat_parts) > 0L) {
+        content <- paste0(content,
+          "**Metric summary:** ",
+          paste(stat_parts, collapse = " &middot; "),
+          "\n\n"
+        )
+      }
+    }
+
     # T0.2 participant spread card
     content <- paste0(content,
       .build_participant_spread_card(ts$participant_spread)
