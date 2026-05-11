@@ -138,11 +138,30 @@ compute_corpus_coverage <- function(coding_state, data,
                           na.rm = TRUE)
   words_processed <- sum(.count_words_safe(text_processed), na.rm = TRUE)
 
-  # The headline assertion: every input entry has a matching
-  # entry_result. Equivalent to "the LLM saw the full preprocessed set"
-  # for pakhom's pipeline (which processes one at a time and creates
-  # one entry_result per call regardless of skip/code outcome).
-  no_silent_truncation <- (n_unprocessed == 0L) && (n_input > 0L)
+  # Phase 56 awareness of saturation-triggered early stop. The pre-Phase-56
+  # headline assertion (every input entry has a matching entry_result)
+  # would render as FALSE whenever the AI saturation arbiter stops coding
+  # early -- exactly the methodologically intentional case T0.3 is supposed
+  # to celebrate, not flag as silent truncation. Phase 56 audit CRITICAL-1
+  # disentangles the two: saturation-triggered tail is INTENTIONAL coverage
+  # (n_unprocessed should equal n - reached_at_entry); any OTHER gap is
+  # still silent truncation.
+  saturation_reached <- isTRUE(coding_state$saturation$reached)
+  if (saturation_reached) {
+    reached_at_entry <- coding_state$saturation$reached_at_entry %||% NA_integer_
+    expected_unprocessed_tail <- if (!is.na(reached_at_entry)) {
+      max(0L, n_input - as.integer(reached_at_entry))
+    } else 0L
+    # T0.3 satisfied when the unprocessed count exactly matches the
+    # tail the arbiter intentionally skipped. A mismatch (more or fewer
+    # unprocessed than expected) is still a transparency failure.
+    no_silent_truncation <- (n_unprocessed == expected_unprocessed_tail) &&
+                              (n_input > 0L)
+    stop_reason <- "saturation_arbiter_reached"
+  } else {
+    no_silent_truncation <- (n_unprocessed == 0L) && (n_input > 0L)
+    stop_reason <- "all_entries_processed"
+  }
 
   # Coverage rate as a fraction; useful for the methodology paper KPI
   # over multiple runs.
@@ -171,6 +190,16 @@ compute_corpus_coverage <- function(coding_state, data,
     words_processed          = as.integer(words_processed),
     coverage_rate            = coverage_rate,
     no_silent_truncation     = no_silent_truncation,
+    # Phase 56: distinguishes saturation-triggered intentional early-stop
+    # from genuine silent truncation. Consumers (report renderer + audit
+    # log) gate language on this. "all_entries_processed" = entire corpus
+    # reached the LLM; "saturation_arbiter_reached" = AI arbiter judged
+    # the codebook saturated and stopped intentionally (with the
+    # arbiter's articulation + rationale stamped in
+    # coding_state$saturation).
+    stop_reason              = stop_reason,
+    saturation_reached       = saturation_reached,
+    reached_at_entry         = coerce_int(coding_state$saturation$reached_at_entry %||% NA_integer_),
     computed_at              = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
     schema_version           = .CORPUS_COVERAGE_SCHEMA_VERSION
   )
@@ -208,8 +237,15 @@ print.CorpusCoverage <- function(x, ...) {
   cat(sprintf("  LLM-processed entries:     %s\n",
               format(x$n_processed, big.mark = ",")))
   if (x$n_unprocessed > 0L) {
-    cat(sprintf("  Unprocessed (gap):         %s  <-- INVESTIGATE\n",
-                format(x$n_unprocessed, big.mark = ",")))
+    if (isTRUE(x$saturation_reached) &&
+        identical(x$stop_reason, "saturation_arbiter_reached")) {
+      cat(sprintf("  Unprocessed (intentional): %s  <-- saturation arbiter judged reached at entry %s\n",
+                  format(x$n_unprocessed, big.mark = ","),
+                  format(x$reached_at_entry %||% NA, big.mark = ",")))
+    } else {
+      cat(sprintf("  Unprocessed (gap):         %s  <-- INVESTIGATE\n",
+                  format(x$n_unprocessed, big.mark = ",")))
+    }
   }
   cat(sprintf("    -- of those: coded:      %s\n",
               format(x$n_coded, big.mark = ",")))

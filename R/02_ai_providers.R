@@ -144,6 +144,15 @@ create_ai_provider <- function(provider = "openai", config = NULL) {
 #'   When both are passed the request is sent as-is and \code{$citations}
 #'   will typically be empty -- callers should choose one mode or the other
 #'   per the architecture (phase 21c uses citations alone for Anthropic).
+#' @param methodology_override Optional character (Phase 56; default NULL).
+#'   When NULL, the call uses \code{provider$methodology_rules} as the
+#'   system-prompt prefix (AC9 default). When a non-NULL string is
+#'   supplied, it replaces that prefix for this single call only --
+#'   used by the Phase 54 inductive emergent-themes pass to swap in the
+#'   inductive variant of the Mode 3 rule (\code{generate_methodology_rules
+#'   (config, inductive_pass = TRUE)}) instead of the default deductive
+#'   rule that forbids new-construct generation. Empty string (\code{""})
+#'   suppresses the rules prefix entirely.
 #' @return A list with the following fields (canonical shape, normalized
 #'   across OpenAI and Anthropic):
 #'   \itemize{
@@ -192,7 +201,8 @@ ai_complete <- function(provider, prompt, system_prompt = NULL,
                         temperature = NULL, max_tokens = NULL,
                         json_mode = FALSE, max_retries = 3,
                         response_schema = NULL,
-                        documents = NULL) {
+                        documents = NULL,
+                        methodology_override = NULL) {
   validate_class(provider, "AIProvider")
 
   # Resolve parameters from task defaults
@@ -210,7 +220,19 @@ ai_complete <- function(provider, prompt, system_prompt = NULL,
   # the caller's system_prompt (task-specific instructions) follows. Rules
   # come FIRST so they "frame" the call before any task-specific
   # instruction can pull the model toward mode-violating behavior.
-  rules <- provider$methodology_rules %||% ""
+  #
+  # Phase 56 (Phase 54 deferral iii): methodology_override is an
+  # opt-in per-call replacement of the provider's default rules.
+  # The Phase 54 inductive emergent-themes pass uses this to swap in
+  # the inductive variant of the Mode 3 rule (which permits new code
+  # generation on anomaly residuals) instead of the default deductive
+  # rule (which forbids it). NULL = use provider default; non-NULL
+  # character = use that string instead.
+  rules <- if (!is.null(methodology_override)) {
+    as.character(methodology_override)
+  } else {
+    provider$methodology_rules %||% ""
+  }
   if (nzchar(rules)) {
     system_prompt <- if (is.null(system_prompt) || !nzchar(system_prompt)) {
       rules

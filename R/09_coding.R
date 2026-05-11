@@ -112,11 +112,22 @@ create_coding_state <- function(learning_context = NULL, config_hash = NULL) {
       reached_at_entry = NA_integer_,
       reached_at_coded = NA_integer_,
       total_entries_at_saturation = NA_integer_,
+      # Phase 56: collapsed the pre-Phase-56 signals$ sub-list (code_creation_rate /
+      # slope_ratio / ai_self_assessment) into a single ai_self_assessment field.
+      # The two heuristic signals are gone (their thresholds were the hardcoded
+      # gates C1 rejects). Kept as a list (not a scalar) so audit_log records
+      # using signals$ai_self_assessment continue to parse + replay; back-compat
+      # state files with all three sub-fields still load.
       signals = list(
-        code_creation_rate = FALSE,
-        slope_ratio = FALSE,
         ai_self_assessment = FALSE
       ),
+      # Phase 56: AI saturation arbiter (R/saturation_arbiter.R) records its
+      # 2-4 sentence articulation + 1-2 sentence rationale here when it
+      # declares saturation. Both are NA_character_ on a non-saturated run
+      # (Phase 56 audit MEDIUM-2: pre-init so any future report-side reader
+      # can rely on the field's presence without %||% gymnastics).
+      ai_articulation = NA_character_,
+      ai_rationale = NA_character_,
       saturation_ratio = NA_real_
     )
   )
@@ -190,13 +201,14 @@ run_progressive_coding <- function(data, provider, config = list(),
   # the value was set but never read.
   config$checkpoint_interval <- config$checkpoint_interval %||% .PARTIAL_CHECKPOINT_INTERVAL
 
-  # Saturation detection configuration
-  config$saturation_enabled <- config$saturation_enabled %||% TRUE
-  config$saturation_window <- config$saturation_window %||% 200L
-  config$saturation_threshold <- config$saturation_threshold %||% 2L
-  config$saturation_confirmations <- config$saturation_confirmations %||% 3L
-  config$min_coded_before_saturation <- config$min_coded_before_saturation %||% 500L
-  config$ai_assessment_interval <- config$ai_assessment_interval %||% 200L
+  # Phase 56: all six pre-Phase-56 hardcoded saturation knobs
+  # (saturation_enabled / saturation_window / saturation_threshold /
+  # saturation_confirmations / min_coded_before_saturation /
+  # ai_assessment_interval) removed per C1 ("AI decides when to stop;
+  # no hardcoded saturation thresholds"). The AI arbiter
+  # (.ai_judge_saturation in R/saturation_arbiter.R) is now the sole
+  # decision; cadence is auto-scaled by .saturation_cadence(nrow(data)).
+  # See R/saturation_arbiter.R header for the rewrite rationale.
 
   validate_data_columns(data, c("std_text", "std_id"), "run_progressive_coding")
   validate_provider(provider, caller = "run_progressive_coding")
@@ -314,9 +326,15 @@ run_progressive_coding <- function(data, provider, config = list(),
 
   batch_delay <- provider$rate_limits$delay_between_batches %||% 0.5
 
-  # Saturation tracking state
-  prev_n_codes <- length(state$codebook)
-  saturation_low_windows <- 0L
+  # Phase 56: saturation tracking state
+  # saturation_cadence: AI arbiter check cadence, auto-scaled by corpus
+  # size per .saturation_cadence(). Replaces the pre-Phase-56
+  # ai_assessment_interval / saturation_window / etc. knobs.
+  saturation_cadence <- .saturation_cadence(n)
+  # Consecutive AI-call failures; resets on any successful call.
+  # After 3 in a row, log a warning + continue coding (never silently
+  # saturate; never silently never-saturate).
+  saturation_failure_streak <- 0L
 
   # Use lists for O(1) append (avoid O(n^2) vector growth)
   new_processed <- list()
@@ -325,7 +343,7 @@ run_progressive_coding <- function(data, provider, config = list(),
 
   for (idx in remaining) {
     # Check if saturation was already reached (e.g., from a resumed state)
-    if (isTRUE(state$saturation$reached) && isTRUE(config$saturation_enabled)) {
+    if (isTRUE(state$saturation$reached)) {
       log_info("Saturation already reached -- skipping remaining entries")
       break
     }
@@ -467,12 +485,24 @@ run_progressive_coding <- function(data, provider, config = list(),
                "{length(state$codebook)} codes, {n_coded} coded, {n_skipped_total} skipped")
     }
 
-    # Record saturation curve data point every 50 coded entries
-    if (n_coded > 0 && n_coded %% 50 == 0) {
-      window_size <- min(config$saturation_window, n_coded)
+    # Phase 56: saturation curve + AI arbiter check.
+    # Curve cadence: min(50, saturation_cadence) -- on small corpora the
+    # arbiter fires more often than 50 ticks so we tighten the curve
+    # cadence to match (otherwise the arbiter would see "no curve data
+    # yet" on its first check). For large corpora cadence > 50 and we
+    # keep the 50-tick cadence so the saturation plot stays smooth.
+    # Phase 56 audit MEDIUM-1 fix: pre-Phase-56-audit code had a
+    # hardcoded 50 here that drifted out of sync with the arbiter
+    # cadence on mid-sized corpora.
+    curve_cadence <- min(50L, saturation_cadence)
+    if (n_coded > 0 && n_coded %% curve_cadence == 0) {
+      # Window for the new-codes-in-window curve point: use the arbiter
+      # cadence (one window per arbiter check). Bounded by n_coded so
+      # early curve points use a smaller window naturally.
+      window_size <- min(saturation_cadence, n_coded)
 
-      # New-codes-in-window: count codes whose birth-time (measured as the
-      # n_coded value when they were created) falls within the last
+      # New-codes-in-window: count codes whose birth-time (measured as
+      # the n_coded value when they were created) falls within the last
       # `window_size` coded entries. Direct lookup of the persistent
       # code_n_coded_at_birth map -- correct across checkpoint resets,
       # correct across resumes, O(|codebook|) per check.
@@ -483,11 +513,17 @@ run_progressive_coding <- function(data, provider, config = list(),
         new_in_window <- 0L
       }
 
-      # Compute Inductive Thematic Saturation (ITS) ratio per De Paoli & Mathis 2024
-      # (Quality & Quantity, doi:10.1007/s11135-024-01950-6): unique codes / total
-      # code assignments. Low ratio = high reuse density = stable codebook.
-      total_assignments <- sum(vapply(state$codebook, function(cb) cb$frequency, integer(1)))
-      slope_ratio <- if (total_assignments > 0) codes_after / total_assignments else 1.0
+      # Inductive Thematic Saturation (ITS) ratio per De Paoli & Mathis
+      # 2024: unique_codes / total_assignments. Recorded in the curve
+      # for the AI arbiter's prompt evidence + the saturation plot.
+      # Pre-Phase-56 used a hardcoded 0.05 stopping threshold; that's
+      # gone -- the AI judges the trajectory directly.
+      total_assignments <- sum(vapply(state$codebook,
+                                        function(cb) cb$frequency,
+                                        integer(1)))
+      slope_ratio <- if (total_assignments > 0) {
+        codes_after / total_assignments
+      } else 1.0
 
       state$saturation$curve <- rbind(state$saturation$curve, data.frame(
         entries_coded = n_coded,
@@ -497,68 +533,53 @@ run_progressive_coding <- function(data, provider, config = list(),
         slope_ratio = round(slope_ratio, 4),
         timestamp = Sys.time()
       ))
+    }
 
-      # --- Saturation detection (only after minimum entries) ---
-      if (isTRUE(config$saturation_enabled) && n_coded >= config$min_coded_before_saturation) {
+    # Phase 56: AI saturation arbiter (C1: AI decides when to stop).
+    # Fires every `saturation_cadence` coded entries -- no min-entries
+    # gate, no kill switch. The AI can output "uncertain" when the
+    # evidence is too thin to judge, so an early check is harmless.
+    if (n_coded > 0 && n_coded %% saturation_cadence == 0) {
+      judgment <- .ai_judge_saturation(
+        state = state, provider = provider,
+        research_focus = research_focus,
+        n_coded = n_coded, n_corpus = n, n_done = n_done,
+        audit_log = audit_log, response_cache = response_cache
+      )
 
-        # Signal 1: Code creation rate (Guest-style)
-        signal_creation <- new_in_window <= config$saturation_threshold
-
-        # Signal 2: Inductive Thematic Saturation ratio (De Paoli & Mathis 2024).
-        # ITS = unique_codes / total_assignments. De Paoli notes the ratio "should
-        # not be too close to 1" (every assignment a new code = unsaturated). We
-        # use a stopping threshold of 0.05 (1 unique code per 20 assignments),
-        # stricter than De Paoli's illustrative observation of 0.28 because we
-        # use the ratio as a stopping criterion, not a single-timepoint observation.
-        signal_slope <- slope_ratio < 0.05
-
-        # Signal 3: AI self-assessment (every N coded entries)
-        signal_ai <- FALSE
-        if (n_coded %% config$ai_assessment_interval == 0) {
-          signal_ai <- .ai_saturation_check(state, provider, research_focus,
-                                              audit_log = audit_log,
-                                              response_cache = response_cache)
-          if (signal_ai) {
-            log_info("  AI self-assessment: no novel patterns detected")
-          }
+      if (!judgment$success) {
+        saturation_failure_streak <- saturation_failure_streak + 1L
+        if (saturation_failure_streak == 3L) {
+          log_warn(paste0(
+            "AI saturation arbiter failed 3 consecutive times; ",
+            "continuing coding without saturation detection for the ",
+            "rest of this run. The streak resets on the next success."
+          ))
         }
-
-        # Count active signals
-        n_signals <- sum(c(signal_creation, signal_slope, signal_ai))
-
-        if (signal_creation) {
-          saturation_low_windows <- saturation_low_windows + 1L
-        } else {
-          saturation_low_windows <- 0L
-        }
-
-        # Triangulated stopping: 2+ signals OR sustained low creation rate
-        if (n_signals >= 2 || saturation_low_windows >= config$saturation_confirmations) {
+      } else {
+        saturation_failure_streak <- 0L
+        if (identical(judgment$verdict, "reached")) {
           state$saturation$reached <- TRUE
           state$saturation$reached_at_entry <- n_done
           state$saturation$reached_at_coded <- n_coded
           state$saturation$total_entries_at_saturation <- n
-          state$saturation$signals$code_creation_rate <- signal_creation
-          state$saturation$signals$slope_ratio <- signal_slope
-          state$saturation$signals$ai_self_assessment <- signal_ai
-          state$saturation$saturation_ratio <- round(codes_after / n_coded, 4)
-
-          triggered_by <- paste(
-            c(if (signal_creation) "code_creation_rate" else NULL,
-              if (signal_slope) "slope_ratio" else NULL,
-              if (signal_ai) "ai_self_assessment" else NULL,
-              if (saturation_low_windows >= config$saturation_confirmations) "sustained_low_creation" else NULL),
-            collapse = " + "
+          state$saturation$signals$ai_self_assessment <- TRUE
+          state$saturation$ai_articulation <- judgment$articulation
+          state$saturation$ai_rationale <- judgment$rationale
+          state$saturation$saturation_ratio <- round(
+            length(state$codebook) / n_coded, 4
           )
 
-          log_info("*** THEMATIC SATURATION REACHED ***")
+          log_info("*** THEMATIC SATURATION REACHED (AI arbiter) ***")
           log_info("  At entry {n_done}/{n} ({n_coded} coded)")
-          log_info("  Codebook: {codes_after} codes")
-          log_info("  Triggered by: {triggered_by}")
+          log_info("  Codebook: {length(state$codebook)} codes")
+          log_info("  AI articulation: {substr(judgment$articulation, 1, 200)}")
+          log_info("  AI rationale: {judgment$rationale}")
           log_info("  Saturation ratio: {state$saturation$saturation_ratio}")
           log_info("  Remaining {n - n_done} entries will not be processed")
           break
         }
+        # judgment$verdict %in% c("not_yet", "uncertain"): continue coding.
       }
     }
 
@@ -1440,59 +1461,10 @@ run_progressive_coding <- function(data, provider, config = list(),
 # ==============================================================================
 # Saturation detection helpers
 # ==============================================================================
-
-#' AI self-assessment for saturation
-#'
-#' Asks the AI whether it has encountered novel patterns recently that
-#' don't fit existing codes. Returns TRUE if the AI reports no novel patterns.
-#'
-#' @param state ProgressiveCodingState with current codebook
-#' @param provider AIProvider object
-#' @param research_focus Research focus string
-#' @return Logical: TRUE if AI reports no novel patterns (saturation signal)
-#' @keywords internal
-.ai_saturation_check <- function(state, provider, research_focus,
-                                  audit_log = NULL,
-                                  response_cache = NULL) {
-  n_codes <- length(state$codebook)
-  if (n_codes == 0) return(FALSE)
-
-  # Build a compact codebook summary
-  code_names <- vapply(state$codebook, function(cb) cb$code_name, character(1))
-  codebook_text <- paste(seq_along(code_names), ". ", code_names, sep = "", collapse = "\n")
-
-  prompt <- paste0(
-    "You have been coding entries about: ", research_focus, "\n\n",
-    "Your current codebook has ", n_codes, " codes:\n",
-    codebook_text, "\n\n",
-    "Based on the variety of entries you have been processing, do you believe ",
-    "there are significant patterns or topics related to the research focus that ",
-    "are NOT yet captured by any existing code?\n\n",
-    "Set novel_patterns_remaining = true if you believe more themes remain to ",
-    "be discovered; false if the codebook is essentially complete. Provide a ",
-    "brief reasoning string explaining your judgment."
-  )
-
-  result <- tryCatch({
-    ai_result <- ai_complete(provider, prompt,
-                              "You are assessing whether thematic saturation has been reached in a qualitative coding process.",
-                              task = "saturation_check",
-                              response_schema = .saturation_schema())
-    if (!is.null(audit_log)) {
-      log_ai_request(audit_log, "saturation", ai_result, response_cache,
-                      n_codes = n_codes)
-    }
-    parse_json_safely(ai_result$content)
-  }, error = function(e) {
-    log_debug("AI saturation check failed: {e$message}")
-    NULL
-  })
-
-  if (is.null(result)) return(FALSE)
-
-  # Returns TRUE when AI says no novel patterns remain (saturation signal)
-  !isTRUE(result$novel_patterns_remaining)
-}
+# Phase 56: the legacy .ai_saturation_check() (binary novel_patterns_remaining
+# yes/no) was replaced by .ai_judge_saturation() (3-valued verdict +
+# articulation requirement) in R/saturation_arbiter.R. The helper below
+# (generate_saturation_plot) is unchanged.
 
 #' Generate saturation curve plot
 #'

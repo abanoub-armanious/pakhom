@@ -367,26 +367,18 @@ config_wizard_app <- function(output_path = "config.yaml") {
 
     shiny::hr(),
 
-    # Thematic saturation
-    shiny::h4("Thematic Saturation Detection"),
-    shiny::fluidRow(
-      shiny::column(4, shiny::checkboxInput("saturation_enabled", "Enable Saturation Detection", value = TRUE)),
-      shiny::column(4, shiny::numericInput("saturation_window", "Window Size (coded entries)", value = 200,
-                                           min = 50, max = 1000, step = 50, width = "100%")),
-      shiny::column(4, shiny::numericInput("saturation_threshold", "New Codes Threshold", value = 2,
-                                           min = 0, max = 10, width = "100%"))
-    ),
-    shiny::fluidRow(
-      shiny::column(4, shiny::numericInput("saturation_confirmations", "Consecutive Windows", value = 3,
-                                           min = 1, max = 10, width = "100%")),
-      shiny::column(4, shiny::numericInput("min_coded_before_sat", "Min Coded Before Saturation", value = 500,
-                                           min = 100, max = 5000, step = 100, width = "100%")),
-      shiny::column(4, shiny::numericInput("ai_assessment_interval", "AI Assessment Every N Coded", value = 200,
-                                           min = 50, max = 1000, step = 50, width = "100%"))
-    ),
+    # Thematic saturation (Phase 56: AI-arbited).
+    # Per C1 ("AI decides when to stop"), saturation is judged by an AI
+    # arbiter whose cadence auto-scales with corpus size; there are no
+    # user-tunable knobs. This help block is informational only.
+    shiny::h4("Thematic Saturation"),
     shiny::div(class = "help-text",
-               "Stops coding when the codebook stabilizes. Uses triangulated signals: code creation rate, ",
-               "reuse stability (slope ratio), and AI self-assessment. Disable to code all entries regardless."),
+               "Saturation is judged by an AI arbiter (Phase 56). The AI ",
+               "evaluates the recent code-growth trajectory + codebook ",
+               "composition every max(20, ceiling(n/50)) coded entries ",
+               "and returns one of: reached / not_yet / uncertain. ",
+               "Coding stops at the first 'reached' verdict. No tunable ",
+               "thresholds -- per C1, the AI decides when to stop."),
 
     shiny::hr(),
 
@@ -561,13 +553,12 @@ config_wizard_app <- function(output_path = "config.yaml") {
         progressive = TRUE,
         include_in_vivo = isTRUE(input$include_in_vivo),
         max_retries_per_entry = val("max_retries", 1),
-        checkpoint_interval = val("checkpoint_interval", 50),
-        saturation_enabled = isTRUE(input$saturation_enabled),
-        saturation_window = val("saturation_window", 200),
-        saturation_threshold = val("saturation_threshold", 2),
-        saturation_confirmations = val("saturation_confirmations", 3),
-        min_coded_before_saturation = val("min_coded_before_sat", 500),
-        ai_assessment_interval = val("ai_assessment_interval", 200)
+        checkpoint_interval = val("checkpoint_interval", 50)
+        # Phase 56: pre-Phase-56 saturation knobs (saturation_enabled,
+        # saturation_window, saturation_threshold, saturation_confirmations,
+        # min_coded_before_saturation, ai_assessment_interval) removed.
+        # The AI saturation arbiter is the sole decision; cadence
+        # auto-scales by corpus size.
       ),
       themes = list(
         # Phase 53: removed dead pre-Phase-52 merge-pass knobs

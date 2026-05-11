@@ -687,7 +687,8 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
         output_dir      = output_dir,
         audit_log       = audit_log,
         response_cache  = response_cache,
-        live_tracker    = live_tracker
+        live_tracker    = live_tracker,
+        config          = config
       )
       if (is.null(theme_set) || length(theme_set$themes) == 0L) {
         log_warn("Framework theme application produced no themes -- continuing with empty set")

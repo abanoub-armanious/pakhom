@@ -24,7 +24,7 @@ and Mean(SD), formatted as "\if{html}{\out{<center>}} (\if{html}{\out{<spread>}}
 \item \strong{Examples of comments} -- up to N representative quotes
 (sentiment-positioned when sentiment_score is available),
 each tagged with the source entry's metric values as
-\samp{[Drug Rating: 8; Like Count: 12]}.
+\samp{[<metric_a>: 8; <metric_b>: 12]}.
 }
 }
 \details{

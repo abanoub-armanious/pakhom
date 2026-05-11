@@ -28,7 +28,11 @@
 )
 
 .valid_decision_types <- c(
-  # Pre-T1.4 decision types
+  # Pre-T1.4 decision types. "saturation_signal" is retained in the
+  # allowlist for back-compat: audit logs from pre-Phase-56 runs use it,
+  # and replay_run() validates each historical line against this
+  # allowlist. Phase 56+ runs emit "saturation_judgment" (see below)
+  # instead; "saturation_signal" should not be written by new code.
   "code_assignment", "new_code_created", "entry_skipped", "merge_decision",
   "sentiment_assignment", "saturation_signal", "theme_structure",
   "insight_generation",
@@ -53,7 +57,8 @@
   "quote_drifted",                    # T0.1: source corpus changed since attribution
   "coverage_failure",                 # T0.3: corpus-coverage computation failed
   "cluster_decision",                 # Phase 52: HAC tree-walk per-node verdict
-  "framework_revision_suggested"      # Phase 54: revise policy wrote framework_review.csv
+  "framework_revision_suggested",     # Phase 54: revise policy wrote framework_review.csv
+  "saturation_judgment"               # Phase 56: AI arbiter verdict (reached/not_yet/uncertain)
 )
 
 # -- Constructor ---------------------------------------------------------------

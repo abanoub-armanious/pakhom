@@ -11,7 +11,8 @@ apply_framework_themes(
   output_dir = NULL,
   audit_log = NULL,
   response_cache = NULL,
-  live_tracker = NULL
+  live_tracker = NULL,
+  config = NULL
 )
 }
 \arguments{
@@ -34,6 +35,18 @@ pass's AI calls.}
 \item{response_cache}{Optional \code{ResponseCache} threaded through.}
 
 \item{live_tracker}{Optional \code{LiveTracker} threaded through.}
+
+\item{config}{Optional \code{ThematicConfig} (Phase 56). When supplied
+and the framework spec's anomaly_handling is \code{"extend"} or
+\code{"revise"}, the inductive emergent-themes pass receives a
+methodology rules override (the inductive-pass variant of the Mode 3
+rule, computed via \code{generate_methodology_rules(config,
+  inductive_pass = TRUE)}) so the AI doesn't see the contradictory
+"Do NOT generate new framework constructs" rule from the deductive
+default. NULL (the default) falls through to the provider's default
+rules -- safe for legacy/test callers; the inductive pass will see
+the deductive rule alongside its inductive prompt (the Phase 54
+deferral iii contradiction the override resolves).}
 }
 \value{
 A \code{ThemeSet} S3 object with framework themes and (under

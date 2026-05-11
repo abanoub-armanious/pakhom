@@ -1741,8 +1741,28 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   coverage <- x
   ok <- isTRUE(coverage$no_silent_truncation)
-  banner_class <- if (ok) "coverage-banner-ok" else "coverage-banner-warn"
-  banner_msg <- if (ok) {
+  # Phase 56: distinguish intentional saturation-triggered early-stop
+  # (coverage$stop_reason == "saturation_arbiter_reached") from genuine
+  # silent truncation. Both share ok=TRUE only when the unprocessed tail
+  # EXACTLY equals the post-saturation tail (verified in
+  # compute_corpus_coverage). Banner styling + language differs.
+  saturation_stop <- isTRUE(coverage$saturation_reached) &&
+                      identical(coverage$stop_reason, "saturation_arbiter_reached")
+  banner_class <- if (ok && saturation_stop) "coverage-banner-saturated"
+                  else if (ok)                "coverage-banner-ok"
+                  else                         "coverage-banner-warn"
+  banner_msg <- if (ok && saturation_stop) {
+    paste0(
+      "AI saturation arbiter judged the codebook saturated at entry ",
+      format(coverage$reached_at_entry, big.mark = ","), " of ",
+      format(coverage$n_input_to_coding, big.mark = ","),
+      ". Coding stopped intentionally; the unprocessed tail (",
+      format(coverage$n_unprocessed, big.mark = ","),
+      " entries) was excluded by design, NOT by silent truncation. ",
+      "See the Saturation Analysis section for the AI arbiter's ",
+      "articulation + rationale."
+    )
+  } else if (ok) {
     paste0(
       "All ",
       format(coverage$n_input_to_coding, big.mark = ","),
@@ -2262,30 +2282,65 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
       length(coding_state$codebook), "** unique codes.\n\n"
     )
 
-    # Describe which signals triggered saturation
-    signals <- c()
-    if (isTRUE(sat$signals$code_creation_rate)) {
-      signals <- c(signals, "new code creation rate dropped below threshold")
-    }
-    if (isTRUE(sat$signals$slope_ratio)) {
-      signals <- c(signals, "Inductive Thematic Saturation ratio reached threshold (De Paoli & Mathis, 2024)")
-    }
-    if (isTRUE(sat$signals$ai_self_assessment)) {
-      signals <- c(signals, "AI self-assessment reported no novel patterns remaining")
-    }
-
-    if (length(signals) > 0) {
+    # Phase 56: saturation is now AI-arbited (R/saturation_arbiter.R).
+    # The pre-Phase-56 triangulation (code_creation_rate + slope_ratio +
+    # ai_self_assessment signal booleans) is gone; the report renders
+    # the AI's articulation + rationale instead. Fall back to the
+    # legacy signal list when reading an older state file that
+    # predates Phase 56 (back-compat: replay of pre-Phase-56 runs).
+    articulation <- as.character(sat$ai_articulation %||% "")
+    rationale    <- as.character(sat$ai_rationale %||% "")
+    if (nzchar(articulation) || nzchar(rationale)) {
       content <- paste0(content,
-        "Saturation was triggered by the following convergent signals: ",
+        "## How the AI arbiter judged saturation\n\n",
+        "Per Phase 56's commitment that the AI decides when to stop (no ",
+        "hardcoded thresholds), an AI saturation arbiter judged the ",
+        "codebook trajectory + composition at every ",
+        "`max(20, ceiling(n_corpus / 50))`-entry checkpoint and ",
+        "returned a 3-valued verdict (`reached` / `not_yet` / ",
+        "`uncertain`) with a structured articulation and rationale. ",
+        "The verdict at the stopping point was **`reached`**.\n\n",
+        if (nzchar(articulation)) paste0(
+          "**Articulation** (the AI's description of what it observed):\n\n",
+          "> ", gsub("\n", "\n> ", articulation, fixed = TRUE), "\n\n"
+        ) else "",
+        if (nzchar(rationale)) paste0(
+          "**Rationale** (the AI's justification for declaring saturation):\n\n",
+          "> ", gsub("\n", "\n> ", rationale, fixed = TRUE), "\n\n"
+        ) else ""
+      )
+    } else if (isTRUE(sat$signals$ai_self_assessment) ||
+               isTRUE(sat$signals$code_creation_rate) ||
+               isTRUE(sat$signals$slope_ratio)) {
+      # Back-compat: pre-Phase-56 state file -- describe the legacy
+      # convergent signals that triggered saturation. Not produced by
+      # any Phase 56+ run, but a state file from an older run may have
+      # them.
+      signals <- c()
+      if (isTRUE(sat$signals$code_creation_rate)) {
+        signals <- c(signals, "new code creation rate dropped below threshold")
+      }
+      if (isTRUE(sat$signals$slope_ratio)) {
+        signals <- c(signals, "Inductive Thematic Saturation ratio reached threshold (De Paoli & Mathis, 2024)")
+      }
+      if (isTRUE(sat$signals$ai_self_assessment)) {
+        signals <- c(signals, "AI self-assessment reported no novel patterns remaining")
+      }
+      content <- paste0(content,
+        "Saturation was triggered by the following convergent signals ",
+        "(pre-Phase-56 triangulation): ",
         paste(signals, collapse = "; "), ".\n\n"
       )
     }
 
-    content <- paste0(content,
-      "The saturation ratio (codes / coded entries) was **",
-      sat$saturation_ratio, "**, indicating that on average one new code was created ",
-      "for every ", round(1 / sat$saturation_ratio), " coded entries.\n\n"
-    )
+    sat_ratio_val <- as.numeric(sat$saturation_ratio %||% NA_real_)
+    if (!is.na(sat_ratio_val) && sat_ratio_val > 0) {
+      content <- paste0(content,
+        "The saturation ratio (codes / coded entries) was **",
+        sat_ratio_val, "**, indicating that on average one new code was created ",
+        "for every ", round(1 / sat_ratio_val), " coded entries.\n\n"
+      )
+    }
   } else {
     content <- paste0(content,
       "Thematic saturation was **not reached** during this analysis. ",

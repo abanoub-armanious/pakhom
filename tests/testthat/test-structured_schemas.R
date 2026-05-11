@@ -9,7 +9,9 @@
 test_that("all six task schemas pass .validate_schema", {
   schemas <- list(
     coding     = pakhom:::.coding_schema(),
-    saturation = pakhom:::.saturation_schema(),
+    # Phase 56: was .saturation_schema (binary novel_patterns_remaining);
+    # the new arbiter uses a 3-valued verdict + articulation requirement.
+    saturation = pakhom:::.saturation_decision_schema(),
     sentiment  = pakhom:::.sentiment_schema(),
     theming    = pakhom:::.theme_decision_schema(),  # Phase 52: was .theming_schema
     insight    = pakhom:::.insight_schema(),
@@ -25,7 +27,7 @@ test_that("all six task schemas pass .validate_schema", {
 test_that("schemas serialize via jsonlite without losing structure", {
   schemas <- list(
     pakhom:::.coding_schema(),
-    pakhom:::.saturation_schema(),
+    pakhom:::.saturation_decision_schema(),  # Phase 56
     pakhom:::.sentiment_schema(),
     pakhom:::.theme_decision_schema(),
     pakhom:::.insight_schema(),

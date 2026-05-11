@@ -10,7 +10,8 @@
   provider,
   audit_log = NULL,
   response_cache = NULL,
-  live_tracker = NULL
+  live_tracker = NULL,
+  methodology_override = NULL
 )
 }
 \description{

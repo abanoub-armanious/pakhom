@@ -419,13 +419,14 @@ print.ThematicConfig <- function(x, ...) {
         segment_length_min = NULL,   # Min coded segment length in characters (default: 30)
         segment_length_max = NULL,   # Max coded segment length in characters (default: 200)
         code_label_min_words = NULL,  # Min code label length in words (default: 3)
-        code_label_max_words = NULL,  # Max code label length in words (default: 8)
-        saturation_enabled = TRUE,
-        saturation_window = 200L,
-        saturation_threshold = 2L,
-        saturation_confirmations = 3L,
-        min_coded_before_saturation = 500L,
-        ai_assessment_interval = 200L
+        code_label_max_words = NULL   # Max code label length in words (default: 8)
+        # Phase 56: removed six pre-Phase-56 saturation knobs
+        # (saturation_enabled, saturation_window, saturation_threshold,
+        # saturation_confirmations, min_coded_before_saturation,
+        # ai_assessment_interval). Per C1 ("AI decides when to stop"),
+        # the AI saturation arbiter in R/saturation_arbiter.R is the
+        # sole decision; cadence is auto-scaled by corpus size via
+        # .saturation_cadence(). No user-facing knobs.
       ),
       themes = list(
         # Phase 53 cleanup of Phase 52 audit deferral: removed five more

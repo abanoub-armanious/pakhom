@@ -36,7 +36,7 @@ a record carrying:
 entry has \code{median}, \code{mad}, \code{mean}, \code{sd}
 \item \code{example_quotes}: character vector of representative
 quotes tagged with per-entry metric values
-(e.g. \samp{"I take it nightly... [Drug Rating: 8; Like Count: 12]"})
+(e.g. \samp{"<quote text>... [<metric_a>: 8; <metric_b>: 12]"})
 }
 }
 \details{

@@ -62,8 +62,7 @@ test_that("run_progressive_coding (Mode 3) pre-populates codebook with framework
 
   state <- run_progressive_coding(
     data = data, provider = mock_provider("anthropic"),
-    config = list(max_retries_per_entry = 1L,
-                   saturation_enabled = FALSE),
+    config = list(max_retries_per_entry = 1L),
     research_focus = "Medication adherence",
     framework_spec = spec
   )
@@ -113,7 +112,7 @@ test_that("run_progressive_coding (Mode 3) routes anomaly responses into the ano
 
   state <- run_progressive_coding(
     data = data, provider = mock_provider("anthropic"),
-    config = list(max_retries_per_entry = 1L, saturation_enabled = FALSE),
+    config = list(max_retries_per_entry = 1L),
     research_focus = "TPB",
     framework_spec = spec
   )
@@ -457,7 +456,7 @@ test_that("run_progressive_coding refuses Mode 3 resume from a Mode 2 state (BLO
       run_progressive_coding(
         data = data,
         provider = mock_provider("openai"),
-        config = list(saturation_enabled = FALSE),
+        config = list(),
         research_focus = "test",
         resume_state = resume,
         framework_spec = spec

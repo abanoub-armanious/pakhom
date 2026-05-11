@@ -58,6 +58,11 @@ test_that("compute_corpus_coverage returns a CorpusCoverage S3 object with all s
     "n_skipped", "skip_reasons", "n_coded",
     "bytes_processed", "chars_processed", "words_processed",
     "coverage_rate", "no_silent_truncation",
+    # Phase 56: stop_reason / saturation_reached / reached_at_entry
+    # distinguish intentional saturation-arbiter early-stop from
+    # silent truncation so the T0.3 banner can render the right
+    # language (audit CRITICAL-1).
+    "stop_reason", "saturation_reached", "reached_at_entry",
     "computed_at", "schema_version"
   )
   expect_setequal(names(cov), expected_fields)
@@ -358,4 +363,83 @@ test_that(".build_corpus_coverage_card on non-CorpusCoverage object renders unav
   # variant rather than a crash.
   html <- pakhom:::.build_corpus_coverage_card(list(some = "field"))
   expect_match(html, "coverage-unavailable")
+})
+
+# ==============================================================================
+# Phase 56: saturation-aware coverage (audit CRITICAL-1)
+# ==============================================================================
+# Pre-Phase-56 the headline no_silent_truncation flag was simply
+# (n_unprocessed == 0L), so any saturation-triggered early stop made it
+# render FALSE -- which is wrong: the arbiter is the methodologically
+# intentional stop. Phase 56 distinguishes the two by reading
+# coding_state$saturation$reached + $reached_at_entry.
+
+test_that("Phase 56: coverage with NO saturation reports stop_reason='all_entries_processed'", {
+  state <- .make_state(coded_ids = c("e1", "e2", "e3"))
+  data  <- .make_data(c("e1", "e2", "e3"))
+  cov <- compute_corpus_coverage(state, data)
+  expect_equal(cov$stop_reason, "all_entries_processed")
+  expect_false(isTRUE(cov$saturation_reached))
+  expect_true(is.na(cov$reached_at_entry))
+  expect_true(cov$no_silent_truncation)
+})
+
+test_that("Phase 56: coverage with saturation_reached + intact tail is no_silent_truncation=TRUE", {
+  # Simulate: AI arbiter declared saturation at entry 60 of 100. Entries
+  # 1..60 are in entry_results; entries 61..100 were intentionally NOT
+  # processed. n_unprocessed = 40, which exactly equals the post-saturation
+  # tail (100 - 60). Coverage should be TRUE with stop_reason flagging
+  # the intentional case.
+  state <- .make_state(coded_ids = paste0("e", 1:60))
+  state$saturation$reached <- TRUE
+  state$saturation$reached_at_entry <- 60L
+  state$saturation$reached_at_coded <- 60L
+  state$saturation$total_entries_at_saturation <- 100L
+  state$saturation$ai_articulation <- paste0(
+    "Codebook flat for 6 windows; reuse density 0.94; new_in_window=0."
+  )
+  data <- .make_data(paste0("e", 1:100))
+  cov <- compute_corpus_coverage(state, data)
+  expect_true(cov$no_silent_truncation)
+  expect_equal(cov$stop_reason, "saturation_arbiter_reached")
+  expect_true(cov$saturation_reached)
+  expect_equal(cov$reached_at_entry, 60L)
+  expect_equal(cov$n_unprocessed, 40L)
+})
+
+test_that("Phase 56: coverage with saturation_reached BUT missing tail flags silent truncation", {
+  # Defensive: even with saturation_reached=TRUE, if n_unprocessed
+  # exceeds the expected post-saturation tail (e.g., due to a pre-
+  # saturation processing gap), no_silent_truncation must still be FALSE
+  # so the T0.3 banner doesn't lie.
+  state <- .make_state(coded_ids = c("e1", "e2", "e5"))  # missing e3, e4
+  state$saturation$reached <- TRUE
+  state$saturation$reached_at_entry <- 5L  # arbiter ran AT entry 5 of 10
+  state$saturation$reached_at_coded <- 3L
+  state$saturation$total_entries_at_saturation <- 10L
+  data <- .make_data(paste0("e", 1:10))
+  cov <- compute_corpus_coverage(state, data)
+  # Expected tail = 10 - 5 = 5 (entries 6..10). But n_unprocessed
+  # includes e3 + e4 + e6..e10 = 7 entries, which is MORE than 5.
+  # T0.3 must catch the genuine gap.
+  expect_equal(cov$n_unprocessed, 7L)
+  expect_false(cov$no_silent_truncation)
+  expect_equal(cov$stop_reason, "saturation_arbiter_reached")  # the kind of stop
+})
+
+test_that("Phase 56: render_tier0_coverage_card emits saturation banner on intentional stop", {
+  state <- .make_state(coded_ids = paste0("e", 1:60))
+  state$saturation$reached <- TRUE
+  state$saturation$reached_at_entry <- 60L
+  state$saturation$reached_at_coded <- 60L
+  state$saturation$total_entries_at_saturation <- 100L
+  data <- .make_data(paste0("e", 1:100))
+  cov <- compute_corpus_coverage(state, data)
+  html <- render_tier0_coverage_card(cov)
+  # Phase 56-specific banner language
+  expect_match(html, "saturation arbiter judged")
+  expect_match(html, "intentionally")
+  # Banner class is the saturation variant, not the warning variant
+  expect_match(html, "coverage-banner-saturated")
+  expect_false(grepl("Coverage is incomplete; investigate", html))
 })

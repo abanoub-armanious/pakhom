@@ -246,13 +246,13 @@ analysis:
     segment_length_max: ~
     code_label_min_words: ~
     code_label_max_words: ~
-    # Saturation detection (Guest et al. 2020 + De Paoli & Mathis 2024 style)
-    saturation_enabled: true
-    saturation_window: 200        # Coded-entry window over which to count new codes.
-    saturation_threshold: 2       # If <= this many new codes appear in the window, signal fires.
-    saturation_confirmations: 3   # Need this many consecutive low-creation windows to declare saturation.
-    min_coded_before_saturation: 500   # Don't even check until at least this many entries are coded.
-    ai_assessment_interval: 200   # Ask the AI every N coded entries whether novel patterns remain.
+    # Saturation: per C1 ("AI decides when to stop"), saturation is judged
+    # by an AI arbiter (Phase 56; R/saturation_arbiter.R) rather than by
+    # threshold-based heuristics. No user-facing saturation knobs --
+    # cadence is auto-scaled by corpus size (max(20, ceiling(n/50))).
+    # The six pre-Phase-56 knobs (saturation_enabled / saturation_window /
+    # saturation_threshold / saturation_confirmations /
+    # min_coded_before_saturation / ai_assessment_interval) are removed.
 
   themes:
     # Per C1 (AI decides when to stop), pakhom does not gate theme generation

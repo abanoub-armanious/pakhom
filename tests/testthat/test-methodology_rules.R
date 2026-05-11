@@ -29,12 +29,19 @@ test_that("generate_methodology_rules: reflexive_scaffold rules forbid theme pro
   expect_match(rules, "Refusal is a first-class output")
 })
 
-test_that("generate_methodology_rules: codebook_collaborative allows codes but bounds themes", {
+test_that("generate_methodology_rules: codebook_collaborative allows codes + Phase 52 theme proposals", {
+  # Phase 56 refresh: pre-Phase-52 said "model does NOT name themes" but
+  # Phase 52 made the AI propose theme names via the HAC tree-walk's
+  # central_organizing_concept. The refreshed rule reflects this while
+  # keeping researcher-as-final-author.
   cfg <- list(methodology = list(mode = "codebook_collaborative"))
   rules <- generate_methodology_rules(cfg)
   expect_match(rules, "Mode 2 \\(Codebook Collaborative\\)")
   expect_match(rules, "MAY propose codes")
-  expect_match(rules, "does NOT name themes")
+  # AI now articulates the central organizing concept = theme-name proposal
+  expect_match(rules, "central organizing concept")
+  # Researcher can rename/merge/split/delete at the end
+  expect_match(rules, "rename, merge, split, or delete")
 })
 
 test_that("generate_methodology_rules: framework_applied constrains to framework verbatim", {
@@ -279,4 +286,124 @@ test_that("AC9 enforcement: rules injection cannot be turned off via task or con
     expect_match(captured$system_prompt, "MUST APPEAR",
                  info = sprintf("Task=%s should not be able to suppress rules", task))
   }
+})
+
+# ============================================================================
+# Phase 56: inductive-pass variant of the Mode 3 rule + methodology_override
+# ============================================================================
+
+test_that("Phase 56: codebook_collaborative rule reflects Phase 52 HAC tree walk", {
+  # Pre-Phase-52 Mode 2 rule said "model does NOT name themes -- researcher's role".
+  # Phase 52 made the AI propose theme names (via central_organizing_concept).
+  # The refreshed rule must reflect this without losing the researcher-as-author
+  # framing.
+  cfg <- list(methodology = list(mode = "codebook_collaborative"))
+  rules <- generate_methodology_rules(cfg)
+  # Affirmative: AI proposes theme groupings + names
+  expect_match(rules, "HAC")
+  expect_match(rules, "central organizing concept")
+  # Still researcher-final: review pass can rename / merge / split
+  expect_match(rules, "rename, merge, split, or delete")
+  # Symmetric prompt framing (vs. pre-Phase-52 merge-biased)
+  expect_match(rules, "ALL these codes share a principle|symmetric")
+})
+
+test_that("Phase 56: framework_applied default rule still forbids new construct generation", {
+  cfg <- list(methodology = list(mode = "framework_applied"))
+  rules <- generate_methodology_rules(cfg, inductive_pass = FALSE)
+  # Default Mode 3 must still tell the AI not to generate new framework
+  # constructs during the deductive coding pass.
+  expect_match(rules, "Do NOT generate new framework constructs")
+  # And the rule header reads "framework_applied" without inductive suffix
+  expect_match(rules, "## Mode rules \\(framework_applied\\)")
+})
+
+test_that("Phase 56: framework_applied inductive variant omits 'do NOT generate' + permits new codes", {
+  cfg <- list(methodology = list(mode = "framework_applied"))
+  rules <- generate_methodology_rules(cfg, inductive_pass = TRUE)
+  # The inductive variant must NOT say "Do NOT generate new framework constructs"
+  expect_false(grepl("Do NOT generate new framework constructs", rules))
+  # It must affirmatively say to generate inductive codes
+  expect_match(rules, "Generate inductive codes")
+  # Header includes the inductive-pass suffix
+  expect_match(rules, "## Mode rules \\(framework_applied -- inductive pass\\)")
+  # AC2 preservation: framework spec NOT mutated
+  expect_match(rules, "do NOT mutate the framework spec|framework definition is fixed")
+})
+
+test_that("Phase 56: inductive_pass = TRUE is a no-op for non-Mode-3 modes", {
+  # For Mode 1 / Mode 2 the inductive flag is a no-op -- there is no
+  # alternate rule body AND no header suffix (the suffix is suppressed
+  # so the rule block is bit-identical to the default-pass output).
+  # This contract matters because the header is the AI's first cue
+  # about which rule variant is in force; a misleading suffix would
+  # signal a non-existent semantic switch.
+  for (mode in c("reflexive_scaffold", "codebook_collaborative")) {
+    cfg <- list(methodology = list(mode = mode))
+    default_rules   <- generate_methodology_rules(cfg, inductive_pass = FALSE)
+    inductive_rules <- generate_methodology_rules(cfg, inductive_pass = TRUE)
+    expect_equal(default_rules, inductive_rules,
+                 info = sprintf("mode=%s should be bit-identical with inductive_pass=TRUE", mode))
+  }
+})
+
+test_that("Phase 56: ai_complete uses methodology_override when supplied (overrides provider rules)", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5")
+  captured <- new.env(parent = emptyenv())
+  local_mocked_bindings(
+    .openai_completion = function(provider, prompt, system_prompt, model,
+                                    temperature, max_tokens, json_mode,
+                                    response_schema = NULL, documents = NULL) {
+      captured$system_prompt <- system_prompt
+      list(content = "ok", model = "m",
+           usage = list(prompt_tokens = 1L, completion_tokens = 1L,
+                        total_tokens = 2L),
+           finish_reason = "stop", raw_response = list(),
+           prompt_hash = "h", request_id = "r", citations = list())
+    },
+    .package = "pakhom"
+  )
+  prov <- mock_provider("openai")
+  prov$methodology_rules <- "DEFAULT RULES BLOCK"
+
+  # With override: the override text replaces the provider's default rules
+  ai_complete(prov, prompt = "p", system_prompt = "task-prompt",
+              methodology_override = "INDUCTIVE OVERRIDE")
+  expect_match(captured$system_prompt, "INDUCTIVE OVERRIDE")
+  expect_false(grepl("DEFAULT RULES BLOCK", captured$system_prompt))
+
+  # Without override: provider rules apply as before (back-compat)
+  captured$system_prompt <- ""
+  ai_complete(prov, prompt = "p", system_prompt = "task-prompt")
+  expect_match(captured$system_prompt, "DEFAULT RULES BLOCK")
+  expect_false(grepl("INDUCTIVE OVERRIDE", captured$system_prompt))
+})
+
+test_that("Phase 56: methodology_override with empty string falls through cleanly", {
+  # A caller passing methodology_override = "" should produce a
+  # system_prompt without any rules prefix (matches the empty-default
+  # behavior; not a back-door to the provider rules).
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5")
+  captured <- new.env(parent = emptyenv())
+  local_mocked_bindings(
+    .openai_completion = function(provider, prompt, system_prompt, model,
+                                    temperature, max_tokens, json_mode,
+                                    response_schema = NULL, documents = NULL) {
+      captured$system_prompt <- system_prompt
+      list(content = "ok", model = "m",
+           usage = list(prompt_tokens = 1L, completion_tokens = 1L,
+                        total_tokens = 2L),
+           finish_reason = "stop", raw_response = list(),
+           prompt_hash = "h", request_id = "r", citations = list())
+    },
+    .package = "pakhom"
+  )
+  prov <- mock_provider("openai")
+  prov$methodology_rules <- "PROVIDER DEFAULT"
+  ai_complete(prov, prompt = "p", system_prompt = "task-prompt",
+              methodology_override = "")
+  expect_equal(captured$system_prompt, "task-prompt")
+  expect_false(grepl("PROVIDER DEFAULT", captured$system_prompt))
 })

@@ -154,20 +154,74 @@
   )
 }
 
-#' Schema for the AI saturation-check response (.ai_saturation_check)
+#' Schema for the Phase 56 AI saturation arbiter response
+#'
+#' Used by \code{.ai_judge_saturation()} during progressive coding to ask
+#' the model whether thematic saturation has been reached. Replaces the
+#' pre-Phase-56 binary \code{.saturation_schema()} (novel_patterns_remaining
+#' + reasoning). The new shape mirrors the Phase 52 theme-decision schema:
+#'
+#' (a) Articulation requirement -- the model must FIRST describe what it
+#'     observes (code growth pattern, codebook composition, reuse density)
+#'     before committing to a verdict. Vacuous articulations (<30 chars)
+#'     force a downgrade from "reached" -> "not_yet" so the AI can't
+#'     declare saturation without substantive reasoning. Same anti-vacuous
+#'     pattern Phase 52 uses for theme decisions.
+#'
+#' (b) Three-valued verdict instead of boolean -- the pre-Phase-56 path
+#'     forced a binary novel_patterns_remaining: yes/no. The new shape adds
+#'     "uncertain" so the AI can decline to judge when the evidence is
+#'     insufficient (e.g., very early in coding). Per C1 ("AI decides when
+#'     to stop"), an "uncertain" verdict means "continue coding; re-check
+#'     later" rather than forcing a hardcoded min-entries gate.
+#'
+#' (c) Rationale field -- short justification (1-2 sentences) that must
+#'     reference the most distinctive evidence from the prompt.
 #'
 #' \preformatted{
-#'   { "novel_patterns_remaining": boolean, "reasoning": string }
+#'   {
+#'     "articulation": string,
+#'     "verdict": "reached" | "not_yet" | "uncertain",
+#'     "rationale": string
+#'   }
 #' }
 #' @keywords internal
-.saturation_schema <- function() {
+.saturation_decision_schema <- function() {
   list(
     type                  = "object",
     additionalProperties  = FALSE,
-    required              = list("novel_patterns_remaining", "reasoning"),
+    required              = list("articulation", "verdict", "rationale"),
     properties = list(
-      novel_patterns_remaining = list(type = "boolean"),
-      reasoning                = list(type = "string")
+      articulation = list(
+        type        = "string",
+        description = paste0(
+          "BEFORE the verdict: in 2-4 sentences, describe what you observe ",
+          "in the data. What is the current code creation rate? What is ",
+          "the codebook composition? Are new entries surfacing genuinely ",
+          "novel codes or reusing existing ones? Vacuous articulations ",
+          "under 30 characters will force a 'not_yet' verdict."
+        )
+      ),
+      verdict = list(
+        type        = "string",
+        enum        = list("reached", "not_yet", "uncertain"),
+        description = paste0(
+          "'reached' = the codebook is stable; new entries are reusing ",
+          "existing codes rather than generating novel ones. ",
+          "'not_yet' = the codebook is still meaningfully growing. ",
+          "'uncertain' = the evidence is insufficient to judge (e.g., too ",
+          "little coded yet); continue coding and re-check later. ",
+          "Your articulation must justify the verdict."
+        )
+      ),
+      rationale = list(
+        type        = "string",
+        description = paste0(
+          "1-2 sentence justification. Must reference the most distinctive ",
+          "piece of evidence from the prompt (e.g., the new-codes-per-window ",
+          "trajectory, the reuse density, or a specific code-reuse pattern)."
+        )
+      )
     )
   )
 }

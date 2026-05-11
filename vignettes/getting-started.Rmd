@@ -526,7 +526,9 @@ data:
   source_type: "reddit"           # reddit, twitter, clinical, generic
   preprocessing:
     min_char: 50                  # Minimum characters to keep an entry
-    saturation_enabled: true       # Enable thematic saturation detection
+    # Phase 56: thematic saturation is now AI-arbited; no user knobs.
+    # The AI judges saturation per max(20, ceiling(n_corpus / 50))
+    # coded entries -- see ?pakhom::run_progressive_coding.
 
 learning:
   enabled: false

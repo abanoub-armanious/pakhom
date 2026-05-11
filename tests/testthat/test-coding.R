@@ -116,15 +116,23 @@ test_that("codebook_summary builder works", {
 })
 
 # ============================================================================
-# Saturation tracking
+# Saturation tracking math (curve computation)
 #
 # Background: the previous saturation calculation tried to derive each code's
 # birth-time-in-coded-entries from per-checkpoint accumulator lists that get
 # reset every checkpoint_interval. After the first reset the calculation lost
 # all history, so `new_in_window` collapsed toward zero and the code-creation-
-# rate signal fired prematurely once `min_coded_before_saturation` was reached.
-# The fix stores `n_coded_at_birth` directly in a parallel map at the moment
-# each code is created, so the saturation check is a direct lookup.
+# rate signal fired prematurely. The fix stores `n_coded_at_birth` directly
+# in a parallel map at the moment each code is created, so the saturation
+# check is a direct lookup.
+#
+# Phase 56: the pre-Phase-56 code-creation-rate / slope-ratio / consecutive-
+# windows heuristic signals were replaced by an AI saturation arbiter
+# (R/saturation_arbiter.R) per C1. The curve math below is still in
+# production (it feeds the AI arbiter's prompt evidence + the
+# saturation_curve.png plot), but the `saturation_threshold` / `window_size`
+# values used in the assertions below are now test-local constants, not
+# config knobs.
 # ============================================================================
 
 test_that("create_coding_state initializes code_n_coded_at_birth alongside code_birth_log", {

@@ -15,7 +15,8 @@ ai_complete(
   json_mode = FALSE,
   max_retries = 3,
   response_schema = NULL,
-  documents = NULL
+  documents = NULL,
+  methodology_override = NULL
 )
 }
 \arguments{
@@ -70,6 +71,16 @@ incompatible but produces no text blocks for citations to attach to.
 When both are passed the request is sent as-is and \code{$citations}
 will typically be empty -- callers should choose one mode or the other
 per the architecture (phase 21c uses citations alone for Anthropic).}
+
+\item{methodology_override}{Optional character (Phase 56; default NULL).
+When NULL, the call uses \code{provider$methodology_rules} as the
+system-prompt prefix (AC9 default). When a non-NULL string is
+supplied, it replaces that prefix for this single call only --
+used by the Phase 54 inductive emergent-themes pass to swap in the
+inductive variant of the Mode 3 rule (\code{generate_methodology_rules
+  (config, inductive_pass = TRUE)}) instead of the default deductive
+rule that forbids new-construct generation. Empty string (\code{""})
+suppresses the rules prefix entirely.}
 }
 \value{
 A list with the following fields (canonical shape, normalized

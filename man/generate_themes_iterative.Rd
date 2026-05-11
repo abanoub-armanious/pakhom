@@ -13,7 +13,8 @@ generate_themes_iterative(
   concepts = NULL,
   audit_log = NULL,
   response_cache = NULL,
-  live_tracker = NULL
+  live_tracker = NULL,
+  methodology_override = NULL
 )
 }
 \arguments{
@@ -37,6 +38,12 @@ the algorithm has no merge-pass parameters)}
 \item{live_tracker}{Optional \code{LiveTracker} (Phase 53). When provided,
 the cluster snapshot is rewritten after every AI decision so a
 researcher can \verb{cat outputs/<run>/live/code_to_cluster.json} mid-run.}
+
+\item{methodology_override}{Optional character (Phase 56). When non-NULL,
+replaces the provider's default methodology rules in every internal
+\code{ai_complete} call for this walk. Used by the Phase 54
+emergent-themes pass to inject the Mode 3 inductive variant; NULL
+for normal Mode 2 + Mode 3 deductive callers.}
 }
 \value{
 \code{ThemeSet} S3 object with merge_history attached. The

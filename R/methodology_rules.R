@@ -37,19 +37,39 @@
 #' instantiate ai_complete without a full config and we don't want to
 #' break those paths.
 #'
+#' Phase 56: \code{inductive_pass = TRUE} selects an alternate mode rule
+#' variant for the Phase 54 abductive emergent-themes pass. The default
+#' Mode 3 rule says "Do NOT generate new framework constructs during
+#' coding"; under the inductive pass that instruction directly
+#' contradicts the prompt asking the AI to inductively code anomaly
+#' segments. The variant omits the "do not generate" clause and
+#' instructs the AI to generate inductive codes for anomaly residuals.
+#' Only Mode 3 has a meaningful inductive variant; for other modes the
+#' flag is a no-op.
+#'
 #' @param config A ThematicConfig (or list with the same shape).
+#' @param inductive_pass Logical. When TRUE, select the inductive-pass
+#'   rule variant (Phase 54 abductive emergent-themes pass). Default
+#'   FALSE.
 #' @return Character: the rules block, prefixed with a header. Empty
 #'   string when nothing meaningful can be generated.
 #' @export
-generate_methodology_rules <- function(config) {
+generate_methodology_rules <- function(config, inductive_pass = FALSE) {
   if (is.null(config)) return("")
   mode <- .config_methodology_mode(config)
   rules <- character(0)
 
-  # Mode-specific rules
-  mode_block <- .mode_rules_for(mode)
+  # Mode-specific rules. Only Mode 3 has an inductive variant (Phase 54
+  # deferral iii); for other modes inductive_pass is a no-op and the
+  # header suffix is suppressed so the rule block is bit-identical to
+  # the default-pass output.
+  mode_block <- .mode_rules_for(mode, inductive_pass = inductive_pass)
   if (nzchar(mode_block)) {
-    rules <- c(rules, paste0("## Mode rules (", mode, ")\n", mode_block))
+    has_inductive_variant <- identical(mode, "framework_applied")
+    suffix <- if (isTRUE(inductive_pass) && has_inductive_variant) {
+      " -- inductive pass"
+    } else ""
+    rules <- c(rules, paste0("## Mode rules (", mode, suffix, ")\n", mode_block))
   }
 
   # Universal Tier-0 rules apply in ALL modes
@@ -85,14 +105,14 @@ generate_methodology_rules <- function(config) {
 # ==============================================================================
 
 #' @keywords internal
-.mode_rules_for <- function(mode) {
+.mode_rules_for <- function(mode, inductive_pass = FALSE) {
   if (is.null(mode) || !nzchar(mode)) {
     return("")
   }
   switch(mode,
     "reflexive_scaffold"      = .rules_reflexive_scaffold(),
     "codebook_collaborative"  = .rules_codebook_collaborative(),
-    "framework_applied"       = .rules_framework_applied(),
+    "framework_applied"       = .rules_framework_applied(inductive_pass = inductive_pass),
     {
       log_warn("generate_methodology_rules: unknown mode '{mode}'; emitting universal rules only.")
       ""
@@ -121,19 +141,33 @@ generate_methodology_rules <- function(config) {
 .rules_codebook_collaborative <- function() {
   paste0(
     "Mode 2 (Codebook Collaborative) allows the model to propose codes ",
-    "but bounds higher-order interpretation:\n",
+    "and cluster-level theme groupings while leaving final acceptance to ",
+    "the researcher:\n",
     "- The model MAY propose codes; the researcher accepts, edits, or ",
     "rejects each. The codebook is the researcher's deliverable.\n",
-    "- The model does NOT name themes. Theme naming is the researcher's role.\n",
-    "- The model does NOT generate theme-level interpretation, ",
-    "summary, or synthesis without explicit researcher prompting.\n",
-    "- When asked for theme-level work, redirect to codebook-level ",
-    "operations or refuse with an explanation."
+    "- During Phase 52's HAC-based AI-judged theme walk, the model judges ",
+    "at every internal node of the code dendrogram whether the cluster is ",
+    "a coherent theme (with a central organizing concept), needs to be ",
+    "split, or is an atomic outlier. The model's articulation of the ",
+    "central organizing concept becomes the proposed theme name; subtheme ",
+    "names emerge from one-level-deeper walks within each theme.\n",
+    "- The researcher remains the deliverable's author: at the end of the ",
+    "run a researcher review pass can rename, merge, split, or delete any ",
+    "proposed code, subtheme, or theme.\n",
+    "- The walk is symmetric: 'can ALL these codes share a principle?' ",
+    "rather than a merge-biased 'should this merge?'. Splitting is fine ",
+    "and expected; vacuous articulations (<30 chars) force a split.\n",
+    "- When asked for theme-level work outside the structured walk ",
+    "(e.g., free-form 'summarize this theme'), defer to the researcher ",
+    "unless the prompt explicitly instructs you otherwise."
   )
 }
 
 #' @keywords internal
-.rules_framework_applied <- function() {
+.rules_framework_applied <- function(inductive_pass = FALSE) {
+  if (isTRUE(inductive_pass)) {
+    return(.rules_framework_applied_inductive())
+  }
   paste0(
     "Mode 3 (Framework Applied) constrains the model to the researcher's ",
     "framework:\n",
@@ -151,6 +185,43 @@ generate_methodology_rules <- function(config) {
     "the framework spec. Per Vila-Henninger 2024 abductive coding, the ",
     "emergent themes from that pass complement (but never replace) the ",
     "framework themes."
+  )
+}
+
+#' @keywords internal
+#' Inductive-pass variant of the Mode 3 (Framework Applied) rule.
+#'
+#' Selected by .mode_rules_for(mode = "framework_applied",
+#' inductive_pass = TRUE). Phase 56 fix for Phase 54 deferral (iii):
+#' during the abductive emergent-themes pass on anomaly residuals, the
+#' AI sees a prompt asking it to inductively code segments -- but the
+#' default Mode 3 rule says "Do NOT generate new framework constructs
+#' during coding". That direct contradiction is removed here.
+#'
+#' The framework spec is still NOT mutated (AC2 preserved); emergent
+#' themes extend the OUTPUT, not the framework definition.
+.rules_framework_applied_inductive <- function() {
+  paste0(
+    "Mode 3 (Framework Applied) -- INDUCTIVE PASS variant. The deductive ",
+    "framework-coding pass has completed; you are now operating on the ",
+    "ANOMALY RESIDUALS (segments the framework did not capture). The ",
+    "default Mode 3 'do not generate new constructs' rule does NOT ",
+    "apply on this pass -- generating new codes for residuals is the ",
+    "explicit task.\n",
+    "- Generate inductive codes for the anomaly segments shown. Code ",
+    "names should be 3-8 words, descriptive of the CONCEPT (not the ",
+    "verbatim words used). Reuse code names across segments that ",
+    "express the same concept -- consolidation is welcome (downstream ",
+    "clustering uses these codes).\n",
+    "- These inductive codes will be clustered into EMERGENT themes ",
+    "(Phase 54). Emergent themes complement framework themes; they ",
+    "do NOT replace them and they do NOT mutate the framework spec ",
+    "(AC2 preserved). Per Vila-Henninger 2024 abductive coding, this ",
+    "is theory-building from residuals, not theory-revision.\n",
+    "- The framework definition is fixed at run start and remains so. ",
+    "If the researcher wants the framework itself revised, that ",
+    "happens after the run via the 'revise' policy's framework_review.csv ",
+    "artifact -- not during this inductive pass."
   )
 }
 

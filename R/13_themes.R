@@ -65,6 +65,11 @@
 #' @param live_tracker Optional \code{LiveTracker} (Phase 53). When provided,
 #'   the cluster snapshot is rewritten after every AI decision so a
 #'   researcher can `cat outputs/<run>/live/code_to_cluster.json` mid-run.
+#' @param methodology_override Optional character (Phase 56). When non-NULL,
+#'   replaces the provider's default methodology rules in every internal
+#'   \code{ai_complete} call for this walk. Used by the Phase 54
+#'   emergent-themes pass to inject the Mode 3 inductive variant; NULL
+#'   for normal Mode 2 + Mode 3 deductive callers.
 #' @return \code{ThemeSet} S3 object with merge_history attached. The
 #'   merge_history$tree_walk field carries the HAC tree + per-node
 #'   decisions for replay (Phase 52 audit trail).
@@ -75,7 +80,8 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
                                        concepts = NULL,
                                        audit_log = NULL,
                                        response_cache = NULL,
-                                       live_tracker = NULL) {
+                                       live_tracker = NULL,
+                                       methodology_override = NULL) {
   if (!inherits(coding_state, "ProgressiveCodingState")) {
     stop("coding_state must be a ProgressiveCodingState object")
   }
@@ -154,15 +160,22 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
   walk_state$themes_so_far  <- list()  # for live snapshots; populated as walks complete
 
   walk_ctx <- list(
-    provider          = provider,
-    research_focus    = research_focus_str,
-    concept_str       = concept_str,
-    calibration_text  = calibration_text,
-    reflexivity_block = config$reflexivity_block %||% "",
-    audit_log         = audit_log,
-    response_cache    = response_cache,
-    live_tracker      = live_tracker,
-    walk_state        = walk_state
+    provider             = provider,
+    research_focus       = research_focus_str,
+    concept_str          = concept_str,
+    calibration_text     = calibration_text,
+    reflexivity_block    = config$reflexivity_block %||% "",
+    audit_log            = audit_log,
+    response_cache       = response_cache,
+    live_tracker         = live_tracker,
+    walk_state           = walk_state,
+    # Phase 56: per-call methodology rules override (Phase 54 deferral
+    # iii). NULL = use provider default; non-NULL string = swap in
+    # this text instead. The Phase 54 emergent-themes pass passes the
+    # inductive variant of the Mode 3 rule so .evaluate_cluster's
+    # AI calls don't see the contradictory "do not generate new
+    # constructs" rule from the deductive default.
+    methodology_override = methodology_override
   )
 
   # 5. AI tree walk for THEMES (top-down divisive)
@@ -638,15 +651,16 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
   # Phase 53 cleanup of Phase 52 audit MEDIUM-8 + LOW-10:
   # walk_state is now an environment, mutated in place without `<<-`.
   # walk_ctx packs the long parameter list from the pre-cleanup version.
-  walk_state        <- walk_ctx$walk_state
-  provider          <- walk_ctx$provider
-  research_focus    <- walk_ctx$research_focus
-  concept_str       <- walk_ctx$concept_str
-  calibration_text  <- walk_ctx$calibration_text
-  reflexivity_block <- walk_ctx$reflexivity_block
-  audit_log         <- walk_ctx$audit_log
-  response_cache    <- walk_ctx$response_cache
-  live_tracker      <- walk_ctx$live_tracker
+  walk_state           <- walk_ctx$walk_state
+  provider             <- walk_ctx$provider
+  research_focus       <- walk_ctx$research_focus
+  concept_str          <- walk_ctx$concept_str
+  calibration_text     <- walk_ctx$calibration_text
+  reflexivity_block    <- walk_ctx$reflexivity_block
+  audit_log            <- walk_ctx$audit_log
+  response_cache       <- walk_ctx$response_cache
+  live_tracker         <- walk_ctx$live_tracker
+  methodology_override <- walk_ctx$methodology_override
 
   walk_state$n_calls <- walk_state$n_calls + 1L
   call_idx <- walk_state$n_calls
@@ -727,7 +741,8 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
     ai_result <- ai_complete(provider, prompt, system_prompt,
                               task = "theming",
                               temperature = 0,
-                              response_schema = .theme_decision_schema())
+                              response_schema = .theme_decision_schema(),
+                              methodology_override = methodology_override)
     if (!is.null(audit_log)) {
       log_ai_request(audit_log, "theming", ai_result, response_cache,
                       level = level_label, node_idx = node_idx,
@@ -1224,7 +1239,8 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
                                                        provider,
                                                        audit_log = NULL,
                                                        response_cache = NULL,
-                                                       live_tracker = NULL) {
+                                                       live_tracker = NULL,
+                                                       methodology_override = NULL) {
   anomaly_entry <- coding_state$codebook[["anomaly"]]
   if (is.null(anomaly_entry)) return(list())
   segs <- anomaly_entry$coded_segments %||% list()
@@ -1261,11 +1277,12 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
 
   # Step (a): batch inductive coding of the anomaly segments
   segment_codes <- .inductive_code_anomaly_segments(
-    segments       = segs,
-    framework_spec = framework_spec,
-    provider       = provider,
-    audit_log      = audit_log,
-    response_cache = response_cache
+    segments             = segs,
+    framework_spec       = framework_spec,
+    provider             = provider,
+    audit_log            = audit_log,
+    response_cache       = response_cache,
+    methodology_override = methodology_override
   )
   if (length(segment_codes) == 0L) {
     log_warn("Inductive emergent-coding produced no usable codes; falling back to no emergent themes")
@@ -1285,17 +1302,18 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
   # we need the inner theme records so apply_framework_themes can merge
   # them with theme_kind = "emergent".
   emergent_ts <- generate_themes_iterative(
-    coding_state    = synth_state,
-    provider        = provider,
-    config          = list(),
-    research_focus  = paste0(
+    coding_state         = synth_state,
+    provider             = provider,
+    config               = list(),
+    research_focus       = paste0(
       "Patterns in segments that resisted the '", framework_spec$name,
       "' framework -- abductive emergent themes (Vila-Henninger 2024)."
     ),
-    concepts        = NULL,
-    audit_log       = audit_log,
-    response_cache  = response_cache,
-    live_tracker    = live_tracker
+    concepts             = NULL,
+    audit_log            = audit_log,
+    response_cache       = response_cache,
+    live_tracker         = live_tracker,
+    methodology_override = methodology_override
   )
 
   toc()
@@ -1324,7 +1342,8 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
 .inductive_code_anomaly_segments <- function(segments, framework_spec,
                                                 provider,
                                                 audit_log = NULL,
-                                                response_cache = NULL) {
+                                                response_cache = NULL,
+                                                methodology_override = NULL) {
   n <- length(segments)
   if (n == 0L) return(list())
 
@@ -1397,7 +1416,8 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
       ai_result <- ai_complete(provider, prompt, system_prompt,
                                 task = "theming",
                                 temperature = 0,
-                                response_schema = .emergent_coding_schema())
+                                response_schema = .emergent_coding_schema(),
+                                methodology_override = methodology_override)
       if (!is.null(audit_log)) {
         log_ai_request(audit_log, "theming", ai_result, response_cache,
                         task_variant = "emergent_inductive_coding",
@@ -1758,6 +1778,17 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
 #'   pass's AI calls.
 #' @param response_cache Optional \code{ResponseCache} threaded through.
 #' @param live_tracker Optional \code{LiveTracker} threaded through.
+#' @param config Optional \code{ThematicConfig} (Phase 56). When supplied
+#'   and the framework spec's anomaly_handling is \code{"extend"} or
+#'   \code{"revise"}, the inductive emergent-themes pass receives a
+#'   methodology rules override (the inductive-pass variant of the Mode 3
+#'   rule, computed via \code{generate_methodology_rules(config,
+#'   inductive_pass = TRUE)}) so the AI doesn't see the contradictory
+#'   "Do NOT generate new framework constructs" rule from the deductive
+#'   default. NULL (the default) falls through to the provider's default
+#'   rules -- safe for legacy/test callers; the inductive pass will see
+#'   the deductive rule alongside its inductive prompt (the Phase 54
+#'   deferral iii contradiction the override resolves).
 #' @return A \code{ThemeSet} S3 object with framework themes and (under
 #'   "extend"/"revise") emergent themes. Themes carry a \code{theme_kind}
 #'   field of \code{"framework"} | \code{"emergent"} | \code{"anomaly_bracket"}
@@ -1768,9 +1799,30 @@ apply_framework_themes <- function(coding_state, framework_spec,
                                     output_dir = NULL,
                                     audit_log = NULL,
                                     response_cache = NULL,
-                                    live_tracker = NULL) {
+                                    live_tracker = NULL,
+                                    config = NULL) {
   validate_class(coding_state, "ProgressiveCodingState")
   validate_class(framework_spec, "FrameworkSpec")
+
+  # Phase 56 (Phase 54 deferral iii): under anomaly_handling = extend/revise
+  # the inductive emergent-themes pass needs to see the inductive variant of
+  # the Mode 3 methodology rule (which permits new-code generation on the
+  # anomaly residuals). The default deductive Mode 3 rule says "do NOT
+  # generate new framework constructs during coding" -- a direct
+  # contradiction with the inductive prompt. Pre-compute the override once
+  # here so .generate_emergent_themes_from_anomalies can thread it into
+  # both the segment-coding call AND the downstream HAC tree-walk for
+  # emergent themes. NULL when no config provided (legacy/test callers);
+  # the inductive path falls through to the provider default in that case.
+  inductive_override <- if (!is.null(config)) {
+    tryCatch(generate_methodology_rules(config, inductive_pass = TRUE),
+             error = function(e) {
+               log_warn("apply_framework_themes: could not compute inductive ",
+                        "methodology rules: {e$message}; ",
+                        "emergent pass will see default Mode 3 rules.")
+               NULL
+             })
+  } else NULL
 
   themes <- list()
   next_id <- 1L
@@ -1859,12 +1911,13 @@ apply_framework_themes <- function(coding_state, framework_spec,
         # Generate emergent themes from the anomaly segments via batch
         # inductive coding + Phase 52 HAC + AI-judged tree walk.
         emergent_themes_raw <- .generate_emergent_themes_from_anomalies(
-          coding_state    = coding_state,
-          framework_spec  = framework_spec,
-          provider        = provider,
-          audit_log       = audit_log,
-          response_cache  = response_cache,
-          live_tracker    = live_tracker
+          coding_state         = coding_state,
+          framework_spec       = framework_spec,
+          provider             = provider,
+          audit_log            = audit_log,
+          response_cache       = response_cache,
+          live_tracker         = live_tracker,
+          methodology_override = inductive_override
         )
 
         for (et in emergent_themes_raw) {

@@ -11,7 +11,7 @@ Picks up to \code{n_quotes} entries using the same sentiment-positioned
 selection as \code{.select_representative_quotes} (so the quotes span
 the sentiment range when available), then formats each as the entry's
 text followed by a bracketed metric-tag block:
-\samp{"quote text" [Drug Rating: 8; Like Count: 12]}
+\samp{"<quote text>" [<metric_a>: 8; <metric_b>: 12]}
 }
 \details{
 When the entry is missing a metric, that metric is omitted from the

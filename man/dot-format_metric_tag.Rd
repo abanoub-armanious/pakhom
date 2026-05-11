@@ -7,7 +7,7 @@
 .format_metric_tag(row, metric_cols)
 }
 \description{
-\samp{[Drug Rating: 8; Like Count: 12]} -- one metric=value pair per metric
+\samp{[<metric_a>: 8; <metric_b>: 12]} -- one metric=value pair per metric
 column the entry has a non-NA value for, semicolon-separated, wrapped
 in square brackets. Returns the empty string when the row is missing
 all metric values (so the renderer can omit the tag entirely).
