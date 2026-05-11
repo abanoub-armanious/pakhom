@@ -225,6 +225,51 @@ test_that("Phase 52: .leaves_under_node resolves internal node to leaf indices",
   expect_equal(pakhom:::.leaves_under_node(hac, -2L), 2L)
 })
 
+test_that("Phase 57 regression: .compute_code_distance_matrix preserves matrix dim through pmax (cosine path)", {
+  # Phase 57 smoke caught a Phase 52 bug: pmax(0, 1 - sim) silently
+  # stripped the matrix dim attribute (pmax transfers attributes only
+  # from its FIRST argument when length matches the result; the scalar
+  # 0 doesn't match, so dim was lost). The bug manifested as
+  # "length of 'dimnames' [1] not equal to array extent" when the
+  # downstream rownames(d) <- ... call tried to label a 1xN^2 matrix.
+  # Phase 52 unit tests didn't catch it because they exercised only
+  # the Jaccard fallback (which doesn't call pmax) on tiny 3-code
+  # codebooks. Regression test: stub the cosine path with an embedding
+  # matrix + verify the returned dist object has the right Size.
+  state <- create_coding_state()
+  for (k in paste0("c", 1:5)) {
+    state$codebook[[k]] <- list(
+      code_name = paste("Code", k), description = paste("Desc for", k),
+      type = "descriptive", frequency = 1L,
+      entry_ids = paste0("e", which(letters == substr(k, 2, 2))),
+      coded_segments = list()
+    )
+  }
+  codes <- pakhom:::.extract_codes_from_state(state)
+
+  # Stub compute_embeddings to return a deterministic 5x8 matrix --
+  # this exercises the cosine path that the smoke ran into.
+  fake_provider <- list(
+    provider = "openai",
+    models = list(primary = "gpt-4o", embedding = "text-embedding-3-small")
+  )
+  class(fake_provider) <- "AIProvider"
+
+  withr::local_seed(42L)
+  fake_embs <- matrix(rnorm(5 * 8), nrow = 5L, ncol = 8L)
+  testthat::local_mocked_bindings(
+    compute_embeddings = function(provider, texts, model = NULL) fake_embs,
+    .package = "pakhom"
+  )
+  d <- pakhom:::.compute_code_distance_matrix(codes, state, fake_provider)
+  expect_equal(attr(d, "metric"), "cosine_embedding")
+  expect_equal(attr(d, "Size"), 5L)
+  m <- as.matrix(d)
+  expect_equal(dim(m), c(5L, 5L))
+  expect_setequal(rownames(m), names(state$codebook))
+  expect_equal(diag(m), stats::setNames(rep(0, 5L), names(state$codebook)))
+})
+
 test_that("Phase 52: .compute_code_distance_matrix Jaccard fallback when no embeddings", {
   state <- create_coding_state()
   state$codebook[["a"]] <- list(

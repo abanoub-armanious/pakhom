@@ -362,7 +362,18 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
       # Cosine distance = 1 - cosine similarity. Clamp to [0, 2] for
       # numerical safety (cosine similarity may slightly exceed [-1, 1]
       # due to float precision).
-      d <- pmax(0, 1 - sim)
+      #
+      # IMPORTANT: pmax's first argument's attributes (including dim) are
+      # transferred to the result; second argument's attributes are not.
+      # Calling pmax(0, 1 - sim) silently STRIPS sim's matrix dim and
+      # returns a numeric VECTOR (because 0 has length 1 and the result
+      # has length n*n). Phase 57 smoke caught this on a 283-code corpus
+      # where the downstream rownames(d) <- ... call then errored with
+      # "length of 'dimnames' [1] not equal to array extent". Phase 52
+      # tests didn't hit it because the synthetic codebooks are <= 6 codes
+      # and Jaccard fallback (which doesn't call pmax) was exercised.
+      # Argument order corrected below: pmax(1 - sim, 0) preserves dim.
+      d <- pmax(1 - sim, 0)
       # Symmetrize defensively + zero diagonal
       d <- (d + t(d)) / 2
       diag(d) <- 0
