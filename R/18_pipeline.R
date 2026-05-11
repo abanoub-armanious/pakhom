@@ -677,9 +677,18 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     } else if (!is.null(framework_spec)) {
       # AC2 / AC8 mode dispatch: Mode 3 uses the framework's constructs
       # AS the themes. No iterative merging -- the framework IS the theme
-      # structure, fixed at run start.
-      log_info("\n[STEP 5] Mapping framework constructs to themes (Mode 3)...")
-      theme_set <- apply_framework_themes(coding_state, framework_spec)
+      # structure, fixed at run start. Phase 54: anomaly_handling drives
+      # what happens to non-fitting segments (bracket / extend / revise).
+      log_info("\n[STEP 5] Mapping framework constructs to themes (Mode 3, anomaly_handling='{framework_spec$anomaly_handling}')...")
+      theme_set <- apply_framework_themes(
+        coding_state    = coding_state,
+        framework_spec  = framework_spec,
+        provider        = provider,
+        output_dir      = output_dir,
+        audit_log       = audit_log,
+        response_cache  = response_cache,
+        live_tracker    = live_tracker
+      )
       if (is.null(theme_set) || length(theme_set$themes) == 0L) {
         log_warn("Framework theme application produced no themes -- continuing with empty set")
       }

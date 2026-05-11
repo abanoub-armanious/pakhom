@@ -44,6 +44,12 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
       inherits(s, "Subtheme") && !is.na(s$name) && nchar(s$name %||% "") > 0L
     }, t$subthemes %||% list())
 
+    # Phase 54: preserve theme_kind from apply_framework_themes so the
+    # report renderer can section framework themes vs emergent themes vs
+    # the bracket-policy Anomaly catch-all. Default to "framework" for
+    # Mode 2 themes (which don't carry the field).
+    theme_kind <- t$theme_kind %||% "framework"
+
     # Guard: empty themes get NA stats instead of NaN
     if (n == 0) {
       theme_stats[[tn]] <- list(
@@ -60,6 +66,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
         subthemes = real_subtheme_names,
         subthemes_structured = real_subtheme_objs,
         prevalence = t$prevalence %||% "unknown",
+        theme_kind = theme_kind,
         quotes_with_context = list()
       )
       next
@@ -132,6 +139,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
       subthemes = real_subtheme_names,
       subthemes_structured = real_subtheme_objs,
       prevalence = t$prevalence %||% "unknown",
+      theme_kind = theme_kind,
       quotes_with_context = quotes
     )
   }

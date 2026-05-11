@@ -469,8 +469,25 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   # Correlation interpretation
   corr_interpretation <- interpret_correlations(correlations_df, theme_stats)
 
-  # Theme ordering by prevalence
-  theme_order <- overall_stats$themes |> arrange(desc(n)) |> pull(theme_name)
+  # Theme ordering. Phase 54: under Mode 3 the theme_set may contain both
+  # framework themes (deductive, primary) and emergent themes (inductive,
+  # derived from anomaly residuals). Order them by kind first
+  # (framework -> emergent -> anomaly_bracket) and within each kind by
+  # prevalence DESC. Mode 2 themes default to theme_kind = "framework"
+  # via aggregate_theme_statistics, so this ordering is a no-op for them.
+  .theme_kind_rank <- function(k) {
+    switch(k %||% "framework",
+      framework = 0L, emergent = 1L, anomaly_bracket = 2L, 3L)
+  }
+  themes_with_kind <- overall_stats$themes
+  themes_with_kind$theme_kind_rank <- vapply(
+    themes_with_kind$theme_name,
+    function(tn) .theme_kind_rank(theme_stats[[tn]]$theme_kind),
+    integer(1)
+  )
+  theme_order <- themes_with_kind |>
+    arrange(.data$theme_kind_rank, desc(.data$n)) |>
+    pull(.data$theme_name)
 
   # Determine output paths
   output_dir <- dirname(output_file)
@@ -1192,13 +1209,46 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     "```\n\n"
   )
 
-  # Theme cards
+  # Theme cards. Phase 54: inject a section header when the theme_kind
+  # changes (framework -> emergent -> anomaly_bracket). For Mode 2 runs
+  # (all theme_kind = "framework") the header injection never fires.
   theme_index <- 0
+  last_kind <- NA_character_
   for (tn in theme_order) {
     if (!tn %in% names(theme_stats)) next
     theme_index <- theme_index + 1
     ts <- theme_stats[[tn]]
     csv_info <- export_files$theme_csv_files[[tn]]
+
+    cur_kind <- ts$theme_kind %||% "framework"
+    if (!identical(cur_kind, last_kind)) {
+      header_html <- switch(cur_kind,
+        framework = "",  # default; framework themes come first, no header needed
+        emergent  = paste0(
+          '<div class="emergent-section-header" style="margin-top: 2.5rem;">\n',
+          '## Emergent themes\n\n',
+          '<p class="theme-description"><em>Patterns the framework did not ',
+          'anticipate. These themes are surfaced inductively from the ',
+          'segments that resisted the framework (per <code>anomaly_handling = ',
+          '"extend"</code>). The framework themes above remain primary; this ',
+          'section is an abductive complement (Vila-Henninger 2024).</em></p>\n',
+          '</div>\n\n'
+        ),
+        anomaly_bracket = paste0(
+          '<div class="anomaly-section-header" style="margin-top: 2.5rem;">\n',
+          '## Bracketed anomalies\n\n',
+          '<p class="theme-description"><em>Segments that resist the framework, ',
+          'surfaced as a single catch-all per <code>anomaly_handling = ',
+          '"bracket"</code>. Switch the framework spec to <code>"extend"</code> ',
+          'or <code>"revise"</code> to cluster these inductively into emergent ',
+          'themes.</em></p>\n',
+          '</div>\n\n'
+        ),
+        ""
+      )
+      content <- paste0(content, header_html)
+      last_kind <- cur_kind
+    }
 
     sent_class <- if (is.na(ts$sentiment$mean)) "neutral"
       else if (ts$sentiment$mean < .SENTIMENT_NEGATIVE_THRESHOLD) "negative"
@@ -1677,10 +1727,13 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "mixed"           = "applies constructs as primary but tolerates legitimate revision when data demands it",
     "(unknown stance)"
   )
+  # Phase 54: anomaly_handling drives BEHAVIOR. Each policy is a real
+  # methodological stance toward segments that resist the framework, not
+  # a documentation-only enum as it was pre-Phase-54.
   anomaly_explainer <- switch(spec$anomaly_handling,
-    "extend"  = "anomalies become NEW constructs (abductive coding; Vila-Henninger 2024); each requires explicit researcher acceptance",
-    "revise"  = "anomalies trigger MODIFICATION of an existing construct's definition; logged as framework revisions",
-    "bracket" = "anomalies are flagged as out-of-scope WITHOUT modifying the framework; most positivist",
+    "extend"  = "anomaly segments are clustered inductively into a section of emergent themes parallel to the framework themes (abductive coding; Vila-Henninger 2024). The framework spec itself is NOT mutated -- the analysis output gains a new section; the framework remains fixed at run start (AC2)",
+    "revise"  = "same as `extend` PLUS a `framework_review.csv` artifact is written with one row per anomaly segment and editable columns, so the researcher can decide whether to update the framework spec for a future run",
+    "bracket" = "anomaly segments are surfaced as a single \"Anomaly (non-fitting)\" theme; no inductive clustering. Right when the framework is mature and bracketing is the methodologically intended stance",
     "(unknown policy)"
   )
 

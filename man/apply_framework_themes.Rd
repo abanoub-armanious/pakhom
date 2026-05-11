@@ -2,28 +2,50 @@
 % Please edit documentation in R/13_themes.R
 \name{apply_framework_themes}
 \alias{apply_framework_themes}
-\title{Apply framework constructs as themes (Mode 3 dispatch for theming)}
+\title{Apply framework constructs as themes + handle anomalies (Mode 3)}
 \usage{
-apply_framework_themes(coding_state, framework_spec)
+apply_framework_themes(
+  coding_state,
+  framework_spec,
+  provider = NULL,
+  output_dir = NULL,
+  audit_log = NULL,
+  response_cache = NULL,
+  live_tracker = NULL
+)
 }
 \arguments{
 \item{coding_state}{A \code{ProgressiveCodingState} from a Mode 3 run.
 The codebook keys are construct_ids (plus "anomaly").}
 
 \item{framework_spec}{A loaded \code{FrameworkSpec}.}
+
+\item{provider}{Optional \code{AIProvider}. Required when
+\code{anomaly_handling} is \code{"extend"} or \code{"revise"} AND
+anomalies are present (the inductive pass calls the AI). When NULL
+under those policies, falls back to bracket behavior with a warning.}
+
+\item{output_dir}{Optional run directory path. Required for
+\code{"revise"} policy to write \code{framework_review.csv}.}
+
+\item{audit_log}{Optional \code{AuditLog} threaded into the inductive
+pass's AI calls.}
+
+\item{response_cache}{Optional \code{ResponseCache} threaded through.}
+
+\item{live_tracker}{Optional \code{LiveTracker} threaded through.}
 }
 \value{
-A \code{ThemeSet} S3 object: one theme per construct that has
-at least one coded entry (constructs with zero entries are dropped),
-plus an "Anomaly" theme when anomalies are present.
+A \code{ThemeSet} S3 object with framework themes and (under
+"extend"/"revise") emergent themes. Themes carry a \code{theme_kind}
+field of \code{"framework"} | \code{"emergent"} | \code{"anomaly_bracket"}
+so the report renderer can section them.
 }
 \description{
-Replaces the inductive bottom-up theme generation with a deterministic
-mapping from framework constructs to themes. Each framework construct
-becomes a theme; codes (which in Mode 3 are construct_ids) are
-included verbatim under their parent construct. The "anomaly" code,
-if non-empty, becomes its own theme so anomalies are visible in the
-report rather than buried in the codebook.
+Generates the framework themes from the framework spec, then dispatches
+on \code{framework_spec$anomaly_handling} to decide what happens to
+segments that didn't fit any framework construct (the "anomaly" code's
+segments).
 }
 \details{
 Per AC8 (modes are configurations of one architecture, never separate
@@ -31,4 +53,35 @@ code paths): the returned ThemeSet has the same shape as one produced
 by \code{generate_themes_iterative()}, so all downstream consumers
 (cascade_theme_assignments, aggregate_theme_statistics, report
 rendering) work without modification.
+
+\strong{Anomaly policy dispatch} (Phase 54):
+\itemize{
+\item \code{"bracket"}: legacy pre-Phase-54 behavior. Appends a single
+"Anomaly (non-fitting)" theme containing all non-fitting segments.
+\item \code{"extend"} (default): runs an abductive inductive pass on the
+anomaly segments, producing a section of \strong{emergent themes}
+parallel to the framework themes. Each emergent theme is tagged
+\code{theme_kind = "emergent"} so the report renderer surfaces it
+separately. The framework is NOT mutated -- AC2's "framework fixed
+at run start" invariant is intact; the analysis output gains a new
+section, that's all.
+\item \code{"revise"}: same as \code{"extend"} plus writes
+\code{framework_review.csv} to \code{output_dir} (one row per anomaly
+segment + suggested-edit columns for the researcher). The
+existing \code{after_themes} review pause point (configured via
+\code{config$analysis$review_points$after_themes}) is the
+integration point where the researcher inspects the CSV alongside
+framework + emergent themes and decides whether to edit the
+framework spec for a future run. A dedicated
+\code{after_framework_coding} pause is deferred (requires
+resumable runs with in-flight spec edits, beyond current
+checkpoint scope).
+}
+
+The framework themes themselves are unchanged -- AI is still constrained
+to apply constructs verbatim during the main coding pass (R/09_coding.R);
+the emergent-themes path operates only on segments that the AI ALREADY
+classified as "anomaly" during deductive coding. The deductive integrity
+of the framework analysis is preserved; the inductive pass operates on
+deductive coding's residuals.
 }

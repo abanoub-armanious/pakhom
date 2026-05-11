@@ -137,12 +137,20 @@ generate_methodology_rules <- function(config) {
   paste0(
     "Mode 3 (Framework Applied) constrains the model to the researcher's ",
     "framework:\n",
-    "- Apply the supplied framework verbatim. The framework's constructs ",
-    "are the only permitted code names.\n",
+    "- Apply the supplied framework verbatim during the main coding pass. ",
+    "The framework's constructs are the only permitted code names.\n",
     "- Flag entries that resist the framework as anomalies (separate ",
-    "field). Do NOT generate new framework constructs.\n",
-    "- Theme-level decisions are the researcher's. The model's job is ",
-    "rigorous application of the framework, not extension of it."
+    "field). Do NOT generate new framework constructs during coding.\n",
+    "- Theme-level decisions are the researcher's. The model's job during ",
+    "deductive coding is rigorous application of the framework, not ",
+    "extension of it.\n",
+    "- A SEPARATE abductive pass (Phase 54; only invoked when the ",
+    "framework spec's anomaly_handling is 'extend' or 'revise') may ask ",
+    "you to inductively code the ANOMALY segments AFTER framework coding ",
+    "completes. That pass operates only on residuals; it does NOT mutate ",
+    "the framework spec. Per Vila-Henninger 2024 abductive coding, the ",
+    "emergent themes from that pass complement (but never replace) the ",
+    "framework themes."
   )
 }
 

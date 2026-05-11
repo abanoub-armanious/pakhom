@@ -308,6 +308,69 @@
   )
 }
 
+#' Schema for batch inductive coding of Mode 3 anomaly segments (Phase 54)
+#'
+#' Used by .inductive_code_anomaly_segments() to turn the segments that
+#' didn't fit a framework into named inductive codes. The AI sees a batch
+#' of anomaly segment texts and generates a code_name + code_description
+#' per segment. Codes can naturally repeat across segments (the AI is
+#' prompted to reuse code names for segments expressing the same concept);
+#' Phase 52's HAC + AI tree walk then consolidates near-duplicates into
+#' emergent themes.
+#'
+#' This schema is intentionally per-segment (rather than cross-referenced
+#' codes -> segments) so the structured output stays simple and the
+#' provenance from segment back to its inductive code stays one-to-one.
+#'
+#' \preformatted{
+#'   {
+#'     "coded_segments": [
+#'       { "segment_index": int, "code_name": string, "code_description": string }
+#'     ]
+#'   }
+#' }
+#' @keywords internal
+.emergent_coding_schema <- function() {
+  list(
+    type                  = "object",
+    additionalProperties  = FALSE,
+    required              = list("coded_segments"),
+    properties = list(
+      coded_segments = list(
+        type  = "array",
+        items = list(
+          type                  = "object",
+          additionalProperties  = FALSE,
+          required              = list("segment_index", "code_name",
+                                        "code_description"),
+          properties = list(
+            segment_index    = list(
+              type        = "integer",
+              description = "1-based index into the segments array provided in the prompt."
+            ),
+            code_name        = list(
+              type        = "string",
+              description = paste0(
+                "3-8 word inductive code name capturing what the segment is ",
+                "ABOUT (not the verbatim words used). Reuse the same name across ",
+                "segments expressing the same concept -- consolidation is welcome."
+              )
+            ),
+            code_description = list(
+              type        = "string",
+              description = paste0(
+                "1-2 sentence description of the conceptual content. Speaks ",
+                "to the abductive 'what does this reveal that the framework did ",
+                "not anticipate?' question."
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+}
+
 #' Schema for the insight-generation response (generate_insights)
 #'
 #' \preformatted{

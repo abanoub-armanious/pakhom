@@ -519,9 +519,12 @@ test_that(".build_framework_declaration renders framework name + sha256 + citati
   # Epistemic stance + plain-language explainer
   expect_match(html, "positivist")
   expect_match(html, "brackets data that doesn't fit")
-  # Anomaly policy + plain-language explainer
+  # Anomaly policy + plain-language explainer. Phase 54: the bracket
+  # explainer no longer says "out-of-scope" (that was the pre-Phase-54
+  # phrasing); it now says "single 'Anomaly (non-fitting)' theme" to
+  # match the actual behavior + contrasts it with extend/revise.
   expect_match(html, "bracket")
-  expect_match(html, "out-of-scope")
+  expect_match(html, "single \"Anomaly")
   # All five TPB constructs surface
   for (cid in c("attitude", "subjective_norm",
                   "perceived_behavioral_control", "intention", "behavior")) {

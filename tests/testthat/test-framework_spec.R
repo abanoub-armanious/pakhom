@@ -222,10 +222,12 @@ test_that("load_framework_spec defaults epistemic_stance + anomaly_handling sens
     "      description: 'one'"
   ), yaml_path)
   spec <- load_framework_spec(yaml_path)
-  # Defaults are conservative: constructionist (allows interpretation),
-  # bracket (don't auto-extend the framework)
+  # Defaults: constructionist (allows interpretation), extend (Phase 54:
+  # changed from "bracket" so emergent themes from anomalies become the
+  # default abductive output rather than burying non-fitting segments in
+  # a single "Anomaly" catch-all theme).
   expect_equal(spec$epistemic_stance, "constructionist")
-  expect_equal(spec$anomaly_handling, "bracket")
+  expect_equal(spec$anomaly_handling, "extend")
 })
 
 test_that("load_framework_spec accepts and stores citations as character vector", {
