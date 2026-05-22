@@ -638,7 +638,10 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     coverage = coverage,
     run_id = basename(output_dir),
     framework_spec = framework_spec,
-    framework_archive = framework_archive
+    framework_archive = framework_archive,
+    # Phase 58 Tier 4 V-5: pass output_dir so the T0.1 dashboard can
+    # find fabrication_log.csv to count pre-rejection fabrications.
+    output_dir = output_dir
   )
 
   # Write Rmd (collapse to single string to prevent duplication)
@@ -728,7 +731,8 @@ generate_report <- function(data, theme_set, correlations_df, insights,
                                 coverage = NULL,
                                 run_id = NULL,
                                 framework_spec = NULL,
-                                framework_archive = NULL) {
+                                framework_archive = NULL,
+                                output_dir = NULL) {
 
   theme_count <- length(theme_stats)
 
@@ -801,10 +805,21 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   # (populated by phase 18 wiring); falls back gracefully when coding_state
   # is missing / pre-T0.1.
   tier0_stats <- compute_quote_provenance_stats(coding_state)
+  # Phase 58 Tier 4 V-5: pass the absolute fabrication-log path so the
+  # dashboard can count pre-rejection fabrications (the surviving
+  # population in `tier0_stats` is post-rejection, so it always
+  # reports 0 caught fabrications regardless of how many the ladder
+  # actually dropped during coding). output_dir is NULL for legacy
+  # callers / tests that don't supply it; in that case the dashboard
+  # falls back to the (legacy, post-rejection) stats path.
+  fab_log_abs <- if (!is.null(output_dir)) {
+    file.path(output_dir, "fabrication_log.csv")
+  } else NULL
   content <- paste0(content,
     .build_tier0_dashboard(tier0_stats,
                            fabrication_log_relpath = "fabrication_log.csv",
-                           config = config)
+                           config = config,
+                           fabrication_log_path = fab_log_abs)
   )
 
   # T0.3 corpus coverage assertion. Pairs with T0.1: T0.1 says "no
@@ -2442,29 +2457,47 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "> **Suggested text for methods section:** "
   )
 
+  # Phase 58 Tier 4 V-9 + V-10: pre-fix the suggested methods text
+  # (a) said "All 8216 entries were coded" using length(entries_processed)
+  # when actually entries_processed includes skipped entries (3182 of
+  # 8216 were skipped in Phase 57; only 5034 coded), and (b) cited
+  # pre-Phase-56 saturation heuristics (Guest 2020 + De Paoli 2024)
+  # instead of the actual Phase 56 AI saturation arbiter. Both
+  # generate journal-reviewer-misleading methods text.
+  n_coded <- length(coding_state$entries_processed) -
+              length(coding_state$entries_skipped %||% integer(0))
+  n_processed <- length(coding_state$entries_processed)
+  n_skipped <- length(coding_state$entries_skipped %||% integer(0))
+
   if (isTRUE(sat$reached)) {
+    art <- coding_state$saturation$ai_articulation %||% NA_character_
+    art_str <- if (!is.na(art) && nzchar(trimws(art))) {
+      paste0(" The arbiter articulated: \"", substr(art, 1, 280), "\"")
+    } else ""
     content <- paste0(content,
-      "Thematic saturation was assessed using a triangulated approach combining ",
-      "code creation rate monitoring (Guest, Namey, & Chen, 2020), Inductive ",
-      "Thematic Saturation ratio analysis (De Paoli & Mathis, 2024, ",
-      "doi:10.1007/s11135-024-01950-6), and AI self-assessment. The ITS ratio ",
-      "(unique codes / total code assignments; threshold < 0.05 in this ",
-      "implementation) measures codebook stability through code reuse density. ",
-      "Saturation was declared when at least two of three independent signals ",
-      "converged, indicating that the codebook was stable and no novel thematic ",
-      "patterns were emerging. Saturation was reached after coding ",
-      sat$reached_at_coded, " of ", sat$total_entries_at_saturation,
+      "Thematic saturation was assessed via an AI-judged arbiter ",
+      "(pakhom Phase 56 implementation) that reviewed codebook ",
+      "trajectory metrics at a cadence auto-scaled to corpus size. ",
+      "At each check the AI was shown the new-codes-in-window trend, ",
+      "the reuse density, and a verbal trajectory, and was asked to ",
+      "return a 3-valued verdict (`reached` | `not_yet` | `uncertain`) ",
+      "with a written articulation justifying the decision. Per the C1 ",
+      "commitment, no hardcoded thresholds gate the verdict; the AI ",
+      "is the sole judge.", art_str, " Saturation was reached after ",
+      "coding ", sat$reached_at_coded, " of ",
+      sat$total_entries_at_saturation,
       " entries, at which point ", length(coding_state$codebook),
       " unique codes had been identified.\n\n"
     )
   } else {
     content <- paste0(content,
-      "All ", length(coding_state$entries_processed), " entries were coded. ",
-      "Thematic saturation was monitored using code creation rate tracking ",
-      "(Guest, Namey, & Chen, 2020) and Inductive Thematic Saturation ratio ",
-      "analysis (De Paoli & Mathis, 2024, doi:10.1007/s11135-024-01950-6), ",
-      "but was not formally declared as new codes continued to emerge ",
-      "throughout the analysis.\n\n"
+      n_coded, " of ", n_processed, " entries were coded ",
+      "(", n_skipped, " skipped as off-topic or insufficient ",
+      "content). Thematic saturation was monitored by an AI-judged ",
+      "arbiter (pakhom Phase 56 implementation) which reviewed the ",
+      "codebook trajectory at a cadence auto-scaled to corpus size; ",
+      "the arbiter did not declare saturation, indicating that novel ",
+      "codes continued to emerge through the end of the run.\n\n"
     )
   }
 
@@ -2480,9 +2513,9 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "approach, using a progressive sequential coding pipeline:\n\n",
     "1. **Learning from prior studies** -- codebook structures and coding conventions from previous manual analyses\n",
     "2. **Progressive sequential coding** -- each entry read individually; applicable text coded with existing or novel codes\n",
-    "3. **Thematic saturation detection** -- triangulated monitoring of code creation rate, reuse stability, and AI self-assessment\n",
+    "3. **AI-judged saturation arbitration** -- Phase 56: an AI arbiter reviews codebook trajectory metrics at an auto-scaled cadence and returns a 3-valued verdict; no hardcoded thresholds\n",
     "4. **Code-aware sentiment analysis** -- sentiment scored on coded entries using assigned codes as context\n",
-    "5. **Iterative bottom-up theme generation** -- sequential merging of codes into clusters across multiple passes\n",
+    "5. **HAC + AI-judged divisive theme walk** -- Phase 52: codes clustered via ward.D2 on cosine embeddings; AI judges coherence at each internal node; nested sub-subthemes when subthemes exceed size cap\n",
     "6. **Deterministic code-path cascading** -- entries mapped to themes through their codes (no AI re-reading)\n",
     "7. **Correlation analysis** -- statistical associations between themes, sentiment, and metadata\n\n",
     "## Top Codes\n\n",
@@ -2547,6 +2580,18 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   # Token limits table -- restrict to tasks actually used by the v1.0
   # pipeline so legacy keys (consolidation/assignment/relevance from the
   # pre-1.0 architecture) carried over in user configs are not shown.
+  # Phase 58 Tier 4 V-4: callsite-level temperature overrides for the
+  # tasks that pin temperature for replay-equivalence (AC10). The
+  # config-level table previously showed the CONFIG default (e.g.
+  # theming = 0.4) but the runtime called ai_complete with explicit
+  # temperature=0 at .evaluate_cluster (R/13_themes.R Phase 52 fix)
+  # and at .ai_judge_saturation + .refresh_code_description. Showing
+  # the config value misleads readers about the effective temperature.
+  runtime_temp_overrides <- list(
+    theming               = 0,  # R/13_themes.R::.evaluate_cluster (Phase 52 CRITICAL-2)
+    saturation_check      = 0,  # R/saturation_arbiter.R::.ai_judge_saturation (Phase 56)
+    description_refresh   = 0   # R/09_coding.R::.refresh_code_description (Phase 58 Tier 2 C-5)
+  )
   v1_tasks <- c("coding", "theming", "sentiment", "review", "insight", "synthesis")
   max_tokens <- config$ai$max_tokens
   if (!is.null(max_tokens) && length(max_tokens) > 0) {
@@ -2554,19 +2599,30 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     if (length(active_tasks) > 0) {
       content <- paste0(content,
         "## Token Limits per Task\n\n",
+        "Temperature shown is the EFFECTIVE runtime value. Tasks where ",
+        "the call-site explicitly overrides the config default (for ",
+        "replay-equivalence, AC10) are marked with `*`.\n\n",
         "| Task | Max Tokens | Temperature |\n",
         "|------|----------:|------------:|\n"
       )
       temps <- config$ai$temperature %||% list()
       for (task_name in active_tasks) {
-        temp_val <- temps[[task_name]] %||% "default"
+        config_temp <- temps[[task_name]] %||% "default"
+        if (task_name %in% names(runtime_temp_overrides)) {
+          temp_str <- paste0(runtime_temp_overrides[[task_name]], "*")
+        } else {
+          temp_str <- as.character(config_temp)
+        }
         content <- paste0(content,
           "| ", task_name, " | ",
           format(max_tokens[[task_name]], big.mark = ","), " | ",
-          temp_val, " |\n"
+          temp_str, " |\n"
         )
       }
-      content <- paste0(content, "\n")
+      content <- paste0(content,
+        "\n*Call-site override: pinned regardless of config to ensure ",
+        "deterministic re-runs.\n\n"
+      )
     }
   }
 
@@ -2580,10 +2636,11 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "The `method` parameter in the configuration allows switching between methods.\n\n",
     "**Multiple testing:** Bonferroni correction is applied within the correlation analysis ",
     "to control family-wise error rate. However, the full analysis pipeline involves ",
-    "multiple sequential decision points (saturation detection, theme convergence ",
-    "detection, theme cascading, and merge-pass termination). Each decision introduces ",
-    "potential for cumulative error. Readers should interpret individual findings ",
-    "within this context and prioritize patterns that replicate across runs.\n\n",
+    "multiple sequential decision points (saturation arbitration via the Phase 56 AI ",
+    "judge, per-cluster theme decisions via the Phase 52 HAC + AI tree walk, and ",
+    "deterministic theme cascading). Each decision introduces potential for cumulative ",
+    "error. Readers should interpret individual findings within this context and ",
+    "prioritize patterns that replicate across runs.\n\n",
     "**Theme group comparisons:** Mann-Whitney U tests (non-parametric) compare continuous ",
     "variables between theme members and non-members. Effect size is computed as ",
     "r = |Z| / sqrt(N). P-values are Bonferroni-adjusted across all tests.\n\n",

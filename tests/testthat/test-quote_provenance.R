@@ -413,6 +413,13 @@ test_that(".build_tier0_dashboard renders verified counts + method breakdown", {
 })
 
 test_that(".build_tier0_dashboard renders fabrication CSV link when fabrications occurred", {
+  # Phase 58 Tier 4 V-5: text updated to "CAUGHT by the verification ladder
+  # and DROPPED from the codebook" (was "detected and DROPPED"). Honest
+  # post-rejection framing -- the new dashboard distinguishes pre-rejection
+  # (caught + dropped) fabrications from the post-rejection (surviving)
+  # population. This test simulates a state where the fabricated quote
+  # was NOT actually dropped (still attached to a segment), so the n_caught
+  # path falls back to counting the surviving fabricated status.
   q1 <- verify_quote(make_quote("d1", "test", SRC, 13L, 27L, QUOTE_TEXT), SRC)
   q_fab <- verify_quote(make_quote("d2", "test", SRC, 0L, 30L, "fake quote"), SRC)
   state <- list(codebook = list(c = list(coded_segments = list(
@@ -420,24 +427,85 @@ test_that(".build_tier0_dashboard renders fabrication CSV link when fabrications
   ))))
   md <- pakhom:::.build_tier0_dashboard(compute_quote_provenance_stats(state),
                                             fabrication_log_relpath = "fabrication_log.csv")
-  expect_match(md, "1.* fabricated quote was detected")
+  expect_match(md, "1.* fabricated quote attribution was CAUGHT")
   expect_match(md, "\\[fabrication_log.csv\\]\\(fabrication_log.csv\\)")
   expect_match(md, "DROPPED from the codebook")
 })
 
 test_that(".build_tier0_dashboard handles singular vs plural correctly", {
-  # Singular "1 fabricated quote was" / plural "2 fabricated quotes were"
+  # Phase 58 Tier 4 V-5: singular "1 attribution was CAUGHT" / plural
+  # "2 attributions were CAUGHT" (was "1 quote was detected" / "2 quotes
+  # were detected").
   q_fab1 <- verify_quote(make_quote("d1", "t", SRC, 0L, 30L, "fake quote one"), SRC)
   state1 <- list(codebook = list(c = list(coded_segments = list(list(provenance = q_fab1)))))
   md1 <- pakhom:::.build_tier0_dashboard(compute_quote_provenance_stats(state1))
-  expect_match(md1, "1.* fabricated quote was")
+  expect_match(md1, "1.* fabricated quote attribution was")
 
   q_fab2 <- verify_quote(make_quote("d2", "t", SRC, 0L, 30L, "fake quote two"), SRC)
   state2 <- list(codebook = list(c = list(coded_segments = list(
     list(provenance = q_fab1), list(provenance = q_fab2)
   ))))
   md2 <- pakhom:::.build_tier0_dashboard(compute_quote_provenance_stats(state2))
-  expect_match(md2, "2.* fabricated quotes were")
+  expect_match(md2, "2.* fabricated quote attributions were")
+})
+
+test_that("V-5: dashboard reports pre-rejection fabrication count via fabrication_log_path", {
+  # Production callsite (R/17_report.R::build_analysis_report) passes
+  # fabrication_log_path so the dashboard counts fabrications the
+  # ladder DROPPED during coding (which aren't in the surviving
+  # codebook population at all). Without this signal the dashboard
+  # reports "No fabrications detected" -- the Phase 57 audit V-5 lie.
+  td <- withr::local_tempdir()
+  fab_path <- file.path(td, "fabrication_log.csv")
+  # Simulate a fabrication log with 3 fabrications + the methodology
+  # header + the CSV column header.
+  writeLines(c(
+    "# methodology_mode: codebook_collaborative",
+    "# run_id: smoke-test",
+    "timestamp,quote_id,source_doc_id,attributed_theme_id,attributed_code_id,ai_model,ai_call_id,exact_text,verification_status",
+    "2026-05-22T00:00:00+0000,q1,d1,NA,c1,gpt-4o,req_001,fake_text_1,fabricated",
+    "2026-05-22T00:00:01+0000,q2,d2,NA,c2,gpt-4o,req_002,fake_text_2,fabricated",
+    "2026-05-22T00:00:02+0000,q3,d3,NA,c3,gpt-4o,req_003,fake_text_3,fabricated"
+  ), fab_path)
+  # Surviving population: 100 verified attributions, 0 fabricated
+  # (the 3 fabrications never made it into this stats object because
+  # they were dropped at coding time).
+  stats <- list(
+    total = 100L,
+    by_status = c(verified_exact = 50L, verified_fuzzy = 50L),
+    by_method = c(exact = 50L, substring_search = 50L)
+  )
+  md <- pakhom:::.build_tier0_dashboard(
+    stats, fabrication_log_relpath = "fabrication_log.csv",
+    fabrication_log_path = fab_path
+  )
+  # Now honestly reports 3 caught fabrications + 100 verified survivors.
+  expect_match(md, "3.* fabricated quote attributions were CAUGHT")
+  expect_match(md, "100.*surviving verbatim claims verified",
+               info = "should explicitly state surviving population count")
+  expect_no_match(md, "No fabrications detected")
+})
+
+test_that("V-5: dashboard reports zero fabrications honestly when none caught", {
+  td <- withr::local_tempdir()
+  fab_path <- file.path(td, "fabrication_log.csv")
+  # Empty fabrication log (header rows only, no data rows).
+  writeLines(c(
+    "# methodology_mode: codebook_collaborative",
+    "timestamp,quote_id,source_doc_id,attributed_theme_id,attributed_code_id,ai_model,ai_call_id,exact_text,verification_status"
+  ), fab_path)
+  stats <- list(
+    total = 50L,
+    by_status = c(verified_exact = 25L, verified_fuzzy = 25L),
+    by_method = c(exact = 25L, substring_search = 25L)
+  )
+  md <- pakhom:::.build_tier0_dashboard(
+    stats, fabrication_log_relpath = "fabrication_log.csv",
+    fabrication_log_path = fab_path
+  )
+  expect_match(md, "No fabrications detected")
+  # Per V-5 fix, the "no fabrications" path also names the surviving population.
+  expect_match(md, "50.*AI-attributed verbatim claims")
 })
 
 # ==============================================================================

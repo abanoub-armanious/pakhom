@@ -12,9 +12,10 @@ paradigm + reflexive notes be present in every turn of qualitative
 analysis. pakhom injects \code{study.researcher_positionality},
 \code{study.research_paradigm}, and \code{study.reflexive_notes}
 into the AI system prompt at every coding / theming / saturation
-call (see R/methodology_rules.R). When all three are empty, the
-reflexivity block silently degrades to a placeholder -- a
-methodology paper relying on this run can no longer claim
+call (see R/methodology_rules.R). When all three are empty,
+\code{.reflexivity_block_for()} returns the empty string and
+the AI prompt CONTAINS NO REFLEXIVITY BLOCK AT ALL -- a
+methodology paper relying on this run cannot honestly claim
 reflexive practice.
 }
 \keyword{internal}

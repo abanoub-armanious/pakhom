@@ -8,9 +8,11 @@
 }
 \description{
 Walks the user's config for keys that the package no longer reads.
-Removed in cleanup waves Phase 50e (8 knobs), Phase 52/53 (5 knobs),
-Phase 56 (6 saturation knobs). Each surviving stale knob in a user's
-personal config.yaml is logged as a warn with the cleanup phase that
+The full list (15 knobs total) spans three cleanup waves:
+Phase 52/53 sequential-merge removal (4 knobs), Phase 53 theme-
+count cleanup (5 knobs), Phase 56 saturation-arbiter migration
+(6 knobs). Each surviving stale knob in a user's personal
+config.yaml is logged as a warn with the cleanup phase that
 removed it.
 }
 \keyword{internal}

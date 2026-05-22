@@ -75,6 +75,49 @@ test_that("aggregate_overall_statistics handles missing optional columns", {
   expect_equal(nrow(result$themes), 0)
 })
 
+test_that("Tier 4 C-11 audit followup LOW #6: theme names with special chars round-trip via theme_set", {
+  # Pre-Phase-58 the theme distribution path used
+  # sub("^theme_membership_", "", names(theme_counts)) +
+  # gsub("\\.", " ", theme_labels) to recover the original theme name
+  # from the membership column name. make.names() collapses MANY chars
+  # to periods (-, ', /, :, ',', (, ) etc.) -- the reverse mapping only
+  # handles space. 71 of 417 themes in the Phase 57 run were therefore
+  # MISSING from the dashboard (every theme with a hyphen, apostrophe,
+  # slash, colon, comma, or paren in its name).
+  # The C-11 fix iterates theme_set$themes directly and computes
+  # safe_col = paste0("theme_membership_", make.names(t$name)) for each
+  # ORIGINAL name.
+  special_names <- c(
+    "Medication's Role in Appetite",                # apostrophe
+    "Self-Compassion and Recovery",                  # hyphen
+    "Stress, Body Weight & Physical Health",         # comma + ampersand
+    "Sleep (Acute) Patterns / Onset Times"           # parens + slash
+  )
+  safe_cols <- paste0("theme_membership_", make.names(special_names))
+  data <- tibble::tibble(
+    std_id          = paste0("e", 1:4),
+    std_text        = paste("Text", 1:4),
+    sentiment_score = c(0.1, -0.1, 0.0, 0.2)  # aggregate_overall_statistics needs this
+  )
+  for (i in seq_along(safe_cols)) {
+    col <- safe_cols[i]
+    data[[col]] <- as.integer(seq_along(data$std_id) == i)
+  }
+  theme_set <- create_theme_set(lapply(special_names, function(n) {
+    list(name = n, description = "", codes_included = "c1")
+  }))
+  result <- aggregate_overall_statistics(data, theme_set)
+  # Every ORIGINAL theme name appears in the dashboard's themes_df
+  # (pre-fix, names like "Medication's Role in Appetite" would have
+  # been corrupted to "Medication s Role in Appetite").
+  for (n in special_names) {
+    expect_true(n %in% result$themes$theme_name,
+                info = sprintf("theme '%s' missing from dashboard themes_df", n))
+  }
+  # Every theme is counted exactly once.
+  expect_equal(sum(result$themes$n), 4L)
+})
+
 # ==============================================================================
 # Sprint-4 T0.2: Participant spread per theme
 # ==============================================================================

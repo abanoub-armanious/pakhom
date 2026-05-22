@@ -7,7 +7,9 @@
 .build_tier0_dashboard(
   stats,
   fabrication_log_relpath = "fabrication_log.csv",
-  config = NULL
+  config = NULL,
+  fabrication_log_path = NULL,
+  n_fabricated_caught = NULL
 )
 }
 \arguments{
@@ -17,6 +19,23 @@
 \item{fabrication_log_relpath}{Optional relative path to
 \code{fabrication_log.csv} (relative to the report HTML's directory).
 When NULL or no fabrications occurred, no link is rendered.}
+
+\item{config}{ThematicConfig object (or NULL) used for the
+Citations API bypass footnote.}
+
+\item{fabrication_log_path}{Phase 58 Tier 4 V-5: absolute path to
+\code{fabrication_log.csv}. When supplied, the dashboard counts
+pre-rejection fabrications from this file (the surviving
+population in \code{stats} is post-rejection, so it always
+reports 0 caught fabrications by itself). Pass \code{NULL} on
+legacy callers that don't have the path; the dashboard falls
+back to the surviving-population count.}
+
+\item{n_fabricated_caught}{Phase 58 Tier 4 V-5: explicit count of
+pre-rejection fabrications (from
+\code{FabricationLog$state$n_logged}). Overrides
+\code{fabrication_log_path} when supplied. Pass \code{NULL} to
+skip.}
 }
 \value{
 A character string of markdown content (one card).

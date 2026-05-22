@@ -655,6 +655,21 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     if (review_iteration == 1L && "sentiment_done" %in% completed) {
       log_info("\n[STEP 4] Loading sentiment data from checkpoint...")
       analytic_data <- load_checkpoint(checkpoint, "sentiment_done")
+      # Phase 58 Tier 4 H-12: re-emit the sentiment summary from the
+      # LOADED checkpoint data so the on-screen log header matches the
+      # actual final data. Pre-fix the resume path skipped
+      # analyze_sentiment entirely, which is also where the summary
+      # log lines live (R/10_sentiment.R:199-201), so the user only
+      # ever saw the PRE-resume summary -- often from a 250-entry
+      # sample run, with stale numbers like the Phase 57 audit's
+      # -0.139 vs actual -0.0917 mismatch.
+      if ("sentiment_score" %in% names(analytic_data)) {
+        success_rate <- mean(!is.na(analytic_data$sentiment_score)) * 100
+        mean_sent <- mean(analytic_data$sentiment_score, na.rm = TRUE)
+        log_info("Sentiment summary (from resumed checkpoint):")
+        log_info("  Success rate: {round(success_rate, 1)}%")
+        log_info("  Mean sentiment: {round(mean_sent, 3)}")
+      }
     } else {
       log_info("\n[STEP 4] Running code-aware sentiment analysis on {nrow(analytic_data)} entries...")
       analytic_data <- analyze_sentiment(
@@ -795,6 +810,23 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   theme_group_tests <- NULL
   cooccurrence_tests <- NULL
 
+  # Phase 58 Tier 4 C-7 (audit CRITICAL #1 fix): persist EFFECTIVE config
+  # values back to the config object UNCONDITIONALLY -- before the
+  # checkpoint-resume branch. The pre-followup version mutated config
+  # only in the cold-load `else` branch, so a resumed run that hit the
+  # `correlations` checkpoint skipped the mutation entirely and the
+  # report renderer at R/17_report.R:2551 then read the raw (unresolved)
+  # config, reproducing the same lie C-7 was supposed to fix. Phase 57's
+  # full-corpus rerun is the canonical resume-from-checkpoint case;
+  # placing the mutation here means both cold runs and resumes see the
+  # same effective config.
+  config$analysis$correlations$dynamic_method <-
+    config$analysis$correlations$dynamic_method %||% TRUE
+  config$analysis$correlations$method <-
+    config$analysis$correlations$method %||% "spearman"
+  config$analysis$correlations$adjust_method <-
+    config$analysis$correlations$adjust_method %||% "bonferroni"
+
   if ("correlations" %in% completed) {
     log_info("\n[STEP 6] Loading correlations from checkpoint...")
     corr_result <- load_checkpoint(checkpoint, "correlations")
@@ -808,13 +840,16 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     corr_data <- prepare_correlation_data(analytic_data, theme_set,
                                            config$analysis$correlations)
 
-    use_dynamic <- config$analysis$correlations$dynamic_method %||% TRUE
+    use_dynamic <- config$analysis$correlations$dynamic_method
+    effective_method <- config$analysis$correlations$method
+    effective_adjust <- config$analysis$correlations$adjust_method
+
     var_types <- if (isTRUE(use_dynamic)) detect_variable_types(corr_data) else NULL
 
     corr_results <- calculate_correlations(
       corr_data,
-      method = config$analysis$correlations$method %||% "spearman",
-      adjust_method = config$analysis$correlations$adjust_method %||% "bonferroni",
+      method = effective_method,
+      adjust_method = effective_adjust,
       var_types = var_types,
       dynamic_method = use_dynamic
     )

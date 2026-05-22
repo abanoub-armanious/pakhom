@@ -614,9 +614,42 @@ aggregate_overall_statistics <- function(data, theme_set, consolidated = NULL,
                                           learning_context = NULL, config = NULL) {
   total <- nrow(data)
 
-  # Theme distribution — count from multi-label membership columns
+  # Theme distribution — count from multi-label membership columns.
+  # Phase 58 Tier 4 C-11: iterate the ORIGINAL theme_set$themes names
+  # instead of round-tripping membership column names through
+  # make.names(). The pre-fix path used `sub("^theme_membership_",
+  # "", ...)` + `gsub("\\.", " ", ...)` which only recovered space
+  # characters. make.names() also collapses hyphens, apostrophes,
+  # slashes, colons, commas, and parentheses to periods, so 71 of
+  # 417 themes in the Phase 57 run were never named correctly in the
+  # dashboard or Appendix B (every missing theme had a non-period
+  # special character in its name).
   membership_cols <- grep("^theme_membership_", names(data), value = TRUE)
-  if (length(membership_cols) > 0) {
+  if (length(membership_cols) > 0 && !is.null(theme_set) &&
+      inherits(theme_set, "ThemeSet") && length(theme_set$themes) > 0) {
+    # Direct iteration: for each known theme, compute its safe column
+    # name via make.names() and read counts off that column. Themes
+    # without a corresponding column (rare; usually a Mode 3 anomaly
+    # bracket case) get a 0 count.
+    theme_data <- lapply(theme_set$themes, function(t) {
+      orig_name <- t$name
+      safe_col <- paste0("theme_membership_", make.names(orig_name))
+      n_entries <- if (safe_col %in% names(data)) {
+        as.integer(sum(data[[safe_col]] == 1L, na.rm = TRUE))
+      } else 0L
+      list(name = orig_name, n = n_entries)
+    })
+    themes_df <- tibble(
+      theme_name = vapply(theme_data, function(x) x$name, character(1)),
+      n = vapply(theme_data, function(x) x$n, integer(1)),
+      pct = round(100 * vapply(theme_data, function(x) x$n, integer(1)) /
+                    max(total, 1), 1)
+    ) |> arrange(desc(n))
+  } else if (length(membership_cols) > 0) {
+    # Legacy fallback (no theme_set available): the lossy round-trip
+    # path. Only fires when callers don't supply theme_set, which
+    # would have been a regression in the production callsite but is
+    # still possible in some test fixtures.
     theme_counts <- vapply(membership_cols, function(col) sum(data[[col]] == 1L, na.rm = TRUE), integer(1))
     theme_labels <- sub("^theme_membership_", "", names(theme_counts))
     theme_labels <- gsub("\\.", " ", theme_labels)
@@ -1219,6 +1252,37 @@ generate_downloads_section <- function(export_files, theme_stats) {
   )
 }
 
+#' Count pre-rejection fabrications for the T0.1 dashboard (V-5 helper)
+#'
+#' Phase 58 Tier 4 audit MEDIUM #4 followup: counts fabrication-log
+#' entries using readr's RFC-4180 parser instead of `readLines() +
+#' length(lines) - 1L`. Coded segments routinely contain newlines
+#' (Reddit posts), and the FabricationLog writes the exact_text field
+#' as RFC-4180 quoted-with-embedded-newlines via .csv_quote
+#' (R/quote_provenance.R:861). The pre-fix line-counting approach
+#' counted a single 3-line fabricated quote as 3 fabrications.
+#'
+#' @param fabrication_log_path Absolute path to fabrication_log.csv, or NULL.
+#' @param n_fabricated_caught Explicit override (e.g. from
+#'   FabricationLog$state$n_logged); takes priority when supplied.
+#' @return Integer N caught, or NULL if neither source is available.
+#' @keywords internal
+.count_pre_rejection_fabrications <- function(fabrication_log_path = NULL,
+                                                n_fabricated_caught = NULL) {
+  if (!is.null(n_fabricated_caught)) return(as.integer(n_fabricated_caught))
+  if (is.null(fabrication_log_path)) return(NULL)
+  if (!file.exists(fabrication_log_path)) return(NULL)
+  tryCatch({
+    # readr handles the methodology comment-header lines + RFC-4180
+    # quoted multi-line fields correctly. NULL show_col_types silences
+    # the column-type message.
+    df <- readr::read_csv(fabrication_log_path,
+                          comment = "#",
+                          show_col_types = FALSE)
+    as.integer(nrow(df))
+  }, error = function(e) NULL)
+}
+
 # ==============================================================================
 # Tier-0 Data Integrity Dashboard (Sprint-4 T0.1 part 3)
 # ==============================================================================
@@ -1245,12 +1309,41 @@ generate_downloads_section <- function(export_files, theme_stats) {
 #' @param fabrication_log_relpath Optional relative path to
 #'   \code{fabrication_log.csv} (relative to the report HTML's directory).
 #'   When NULL or no fabrications occurred, no link is rendered.
+#' @param config ThematicConfig object (or NULL) used for the
+#'   Citations API bypass footnote.
+#' @param fabrication_log_path Phase 58 Tier 4 V-5: absolute path to
+#'   \code{fabrication_log.csv}. When supplied, the dashboard counts
+#'   pre-rejection fabrications from this file (the surviving
+#'   population in \code{stats} is post-rejection, so it always
+#'   reports 0 caught fabrications by itself). Pass \code{NULL} on
+#'   legacy callers that don't have the path; the dashboard falls
+#'   back to the surviving-population count.
+#' @param n_fabricated_caught Phase 58 Tier 4 V-5: explicit count of
+#'   pre-rejection fabrications (from
+#'   \code{FabricationLog$state$n_logged}). Overrides
+#'   \code{fabrication_log_path} when supplied. Pass \code{NULL} to
+#'   skip.
 #' @return A character string of markdown content (one card).
 #' @keywords internal
 .build_tier0_dashboard <- function(stats,
                                     fabrication_log_relpath = "fabrication_log.csv",
-                                    config = NULL) {
-  if (is.null(stats) || identical(stats$total, 0L)) {
+                                    config = NULL,
+                                    fabrication_log_path = NULL,
+                                    n_fabricated_caught = NULL) {
+  # Phase 58 Tier 4 audit HIGH #2 fix: when fabrications were caught
+  # AND every attribution was dropped (stats$total == 0L because the
+  # surviving population is empty), the pre-fix early-return rendered
+  # "verification did not run" -- a strictly worse lie than V-5's
+  # "no fabrications detected" because it implies the defense never
+  # fired at all. Compute the pre-rejection count FIRST; only fall
+  # through to the empty-stats branch when BOTH stats and the fab log
+  # are empty.
+  pre_caught <- .count_pre_rejection_fabrications(
+    fabrication_log_path = fabrication_log_path,
+    n_fabricated_caught  = n_fabricated_caught
+  )
+  if ((is.null(stats) || identical(stats$total, 0L)) &&
+      (is.null(pre_caught) || pre_caught == 0L)) {
     # Audit H1 follow-up (phase 32): even on the empty-stats path we
     # still render the Mode-3-bypass footnote when applicable, so a
     # reviewer reading the dashboard for a Mode 3 + Anthropic run with
@@ -1263,6 +1356,22 @@ generate_downloads_section <- function(export_files, theme_stats) {
       'Quote-provenance verification did not run for this report ',
       '(pre-T0.1 run, no coding step, or no AI-attributed verbatim claims). ',
       'Future runs of this study will include a verification dashboard here.\n\n',
+      .tier0_citations_api_bypass_footnote(config),
+      '</div>\n\n'
+    ))
+  }
+  # When stats$total is 0 but fabrications WERE caught, render an
+  # explicit "all attempts dropped" dashboard with the caught count.
+  if (is.null(stats) || identical(stats$total, 0L)) {
+    return(paste0(
+      '<div class="tier0-dashboard">\n\n',
+      '## Data Integrity Dashboard (T0.1)\n\n',
+      '**', pre_caught, '** fabricated quote attribution',
+      if (pre_caught == 1L) ' was' else 's were',
+      ' CAUGHT by the verification ladder and DROPPED from the codebook ',
+      '(100% pre-rejection fabrication rate; 0 surviving verbatim claims). ',
+      'See [fabrication_log.csv](', fabrication_log_relpath,
+      ') for per-fabrication audit detail.\n\n',
       .tier0_citations_api_bypass_footnote(config),
       '</div>\n\n'
     ))
@@ -1298,22 +1407,53 @@ generate_downloads_section <- function(export_files, theme_stats) {
     "n/a"
   }
 
+  # Phase 58 Tier 4 V-5: compute PRE-rejection fabrication count via
+  # the shared helper. See .count_pre_rejection_fabrications below.
+  n_caught_resolved <- .count_pre_rejection_fabrications(
+    fabrication_log_path = fabrication_log_path,
+    n_fabricated_caught  = n_fabricated_caught
+  )
+  n_caught <- n_caught_resolved %||% n_fabricated
+
   # Fabrication line: only render the CSV link when there ARE fabrications
   # (most runs will have zero -- that's the goal). Path is relative because
   # the report HTML and the CSV both live in the same run output directory.
-  fab_line <- if (n_fabricated > 0) {
+  # Phase 58 Tier 4 audit MEDIUM #3: survivor count uses n_verified
+  # (exact + fuzzy), NOT total. `total` includes drifted + unverified
+  # entries which are NOT verified-against-source -- claiming them as
+  # "verified" was a small instance of the same lie V-5 fixed.
+  fab_line <- if (n_caught > 0L) {
+    rate_pct <- round(100 * n_caught / max(n_caught + total, 1L), 2)
     paste0(
-      "**", n_fabricated, "** fabricated quote",
-      if (n_fabricated == 1L) " was" else "s were",
-      " detected by the verification ladder and DROPPED from the codebook ",
-      "(see [fabrication_log.csv](", fabrication_log_relpath,
-      ") for the audit trail).\n\n"
+      "**", n_caught, "** fabricated quote attribution",
+      if (n_caught == 1L) " was" else "s were",
+      " CAUGHT by the verification ladder and DROPPED from the codebook ",
+      "(", rate_pct, "% pre-rejection fabrication rate; **", n_verified,
+      "** surviving verbatim claims verified against the source corpus",
+      if (n_drifted + (total - n_verified - n_drifted) > 0L) {
+        paste0("; ", total - n_verified, " of the ", total, " survivors ",
+                "are drifted or pending review and NOT counted as verified")
+      } else "",
+      "). ",
+      "See [fabrication_log.csv](", fabrication_log_relpath,
+      ") for per-fabrication audit detail.\n\n"
     )
   } else {
-    paste0(
-      "**No fabrications detected.** Every AI-attributed verbatim claim ",
-      "verified against the source corpus.\n\n"
-    )
+    if (n_verified == total) {
+      paste0(
+        "**No fabrications detected.** Every one of the **", total, "** ",
+        "AI-attributed verbatim claims verified against the source corpus ",
+        "(the verification ladder did not need to drop any).\n\n"
+      )
+    } else {
+      paste0(
+        "**No fabrications detected.** Of the **", total, "** AI-attributed ",
+        "verbatim claims, **", n_verified, "** verified against the source ",
+        "corpus; the remaining ", total - n_verified, " are drifted or ",
+        "pending review (see drift section below) and NOT counted as ",
+        "verified.\n\n"
+      )
+    }
   }
 
   # Same noun-verb agreement for drifted line
