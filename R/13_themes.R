@@ -655,6 +655,111 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
 #' audit_log.
 #'
 #' @keywords internal
+# ============================================================================
+# Phase 58 Tier 0 C-1: Articulation gate quality checks
+#
+# The Phase 52 articulation gate enforced a flat 30-character minimum on the
+# AI's central_organizing_concept field. Phase 57 found that this floor was
+# permissive enough to pass tautological 85-char articulations on
+# 237-code mega-themes (the "Emotional and Physical Impact of Binge Eating"
+# kitchen-sink that absorbed 46% of the corpus). Three additional gates fix
+# this without changing the upstream HAC tree structure:
+#
+#   1. Length floor scales by log10(n_codes): n=1 -> 30; n=10 -> 60;
+#      n=100 -> 90; n=237 -> 101; n=1000 -> 120. The bigger the cluster,
+#      the more the AI must actually say to claim coherence.
+#
+#   2. Bucket-label openers ("comprehensive", "diverse", "the various",
+#      "a range of", "this theme captures the various") signal a
+#      list-of-things rather than a unifying principle. Reject.
+#
+#   3. Tautology check: if the articulation reuses >70% of the proposed
+#      theme name's content words (post-stop-word + theme-boilerplate
+#      removal), it's a restatement of the name, not an organizing
+#      principle. Reject.
+#
+# All three checks are applied ONLY when result$decision == "coherent_theme".
+# A failure forces decision -> split_required (same fail-safe behavior as
+# the Phase 52 length floor it replaces).
+# ============================================================================
+
+#' Phase 58 C-1: log-scaled minimum articulation length
+#'
+#' @param n_codes Number of leaf codes in the cluster being evaluated.
+#' @return Integer minimum-character count required of a coherent_theme
+#'   articulation for a cluster of this size.
+#' @keywords internal
+.articulation_min_chars <- function(n_codes) {
+  n <- max(1L, as.integer(n_codes))
+  max(30L, as.integer(30 + 30 * log10(n)))
+}
+
+#' Phase 58 C-1: bucket-label opener detection
+#'
+#' Returns TRUE when the articulation opens with a phrase that signals a
+#' list-of-things rather than a unifying principle. Used as one of the
+#' articulation-quality gates in .evaluate_cluster.
+#'
+#' @param articulation Character scalar; the raw articulation string.
+#' @return Logical TRUE if articulation should be rejected as bucket-y.
+#' @keywords internal
+.is_bucket_label_opener <- function(articulation) {
+  if (is.null(articulation) || length(articulation) == 0L) return(FALSE)
+  s <- as.character(articulation)[1]
+  if (is.na(s)) return(FALSE)
+  s <- trimws(tolower(s))
+  if (nchar(s) == 0L) return(FALSE)
+  patterns <- c(
+    "^this theme (captures|explores|covers|describes|examines) (the )?(various|diverse|many|wide range of|broad range of)\\b",
+    "^(comprehensive|multifaceted|mixed|combined|combination of)\\b",
+    "^(a variety of|a range of|a wide range of|a broad range of|the various|the diverse|the many)\\b",
+    "^(strategies and outcomes|exploration and understanding)\\b",
+    "^(general|overarching) (.+) (of|in|for) \\w"
+  )
+  any(vapply(patterns, function(p) grepl(p, s, perl = TRUE), logical(1)))
+}
+
+#' Phase 58 C-1: tautological-articulation detection
+#'
+#' Returns TRUE when the articulation reuses more than 70% of the content
+#' words from the proposed theme name (after removing English stop words
+#' and theme-rendering boilerplate like "theme", "captures", "various").
+#' A tautological articulation restates the name without adding a unifying
+#' principle.
+#'
+#' @param articulation Character scalar; the raw articulation string.
+#' @param proposed_name Character scalar; the AI's proposed theme name.
+#' @return Logical TRUE if articulation should be rejected as tautological.
+#' @keywords internal
+.is_tautological_articulation <- function(articulation, proposed_name) {
+  if (is.null(proposed_name) || length(proposed_name) == 0L) return(FALSE)
+  if (!nzchar(as.character(proposed_name)[1])) return(FALSE)
+  if (is.null(articulation) || length(articulation) == 0L) return(FALSE)
+  if (!nzchar(as.character(articulation)[1])) return(FALSE)
+
+  stop_words <- c(
+    "a", "an", "the", "of", "on", "in", "to", "for", "with",
+    "and", "or", "but", "by", "from", "into", "as", "at",
+    "is", "are", "was", "were", "be", "been", "being",
+    "this", "that", "these", "those", "their", "its", "it",
+    "theme", "themes", "captures", "captured", "explores", "explored",
+    "discusses", "discussed", "describes", "described", "addresses",
+    "addressed", "examines", "examined", "represents", "represented",
+    "covers", "covered", "various", "diverse", "different", "multiple",
+    "many", "range", "ranges"
+  )
+  tokenize <- function(s) {
+    words <- strsplit(tolower(as.character(s)[1]), "[^a-z0-9]+", perl = TRUE)[[1]]
+    words <- words[nchar(words) > 0L]
+    setdiff(unique(words), stop_words)
+  }
+  name_tokens <- tokenize(proposed_name)
+  art_tokens  <- tokenize(articulation)
+  if (length(name_tokens) == 0L) return(FALSE)
+  overlap <- length(intersect(name_tokens, art_tokens))
+  (overlap / length(name_tokens)) > 0.7
+}
+
 .evaluate_cluster <- function(cluster_leaves, node_idx, level_label,
                                 parent_label = NULL,
                                 codes, distance_matrix, co_occurrence,
@@ -792,36 +897,57 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
       rationale = "AI call failed; defaulting to split for safety."
     )
   } else {
-    # Articulation enforcement (Phase 52 audit CRITICAL-1): the schema
-    # requires a non-null central_organizing_concept string but cannot
-    # enforce a minimum length under OpenAI strict mode. A vacuous
-    # articulation ("strategies", "experiences", "") would technically
-    # satisfy the schema and let the model push toward coherent_theme
-    # without doing the conceptual work. We post-validate length here
-    # and force a split when the articulation is too short to be a real
-    # central organizing principle. 30 characters is the minimum for a
-    # meaningful "principle that unifies ALL these codes" sentence -- a
-    # bare noun phrase is not enough.
-    .ARTICULATION_MIN_CHARS <- 30L
+    # Articulation quality gates (Phase 52 length floor + Phase 58 C-1
+    # additions). The schema cannot enforce these so we post-validate
+    # before letting coherent_theme through:
+    #   * Length floor scales by log10(n_codes) -- bigger clusters need
+    #     more substance than a bare noun phrase.
+    #   * Bucket-label openers ("comprehensive", "the various",
+    #     "this theme captures the various ...") signal list-of-things,
+    #     not a unifying principle.
+    #   * Tautology check: >70% word overlap with proposed_name means
+    #     the articulation restates the name without adding a principle.
+    # Any failure forces decision -> split_required.
     raw_articulation <- trimws(as.character(result$central_organizing_concept %||% ""))
-    if (nchar(raw_articulation) < .ARTICULATION_MIN_CHARS &&
-        result$decision == "coherent_theme") {
+    proposed_name <- as.character(result$proposed_name %||% "")
+    n_codes <- length(cluster_leaves)
+    min_chars <- .articulation_min_chars(n_codes)
+
+    failures <- character(0)
+    if (identical(result$decision, "coherent_theme")) {
+      if (nchar(raw_articulation) < min_chars) {
+        failures <- c(failures, sprintf(
+          "too short (%d < %d chars for %d-code cluster)",
+          nchar(raw_articulation), min_chars, n_codes
+        ))
+      }
+      if (.is_bucket_label_opener(raw_articulation)) {
+        failures <- c(failures, "bucket-label opener (list-of-things, not unifying principle)")
+      }
+      if (.is_tautological_articulation(raw_articulation, proposed_name)) {
+        failures <- c(failures, sprintf(
+          "tautological (restates proposed_name '%s')",
+          substr(proposed_name, 1, 60)
+        ))
+      }
+    }
+
+    if (length(failures) > 0L) {
       log_warn(paste0(
-        "Theme decision call ", call_idx, ": articulation too short ",
-        "(", nchar(raw_articulation), " chars; min ", .ARTICULATION_MIN_CHARS,
-        ") to support coherent_theme verdict; forcing split_required. ",
-        "Articulation was: '", substr(raw_articulation, 1, 80), "'"
+        "Theme decision call ", call_idx, ": articulation failed quality ",
+        "checks [", paste(failures, collapse = "; "), "]; forcing ",
+        "split_required. Articulation was: '",
+        substr(raw_articulation, 1, 100), "'"
       ))
       list(
         decision                   = "split_required",
         central_organizing_concept = raw_articulation,
-        proposed_name              = NULL, proposed_description = NULL,
+        proposed_name              = NULL,
+        proposed_description       = NULL,
         rationale                  = paste0(
-          "Phase 52 articulation enforcement: model emitted ",
-          "central_organizing_concept of length ", nchar(raw_articulation),
-          " (< ", .ARTICULATION_MIN_CHARS, " chars), which cannot meaningfully ",
-          "unify the cluster. Forced split. Original rationale: ",
-          result$rationale %||% ""
+          "Phase 58 articulation enforcement: ",
+          paste(failures, collapse = "; "),
+          ". Original rationale: ", result$rationale %||% ""
         )
       )
     } else {

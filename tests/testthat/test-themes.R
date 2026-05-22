@@ -495,6 +495,209 @@ test_that("Phase 52: articulation enforcement forces split on vacuous coherent_t
   expect_equal(n_themes(ts), 3L)
 })
 
+# ============================================================================
+# Phase 58 Tier 0 C-1: Articulation gate quality checks
+#
+# Phase 52's gate enforced a flat 30-character minimum on the AI's
+# central_organizing_concept. Phase 57 found this permissive enough to pass
+# tautological 85-char articulations on 237-code mega-themes. Three
+# additional checks were added at .evaluate_cluster:
+#   1. Length floor scales by log10(n_codes).
+#   2. Bucket-label openers ("comprehensive ...", "the various ...") rejected.
+#   3. Tautological articulations (>70% word overlap with proposed_name)
+#      rejected.
+# All three trigger a forced split_required on coherent_theme verdicts.
+# ============================================================================
+
+test_that("C-1: .articulation_min_chars scales by log10(n_codes)", {
+  # n=1 yields the legacy 30-char floor (no scaling for singletons).
+  expect_equal(pakhom:::.articulation_min_chars(1L), 30L)
+  expect_equal(pakhom:::.articulation_min_chars(0L), 30L)   # clamped to >=1
+  # n=10 -> 30 + 30 * log10(10) = 60
+  expect_equal(pakhom:::.articulation_min_chars(10L), 60L)
+  # n=100 -> 30 + 30 * log10(100) = 90
+  expect_equal(pakhom:::.articulation_min_chars(100L), 90L)
+  # The 237-code mega-theme from Phase 57 -> ~101 chars
+  expect_equal(pakhom:::.articulation_min_chars(237L),
+               as.integer(30 + 30 * log10(237)))
+  # Monotonically non-decreasing
+  vals <- vapply(c(1L, 5L, 10L, 50L, 100L, 500L, 1000L),
+                  pakhom:::.articulation_min_chars, integer(1))
+  expect_true(all(diff(vals) >= 0L))
+})
+
+test_that("C-1: .is_bucket_label_opener catches list-of-things openers", {
+  expect_true(pakhom:::.is_bucket_label_opener(
+    "This theme captures the various strategies people use"))
+  expect_true(pakhom:::.is_bucket_label_opener(
+    "this theme explores diverse approaches to coping"))
+  expect_true(pakhom:::.is_bucket_label_opener(
+    "Comprehensive overview of binge-eating triggers"))
+  expect_true(pakhom:::.is_bucket_label_opener(
+    "Multifaceted experiences around medication transitions"))
+  expect_true(pakhom:::.is_bucket_label_opener(
+    "A range of emotional responses to weight changes"))
+  expect_true(pakhom:::.is_bucket_label_opener(
+    "The various ways participants describe sleep loss"))
+  expect_true(pakhom:::.is_bucket_label_opener(
+    "Mixed sentiments about provider communication"))
+  # Substantive principles should NOT trigger
+  expect_false(pakhom:::.is_bucket_label_opener(
+    "All three codes converge on the same compulsive-eating pattern"))
+  expect_false(pakhom:::.is_bucket_label_opener(
+    "Participants link medication side effects to sleep onset latency"))
+  expect_false(pakhom:::.is_bucket_label_opener(""))
+  expect_false(pakhom:::.is_bucket_label_opener(NULL))
+  expect_false(pakhom:::.is_bucket_label_opener(NA_character_))
+})
+
+test_that("C-1: .is_tautological_articulation catches restatement of theme name", {
+  # 100% overlap (all name tokens appear in articulation) -> tautological
+  expect_true(pakhom:::.is_tautological_articulation(
+    articulation  = "Emotional and physical impact of binge eating behaviors",
+    proposed_name = "Emotional and Physical Impact of Binge Eating"
+  ))
+  # 80% overlap -> tautological
+  expect_true(pakhom:::.is_tautological_articulation(
+    articulation  = "Discussions of compulsive eating and craving patterns",
+    proposed_name = "Compulsive eating craving patterns"
+  ))
+  # ~67% overlap (only 2 of 3 name tokens appear) -> NOT tautological
+  expect_false(pakhom:::.is_tautological_articulation(
+    articulation  = "All three codes orbit the daily-life integration concept",
+    proposed_name = "Medication management routines"
+  ))
+  # NULL / empty defenses
+  expect_false(pakhom:::.is_tautological_articulation(NULL, "name"))
+  expect_false(pakhom:::.is_tautological_articulation("art", NULL))
+  expect_false(pakhom:::.is_tautological_articulation("art", ""))
+  expect_false(pakhom:::.is_tautological_articulation("", "name"))
+})
+
+test_that("C-1 integration: .evaluate_cluster forces split on log-scaled too-short articulation", {
+  # 30-code cluster -> min_chars = 30 + 30*log10(30) ~= 74
+  # An articulation of 50 chars would pass the legacy flat 30-char floor
+  # but must FAIL the log-scaled 74-char floor.
+  state <- create_coding_state()
+  for (k in paste0("c", 1:30)) {
+    state$codebook[[k]] <- list(
+      code_name = paste("Code", k), description = "",
+      type = "descriptive", frequency = 1L,
+      entry_ids = paste0("e", k), coded_segments = list()
+    )
+  }
+  testthat::local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt, task,
+                            temperature, response_schema, ...) {
+      list(
+        content = jsonlite::toJSON(list(
+          # Exactly 50 chars. Cluster size 30 -> floor ~74. Must reject.
+          central_organizing_concept = "Daily routines around medication and sleep timing",
+          decision = "coherent_theme",
+          proposed_name = "Routines",
+          proposed_description = "...",
+          rationale = "..."
+        ), auto_unbox = TRUE, null = "null"),
+        usage = list()
+      )
+    },
+    .package = "pakhom"
+  )
+  # Forced split at every node -> recurse to leaves -> 30 atomic themes.
+  ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
+                                     config = list())
+  expect_equal(n_themes(ts), 30L)
+})
+
+test_that("C-1 integration: .evaluate_cluster forces split on bucket-label opener", {
+  state <- .three_code_state()
+  testthat::local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt, task,
+                            temperature, response_schema, ...) {
+      list(
+        content = jsonlite::toJSON(list(
+          # Long enough to pass length check, but starts with a bucket-label
+          # opener that signals list-of-things, not unifying principle.
+          central_organizing_concept = paste(
+            "This theme captures the various strategies participants use to",
+            "manage their dietary routines during medication transitions."
+          ),
+          decision = "coherent_theme",
+          proposed_name = "Strategies",
+          proposed_description = "...",
+          rationale = "..."
+        ), auto_unbox = TRUE, null = "null"),
+        usage = list()
+      )
+    },
+    .package = "pakhom"
+  )
+  ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
+                                     config = list())
+  # Forced split -> 3 atomic themes
+  expect_equal(n_themes(ts), 3L)
+})
+
+test_that("C-1 integration: .evaluate_cluster forces split on tautological articulation", {
+  state <- .three_code_state()
+  testthat::local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt, task,
+                            temperature, response_schema, ...) {
+      list(
+        content = jsonlite::toJSON(list(
+          # Articulation reuses every content word from proposed_name -> 100%
+          # overlap -> tautological.
+          central_organizing_concept = paste(
+            "Emotional and physical impact of binge eating manifests across",
+            "all three codes via the same lived-experience pattern"
+          ),
+          decision = "coherent_theme",
+          proposed_name = "Emotional and Physical Impact of Binge Eating",
+          proposed_description = "...",
+          rationale = "..."
+        ), auto_unbox = TRUE, null = "null"),
+        usage = list()
+      )
+    },
+    .package = "pakhom"
+  )
+  ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
+                                     config = list())
+  # Forced split -> 3 atomic themes
+  expect_equal(n_themes(ts), 3L)
+})
+
+test_that("C-1 integration: legacy 30-char minimum still triggers on n=1 singleton", {
+  # n=1 should keep the flat 30-char floor (log10(1) = 0).
+  state <- create_coding_state()
+  state$codebook[["solo"]] <- list(
+    code_name = "Code Solo", description = "",
+    type = "descriptive", frequency = 1L,
+    entry_ids = "e1", coded_segments = list()
+  )
+  testthat::local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt, task,
+                            temperature, response_schema, ...) {
+      list(
+        content = jsonlite::toJSON(list(
+          central_organizing_concept = "tiny",  # 4 chars
+          decision = "coherent_theme",
+          proposed_name = "Tiny",
+          proposed_description = "...",
+          rationale = "..."
+        ), auto_unbox = TRUE, null = "null"),
+        usage = list()
+      )
+    },
+    .package = "pakhom"
+  )
+  ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
+                                     config = list())
+  # Single code, articulation too short -> forced split. Single-code split
+  # produces 1 atomic-outlier theme regardless.
+  expect_equal(n_themes(ts), 1L)
+})
+
 test_that("Phase 52: circuit breaker aborts theme generation at >25% failure rate", {
   # Build a 6-code state so we have enough HAC nodes (5) to see the
   # circuit breaker threshold. With every call failing the breaker fires
