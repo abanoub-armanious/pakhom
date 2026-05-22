@@ -1022,10 +1022,23 @@ run_progressive_coding <- function(data, provider, config = list(),
     }
     code_key  <- seg_code
   } else {
-    # Detect NEW: marker on the original (before strip) so codes that were
-    # `1. NEW: Foo` or `NEW: Foo` both register as new-code requests.
-    is_new <- grepl("^(\\s*\\d+\\.\\s*)?\\s*NEW:", seg_code, ignore.case = TRUE)
+    # Detect NEW: marker on the original (before strip). `["']*` allowance
+    # catches quote-wrapped forms like `"NEW: Foo"` (C-4 audit MEDIUM-4).
+    is_new <- grepl("^[\"']*\\s*(\\d+\\.\\s*)?\\s*NEW:", seg_code,
+                     ignore.case = TRUE)
     code_name <- .normalize_code_name(seg_code)
+    # Post-normalization empty guard (C-4 audit MEDIUM-3): inputs like
+    # "321." or bare "NEW:" collapse to "" once prefixes strip. The
+    # pre-norm guard at the top of the function only catches the
+    # nchar(seg_code) == 0 case. Without this we'd write a codebook entry
+    # under the empty-string key.
+    if (is.na(code_name) || nchar(code_name) == 0L) {
+      log_warn(paste0(
+        "Entry ", entry_id, ": AI returned a code that normalized to ",
+        "empty ('", substr(seg_code, 1, 60), "'); segment dropped."
+      ))
+      return(state)
+    }
     code_key <- tolower(code_name)
     # The AI sees the full codebook and decides whether to create a new code or
     # use an existing one. Only EXACT key matches collapse to existing -- no

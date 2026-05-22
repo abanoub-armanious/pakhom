@@ -147,3 +147,191 @@ test_that("load_and_combine_tables refuses when intra-table std_id duplicates pe
     "duplicate"
   )
 })
+
+# ============================================================================
+# Phase 58 Tier 0 C-9 regression: multi-table merge union (was intersect)
+#
+# Background: Phase 57's full-corpus run dropped num_comments and
+# upvote_ratio from the analytic data because the comments table doesn't
+# carry those columns. load_and_combine_tables was filtering to the
+# intersect of column names across tables -> the post-only metric
+# columns were silently dropped. Phase 55 paper-style subtheme tables
+# and correlations could therefore only ever score on `score`.
+#
+# Fix: bind_rows() the standardized tables directly and let dplyr NA-fill
+# missing columns. Log a single info line listing the columns that get
+# NA-filled so users have explicit signal about partial coverage.
+# ============================================================================
+
+test_that("load_and_combine_tables preserves columns present in only some tables (C-9)", {
+  td <- withr::local_tempdir()
+  db_path <- file.path(td, "test.db")
+  con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
+  on.exit(try(DBI::dbDisconnect(con), silent = TRUE), add = TRUE)
+
+  # Canonical Reddit shape: posts carry score, num_comments, upvote_ratio;
+  # comments carry score only. The pre-Phase-58 intersect path would drop
+  # num_comments + upvote_ratio from the combined data, leaving downstream
+  # Phase 55 + correlation layers with `score` as the lone metric.
+  DBI::dbWriteTable(con, "posts", data.frame(
+    post_id      = c("p1", "p2", "p3"),
+    text         = c("post 1", "post 2", "post 3"),
+    author       = c("a1", "a2", "a3"),
+    score        = c(10L, 20L, 30L),
+    num_comments = c(5L, 6L, 7L),
+    upvote_ratio = c(0.9, 0.8, 0.7),
+    stringsAsFactors = FALSE
+  ))
+  DBI::dbWriteTable(con, "comments", data.frame(
+    comment_id   = c("c1", "c2"),
+    post_id      = c("p1", "p2"),
+    comment_body = c("comment 1", "comment 2"),
+    author       = c("u1", "u2"),
+    score        = c(3L, 4L),
+    stringsAsFactors = FALSE
+  ))
+  DBI::dbDisconnect(con)
+  on.exit(NULL, add = FALSE)  # disarm cleanup; already disconnected
+
+  combined <- load_and_combine_tables(db_path, c("posts", "comments"),
+                                       source_type = "reddit")
+
+  # All 5 rows survive (3 posts + 2 comments).
+  expect_equal(nrow(combined), 5L)
+
+  # num_comments and upvote_ratio must EXIST in the combined data.
+  expect_true("num_comments" %in% names(combined),
+              info = "num_comments dropped at merge (C-9 regression)")
+  expect_true("upvote_ratio" %in% names(combined),
+              info = "upvote_ratio dropped at merge (C-9 regression)")
+
+  # Post rows carry the metric values; comment rows are NA.
+  post_rows    <- combined[combined$source_table == "posts", ]
+  comment_rows <- combined[combined$source_table == "comments", ]
+  expect_equal(sort(post_rows$num_comments), c(5L, 6L, 7L))
+  expect_equal(sort(post_rows$upvote_ratio), c(0.7, 0.8, 0.9))
+  expect_true(all(is.na(comment_rows$num_comments)))
+  expect_true(all(is.na(comment_rows$upvote_ratio)))
+
+  # score is shared across both tables, so no NA-fill there.
+  expect_false(any(is.na(combined$score)))
+})
+
+test_that("load_and_combine_tables works when all columns are shared (no NA-fill needed)", {
+  td <- withr::local_tempdir()
+  db_path <- file.path(td, "test.db")
+  con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
+  on.exit(try(DBI::dbDisconnect(con), silent = TRUE), add = TRUE)
+
+  # Both tables carry identical column sets -> partial_cols should be
+  # empty and no info log fires.
+  shared_shape <- data.frame(
+    id     = c("x", "y"),
+    text   = c("a", "b"),
+    author = c("u1", "u2"),
+    score  = c(1L, 2L),
+    stringsAsFactors = FALSE
+  )
+  DBI::dbWriteTable(con, "tbl_a", shared_shape)
+  DBI::dbWriteTable(con, "tbl_b", data.frame(
+    id     = c("p", "q"),
+    text   = c("c", "d"),
+    author = c("u3", "u4"),
+    score  = c(3L, 4L),
+    stringsAsFactors = FALSE
+  ))
+  DBI::dbDisconnect(con)
+  on.exit(NULL, add = FALSE)
+
+  combined <- load_and_combine_tables(db_path, c("tbl_a", "tbl_b"),
+                                       source_type = "reddit")
+  expect_equal(nrow(combined), 4L)
+  # No NA in any input-supplied column. (standardize_data may add
+  # internal columns like std_timestamp that are NA when no source
+  # timestamp column was detected — those are unrelated to the
+  # intersect-vs-union behavior we're pinning here.)
+  for (col in c("std_id", "std_text", "score", "source_table")) {
+    expect_false(any(is.na(combined[[col]])),
+                 info = sprintf("unexpected NA in column %s", col))
+  }
+})
+
+test_that("load_and_combine_tables: 3-table union with disjoint metric columns (C-9 audit followup)", {
+  # C-9 audit MEDIUM-6: the original C-9 tests only covered 2-table fixtures.
+  # The union semantics need to behave correctly across N tables where each
+  # contributes a DIFFERENT subset of the standardized metrics list.
+  # standardize_data() drops non-metric columns at line 364-368, so the test
+  # must use the canonical metric names (score / num_comments / upvote_ratio)
+  # distributed across the 3 tables rather than inventing new metric names.
+  td <- withr::local_tempdir()
+  db_path <- file.path(td, "test.db")
+  con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
+  on.exit(try(DBI::dbDisconnect(con), silent = TRUE), add = TRUE)
+
+  # Posts: all 3 standard reddit metrics.
+  DBI::dbWriteTable(con, "posts", data.frame(
+    post_id      = c("p1", "p2"),
+    text         = c("post 1", "post 2"),
+    author       = c("a1", "a2"),
+    score        = c(10L, 20L),
+    num_comments = c(5L, 6L),
+    upvote_ratio = c(0.9, 0.8),
+    stringsAsFactors = FALSE
+  ))
+  # Comments: score + num_comments only (no upvote_ratio).
+  DBI::dbWriteTable(con, "comments", data.frame(
+    comment_id   = c("c1", "c2"),
+    post_id      = c("p1", "p2"),
+    comment_body = c("comment 1", "comment 2"),
+    author       = c("u1", "u2"),
+    score        = c(3L, 4L),
+    num_comments = c(0L, 0L),
+    stringsAsFactors = FALSE
+  ))
+  # Submissions: score + upvote_ratio only (no num_comments). 'submissions'
+  # is in the auto-content-tables list so detect_columns recognizes it.
+  DBI::dbWriteTable(con, "submissions", data.frame(
+    submission_id = c("s1", "s2"),
+    text          = c("sub 1", "sub 2"),
+    author        = c("a3", "a4"),
+    score         = c(15L, 25L),
+    upvote_ratio  = c(0.7, 0.6),
+    stringsAsFactors = FALSE
+  ))
+  DBI::dbDisconnect(con)
+  on.exit(NULL, add = FALSE)
+
+  combined <- load_and_combine_tables(db_path,
+                                       c("posts", "comments", "submissions"),
+                                       source_type = "reddit")
+
+  # 2 + 2 + 2 = 6 rows; all three reddit metric columns must survive the
+  # 3-way union (pre-Phase-58 intersect would have kept only `score`).
+  expect_equal(nrow(combined), 6L)
+  expect_true("score"        %in% names(combined),
+              info = "shared metric dropped in 3-table union")
+  expect_true("num_comments" %in% names(combined),
+              info = "posts+comments metric dropped in 3-table union")
+  expect_true("upvote_ratio" %in% names(combined),
+              info = "posts+submissions metric dropped in 3-table union")
+
+  # Per-row partial-fill correctness:
+  #   posts rows        -> all 3 metrics present
+  #   comments rows     -> score + num_comments present, upvote_ratio NA
+  #   submissions rows  -> score + upvote_ratio present, num_comments NA
+  posts_rows       <- combined[combined$source_table == "posts", ]
+  comments_rows    <- combined[combined$source_table == "comments", ]
+  submissions_rows <- combined[combined$source_table == "submissions", ]
+
+  expect_equal(sort(posts_rows$num_comments), c(5L, 6L))
+  expect_equal(sort(posts_rows$upvote_ratio), c(0.8, 0.9))
+  expect_equal(sort(comments_rows$num_comments), c(0L, 0L))
+  expect_true(all(is.na(comments_rows$upvote_ratio)),
+              info = "comments rows must have NA upvote_ratio (only posts+submissions carry it)")
+  expect_equal(sort(submissions_rows$upvote_ratio), c(0.6, 0.7))
+  expect_true(all(is.na(submissions_rows$num_comments)),
+              info = "submissions rows must have NA num_comments")
+
+  # `score` is shared across all 3 tables -> no NA anywhere.
+  expect_false(any(is.na(combined$score)))
+})

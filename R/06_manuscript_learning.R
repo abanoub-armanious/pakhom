@@ -614,11 +614,15 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
     }
 
     # Add example codes
+    # Phase 58 Tier 0 C-4 audit MEDIUM-5: bare-bullet format (was
+    # `  - "code-name" (freq: ...)`). The wrapping quotes mirror the
+    # codebook-summary prompt format C-4 removed, and the AI may echo
+    # the quoted name back as a new-code label.
     if (length(benchmarks$example_codes) > 0) {
       cal_text <- paste0(cal_text, "\nExample codes from prior human analyses:\n")
       for (ec in benchmarks$example_codes[seq_len(min(15, length(benchmarks$example_codes)))]) {
         cal_text <- paste0(cal_text,
-          "  - \"", ec$code, "\" (freq: ", ec$frequency, ", study: ", ec$study, ")\n")
+          "  - ", ec$code, " (freq: ", ec$frequency, ", study: ", ec$study, ")\n")
       }
     }
 
@@ -648,10 +652,15 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
   }
 
   # Build entry-level examples text
+  # Phase 58 Tier 0 C-4 audit MEDIUM-5: bare format (was wrapped in
+  # quotes). The text excerpt KEEPS its quotes -- it's verbatim and
+  # short-snippet display, where the AI is unlikely to confuse it with
+  # a code label -- but the code name no longer carries echo-able
+  # quote characters.
   entry_examples_text <- ""
   if (length(entry_level_examples) > 0) {
     lines <- vapply(entry_level_examples, function(ex) {
-      sprintf("  Code: \"%s\" | Text: \"%s\"", ex$code, substr(ex$text, 1, 150))
+      sprintf("  Code: %s | Text: \"%s\"", ex$code, substr(ex$text, 1, 150))
     }, character(1))
     entry_examples_text <- paste0(
       "## ENTRY-LEVEL CODING EXAMPLES (from prior human analyses)\n",

@@ -137,16 +137,28 @@ load_and_combine_tables <- function(db_path, table_names, source_type = "reddit"
 
   if (length(standardized) == 0) stop("No data loaded from any table")
 
-  # Find common columns across all tables and combine
-  common_cols <- Reduce(intersect, lapply(standardized, names))
-
-  if (length(common_cols) == 0) {
-    log_warn("No common columns across tables; using all columns from largest table")
-    sizes <- vapply(standardized, nrow, integer(1))
-    combined <- standardized[[which.max(sizes)]]
-  } else {
-    combined <- bind_rows(lapply(standardized, function(df) select(df, all_of(common_cols))))
+  # Phase 58 Tier 0 C-9: union-then-NA-fill, not intersect-then-drop.
+  #
+  # The pre-Phase-58 path used `Reduce(intersect, lapply(standardized, names))`
+  # and dropped any column not shared across every input table. For the
+  # canonical Reddit shape (posts table has num_comments + upvote_ratio;
+  # comments table doesn't) this silently dropped two of the three metric
+  # columns from the analytic data, so Phase 55 paper-style subtheme
+  # tables and correlations were only ever scored on `score`. dplyr's
+  # `bind_rows()` already does NA-fill for missing columns; we just need
+  # to stop pre-filtering. Log columns that were NA-filled so the user
+  # has explicit signal about partial coverage.
+  per_table_cols <- lapply(standardized, names)
+  all_cols       <- Reduce(union, per_table_cols)
+  shared_cols    <- Reduce(intersect, per_table_cols)
+  partial_cols   <- setdiff(all_cols, shared_cols)
+  if (length(partial_cols) > 0L) {
+    log_info(paste0(
+      "Columns present in some input tables but not others (NA-filled in ",
+      "combined data): ", paste(partial_cols, collapse = ", ")
+    ))
   }
+  combined <- bind_rows(standardized)
 
   # Defense-in-depth (phase 39): downstream callers (coding_state,
   # fabrication log, per-theme exports, quote provenance) all use

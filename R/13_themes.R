@@ -1470,12 +1470,18 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
 
     # Place each coded segment back into the global `out` slot via the
     # chunk-local segment_index + chunk start offset.
+    # Phase 58 Tier 0 C-4 audit HIGH-1: normalize AI-returned code names
+    # here too. This admission path doesn't inject a numbered codebook
+    # menu so the specific C-4 trigger is absent, but the normalizer is
+    # the package's general contract for AI-name hygiene -- apply it on
+    # every admission site, not just the Mode 2 codebook one.
     for (cs in rows) {
       idx <- as.integer(cs$segment_index %||% NA_integer_)
       if (is.na(idx) || idx < 1L || idx > length(chunk_segments)) next
       global_idx <- (start_i - 1L) + idx
+      raw_name <- as.character(cs$code_name %||% "")
       out[[global_idx]] <- list(
-        code_name        = as.character(cs$code_name %||% ""),
+        code_name        = .normalize_code_name(raw_name),
         code_description = as.character(cs$code_description %||% "")
       )
     }

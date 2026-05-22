@@ -218,6 +218,152 @@ test_that(".build_codebook_summary uses bare-bullet format (C-4 prompt fix)", {
 })
 
 # ============================================================================
+# Phase 58 Tier 0 C-4 audit followup tests
+#
+# The post-C-4 audit subagent flagged:
+#  - HIGH-2: no end-to-end test asserting that an AI returning the corrupt
+#    `321. "Food Addiction"` shape merges into an existing `food addiction`
+#    code rather than creating a new entry under a corrupt key.
+#  - MEDIUM-3: inputs that normalize to "" (e.g. "321.", "NEW:") were not
+#    explicitly guarded at the admission site -- the pre-norm guard only
+#    catches nchar(seg_code) == 0.
+#  - MEDIUM-4: the is_new regex did not allow leading quote-wrapping, so
+#    `"\"NEW: Foo\""` would be classified as is_new = FALSE.
+# ============================================================================
+
+test_that("C-4 integration: AI-emitted '321. \"Foo\"' merges into existing 'foo' code (no duplicate)", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  entry_text <- "I struggle with food addiction every single day."
+
+  # Pre-populate an existing clean code in the codebook. If C-4's normalizer
+  # is wired correctly, the AI's `321. "Food Addiction"` will normalize to
+  # `Food Addiction` -> key `food addiction` -> merge with this entry.
+  state <- create_coding_state()
+  state$codebook[["food addiction"]] <- list(
+    code_name      = "Food Addiction",
+    description    = "Compulsive food consumption",
+    type           = "descriptive",
+    frequency      = 1L,
+    entry_ids      = "e_prior",
+    coded_segments = list()
+  )
+
+  mock_response <- jsonlite::toJSON(list(
+    skipped        = FALSE,
+    skip_reason    = "",
+    coded_segments = list(list(
+      text             = "food addiction",
+      start_char       = 19L,
+      end_char         = 33L,
+      code             = "321. \"Food Addiction\"",
+      code_description = "Compulsive food consumption",
+      code_type        = "descriptive"
+    ))
+  ), auto_unbox = TRUE)
+
+  local_mocked_bindings(
+    ai_complete = function(...) list(
+      content       = mock_response,
+      model         = "gpt-4o-mock",
+      request_id    = "req_mock_c4_integration",
+      usage         = list(prompt_tokens = 50L, completion_tokens = 25L,
+                            total_tokens = 75L),
+      finish_reason = "stop",
+      raw_response  = list(),
+      prompt_hash   = "hash-c4-integration"
+    ),
+    .package = "pakhom"
+  )
+
+  state <- pakhom:::.code_entry_progressive(
+    text = entry_text, entry_id = "e1", entry_index = 1L,
+    state = state, provider = mock_provider(),
+    config = list(max_retries_per_entry = 1L),
+    base_system_prompt = "test"
+  )
+
+  # Codebook still has exactly ONE entry: the prior clean `food addiction`
+  # code, with frequency incremented to 2 (prior + this new segment).
+  expect_equal(length(state$codebook), 1L,
+               info = "AI's `321. \"Food Addiction\"` should merge into the existing clean code, not create a new entry")
+  expect_true("food addiction" %in% names(state$codebook))
+  expect_equal(state$codebook[["food addiction"]]$frequency, 2L)
+  expect_setequal(state$codebook[["food addiction"]]$entry_ids,
+                  c("e_prior", "e1"))
+
+  # No codebook key starts with a digit-prefix or contains stray quotes.
+  for (key in names(state$codebook)) {
+    expect_false(grepl("^\\d+\\.", key),
+                 info = sprintf("codebook key has number-prefix: %s", key))
+    expect_false(grepl("\"", key, fixed = TRUE),
+                 info = sprintf("codebook key has quote chars: %s", key))
+  }
+})
+
+test_that("C-4 audit MEDIUM-3: AI-emitted bare '321.' (normalizes to empty) is dropped, not admitted", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  entry_text <- "Some text about food."
+
+  mock_response <- jsonlite::toJSON(list(
+    skipped        = FALSE,
+    skip_reason    = "",
+    coded_segments = list(list(
+      text             = "Some text",
+      start_char       = 0L,
+      end_char         = 9L,
+      code             = "321.",  # Normalizes to "" -- must NOT admit.
+      code_description = "Empty after normalization",
+      code_type        = "descriptive"
+    ))
+  ), auto_unbox = TRUE)
+
+  local_mocked_bindings(
+    ai_complete = function(...) list(
+      content       = mock_response,
+      model         = "gpt-4o-mock",
+      request_id    = "req_mock_med3",
+      usage         = list(prompt_tokens = 30L, completion_tokens = 10L,
+                            total_tokens = 40L),
+      finish_reason = "stop",
+      raw_response  = list(),
+      prompt_hash   = "hash-med3"
+    ),
+    .package = "pakhom"
+  )
+
+  state <- create_coding_state()
+  state <- suppressWarnings(pakhom:::.code_entry_progressive(
+    text = entry_text, entry_id = "e1", entry_index = 1L,
+    state = state, provider = mock_provider(),
+    config = list(max_retries_per_entry = 1L),
+    base_system_prompt = "test"
+  ))
+
+  # The empty-normalization guard drops the segment; codebook stays empty.
+  expect_equal(length(state$codebook), 0L,
+               info = "code that normalizes to '' must not be admitted")
+})
+
+test_that("C-4 audit MEDIUM-4: quote-wrapped NEW: prefix still detected as new-code request", {
+  # is_new is computed via regex on the pre-normalization seg_code; the
+  # audit fix added `["']*` allowance for leading quotes.
+  # We can't easily observe is_new from outside without mocking, but we
+  # can verify the regex directly. Use the same pattern the production
+  # code uses so any divergence is visible in this test.
+  re <- "^[\"']*\\s*(\\d+\\.\\s*)?\\s*NEW:"
+  expect_true(grepl(re, "NEW: Foo", ignore.case = TRUE))
+  expect_true(grepl(re, "\"NEW: Foo\"", ignore.case = TRUE))
+  expect_true(grepl(re, "'NEW: Foo'", ignore.case = TRUE))
+  expect_true(grepl(re, "\"1. NEW: Foo\"", ignore.case = TRUE))
+  expect_true(grepl(re, "new: foo", ignore.case = TRUE))
+  expect_false(grepl(re, "Existing Code", ignore.case = TRUE))
+})
+
+# ============================================================================
 # Saturation tracking math (curve computation)
 #
 # Background: the previous saturation calculation tried to derive each code's
