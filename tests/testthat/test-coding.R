@@ -116,6 +116,108 @@ test_that("codebook_summary builder works", {
 })
 
 # ============================================================================
+# Phase 58 Tier 0 C-4 regression: numbered-list prompt leak
+#
+# Background: in the Phase 57 full-corpus run, 52 codes ended up with names
+# like `321. "Food Addiction"` because the codebook-summary prompt format
+# used `sprintf("  %d. \"%s\" ...", i, name)`. The AI echoed the entire
+# prefix back as the code name on re-uses; the case-insensitive key matcher
+# never collapsed them to existing codes, so they shadowed the clean
+# versions in the codebook and the HAC distance matrix.
+#
+# Fixes:
+# 1. Prompt format switched to bare `- name (freq=..., type=...)` bullets
+#    (no numeric prefix, no surrounding quotes).
+# 2. Defensive normalizer `.normalize_code_name()` strips any residual
+#    numbered/quoted/NEW: prefixes on every code admitted to the codebook,
+#    making future prompt drift recoverable rather than silent.
+# ============================================================================
+
+test_that(".normalize_code_name strips numbered-list prefixes (C-4 root cause)", {
+  # The exact corruption pattern observed in Phase 57's full-corpus run.
+  expect_equal(pakhom:::.normalize_code_name('321. "Food Addiction"'),
+               "Food Addiction")
+  expect_equal(pakhom:::.normalize_code_name('1. Food Addiction'),
+               "Food Addiction")
+  expect_equal(pakhom:::.normalize_code_name('  12. "Compulsive Eating"  '),
+               "Compulsive Eating")
+})
+
+test_that(".normalize_code_name strips NEW: marker", {
+  expect_equal(pakhom:::.normalize_code_name("NEW: Food Addiction"),
+               "Food Addiction")
+  expect_equal(pakhom:::.normalize_code_name("new: food addiction"),
+               "food addiction")
+})
+
+test_that(".normalize_code_name handles combined prefix orderings", {
+  expect_equal(pakhom:::.normalize_code_name('NEW: 12. "Food Addiction"'),
+               "Food Addiction")
+  expect_equal(pakhom:::.normalize_code_name('12. NEW: "Food Addiction"'),
+               "Food Addiction")
+  expect_equal(pakhom:::.normalize_code_name('  NEW: 12. "Food Addiction" '),
+               "Food Addiction")
+})
+
+test_that(".normalize_code_name strips ASCII and Unicode smart quotes", {
+  expect_equal(pakhom:::.normalize_code_name('"Food Addiction"'),
+               "Food Addiction")
+  expect_equal(pakhom:::.normalize_code_name("'Food Addiction'"),
+               "Food Addiction")
+  # Unicode left/right double quotation marks
+  expect_equal(pakhom:::.normalize_code_name("“Food Addiction”"),
+               "Food Addiction")
+  # Unicode left/right single quotation marks
+  expect_equal(pakhom:::.normalize_code_name("‘Food Addiction’"),
+               "Food Addiction")
+})
+
+test_that(".normalize_code_name preserves clean names + idempotent", {
+  clean <- "Food Addiction"
+  expect_equal(pakhom:::.normalize_code_name(clean), clean)
+  # Idempotency: applying twice produces the same result as once.
+  once <- pakhom:::.normalize_code_name('321. "Food Addiction"')
+  twice <- pakhom:::.normalize_code_name(once)
+  expect_equal(once, twice)
+})
+
+test_that(".normalize_code_name handles NULL/NA/empty defensively", {
+  expect_true(is.na(pakhom:::.normalize_code_name(NULL)))
+  expect_true(is.na(pakhom:::.normalize_code_name(NA_character_)))
+  expect_equal(pakhom:::.normalize_code_name(""), "")
+  expect_equal(pakhom:::.normalize_code_name("   "), "")
+})
+
+test_that(".build_codebook_summary uses bare-bullet format (C-4 prompt fix)", {
+  state <- create_coding_state()
+  state$codebook[["food_addiction"]] <- list(
+    code_name = "Food Addiction", frequency = 100L,
+    description = "Reports of food compulsion", type = "descriptive"
+  )
+  state$codebook[["sleep_loss"]] <- list(
+    code_name = "Sleep Loss", frequency = 50L,
+    description = "Reports of difficulty sleeping", type = "emotional"
+  )
+  summary <- pakhom:::.build_codebook_summary(state, max_codes = 10)
+
+  # New format: bare dash bullet, no numeric prefix.
+  expect_true(grepl("- Food Addiction", summary, fixed = TRUE))
+  expect_true(grepl("- Sleep Loss", summary, fixed = TRUE))
+
+  # Old format must be gone: no numbered list prefix on any line; no
+  # surrounding quotes on the code names.
+  lines <- strsplit(summary, "\n", fixed = TRUE)[[1]]
+  for (line in lines) {
+    expect_false(grepl("^\\s*\\d+\\.\\s", line),
+                 info = sprintf("line still has numbered prefix: %s", line))
+    expect_false(grepl('"Food Addiction"', line, fixed = TRUE),
+                 info = sprintf("code name still wrapped in quotes: %s", line))
+    expect_false(grepl('"Sleep Loss"', line, fixed = TRUE),
+                 info = sprintf("code name still wrapped in quotes: %s", line))
+  }
+})
+
+# ============================================================================
 # Saturation tracking math (curve computation)
 #
 # Background: the previous saturation calculation tried to derive each code's

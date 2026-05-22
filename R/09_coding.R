@@ -1022,12 +1022,10 @@ run_progressive_coding <- function(data, provider, config = list(),
     }
     code_key  <- seg_code
   } else {
-    is_new <- grepl("^NEW:", seg_code, ignore.case = TRUE)
-    if (is_new) {
-      code_name <- trimws(sub("^NEW:\\s*", "", seg_code, ignore.case = TRUE))
-    } else {
-      code_name <- trimws(seg_code)
-    }
+    # Detect NEW: marker on the original (before strip) so codes that were
+    # `1. NEW: Foo` or `NEW: Foo` both register as new-code requests.
+    is_new <- grepl("^(\\s*\\d+\\.\\s*)?\\s*NEW:", seg_code, ignore.case = TRUE)
+    code_name <- .normalize_code_name(seg_code)
     code_key <- tolower(code_name)
     # The AI sees the full codebook and decides whether to create a new code or
     # use an existing one. Only EXACT key matches collapse to existing -- no
@@ -1418,6 +1416,49 @@ run_progressive_coding <- function(data, provider, config = list(),
 # Codebook summary for prompt injection
 # ==============================================================================
 
+#' Defensive code-name normalization
+#'
+#' Phase 58 Tier 0 C-4: strips numbered-list prefixes (`321. `), `NEW:`
+#' markers, and surrounding ASCII or Unicode smart quotes that the AI may
+#' echo back from the codebook-summary prompt format. Applied once at code
+#' admission so the codebook key is canonical regardless of which prefix
+#' the AI emitted. Idempotent: two passes handle ordering variants like
+#' `"1. NEW: Food"` and `"NEW: 1. Food"`.
+#'
+#' @param name Character scalar; the raw code name returned by the AI.
+#' @return Cleaned code name with all known prefix/quote noise removed.
+#' @keywords internal
+.normalize_code_name <- function(name) {
+  if (is.null(name)) return(NA_character_)
+  if (length(name) == 1L && is.na(name)) return(NA_character_)
+  name <- as.character(name)[1]
+  # Collapse Unicode smart quotes to ASCII " before the regex pass.
+  # The smart quotes are constructed from raw UTF-8 bytes rather than
+  # source-file literals because R's source parser replaces non-ASCII
+  # literals with `<U+xxxx>` escape sequences when the running locale is
+  # C/POSIX, breaking any direct-match strategy. `useBytes = TRUE` forces
+  # byte-level comparison regardless of encoding tags.
+  left_dq  <- rawToChar(as.raw(c(0xE2, 0x80, 0x9C)))  # U+201C "
+  right_dq <- rawToChar(as.raw(c(0xE2, 0x80, 0x9D)))  # U+201D "
+  left_sq  <- rawToChar(as.raw(c(0xE2, 0x80, 0x98)))  # U+2018 '
+  right_sq <- rawToChar(as.raw(c(0xE2, 0x80, 0x99)))  # U+2019 '
+  name <- gsub(left_dq,  "\"", name, fixed = TRUE, useBytes = TRUE)
+  name <- gsub(right_dq, "\"", name, fixed = TRUE, useBytes = TRUE)
+  name <- gsub(left_sq,  "'",  name, fixed = TRUE, useBytes = TRUE)
+  name <- gsub(right_sq, "'",  name, fixed = TRUE, useBytes = TRUE)
+  name <- trimws(name)
+  # Two passes so ordering variants like "1. NEW: foo" and "NEW: 1. foo"
+  # both collapse to "foo".
+  for (i in 1:2) {
+    name <- sub("^\\d+\\.\\s*", "", name)
+    name <- sub("^NEW:\\s*", "", name, ignore.case = TRUE)
+    name <- sub("^[\"']+", "", name)
+    name <- sub("[\"']+$", "", name)
+    name <- trimws(name)
+  }
+  name
+}
+
 #' @keywords internal
 .build_codebook_summary <- function(state, max_codes = 80, recent_window = 20) {
   cb <- state$codebook
@@ -1449,10 +1490,14 @@ run_progressive_coding <- function(data, provider, config = list(),
   selected <- unique(c(top_idx, recent_idx))
   selected <- selected[seq_len(min(max_codes, length(selected)))]
 
+  # Phase 58 Tier 0 C-4: bare bullet format (was `  %d. "%s" ...`). The
+  # numbered+quoted format caused the AI to echo prefixes like `321.
+  # "Food Addiction"` back as new-code names, corrupting 52 codes in the
+  # Phase 57 full-corpus run. Bare dash bullets remove the temptation.
   lines <- vapply(selected, function(i) {
     d <- code_data[[i]]
     desc_str <- if (!is.null(d$desc) && !is.na(d$desc) && nchar(d$desc) > 0) paste0(" -- ", substr(d$desc, 1, 80)) else ""
-    sprintf("  %d. \"%s\" (freq=%d, type=%s)%s", i, d$name, d$freq, d$type, desc_str)
+    sprintf("  - %s (freq=%d, type=%s)%s", d$name, d$freq, d$type, desc_str)
   }, character(1))
 
   paste(lines, collapse = "\n")
