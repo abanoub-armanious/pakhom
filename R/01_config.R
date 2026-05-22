@@ -224,9 +224,11 @@ validate_config <- function(config) {
 #' Warn about deprecated config knobs (Phase 58 Tier 3 AH-5)
 #'
 #' Walks the user's config for keys that the package no longer reads.
-#' Removed in cleanup waves Phase 50e (8 knobs), Phase 52/53 (5 knobs),
-#' Phase 56 (6 saturation knobs). Each surviving stale knob in a user's
-#' personal config.yaml is logged as a warn with the cleanup phase that
+#' The full list (15 knobs total) spans three cleanup waves:
+#' Phase 52/53 sequential-merge removal (4 knobs), Phase 53 theme-
+#' count cleanup (5 knobs), Phase 56 saturation-arbiter migration
+#' (6 knobs). Each surviving stale knob in a user's personal
+#' config.yaml is logged as a warn with the cleanup phase that
 #' removed it.
 #'
 #' @keywords internal
@@ -320,9 +322,10 @@ validate_config <- function(config) {
 #' analysis. pakhom injects \code{study.researcher_positionality},
 #' \code{study.research_paradigm}, and \code{study.reflexive_notes}
 #' into the AI system prompt at every coding / theming / saturation
-#' call (see R/methodology_rules.R). When all three are empty, the
-#' reflexivity block silently degrades to a placeholder -- a
-#' methodology paper relying on this run can no longer claim
+#' call (see R/methodology_rules.R). When all three are empty,
+#' \code{.reflexivity_block_for()} returns the empty string and
+#' the AI prompt CONTAINS NO REFLEXIVITY BLOCK AT ALL -- a
+#' methodology paper relying on this run cannot honestly claim
 #' reflexive practice.
 #'
 #' @keywords internal
@@ -341,10 +344,11 @@ validate_config <- function(config) {
     log_warn(paste0(
       "Reflexivity scaffold is EMPTY: study.researcher_positionality, ",
       "study.research_paradigm, and study.reflexive_notes are all unset. ",
-      "pakhom will inject placeholder text into AI prompts, but a ",
-      "methodology paper relying on this run cannot honestly claim ",
-      "reflexive practice (Olmos-Vega AMEE Guide 149). Set at least one ",
-      "of these fields in your config.yaml before a publication run."
+      "pakhom will OMIT the reflexivity block from the AI prompt entirely ",
+      "(no placeholder text is substituted). A methodology paper relying ",
+      "on this run cannot honestly claim reflexive practice (Olmos-Vega ",
+      "AMEE Guide 149). Set at least one of these fields in your ",
+      "config.yaml before a publication run."
     ))
   } else if (any(empties)) {
     missing_names <- names(empties)[empties]

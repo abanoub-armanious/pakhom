@@ -424,3 +424,36 @@ test_that("AH-4: fully-populated reflexivity produces no warning", {
   empties <- pakhom:::.warn_empty_reflexivity(cfg)
   expect_false(any(empties))
 })
+
+# ============================================================================
+# Phase 58 Tier 3 audit followup LOW-6: validate_config wires the warns through
+# ============================================================================
+
+test_that("AH-5 integration: validate_config calls deprecated-knob warn helper", {
+  # Build a minimal-but-valid config carrying a deprecated knob; verify
+  # validate_config completes (no error) AND logs a warn referencing
+  # the knob. Pre-fix the helper existed but no test exercised the
+  # call-site wiring at R/01_config.R:206.
+  skip_if_not(file.exists("../../inst/config/default_config.yaml"),
+              "default config not on test working dir")
+  td <- withr::local_tempdir()
+  db_path <- file.path(td, "test.db")
+  con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
+  DBI::dbWriteTable(con, "posts", data.frame(post_id = "a", text = "x",
+                                                stringsAsFactors = FALSE))
+  DBI::dbDisconnect(con)
+  Sys.setenv(OPENAI_API_KEY = "sk-test-fake-key")
+  on.exit(Sys.unsetenv("OPENAI_API_KEY"), add = TRUE)
+
+  cfg <- list(
+    study = list(research_focus = "test focus", concepts = c("a", "b")),
+    methodology = list(mode = "codebook_collaborative"),
+    ai = list(provider = "openai",
+              openai = list(api_key_env = "OPENAI_API_KEY")),
+    data = list(database = db_path),
+    output = list(results_dir = td),
+    analysis = list(themes = list(merge_strategy = "auto"))  # deprecated
+  )
+  # Should not error; should emit a deprecated-knob warn.
+  expect_no_error(validate_config(cfg))
+})

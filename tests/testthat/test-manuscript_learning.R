@@ -494,3 +494,113 @@ test_that("cross-study synthesis returns empty string with fewer than 2 studies"
   )
   expect_equal(out, "")
 })
+
+# ============================================================================
+# Phase 58 Tier 3 AH-3 audit followup: study roster + hash-shuffle iteration
+# ============================================================================
+
+test_that("AH-3: .build_study_roster returns empty string for single-study input", {
+  one_study <- structure(list(
+    studies = list(only = list(name = "only_study",
+                                codebook = data.frame(code_name = "a"))),
+    n_studies = 1L
+  ), class = "PreviousStudies")
+  expect_equal(pakhom:::.build_study_roster(one_study), "")
+})
+
+test_that("AH-3: .build_study_roster returns empty for NULL or zero studies", {
+  expect_equal(pakhom:::.build_study_roster(NULL), "")
+  expect_equal(
+    pakhom:::.build_study_roster(
+      structure(list(studies = list(), n_studies = 0L), class = "PreviousStudies")
+    ),
+    ""
+  )
+})
+
+test_that("AH-3: .build_study_roster names every study at the top", {
+  three_studies <- structure(list(
+    studies = list(
+      dayvigo = list(name = "dayvigo",
+                      codebook = data.frame(code_name = letters[1:10])),
+      ozempic = list(name = "ozempic",
+                      codebook = data.frame(code_name = letters[1:5])),
+      vyvanse = list(name = "vyvanse",
+                      codebook = data.frame(code_name = letters[1:3]))
+    ),
+    n_studies = 3L
+  ), class = "PreviousStudies")
+  out <- pakhom:::.build_study_roster(three_studies)
+  expect_true(grepl("dayvigo", out, fixed = TRUE),
+              info = "dayvigo missing from roster")
+  expect_true(grepl("ozempic", out, fixed = TRUE),
+              info = "ozempic missing from roster (the Phase 57 audit-flagged study)")
+  expect_true(grepl("vyvanse", out, fixed = TRUE),
+              info = "vyvanse missing from roster (the Phase 57 audit-flagged study)")
+  expect_true(grepl("equal weight", out, fixed = TRUE),
+              info = "roster must include explicit equal-weight directive")
+  expect_true(grepl("10 codes", out, fixed = TRUE))
+  expect_true(grepl("5 codes", out, fixed = TRUE))
+  expect_true(grepl("3 codes", out, fixed = TRUE))
+})
+
+test_that("AH-3: .build_study_roster handles studies with NULL codebook gracefully", {
+  studies_with_null <- structure(list(
+    studies = list(
+      a = list(name = "a", codebook = NULL),
+      b = list(name = "b", codebook = data.frame(code_name = "x"))
+    ),
+    n_studies = 2L
+  ), class = "PreviousStudies")
+  out <- pakhom:::.build_study_roster(studies_with_null)
+  # Both names appear; no R errors from NULL codebook handling.
+  expect_true(grepl("**a**", out, fixed = TRUE))
+  expect_true(grepl("**b**", out, fixed = TRUE))
+})
+
+test_that("AH-3 (audit MEDIUM-4): study iteration order is deterministic + hash-shuffled", {
+  # Hash-based ordering is deterministic across calls (AC10 replay-
+  # equivalence) AND uncorrelated with registration order. Verify by
+  # computing the expected order via the same hash + confirming the
+  # first depth-chunk in for_theming matches the hash's first study.
+  studies <- structure(list(
+    studies = list(
+      dayvigo = list(name = "dayvigo", codebook = data.frame(
+        code_name = "a", description = "", parent_code = NA_character_,
+        frequency = 1L,
+        stringsAsFactors = FALSE
+      )),
+      ozempic = list(name = "ozempic", codebook = data.frame(
+        code_name = "b", description = "", parent_code = NA_character_,
+        frequency = 1L,
+        stringsAsFactors = FALSE
+      )),
+      vyvanse = list(name = "vyvanse", codebook = data.frame(
+        code_name = "c", description = "", parent_code = NA_character_,
+        frequency = 1L,
+        stringsAsFactors = FALSE
+      ))
+    ),
+    n_studies = 3L
+  ), class = "PreviousStudies")
+  ctx1 <- generate_learning_context(studies)
+  ctx2 <- generate_learning_context(studies)
+  expect_identical(ctx1$for_theming, ctx2$for_theming,
+                   info = "AC10: identical inputs must produce identical for_theming output")
+
+  expected_order <- names(studies$studies)[order(vapply(
+    names(studies$studies), function(n) digest::digest(n, algo = "md5"),
+    character(1)
+  ))]
+  first_depth_chunk_study <- expected_order[1]
+  # Depth chunks include "### <STUDY> -" prefixes (uppercased at line 408).
+  # Find the FIRST such prefix in for_theming AFTER the roster block.
+  roster_end <- regexpr("\n###", ctx1$for_theming, fixed = TRUE)
+  if (roster_end > 0L) {
+    after_roster <- substr(ctx1$for_theming, roster_end + 4L, roster_end + 200L)
+    first_label <- toupper(first_depth_chunk_study)
+    expect_true(grepl(first_label, after_roster, fixed = TRUE),
+                info = sprintf("First depth chunk should be %s (hash-shuffle order); got: %s",
+                                first_label, substr(after_roster, 1, 80)))
+  }
+})

@@ -390,7 +390,21 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
   per_study_cb_budget <- max_codebook_chars / studies$n_studies
   per_study_ms_budget <- max_manuscript_chars / studies$n_studies
 
-  for (study in studies$studies) {
+  # Phase 58 Tier 3 AH-3 (audit MEDIUM-4): hash-based deterministic
+  # ordering of studies so no single study is consistently in the
+  # first-iterated position. Pre-Phase-58 iteration used `for (study
+  # in studies$studies)`, which always put the first-registered
+  # study (e.g. Dayvigo) first. Plain alphabetical sort would not
+  # help if alphabetical order happens to match registration order
+  # (Dayvigo < Ozempic < Vyvanse), so each study name is hashed and
+  # iteration order is set by the hash. The hash is deterministic
+  # (AC10 replay-equivalence preserved) AND uncorrelated with
+  # registration / alphabetical order.
+  study_hashes <- vapply(names(studies$studies), function(n) {
+    digest::digest(n, algo = "md5")
+  }, character(1))
+  ordered_names <- names(studies$studies)[order(study_hashes)]
+  for (study in studies$studies[ordered_names]) {
     study_label <- toupper(study$name)
     has_codebook <- !is.null(study$codebook) && nrow(study$codebook) > 0
     has_deep_data <- !is.null(study$codebook_full)
