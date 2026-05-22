@@ -129,6 +129,15 @@ create_coding_state <- function(learning_context = NULL, config_hash = NULL) {
       ai_articulation = NA_character_,
       ai_rationale = NA_character_,
       saturation_ratio = NA_real_
+    ),
+    # Phase 58 Tier 0 C-6: per-code embedding cache for additive semantic
+    # retrieval. code_embeddings is keyed by code_key; each value is a
+    # numeric vector matching the embedding model's dimensionality
+    # (text-embedding-3-small => 1536 dims). Populated on demand the
+    # first time each code is seen by .retrieve_semantic_codes; survives
+    # checkpoint save/restore via saveRDS like the rest of state.
+    semantic_cache = list(
+      code_embeddings = list()
     )
   )
   class(state) <- "ProgressiveCodingState"
@@ -668,8 +677,30 @@ run_progressive_coding <- function(data, provider, config = list(),
       fpt
     )
   } else {
-    codebook_summary <- .build_codebook_summary(state, max_codes = 80,
-                                                  recent_window = 20)
+    # Phase 58 Tier 0 C-6: additive retrieval. Frequency + recency
+    # (legacy behavior) plus per-entry semantic top-K cosine retrieval
+    # against cached code embeddings. With 4,059-code codebooks the
+    # pre-Phase-58 top-80 window made every entry past ~entry 1000 see
+    # only 2% of the existing codebook, so re-encounters looked new.
+    # max_codes raised 80 -> 150; semantic top-K added; embeddings
+    # cached per code key in state$semantic_cache$code_embeddings.
+    cb_result <- .build_codebook_summary_with_retrieval(
+      state,
+      max_codes      = 150L,
+      recent_window  = 20L,
+      entry_text     = text,
+      provider       = provider,
+      top_k_semantic = 30L
+    )
+    codebook_summary <- cb_result$summary
+    if (length(cb_result$new_embeddings) > 0L) {
+      if (is.null(state$semantic_cache)) {
+        state$semantic_cache <- list(code_embeddings = list())
+      }
+      for (key in names(cb_result$new_embeddings)) {
+        state$semantic_cache$code_embeddings[[key]] <- cb_result$new_embeddings[[key]]
+      }
+    }
     system_prompt <- paste0(
       base_system_prompt,
       "\n## YOUR CURRENT CODEBOOK\n",
@@ -1472,15 +1503,130 @@ run_progressive_coding <- function(data, provider, config = list(),
   name
 }
 
+#' Phase 58 Tier 0 C-6: per-entry semantic top-K retrieval against codebook
+#'
+#' Computes cosine similarity between the current entry's embedding and
+#' each code's `name: description` embedding, returning the top-K indices.
+#' Uses + populates `state$semantic_cache$code_embeddings` so each code is
+#' embedded at most once across the full coding run. Returns
+#' `integer(0)` when the provider doesn't support embeddings, when no
+#' provider/entry_text is supplied, or when the API call fails. Always
+#' degrades gracefully -- the caller falls back to frequency-only.
+#'
+#' @param state ProgressiveCodingState carrying $codebook + $semantic_cache.
+#' @param code_data List of per-code records (key/name/desc/freq/type),
+#'   matching the same row-order indices used by the caller.
+#' @param entry_text Current entry's raw text (single character scalar).
+#' @param provider AIProvider used to compute embeddings.
+#' @param top_k Maximum number of semantic-retrieval indices to return.
+#' @return list(indices = integer, new_embeddings = named list of vectors)
 #' @keywords internal
-.build_codebook_summary <- function(state, max_codes = 80, recent_window = 20) {
-  cb <- state$codebook
-  if (length(cb) == 0) return("")
+.retrieve_semantic_codes <- function(state, code_data, entry_text, provider,
+                                       top_k) {
+  empty <- list(indices = integer(0), new_embeddings = list())
+  if (is.null(provider) || is.null(entry_text)) return(empty)
+  if (is.null(top_k) || top_k <= 0L || length(code_data) == 0L) return(empty)
+  if (!nzchar(as.character(entry_text)[1])) return(empty)
 
-  # Prioritize high-frequency codes + recently created codes
+  # 1. Compute entry embedding (one API call).
+  entry_mat <- tryCatch(
+    compute_embeddings(provider, as.character(entry_text)[1]),
+    error = function(e) {
+      log_debug("Phase 58 C-6: entry embedding failed: {e$message}")
+      NULL
+    }
+  )
+  if (is.null(entry_mat) || !is.matrix(entry_mat) || nrow(entry_mat) == 0L) {
+    return(empty)
+  }
+  entry_emb  <- entry_mat[1, ]
+  entry_norm <- sqrt(sum(entry_emb^2))
+  if (!is.finite(entry_norm) || entry_norm == 0) return(empty)
+
+  # 2. Identify codes needing fresh embeddings (cache miss). Batch the
+  #    embed call to amortize HTTP overhead and stay within OpenAI's
+  #    per-request limits.
+  cache <- state$semantic_cache$code_embeddings %||% list()
+  needs_idx  <- integer(0)
+  needs_text <- character(0)
+  for (i in seq_along(code_data)) {
+    key <- code_data[[i]]$key
+    if (is.null(cache[[key]])) {
+      txt <- paste0(code_data[[i]]$name, ": ", code_data[[i]]$desc %||% "")
+      needs_idx  <- c(needs_idx, i)
+      needs_text <- c(needs_text, txt)
+    }
+  }
+
+  new_embeddings <- list()
+  if (length(needs_idx) > 0L) {
+    new_mat <- tryCatch(
+      compute_embeddings(provider, needs_text),
+      error = function(e) {
+        log_debug("Phase 58 C-6: code embedding batch failed: {e$message}")
+        NULL
+      }
+    )
+    if (!is.null(new_mat) && is.matrix(new_mat) &&
+        nrow(new_mat) == length(needs_idx)) {
+      for (j in seq_along(needs_idx)) {
+        key <- code_data[[needs_idx[j]]]$key
+        cache[[key]] <- new_mat[j, ]
+        new_embeddings[[key]] <- new_mat[j, ]
+      }
+    }
+  }
+
+  # 3. Score each code by cosine similarity to entry. Codes whose
+  #    embedding is still missing (batch failed) or has a mismatching
+  #    dimensionality (e.g. a stale cache vector from a prior run that
+  #    used a different embedding model) get -Inf and fall out.
+  entry_dim <- length(entry_emb)
+  sims <- vapply(seq_along(code_data), function(i) {
+    emb <- cache[[code_data[[i]]$key]]
+    if (is.null(emb)) return(-Inf)
+    # C-6 audit LOW-1: guard against silently-recycled cosine on
+    # mismatched embedding dimensions (would yield garbage scores or
+    # warn). Survives across runs that switch embedding models.
+    if (length(emb) != entry_dim) return(-Inf)
+    emb_norm <- sqrt(sum(emb^2))
+    if (!is.finite(emb_norm) || emb_norm == 0) return(-Inf)
+    sum(emb * entry_emb) / (emb_norm * entry_norm)
+  }, numeric(1))
+
+  finite_n <- sum(is.finite(sims))
+  if (finite_n == 0L) return(list(indices = integer(0), new_embeddings = new_embeddings))
+
+  ordered <- order(-sims)
+  ordered <- ordered[seq_len(min(top_k, finite_n))]
+  list(indices = ordered, new_embeddings = new_embeddings)
+}
+
+#' Phase 58 Tier 0 C-6: codebook summary with additive semantic retrieval
+#'
+#' Variant of \code{.build_codebook_summary} that performs additional
+#' top-K semantic retrieval against the current entry's text on top of
+#' the frequency + recency selection. Returns a list so the caller can
+#' persist any newly-computed code embeddings into the coding state's
+#' cache (the function takes \code{state} by value -- mutating
+#' \code{state$semantic_cache$code_embeddings} here would be invisible
+#' to the caller).
+#'
+#' @return list(summary = <character>, new_embeddings = <named list of vectors>)
+#' @keywords internal
+.build_codebook_summary_with_retrieval <- function(state, max_codes = 150L,
+                                                     recent_window = 20L,
+                                                     entry_text = NULL,
+                                                     provider = NULL,
+                                                     top_k_semantic = 30L) {
+  cb <- state$codebook
+  if (length(cb) == 0) {
+    return(list(summary = "", new_embeddings = list()))
+  }
+
   code_data <- lapply(names(cb), function(key) {
     list(
-      key = key,
+      key  = key,
       name = cb[[key]]$code_name,
       freq = cb[[key]]$frequency,
       desc = cb[[key]]$description %||% "",
@@ -1488,32 +1634,65 @@ run_progressive_coding <- function(data, provider, config = list(),
     )
   })
 
-  # Sort by frequency descending
   freqs <- vapply(code_data, function(x) x$freq, integer(1))
   sorted_idx <- order(-freqs)
 
-  # Take top codes by frequency
-  n_top <- max_codes - min(recent_window, length(code_data))
-  top_idx <- sorted_idx[seq_len(min(n_top, length(sorted_idx)))]
+  # Phase 58 C-6: budget the max_codes cap across THREE selection cohorts
+  # (frequency / recency / semantic) so the semantic slots aren't silently
+  # truncated when frequency + recency already fill the cap. desired_top
+  # falls back to legacy behavior when top_k_semantic = 0 (the back-compat
+  # wrapper path used by older tests).
+  recent_budget   <- min(as.integer(recent_window), length(code_data))
+  semantic_budget <- max(0L, as.integer(top_k_semantic))
+  desired_top     <- max(0L, as.integer(max_codes) - recent_budget - semantic_budget)
+  top_idx <- sorted_idx[seq_len(min(desired_top, length(sorted_idx)))]
 
-  # Also include recently created codes (last N codes added)
   all_keys <- names(cb)
   recent_keys <- tail(all_keys, recent_window)
   recent_idx <- which(names(cb) %in% recent_keys)
-  selected <- unique(c(top_idx, recent_idx))
+
+  # Semantic top-K (additive). With provider+entry_text NULL or top_k=0
+  # this returns integer(0) and falls back to freq+recency only.
+  semantic_result <- .retrieve_semantic_codes(state, code_data, entry_text,
+                                                provider, top_k_semantic)
+
+  # Union the three cohorts (freq -> recent -> semantic); ties broken by
+  # first-appearance order so frequency leads. Cap at max_codes as the
+  # final budget.
+  selected <- unique(c(top_idx, recent_idx, semantic_result$indices))
   selected <- selected[seq_len(min(max_codes, length(selected)))]
 
-  # Phase 58 Tier 0 C-4: bare bullet format (was `  %d. "%s" ...`). The
-  # numbered+quoted format caused the AI to echo prefixes like `321.
-  # "Food Addiction"` back as new-code names, corrupting 52 codes in the
-  # Phase 57 full-corpus run. Bare dash bullets remove the temptation.
+  # Bare bullet format (Phase 58 C-4): no numeric prefix, no quotes.
   lines <- vapply(selected, function(i) {
     d <- code_data[[i]]
-    desc_str <- if (!is.null(d$desc) && !is.na(d$desc) && nchar(d$desc) > 0) paste0(" -- ", substr(d$desc, 1, 80)) else ""
+    desc_str <- if (!is.null(d$desc) && !is.na(d$desc) && nchar(d$desc) > 0) {
+      paste0(" -- ", substr(d$desc, 1, 80))
+    } else ""
     sprintf("  - %s (freq=%d, type=%s)%s", d$name, d$freq, d$type, desc_str)
   }, character(1))
 
-  paste(lines, collapse = "\n")
+  list(
+    summary        = paste(lines, collapse = "\n"),
+    new_embeddings = semantic_result$new_embeddings
+  )
+}
+
+#' Codebook-summary builder (legacy interface, frequency + recency only)
+#'
+#' Back-compat wrapper around .build_codebook_summary_with_retrieval that
+#' returns just the summary string. Used by existing tests and any caller
+#' that doesn't have an entry_text / provider to do semantic retrieval.
+#' Default \code{max_codes = 80} preserves the pre-Phase-58 behavior for
+#' callers that don't override it; the production callsite in
+#' \code{.code_entry_progressive} uses the with_retrieval variant directly
+#' with \code{max_codes = 150}.
+#'
+#' @keywords internal
+.build_codebook_summary <- function(state, max_codes = 80, recent_window = 20) {
+  .build_codebook_summary_with_retrieval(
+    state, max_codes = max_codes, recent_window = recent_window,
+    entry_text = NULL, provider = NULL, top_k_semantic = 0L
+  )$summary
 }
 
 # ==============================================================================

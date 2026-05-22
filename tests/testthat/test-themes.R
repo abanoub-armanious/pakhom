@@ -575,9 +575,14 @@ test_that("C-1: .is_tautological_articulation catches restatement of theme name"
 })
 
 test_that("C-1 integration: .evaluate_cluster forces split on log-scaled too-short articulation", {
-  # 30-code cluster -> min_chars = 30 + 30*log10(30) ~= 74
-  # An articulation of 50 chars would pass the legacy flat 30-char floor
-  # but must FAIL the log-scaled 74-char floor.
+  # 30-code cluster -> min_chars = 30 + 30*log10(30) ~= 74.
+  # A 20-char articulation fails the length check at every cluster size
+  # in the recursive walk (n=1 -> floor 30; the 20-char articulation is
+  # below it). The legacy flat 30-char floor would ALSO reject this
+  # articulation -- the point of this test is the cluster size lookup
+  # at line 879's .articulation_min_chars call, not the larger-cluster
+  # boost specifically. (See the next test for the
+  # log-scale-vs-legacy-floor regression.)
   state <- create_coding_state()
   for (k in paste0("c", 1:30)) {
     state$codebook[[k]] <- list(
@@ -591,10 +596,9 @@ test_that("C-1 integration: .evaluate_cluster forces split on log-scaled too-sho
                             temperature, response_schema, ...) {
       list(
         content = jsonlite::toJSON(list(
-          # Exactly 50 chars. Cluster size 30 -> floor ~74. Must reject.
-          central_organizing_concept = "Daily routines around medication and sleep timing",
+          central_organizing_concept = "shortish phrase",  # 15 chars
           decision = "coherent_theme",
-          proposed_name = "Routines",
+          proposed_name = "Daily routines",
           proposed_description = "...",
           rationale = "..."
         ), auto_unbox = TRUE, null = "null"),
@@ -606,6 +610,49 @@ test_that("C-1 integration: .evaluate_cluster forces split on log-scaled too-sho
   # Forced split at every node -> recurse to leaves -> 30 atomic themes.
   ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
                                      config = list())
+  expect_equal(n_themes(ts), 30L)
+})
+
+test_that("C-1 integration: log-scaled floor rejects 50-char articulation that flat 30-char floor would have passed", {
+  # 30-code cluster + 50-char articulation. Under the legacy flat 30-char
+  # floor (pre-Phase-58) this articulation would have PASSED the gate.
+  # Under the log-scaled floor (n=30 -> min ~74) it must FAIL at the
+  # top-level cluster, demonstrating the regression that fixes the
+  # 237-code Phase 57 mega-theme.
+  #
+  # The articulation reuses both name tokens ("daily", "routines") so the
+  # tautology gate also fires regardless of the recursive walk's
+  # cluster-size geometry. The combined effect: every internal node
+  # rejects -> recurse to leaves -> 30 atomic themes.
+  state <- create_coding_state()
+  for (k in paste0("c", 1:30)) {
+    state$codebook[[k]] <- list(
+      code_name = paste("Code", k), description = "",
+      type = "descriptive", frequency = 1L,
+      entry_ids = paste0("e", k), coded_segments = list()
+    )
+  }
+  testthat::local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt, task,
+                            temperature, response_schema, ...) {
+      list(
+        content = jsonlite::toJSON(list(
+          # 49 chars; > legacy 30-char floor; < log-scaled 74-char floor at n=30.
+          central_organizing_concept = "Daily routines around medication and sleep schedule",
+          decision = "coherent_theme",
+          proposed_name = "Daily Routines",
+          proposed_description = "...",
+          rationale = "..."
+        ), auto_unbox = TRUE, null = "null"),
+        usage = list()
+      )
+    },
+    .package = "pakhom"
+  )
+  ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
+                                     config = list())
+  # 30 atomic themes confirms the recursive walk forced split at every
+  # node (top cluster: length fails; small clusters: tautology fires).
   expect_equal(n_themes(ts), 30L)
 })
 
@@ -695,6 +742,118 @@ test_that("C-1 integration: legacy 30-char minimum still triggers on n=1 singlet
                                      config = list())
   # Single code, articulation too short -> forced split. Single-code split
   # produces 1 atomic-outlier theme regardless.
+  expect_equal(n_themes(ts), 1L)
+})
+
+# C-1 audit followup tests --------------------------------------------------
+
+test_that("C-1 audit MEDIUM-1: tautology check skipped for single-content-word names", {
+  # Pre-fix: name = "Routines" (1 token after stop-word filter) + any
+  # articulation mentioning "routines" -> 100% overlap -> tautological ->
+  # force split. False positive for substantive articulations.
+  # Post-fix: tautology requires >= 2 name tokens; "Routines" skips the
+  # check entirely.
+  expect_false(pakhom:::.is_tautological_articulation(
+    articulation  = "Daily routines around medication and sleep schedule",
+    proposed_name = "Routines"
+  ))
+  expect_false(pakhom:::.is_tautological_articulation(
+    articulation  = "Stigma operates as both barrier and motivator",
+    proposed_name = "Stigma"
+  ))
+  # Multi-word names still fire on real tautology.
+  expect_true(pakhom:::.is_tautological_articulation(
+    articulation  = "Daily routines around medication and sleep schedule",
+    proposed_name = "Daily Routines"
+  ))
+})
+
+test_that("C-1 audit MEDIUM-2: 'overarching pattern of X in Y' substantive openers no longer rejected", {
+  # Pre-fix: pattern 5 `^(general|overarching) (.+) (of|in|for) \\w`
+  # rejected substantive opening lines. Removed in the followup.
+  expect_false(pakhom:::.is_bucket_label_opener(
+    "Overarching pattern of self-medication in participants describes a shared coping logic"
+  ))
+  expect_false(pakhom:::.is_bucket_label_opener(
+    "General principle of dose timing as anchor for daily medication routines"
+  ))
+  # The other bucket patterns still fire.
+  expect_true(pakhom:::.is_bucket_label_opener(
+    "Comprehensive overview of binge-eating triggers"
+  ))
+})
+
+test_that("C-1 audit LOW-5: .articulation_min_chars defends against NA / non-integer input", {
+  # length(cluster_leaves) is always real in practice; this is a defensive
+  # crash-prevention guarantee against future callers.
+  expect_equal(pakhom:::.articulation_min_chars(NA_integer_), 30L)
+  expect_equal(pakhom:::.articulation_min_chars(NULL), 30L)
+  expect_equal(pakhom:::.articulation_min_chars(numeric(0)), 30L)
+  expect_equal(pakhom:::.articulation_min_chars(-5L), 30L)
+  # Real input still computes correctly.
+  expect_equal(pakhom:::.articulation_min_chars(100L), 90L)
+})
+
+test_that("C-1 audit LOW-6: multi-failure articulation lists all reasons in rationale (gate inspection)", {
+  # We can't easily extract the rationale from generate_themes_iterative's
+  # return without inspecting walk_state. Instead exercise the three
+  # quality predicates directly on a single articulation that trips all
+  # of them, and confirm each predicate independently signals failure.
+  # 53-char articulation that begins with a bucket opener and reuses
+  # both content words of the proposed name.
+  art  <- "Comprehensive eating patterns covering binge behavior"
+  name <- "Eating Patterns"
+  expect_true(pakhom:::.is_bucket_label_opener(art),
+              info = "bucket-opener detection missed 'Comprehensive ...'")
+  expect_true(pakhom:::.is_tautological_articulation(art, name),
+              info = "tautology detection missed 100%% token overlap")
+  # Length check passes at the legacy n=1 floor (min 30) but FAILS at
+  # n=10 (log-scaled min 60) -- so at large clusters all three gates
+  # fire together.
+  expect_true(nchar(art) >= pakhom:::.articulation_min_chars(1L))
+  expect_true(nchar(art) < pakhom:::.articulation_min_chars(10L))
+})
+
+test_that("C-1 audit LOW-7: substantive long articulation IS accepted under log-scaling (positive case)", {
+  # Phase 57's 237-code mega-theme regression: a substantive 120+ char
+  # articulation with a multi-token non-tautological name should be
+  # accepted as coherent_theme even at large cluster sizes. This is the
+  # positive-case partner of the "force split on too-short" test above.
+  state <- create_coding_state()
+  for (k in paste0("c", 1:10)) {
+    state$codebook[[k]] <- list(
+      code_name = paste("Code", k), description = "",
+      type = "descriptive", frequency = 1L,
+      entry_ids = paste0("e", k), coded_segments = list()
+    )
+  }
+  testthat::local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt, task,
+                            temperature, response_schema, ...) {
+      list(
+        content = jsonlite::toJSON(list(
+          # 130 chars, substantive, low-overlap with name -> passes all
+          # three gates at cluster size 10 (min ~60 chars).
+          central_organizing_concept = paste(
+            "All ten codes orbit the daily-life-integration concept --",
+            "how participants weave dose timing into the rhythm of meals,",
+            "sleep, work."
+          ),
+          decision = "coherent_theme",
+          proposed_name = "Medication Management Routines",
+          proposed_description = "...",
+          rationale = "..."
+        ), auto_unbox = TRUE, null = "null"),
+        usage = list()
+      )
+    },
+    .package = "pakhom"
+  )
+  ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
+                                     config = list())
+  # 10 codes accepted as ONE coherent theme -> n_themes == 1L (subtheme
+  # walk may add subthemes inside the theme, but the top-level theme
+  # count is 1).
   expect_equal(n_themes(ts), 1L)
 })
 

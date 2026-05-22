@@ -690,7 +690,12 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
 #'   articulation for a cluster of this size.
 #' @keywords internal
 .articulation_min_chars <- function(n_codes) {
-  n <- max(1L, as.integer(n_codes))
+  # C-1 audit LOW-5: defend against NA / negative / non-integer input.
+  # length(cluster_leaves) is always a positive integer in practice but
+  # the helper is called by downstream code that could pass anything.
+  n_int <- suppressWarnings(as.integer(n_codes)[1])
+  if (length(n_int) == 0L || is.na(n_int)) n_int <- 1L
+  n <- max(1L, n_int)
   max(30L, as.integer(30 + 30 * log10(n)))
 }
 
@@ -709,12 +714,16 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
   if (is.na(s)) return(FALSE)
   s <- trimws(tolower(s))
   if (nchar(s) == 0L) return(FALSE)
+  # C-1 audit MEDIUM-2: removed the "^(general|overarching) ... (of|in|for)
+  # \\w" pattern. The greedy `.+ ` match was tripping substantive openings
+  # like "Overarching pattern of self-medication in participants ..." that
+  # are NOT bucket-y. The remaining four patterns target unambiguously
+  # list-of-things openers.
   patterns <- c(
     "^this theme (captures|explores|covers|describes|examines) (the )?(various|diverse|many|wide range of|broad range of)\\b",
     "^(comprehensive|multifaceted|mixed|combined|combination of)\\b",
     "^(a variety of|a range of|a wide range of|a broad range of|the various|the diverse|the many)\\b",
-    "^(strategies and outcomes|exploration and understanding)\\b",
-    "^(general|overarching) (.+) (of|in|for) \\w"
+    "^(strategies and outcomes|exploration and understanding)\\b"
   )
   any(vapply(patterns, function(p) grepl(p, s, perl = TRUE), logical(1)))
 }
@@ -755,7 +764,13 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
   }
   name_tokens <- tokenize(proposed_name)
   art_tokens  <- tokenize(articulation)
-  if (length(name_tokens) == 0L) return(FALSE)
+  # C-1 audit MEDIUM-1: skip the tautology check when proposed_name has
+  # fewer than 2 content words. With a single content word any
+  # articulation that mentions it would yield 100% overlap and force a
+  # split, even if the articulation is substantive. A theme named
+  # "Routines" + articulation "Daily routines around medication and
+  # sleep timing" should NOT be rejected as tautological.
+  if (length(name_tokens) < 2L) return(FALSE)
   overlap <- length(intersect(name_tokens, art_tokens))
   (overlap / length(name_tokens)) > 0.7
 }

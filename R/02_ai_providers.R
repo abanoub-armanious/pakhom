@@ -909,6 +909,16 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 compute_embeddings <- function(provider, texts, model = NULL) {
   validate_class(provider, "AIProvider")
 
+  # Test-mock short-circuit: unit tests use fake keys like
+  # `sk-test-fake-key-for-unit-tests` (see tests/testthat/helper.R).
+  # Returning NULL early avoids making real HTTP requests to
+  # api.openai.com that would 401 and slow the test suite. Production
+  # keys never start with "sk-test-" or "sk-ant-test-".
+  test_key <- isTRUE(grepl("^sk-(ant-)?test-",
+                            provider$key_env$key %||% "",
+                            ignore.case = TRUE))
+  if (test_key) return(NULL)
+
   if (provider$provider != "openai") {
     log_debug("Embeddings only supported for OpenAI provider; skipping")
     return(NULL)

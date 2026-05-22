@@ -263,6 +263,11 @@ test_that("C-4 integration: AI-emitted '321. \"Foo\"' merges into existing 'foo'
     ))
   ), auto_unbox = TRUE)
 
+  # Mock compute_embeddings too: with a pre-populated codebook, the
+  # Phase 58 C-6 additive-retrieval path inside .code_entry_progressive
+  # would otherwise make a real HTTP request to OpenAI with the fake
+  # test key and return 401. The graceful fallback works (no failure)
+  # but the network egress is undesirable in a unit test.
   local_mocked_bindings(
     ai_complete = function(...) list(
       content       = mock_response,
@@ -274,6 +279,7 @@ test_that("C-4 integration: AI-emitted '321. \"Foo\"' merges into existing 'foo'
       raw_response  = list(),
       prompt_hash   = "hash-c4-integration"
     ),
+    compute_embeddings = function(provider, texts, model = NULL) NULL,
     .package = "pakhom"
   )
 
@@ -361,6 +367,418 @@ test_that("C-4 audit MEDIUM-4: quote-wrapped NEW: prefix still detected as new-c
   expect_true(grepl(re, "\"1. NEW: Foo\"", ignore.case = TRUE))
   expect_true(grepl(re, "new: foo", ignore.case = TRUE))
   expect_false(grepl(re, "Existing Code", ignore.case = TRUE))
+})
+
+# ============================================================================
+# Phase 58 Tier 0 C-6: codebook additive semantic retrieval
+#
+# The pre-Phase-58 prompt window showed the AI top-80 codes by frequency +
+# the last-20 created. With 4,000-code codebooks the AI saw only 2% of
+# existing codes per entry, so every re-encounter past entry 1000 looked
+# new and the codebook never saturated.
+#
+# Fix: ADDITIVE retrieval. Top-N by frequency + last-N created PLUS
+# per-entry semantic top-K cosine retrieval against cached code
+# embeddings. Defaults: max_codes = 150L (up from 80L), top_k_semantic
+# = 30L. Embeddings cached per code key in
+# state$semantic_cache$code_embeddings; computed on first use and
+# survive checkpoint save/restore.
+# ============================================================================
+
+test_that("C-6: create_coding_state initializes empty semantic_cache", {
+  state <- create_coding_state()
+  expect_true("semantic_cache" %in% names(state))
+  expect_true("code_embeddings" %in% names(state$semantic_cache))
+  expect_type(state$semantic_cache$code_embeddings, "list")
+  expect_length(state$semantic_cache$code_embeddings, 0L)
+})
+
+test_that("C-6: legacy .build_codebook_summary wrapper returns a string (back-compat)", {
+  state <- create_coding_state()
+  state$codebook[["a"]] <- list(code_name = "Code A", frequency = 10L,
+                                 description = "desc A", type = "descriptive")
+  state$codebook[["b"]] <- list(code_name = "Code B", frequency = 5L,
+                                 description = "desc B", type = "emotional")
+  out <- pakhom:::.build_codebook_summary(state)
+  expect_type(out, "character")
+  expect_length(out, 1L)
+  expect_true(grepl("Code A", out, fixed = TRUE))
+})
+
+test_that("C-6: .build_codebook_summary_with_retrieval falls back to freq+recency when provider is NULL", {
+  state <- create_coding_state()
+  for (k in paste0("c", 1:30)) {
+    state$codebook[[k]] <- list(
+      code_name = paste("Code", k), frequency = sample(1:50, 1),
+      description = "d", type = "descriptive"
+    )
+  }
+  # No provider + no entry_text -> no semantic call -> just freq + recency
+  result <- pakhom:::.build_codebook_summary_with_retrieval(
+    state, max_codes = 150L, recent_window = 5L,
+    entry_text = NULL, provider = NULL, top_k_semantic = 10L
+  )
+  expect_type(result, "list")
+  expect_named(result, c("summary", "new_embeddings"))
+  expect_length(result$new_embeddings, 0L)
+  expect_true(nchar(result$summary) > 0)
+  # Output contains bare bullets (no numeric prefix).
+  lines <- strsplit(result$summary, "\n", fixed = TRUE)[[1]]
+  for (line in lines) {
+    expect_false(grepl("^\\s*\\d+\\.\\s", line))
+    expect_true(grepl("^\\s*-\\s", line))
+  }
+})
+
+test_that("C-6: .retrieve_semantic_codes returns integer(0) when provider lacks embeddings", {
+  state <- create_coding_state()
+  state$codebook[["a"]] <- list(code_name = "Code A", frequency = 1L,
+                                 description = "x", type = "descriptive")
+  code_data <- list(list(key = "a", name = "Code A", desc = "x",
+                          freq = 1L, type = "descriptive"))
+  fake_provider <- structure(list(provider = "anthropic", models = list()),
+                              class = "AIProvider")
+  # compute_embeddings short-circuits for non-OpenAI providers (returns NULL),
+  # so .retrieve_semantic_codes must return an empty result.
+  result <- pakhom:::.retrieve_semantic_codes(
+    state, code_data, entry_text = "some text",
+    provider = fake_provider, top_k = 5L
+  )
+  expect_equal(result$indices, integer(0))
+  expect_length(result$new_embeddings, 0L)
+})
+
+test_that("C-6: .retrieve_semantic_codes selects top-K via cosine + populates cache", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  # Construct 4 codes with hand-built embeddings so we can predict the
+  # similarity ranking. Use 3-dim unit vectors:
+  #   c1: (1, 0, 0)   <- closest to entry (1, 0, 0)
+  #   c2: (0.95, 0.31, 0)  <- 2nd closest
+  #   c3: (0.5, 0.87, 0)
+  #   c4: (0, 1, 0)   <- least close
+  state <- create_coding_state()
+  for (k in paste0("c", 1:4)) {
+    state$codebook[[k]] <- list(code_name = paste("Code", k), frequency = 1L,
+                                 description = "x", type = "descriptive")
+  }
+  code_data <- lapply(names(state$codebook), function(k) {
+    list(key = k, name = state$codebook[[k]]$code_name, desc = "x",
+         freq = 1L, type = "descriptive")
+  })
+  fake_provider <- structure(list(provider = "openai", models = list()),
+                              class = "AIProvider")
+
+  # Mock compute_embeddings: first call (entry) returns (1,0,0); second
+  # call (4 codes) returns the matrix above.
+  call_count <- 0L
+  local_mocked_bindings(
+    compute_embeddings = function(provider, texts, model = NULL) {
+      call_count <<- call_count + 1L
+      if (length(texts) == 1L) {
+        # entry embedding
+        matrix(c(1, 0, 0), nrow = 1, byrow = TRUE)
+      } else {
+        # code embeddings (length 4)
+        matrix(c(
+          1.00, 0.00, 0.00,
+          0.95, 0.31, 0.00,
+          0.50, 0.87, 0.00,
+          0.00, 1.00, 0.00
+        ), nrow = 4, byrow = TRUE)
+      }
+    },
+    .package = "pakhom"
+  )
+
+  result <- pakhom:::.retrieve_semantic_codes(
+    state, code_data, entry_text = "some entry",
+    provider = fake_provider, top_k = 2L
+  )
+  # Top-2 cosine match: c1 (1.0) and c2 (0.95). order returns indices into
+  # code_data, so result$indices should be c(1, 2).
+  expect_equal(result$indices, c(1L, 2L))
+  # All 4 codes embedded (cache miss for all). new_embeddings keyed by
+  # code_key.
+  expect_setequal(names(result$new_embeddings), c("c1", "c2", "c3", "c4"))
+  # 2 API calls: 1 for entry, 1 for codes batch.
+  expect_equal(call_count, 2L)
+})
+
+test_that("C-6: .retrieve_semantic_codes uses cache on second call (no re-embed)", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  state <- create_coding_state()
+  state$codebook[["a"]] <- list(code_name = "Code A", frequency = 1L,
+                                 description = "x", type = "descriptive")
+  # Pre-populate cache with embedding for the existing code.
+  state$semantic_cache$code_embeddings[["a"]] <- c(1, 0, 0)
+  code_data <- list(list(key = "a", name = "Code A", desc = "x",
+                          freq = 1L, type = "descriptive"))
+  fake_provider <- structure(list(provider = "openai", models = list()),
+                              class = "AIProvider")
+
+  call_count <- 0L
+  embed_inputs <- list()
+  local_mocked_bindings(
+    compute_embeddings = function(provider, texts, model = NULL) {
+      call_count <<- call_count + 1L
+      embed_inputs[[length(embed_inputs) + 1L]] <<- texts
+      matrix(c(1, 0, 0), nrow = 1, byrow = TRUE)
+    },
+    .package = "pakhom"
+  )
+
+  result <- pakhom:::.retrieve_semantic_codes(
+    state, code_data, entry_text = "some entry",
+    provider = fake_provider, top_k = 5L
+  )
+  # Only the entry embedding call should fire; the code is already cached
+  # so the code-batch call is skipped.
+  expect_equal(call_count, 1L)
+  expect_length(result$new_embeddings, 0L)  # nothing new added
+  expect_equal(result$indices, 1L)  # single code still scores
+})
+
+test_that("C-6: .retrieve_semantic_codes degrades gracefully on embedding failure", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  state <- create_coding_state()
+  state$codebook[["a"]] <- list(code_name = "Code A", frequency = 1L,
+                                 description = "x", type = "descriptive")
+  code_data <- list(list(key = "a", name = "Code A", desc = "x",
+                          freq = 1L, type = "descriptive"))
+  fake_provider <- structure(list(provider = "openai", models = list()),
+                              class = "AIProvider")
+
+  # Mock compute_embeddings to fail (return NULL, as the real helper does
+  # on HTTP / network failure).
+  local_mocked_bindings(
+    compute_embeddings = function(provider, texts, model = NULL) NULL,
+    .package = "pakhom"
+  )
+
+  result <- pakhom:::.retrieve_semantic_codes(
+    state, code_data, entry_text = "some entry",
+    provider = fake_provider, top_k = 5L
+  )
+  # Empty result; no crash.
+  expect_equal(result$indices, integer(0))
+  expect_length(result$new_embeddings, 0L)
+})
+
+test_that("C-6: .build_codebook_summary_with_retrieval injects semantic top-K into selection", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  # 5 codes total. freq ranking: high (50) -> low (1). Recency ranking: c5
+  # is last. With max_codes = 3 and recent_window = 1, freq + recency
+  # would pick {high (c1), c5}. Add semantic retrieval pointing to a
+  # specific code (c3) and verify it gets added even though it's neither
+  # high-freq nor recent.
+  state <- create_coding_state()
+  freqs <- c(50L, 30L, 5L, 20L, 1L)
+  for (i in seq_along(freqs)) {
+    state$codebook[[paste0("c", i)]] <- list(
+      code_name = paste0("Code", i), frequency = freqs[i],
+      description = "x", type = "descriptive"
+    )
+  }
+  fake_provider <- structure(list(provider = "openai", models = list()),
+                              class = "AIProvider")
+
+  # Mock embeddings so c3 is the single closest match to the entry.
+  local_mocked_bindings(
+    compute_embeddings = function(provider, texts, model = NULL) {
+      if (length(texts) == 1L) {
+        # entry embedding -- align with c3 direction
+        matrix(c(0, 0, 1), nrow = 1, byrow = TRUE)
+      } else {
+        # 5 code embeddings -- c3 perfectly aligned, others orthogonal
+        matrix(c(
+          1, 0, 0,   # c1
+          1, 0, 0,   # c2
+          0, 0, 1,   # c3  (semantic match)
+          1, 0, 0,   # c4
+          1, 0, 0    # c5
+        ), nrow = 5, byrow = TRUE)
+      }
+    },
+    .package = "pakhom"
+  )
+
+  result <- pakhom:::.build_codebook_summary_with_retrieval(
+    state, max_codes = 3L, recent_window = 1L,
+    entry_text = "some entry text",
+    provider = fake_provider, top_k_semantic = 1L
+  )
+  # Selection should include c1 (highest freq), c5 (most recent), and c3
+  # (semantic top-K). Total = 3 codes, hits max_codes cap exactly.
+  expect_true(grepl("Code1", result$summary, fixed = TRUE),
+              info = "highest-frequency code missing from summary")
+  expect_true(grepl("Code5", result$summary, fixed = TRUE),
+              info = "most-recently-created code missing from summary")
+  expect_true(grepl("Code3", result$summary, fixed = TRUE),
+              info = "semantic top-K code missing from summary")
+  # The other two codes (c2, c4) should NOT be in the output -- they
+  # didn't make any of the three selection cohorts.
+  expect_false(grepl("Code2", result$summary, fixed = TRUE))
+  expect_false(grepl("Code4", result$summary, fixed = TRUE))
+  expect_length(result$new_embeddings, 5L)
+})
+
+# C-6 audit followup tests --------------------------------------------------
+
+test_that("C-6 audit LOW-1: mismatched embedding dimensions are scored -Inf (no recycling)", {
+  # Pre-fix: stale cache with a different-dim embedding (e.g., from a
+  # prior run that used a different embedding model) would silently
+  # recycle into `sum(emb * entry_emb)` and produce garbage cosines.
+  # Post-fix: length mismatch -> -Inf -> excluded from top-K.
+  state <- create_coding_state()
+  state$codebook[["c1"]] <- list(code_name = "Code 1", frequency = 1L,
+                                  description = "x", type = "descriptive")
+  state$codebook[["c2"]] <- list(code_name = "Code 2", frequency = 1L,
+                                  description = "x", type = "descriptive")
+  # Pre-populate one cache entry with a WRONG-DIM embedding.
+  state$semantic_cache$code_embeddings[["c1"]] <- c(1, 0, 0, 0)   # 4 dims
+  state$semantic_cache$code_embeddings[["c2"]] <- c(0, 1, 0)      # 3 dims (matches entry)
+  code_data <- list(
+    list(key = "c1", name = "Code 1", desc = "x", freq = 1L, type = "descriptive"),
+    list(key = "c2", name = "Code 2", desc = "x", freq = 1L, type = "descriptive")
+  )
+  fake_provider <- structure(list(provider = "openai", models = list()),
+                              class = "AIProvider")
+
+  testthat::local_mocked_bindings(
+    compute_embeddings = function(provider, texts, model = NULL) {
+      # entry embedding: 3-dim (matches c2 but not c1)
+      matrix(c(0, 1, 0), nrow = 1, byrow = TRUE)
+    },
+    .package = "pakhom"
+  )
+
+  result <- pakhom:::.retrieve_semantic_codes(
+    state, code_data, entry_text = "x",
+    provider = fake_provider, top_k = 2L
+  )
+  # c1 has wrong-dim cache -> excluded; only c2 should appear in indices.
+  expect_equal(result$indices, 2L)
+})
+
+test_that("C-6 audit LOW-3: state$semantic_cache populates after .code_entry_progressive returns", {
+  # End-to-end verification of the cache-merge contract: after one
+  # round of .code_entry_progressive on a pre-populated codebook, the
+  # state returned must carry the new code embeddings in
+  # $semantic_cache$code_embeddings.
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  state <- create_coding_state()
+  state$codebook[["food addiction"]] <- list(
+    code_name = "Food Addiction", description = "Compulsive consumption",
+    type = "descriptive", frequency = 1L,
+    entry_ids = "e_prior", coded_segments = list()
+  )
+  # Cache starts empty -> .retrieve_semantic_codes will compute the
+  # food-addiction embedding on this call.
+  expect_length(state$semantic_cache$code_embeddings, 0L)
+
+  mock_resp <- jsonlite::toJSON(list(
+    skipped = FALSE, skip_reason = "",
+    coded_segments = list(list(
+      text = "food addiction", start_char = 0L, end_char = 14L,
+      code = "Food Addiction",
+      code_description = "Compulsive consumption", code_type = "descriptive"
+    ))
+  ), auto_unbox = TRUE)
+
+  local_mocked_bindings(
+    ai_complete = function(...) list(
+      content = mock_resp, model = "gpt-4o-mock",
+      request_id = "r", usage = list(prompt_tokens = 1L,
+                                      completion_tokens = 1L, total_tokens = 2L),
+      finish_reason = "stop", raw_response = list(), prompt_hash = "h"
+    ),
+    compute_embeddings = function(provider, texts, model = NULL) {
+      # Return deterministic dim-3 vectors; matrix shape depends on
+      # whether this is the entry call (1 text) or code call (N texts).
+      if (length(texts) == 1L) {
+        matrix(c(1, 0, 0), nrow = 1, byrow = TRUE)
+      } else {
+        matrix(rep(c(1, 0, 0), length(texts)), nrow = length(texts), byrow = TRUE)
+      }
+    },
+    .package = "pakhom"
+  )
+
+  state <- pakhom:::.code_entry_progressive(
+    text = "food addiction is rough", entry_id = "e1", entry_index = 1L,
+    state = state, provider = mock_provider(),
+    config = list(max_retries_per_entry = 1L),
+    base_system_prompt = "test"
+  )
+
+  # Cache must now contain the food-addiction embedding.
+  expect_length(state$semantic_cache$code_embeddings, 1L)
+  expect_true("food addiction" %in% names(state$semantic_cache$code_embeddings))
+  expect_equal(state$semantic_cache$code_embeddings[["food addiction"]],
+               c(1, 0, 0))
+})
+
+test_that("C-6 audit LOW-4: cache accumulates across multiple calls (no re-embed)", {
+  # Simulates the production loop: each entry's coding call extends the
+  # cache. Codes embedded in call N are cache hits in call N+1.
+  state <- create_coding_state()
+  for (k in c("c1", "c2", "c3")) {
+    state$codebook[[k]] <- list(
+      code_name = paste("Code", k), frequency = 1L,
+      description = "x", type = "descriptive"
+    )
+  }
+  code_data <- lapply(names(state$codebook), function(k) {
+    list(key = k, name = state$codebook[[k]]$code_name, desc = "x",
+         freq = 1L, type = "descriptive")
+  })
+  fake_provider <- structure(list(provider = "openai", models = list()),
+                              class = "AIProvider")
+
+  call_count <- 0L
+  texts_seen <- list()
+  testthat::local_mocked_bindings(
+    compute_embeddings = function(provider, texts, model = NULL) {
+      call_count <<- call_count + 1L
+      texts_seen[[length(texts_seen) + 1L]] <<- texts
+      matrix(rep(c(1, 0, 0), length(texts)),
+              nrow = length(texts), byrow = TRUE)
+    },
+    .package = "pakhom"
+  )
+
+  # First call: cache empty -> all 3 codes embedded (1 batch call) + 1
+  # entry embedding call = 2 total.
+  result1 <- pakhom:::.retrieve_semantic_codes(
+    state, code_data, entry_text = "entry text", provider = fake_provider,
+    top_k = 3L
+  )
+  expect_equal(call_count, 2L)
+  expect_length(result1$new_embeddings, 3L)
+
+  # Merge new embeddings into state (simulates the production callsite).
+  for (key in names(result1$new_embeddings)) {
+    state$semantic_cache$code_embeddings[[key]] <- result1$new_embeddings[[key]]
+  }
+
+  # Second call: cache hit on ALL 3 codes -> only the entry embedding
+  # call fires (call_count becomes 3, not 4).
+  result2 <- pakhom:::.retrieve_semantic_codes(
+    state, code_data, entry_text = "another entry", provider = fake_provider,
+    top_k = 3L
+  )
+  expect_equal(call_count, 3L)
+  expect_length(result2$new_embeddings, 0L)
 })
 
 # ============================================================================
