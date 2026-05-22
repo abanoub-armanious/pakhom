@@ -445,7 +445,19 @@ print.ThematicConfig <- function(x, ...) {
         include_subthemes = TRUE,
         include_quotes = TRUE,
         quotes_per_theme = 3,
-        approach = "inductive"
+        approach = "inductive",
+        # Phase 58 Tier 1 C-12: HAC walker recursion depth. The walker
+        # descends through theme -> subtheme -> sub-subtheme ... up to
+        # max_subtheme_depth levels, triggered when a subtheme exceeds
+        # max_codes_per_subtheme codes. Default 3 produces at most
+        # depth-3 nesting (theme + 2 nested subtheme levels). 1
+        # reproduces pre-Phase-58 single-level subtheme behavior.
+        max_subtheme_depth     = 3L,
+        # Phase 58 Tier 1 AF-8: when an AI-judged-coherent subtheme has
+        # more codes than this, recurse one level deeper to break it
+        # into sub-subthemes. 25 prevents kitchen-sink subthemes that
+        # absorb most of a parent theme's codes.
+        max_codes_per_subtheme = 25L
       ),
       correlations = list(
         method = "spearman",

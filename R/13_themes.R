@@ -194,25 +194,38 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
                           walk_state = walk_state,
                           themes_so_far = walk_state$themes_so_far)
 
-  # 6. AI tree walk for SUBTHEMES within each theme (one level deeper)
+  # 6. AI tree walk for SUBTHEMES within each theme (Phase 58 Tier 1
+  # C-12: recursive depth-N decomposition triggered when a subtheme
+  # exceeds the size cap). Configurable via analysis.themes.* knobs;
+  # defaults: max_subtheme_depth = 3L, max_codes_per_subtheme = 25L.
+  max_subtheme_depth <- as.integer(
+    config$analysis$themes$max_subtheme_depth %||% 3L
+  )
+  max_codes_per_subtheme <- as.integer(
+    config$analysis$themes$max_codes_per_subtheme %||% 25L
+  )
   themes_raw <- lapply(themes_raw, function(t) {
     if (length(t$code_indices) <= 1L) {
       # Single-code theme -- no subtheme structure
       t$subtheme_groups <- list(list(
         name = NA_character_, description = "",
-        code_indices = t$code_indices
+        code_indices = t$code_indices,
+        children = list()
       ))
       return(t)
     }
 
     t$subtheme_groups <- .walk_for_subthemes(
-      theme_name      = t$name,
-      theme_node_idx  = t$node_idx,
-      hac             = hac,
-      codes           = codes,
-      distance_matrix = dist_matrix,
-      co_occurrence   = co_occurrence,
-      walk_ctx        = walk_ctx
+      theme_name             = t$name,
+      theme_node_idx         = t$node_idx,
+      hac                    = hac,
+      codes                  = codes,
+      distance_matrix        = dist_matrix,
+      co_occurrence          = co_occurrence,
+      walk_ctx               = walk_ctx,
+      current_depth          = 1L,
+      max_subtheme_depth     = max_subtheme_depth,
+      max_codes_per_subtheme = max_codes_per_subtheme
     )
     t
   })
@@ -227,15 +240,21 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
   theme_list <- lapply(seq_along(themes_raw), function(i) {
     t <- themes_raw[[i]]
 
-    subthemes <- lapply(t$subtheme_groups, function(g) {
+    # Phase 58 Tier 1 C-12: nested sub-subthemes from the recursive
+    # walker arrive in g$children. Recursively build the Subtheme tree
+    # via a helper so each depth level resolves its own Code objects
+    # from the codebook.
+    build_subtheme <- function(g) {
       create_subtheme(
         name        = g$name %||% NA_character_,
         description = g$description %||% "",
         codes       = lapply(g$code_indices, function(ci) {
           .code_from_codebook(codes[[ci]]$key, coding_state)
-        })
+        }),
+        subthemes   = lapply(g$children %||% list(), build_subtheme)
       )
-    })
+    }
+    subthemes <- lapply(t$subtheme_groups, build_subtheme)
 
     list(
       id                 = i,
@@ -498,7 +517,7 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
   c(left_themes, right_themes)
 }
 
-#' Walk a theme's subtree to identify subthemes (one level deeper)
+#' Walk a theme's subtree to identify subthemes (recursive, depth-N)
 #'
 #' For each immediate child of the theme node, the AI judges whether it
 #' constitutes a coherent subtheme of the theme. If yes, the child's
@@ -506,32 +525,91 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
 #' into the theme (no Subtheme; will be wrapped in a virtual NA-named
 #' Subtheme by create_subtheme()/create_theme_set()).
 #'
-#' Subthemes are at most 1 level deep in Phase 52. Deeper hierarchy
-#' (sub-subthemes) is out of scope; if the data calls for it, the
-#' researcher can re-run with a tighter research_focus.
+#' Phase 58 Tier 1 C-12 + AF-8: when a coherent subtheme has more than
+#' \code{max_codes_per_subtheme} codes AND we have depth budget left
+#' (\code{current_depth < max_subtheme_depth}), the function recurses
+#' into that subtheme's subtree to identify sub-subthemes. This is the
+#' multi-level decomposition the Phase 57 audit found missing -- the
+#' 237-code mega-theme split as just 2 sub-buckets (32 + 205) is the
+#' canonical failure mode.
+#'
+#' Phase 58 Tier 1 AF-4: when the HAC binary cut at this internal node
+#' is imbalanced (one branch has &le;1 code) AND the cluster has &gt;3
+#' codes total, the function refuses to introduce subtheme structure
+#' at all -- the codes flow back into the parent under a single virtual
+#' subtheme. 1-code subthemes paired with many-code siblings were the
+#' "55 imbalanced binary-split themes" the audit flagged.
+#'
+#' Returns a list of subtheme-group records. Each record has fields:
+#'   name         : character or NA
+#'   description  : character
+#'   code_indices : integer vector
+#'   children     : list of (recursive) subtheme-group records, or list()
+#'
+#' @param theme_name Parent theme name (passed to .evaluate_cluster as
+#'   parent_label so the AI prompt knows the enclosing context).
+#' @param theme_node_idx HAC merge-matrix row index for the theme.
+#' @param hac Hierarchical clustering object (stats::hclust output).
+#' @param codes List of Code records keyed by leaf index.
+#' @param distance_matrix Pairwise distance matrix between codes.
+#' @param co_occurrence Optional co-occurrence matrix.
+#' @param walk_ctx List bundling walk_state + provider + prompts.
+#' @param current_depth Depth of this recursive call (1 = direct
+#'   subthemes of the theme; 2 = sub-subthemes; ...).
+#' @param max_subtheme_depth Maximum recursion depth. Once
+#'   \code{current_depth} reaches this value, large subthemes stop
+#'   being re-walked. Default 3.
+#' @param max_codes_per_subtheme Size threshold that triggers recursion.
+#'   A coherent subtheme with more leaves than this gets re-walked one
+#'   level deeper. Default 25.
 #'
 #' @keywords internal
 .walk_for_subthemes <- function(theme_name, theme_node_idx, hac, codes,
-                                  distance_matrix, co_occurrence, walk_ctx) {
-  # Single-leaf theme -- no subtheme structure
+                                  distance_matrix, co_occurrence, walk_ctx,
+                                  current_depth = 1L,
+                                  max_subtheme_depth = 3L,
+                                  max_codes_per_subtheme = 25L) {
+  # Single-leaf -- no decomposition possible
   if (theme_node_idx < 0L) {
     return(list(list(
       name = NA_character_, description = "",
-      code_indices = -theme_node_idx
+      code_indices = -theme_node_idx,
+      children = list()
     )))
   }
 
   pair <- hac$merge[theme_node_idx, ]
+  pair_leaves <- lapply(pair, function(ch) .leaves_under_node(hac, ch))
+  pair_sizes  <- vapply(pair_leaves, length, integer(1))
+  total_leaves <- sum(pair_sizes)
+
+  # Phase 58 Tier 1 AF-4: refuse imbalanced HAC binary splits at the
+  # theme / subtheme level. When one branch is a HAC singleton (artifact
+  # of ward.D2 cutting off an outlier code) AND the parent has more than
+  # 3 codes total, collapsing the whole cluster into one virtual
+  # subtheme produces a more honest representation than "1-code subtheme
+  # + many-code subtheme".
+  if (total_leaves > 3L && any(pair_sizes <= 1L)) {
+    all_leaves <- unlist(pair_leaves, use.names = FALSE)
+    return(list(list(
+      name = NA_character_, description = "",
+      code_indices = all_leaves,
+      children = list()
+    )))
+  }
+
   child_groups <- list()
+  for (k in seq_along(pair)) {
+    child <- pair[k]
+    child_leaves <- pair_leaves[[k]]
 
-  for (child in pair) {
-    child_leaves <- .leaves_under_node(hac, child)
-
-    # Single-leaf child -- never make it a named subtheme on its own
+    # Single-leaf child of a small (&le;3 codes) cluster: keep virtual
+    # (legitimate edge case where the HAC singleton IS meaningful).
     if (length(child_leaves) == 1L) {
       child_groups[[length(child_groups) + 1L]] <- list(
         name = NA_character_, description = "",
-        code_indices = child_leaves
+        code_indices = child_leaves,
+        children = list()
       )
       next
     }
@@ -548,18 +626,43 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
     )
 
     if (decision$decision == "coherent_theme") {
+      child_name <- decision$proposed_name %||% paste0(theme_name, " (subgroup)")
+
+      # Phase 58 Tier 1 C-12 + AF-8: recurse into a large coherent
+      # subtheme to identify sub-subthemes. Stops when (a) depth budget
+      # is exhausted, (b) subtheme is at-or-under the size cap, or (c)
+      # the child is itself a HAC leaf (no further structure to walk).
+      nested_children <- list()
+      if (length(child_leaves) > max_codes_per_subtheme &&
+          current_depth < max_subtheme_depth &&
+          child > 0L) {
+        nested_children <- .walk_for_subthemes(
+          theme_name             = child_name,
+          theme_node_idx         = as.integer(child),
+          hac                    = hac,
+          codes                  = codes,
+          distance_matrix        = distance_matrix,
+          co_occurrence          = co_occurrence,
+          walk_ctx               = walk_ctx,
+          current_depth          = current_depth + 1L,
+          max_subtheme_depth     = max_subtheme_depth,
+          max_codes_per_subtheme = max_codes_per_subtheme
+        )
+      }
+
       child_groups[[length(child_groups) + 1L]] <- list(
-        name        = decision$proposed_name %||% paste0(theme_name, " (subgroup)"),
-        description = decision$proposed_description %||% "",
-        code_indices = child_leaves
+        name         = child_name,
+        description  = decision$proposed_description %||% "",
+        code_indices = child_leaves,
+        children     = nested_children
       )
     } else {
-      # split_required or atomic_outlier at the subtheme level: codes flow
-      # directly into the parent theme without subtheme grouping. They
-      # are accumulated under a virtual NA-named subtheme.
+      # split_required or atomic_outlier at this depth: codes flow
+      # directly into the parent under a virtual NA-named subtheme.
       child_groups[[length(child_groups) + 1L]] <- list(
         name = NA_character_, description = "",
-        code_indices = child_leaves
+        code_indices = child_leaves,
+        children = list()
       )
     }
   }
@@ -570,6 +673,12 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
 }
 
 #' Combine adjacent NA-named subtheme groups into one virtual group
+#'
+#' Virtual subthemes carry no children (they are flat by definition), so
+#' the merge concatenates code_indices and preserves the empty children
+#' list. Named groups pass through unchanged including their nested
+#' children produced by the recursive walker.
+#'
 #' @keywords internal
 .coalesce_virtual_subtheme_groups <- function(groups) {
   if (length(groups) <= 1L) return(groups)
@@ -580,6 +689,9 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
     if (is_virtual) {
       if (is.null(cur_virtual)) {
         cur_virtual <- g
+        # Defensive: virtual groups must carry an empty children list
+        # (any nested decomposition lives under NAMED parent subthemes).
+        if (is.null(cur_virtual$children)) cur_virtual$children <- list()
       } else {
         cur_virtual$code_indices <- c(cur_virtual$code_indices, g$code_indices)
       }
@@ -775,6 +887,18 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
   (overlap / length(name_tokens)) > 0.7
 }
 
+#' Ask the AI to evaluate a cluster as a candidate theme or subtheme
+#'
+#' Builds the cluster-summary prompt (with bias-mitigation context: most-
+#' distant pair, full per-code list when small, top-N + extremes when
+#' large) and calls \code{ai_complete()} with the
+#' \code{.theme_decision_schema()}. Post-validates the articulation via
+#' Phase 58 Tier 0 C-1's quality gates (length / bucket-label opener /
+#' tautology). Returns a structured decision record (decision, name,
+#' description, rationale, articulation). Records the decision in
+#' \code{walk_state} and the \code{audit_log}.
+#'
+#' @keywords internal
 .evaluate_cluster <- function(cluster_leaves, node_idx, level_label,
                                 parent_label = NULL,
                                 codes, distance_matrix, co_occurrence,

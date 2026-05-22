@@ -2,7 +2,7 @@
 % Please edit documentation in R/12_theme_data.R
 \name{theme_code_objects}
 \alias{theme_code_objects}
-\title{Flatten Code S3 objects across all subthemes of a theme}
+\title{Flatten Code S3 objects across all subthemes (and sub-subthemes) of a theme}
 \usage{
 theme_code_objects(theme)
 }
@@ -13,5 +13,7 @@ theme_code_objects(theme)
 List of Code S3 objects
 }
 \description{
-Flatten Code S3 objects across all subthemes of a theme
+Phase 58 Tier 1 C-12: now recurses through nested Subthemes so codes
+in sub-subthemes are included. Pre-Phase-58 ThemeSets without
+nesting are unaffected (the recursion bottoms out at depth 1).
 }

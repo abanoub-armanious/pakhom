@@ -106,10 +106,14 @@ print.Code <- function(x, ...) {
 #' @param description Subtheme description
 #' @param codes List of Code S3 objects (or character vector of code names —
 #'   coerced to stub Codes for use in tests / non-coding-state contexts)
+#' @param subthemes List of nested Subtheme S3 objects (or raw lists
+#'   coerced via recursive create_subtheme call). Phase 58 Tier 1 C-12
+#'   added nested subthemes to support depth-N HAC walker decomposition.
+#'   Empty list = leaf Subtheme (no nested children).
 #' @return Subtheme S3 object
 #' @export
 create_subtheme <- function(name = NA_character_, description = "",
-                              codes = list()) {
+                              codes = list(), subthemes = list()) {
   if (is.character(codes)) {
     codes <- lapply(codes, function(cn) create_code_object(key = cn, name = cn))
   } else if (is.list(codes)) {
@@ -135,10 +139,31 @@ create_subtheme <- function(name = NA_character_, description = "",
     stop("Subtheme codes must be a list or character vector")
   }
 
+  # Phase 58 Tier 1 C-12: subthemes can now nest. Empty list when the
+  # Subtheme is a leaf in the hierarchy (no further decomposition).
+  # Coerce nested Subtheme records (raw list form from walker output)
+  # into Subtheme S3 objects recursively.
+  if (length(subthemes) > 0L) {
+    if (!is.list(subthemes)) stop("Subtheme subthemes must be a list")
+    subthemes <- lapply(subthemes, function(s) {
+      if (inherits(s, "Subtheme")) return(s)
+      if (is.list(s)) {
+        return(create_subtheme(
+          name        = s$name        %||% NA_character_,
+          description = s$description %||% "",
+          codes       = s$codes       %||% list(),
+          subthemes   = s$subthemes   %||% list()
+        ))
+      }
+      stop("Cannot coerce nested subtheme: ", paste(class(s), collapse = "/"))
+    })
+  }
+
   obj <- list(
     name        = if (is.na(name)) NA_character_ else as.character(name),
     description = as.character(description %||% ""),
-    codes       = codes
+    codes       = codes,
+    subthemes   = subthemes
   )
   class(obj) <- "Subtheme"
   obj
@@ -173,6 +198,21 @@ subtheme_code_keys <- function(subtheme) {
   vapply(subtheme$codes, function(c) c$key, character(1))
 }
 
+#' Number of nested subthemes within a Subtheme
+#'
+#' Phase 58 Tier 1 C-12 introduced nested Subthemes so the HAC walker
+#' can produce hierarchical decomposition (e.g. a 200-code subtheme
+#' broken into sub-subthemes via depth-N recursion). Returns 0 for
+#' leaf Subthemes.
+#'
+#' @param subtheme Subtheme S3
+#' @return Integer; depth-1 nested subtheme count.
+#' @export
+subtheme_n_subthemes <- function(subtheme) {
+  validate_class(subtheme, "Subtheme")
+  length(subtheme$subthemes %||% list())
+}
+
 #' Print method for Subtheme
 #' @param x Subtheme object
 #' @param ... ignored
@@ -187,7 +227,28 @@ print.Subtheme <- function(x, ...) {
 # Theme-level getters (work on a single theme — a plain list with class fields)
 # ==============================================================================
 
-#' Flatten Code S3 objects across all subthemes of a theme
+#' Collect Code S3 objects from a Subtheme AND all its nested sub-subthemes
+#'
+#' Phase 58 Tier 1 C-12 introduced nested Subthemes. This helper walks
+#' the depth-N tree so callers that want a flat list of every Code under
+#' a Subtheme don't have to recurse manually.
+#'
+#' @keywords internal
+.subtheme_codes_recursive <- function(subtheme) {
+  if (!inherits(subtheme, "Subtheme")) return(list())
+  out <- subtheme$codes
+  for (child in subtheme$subthemes %||% list()) {
+    out <- c(out, .subtheme_codes_recursive(child))
+  }
+  out
+}
+
+#' Flatten Code S3 objects across all subthemes (and sub-subthemes) of a theme
+#'
+#' Phase 58 Tier 1 C-12: now recurses through nested Subthemes so codes
+#' in sub-subthemes are included. Pre-Phase-58 ThemeSets without
+#' nesting are unaffected (the recursion bottoms out at depth 1).
+#'
 #' @param theme A theme list (one element of theme_set$themes)
 #' @return List of Code S3 objects
 #' @export
@@ -196,7 +257,7 @@ theme_code_objects <- function(theme) {
   out <- list()
   for (s in theme$subthemes) {
     if (inherits(s, "Subtheme")) {
-      out <- c(out, s$codes)
+      out <- c(out, .subtheme_codes_recursive(s))
     }
   }
   out
@@ -237,17 +298,47 @@ theme_segments <- function(theme) {
   out
 }
 
-#' Number of subthemes in a theme (excludes virtual single-subtheme wrappers)
+#' Number of TOP-LEVEL real subthemes in a theme (excludes virtual wrappers)
+#'
+#' Phase 58 Tier 1 AF-3: this counter is unchanged from Phase 51 -- it
+#' counts only the immediate (depth-1) named subthemes of the theme.
+#' Virtual (NA-named) subthemes are excluded; nested sub-subthemes are
+#' NOT counted. For "all real subthemes at every depth" use
+#' \code{theme_n_subthemes_total()}. For "raw structural count including
+#' virtual wrappers" use \code{length(theme$subthemes)}.
+#'
 #' @param theme A theme list
-#' @return Integer
+#' @return Integer; depth-1 named subtheme count.
 #' @export
 theme_n_subthemes <- function(theme) {
   if (is.null(theme$subthemes) || length(theme$subthemes) == 0L) return(0L)
-  # Count only named (non-virtual) subthemes
+  # Count only named (non-virtual) top-level subthemes
   named <- vapply(theme$subthemes, function(s) {
     inherits(s, "Subtheme") && !is.na(s$name) && nchar(s$name) > 0L
   }, logical(1))
   sum(named)
+}
+
+#' Total real (named) subthemes across every depth of a theme
+#'
+#' Phase 58 Tier 1 AF-3: with C-12's recursive walker, subthemes can
+#' nest. This getter counts every named subtheme regardless of depth so
+#' downstream consumers can report the "true" decomposition size of a
+#' theme.
+#'
+#' @param theme A theme list
+#' @return Integer; named-subtheme count across all depths.
+#' @export
+theme_n_subthemes_total <- function(theme) {
+  if (is.null(theme$subthemes) || length(theme$subthemes) == 0L) return(0L)
+  count <- 0L
+  walk <- function(s) {
+    if (!inherits(s, "Subtheme")) return(invisible(NULL))
+    if (!is.na(s$name) && nchar(s$name) > 0L) count <<- count + 1L
+    for (child in s$subthemes %||% list()) walk(child)
+  }
+  for (s in theme$subthemes) walk(s)
+  count
 }
 
 #' Recompute denormalised back-compat fields on a theme from its subthemes
@@ -608,19 +699,35 @@ rebuild_code_to_theme_map <- function(theme_set, coding_state) {
   code_to_theme    <- list()
   code_to_subtheme <- list()
 
+  # Phase 58 Tier 1 C-12: subthemes can now nest. The cascade attributes
+  # each code to its TOP-LEVEL subtheme name (the immediate child of
+  # the theme) regardless of how deep the code lives. This preserves
+  # the legacy code_to_subtheme_map contract -- downstream consumers
+  # see a flat code -> top-level-subtheme map; sub-subtheme detail
+  # lives in themes.json's structured field.
+  walk_subtheme <- function(s, theme_name, top_level_subtheme_name) {
+    if (!inherits(s, "Subtheme")) return(invisible(NULL))
+    for (code in s$codes) {
+      k <- resolve_key(code$key) %||% resolve_key(code$name)
+      if (is.null(k)) next
+      code_to_theme[[k]] <<- theme_name
+      if (!is.null(top_level_subtheme_name)) {
+        code_to_subtheme[[k]] <<- top_level_subtheme_name
+      }
+    }
+    for (child in s$subthemes %||% list()) {
+      walk_subtheme(child, theme_name, top_level_subtheme_name)
+    }
+  }
+
   for (theme in theme_set$themes) {
     if (is.null(theme$subthemes) || length(theme$subthemes) == 0L) next
     for (s in theme$subthemes) {
       if (!inherits(s, "Subtheme")) next
-      for (code in s$codes) {
-        # Prefer the explicit Code$key; fall back to resolving Code$name
-        k <- resolve_key(code$key) %||% resolve_key(code$name)
-        if (is.null(k)) next
-        code_to_theme[[k]] <- theme$name
-        if (!is.na(s$name) && nchar(s$name %||% "") > 0L) {
-          code_to_subtheme[[k]] <- s$name
-        }
-      }
+      top_name <- if (!is.na(s$name) && nchar(s$name %||% "") > 0L) {
+        s$name
+      } else NULL
+      walk_subtheme(s, theme$name, top_name)
     }
   }
 

@@ -902,3 +902,445 @@ test_that("Phase 52: .coalesce_virtual_subtheme_groups merges adjacent NA-named 
   expect_true(is.na(out[[3]]$name))
   expect_equal(out[[3]]$code_indices, 6L)
 })
+
+# ============================================================================
+# Phase 58 Tier 1 C-12 + AF-4 + AF-8: recursive HAC walker
+#
+# Phase 57 audit C-12 found: 31.4% of themes had only virtual NA-named
+# subthemes; the 237-code mega-theme was rendered as 2 sub-buckets
+# (32 + 205) instead of multi-level decomposition. The walker's
+# subtheme pass was capped at depth 1 by design ("Subthemes are at most
+# 1 level deep in Phase 52"). Phase 58 Tier 1 lifts that cap.
+#
+# Phase 57 audit AF-4 found: 19% of two-subtheme themes had one
+# subtheme containing only 1 code -- a HAC singleton-cut artifact that
+# produced "1 lonely code + N-code coherent subtheme" pairs.
+#
+# Phase 57 audit AF-8 demanded: cap subtheme size at 25 codes; force
+# re-walk one level deeper when exceeded. This is the size-trigger for
+# C-12's recursion.
+# ============================================================================
+
+test_that("Tier 1 C-12: Subtheme S3 now carries nested $subthemes field", {
+  st_inner <- create_subtheme(name = "Inner", codes = c("a", "b"))
+  st_outer <- create_subtheme(name = "Outer", codes = c("c"),
+                                subthemes = list(st_inner))
+  expect_s3_class(st_outer, "Subtheme")
+  expect_length(st_outer$subthemes, 1L)
+  expect_s3_class(st_outer$subthemes[[1]], "Subtheme")
+  expect_equal(st_outer$subthemes[[1]]$name, "Inner")
+  expect_equal(subtheme_n_subthemes(st_outer), 1L)
+  expect_equal(subtheme_n_subthemes(st_inner), 0L)
+})
+
+test_that("Tier 1 C-12: create_subtheme coerces raw-list nested subthemes into Subtheme S3", {
+  raw_nested <- list(
+    list(name = "Inner1", description = "i1", codes = c("a", "b")),
+    list(name = "Inner2", description = "i2", codes = c("c"))
+  )
+  st <- create_subtheme(name = "Outer", codes = list(),
+                        subthemes = raw_nested)
+  expect_length(st$subthemes, 2L)
+  expect_true(all(vapply(st$subthemes, inherits, logical(1), "Subtheme")))
+  expect_equal(st$subthemes[[1]]$name, "Inner1")
+})
+
+test_that("Tier 1 C-12 + AF-8: large coherent subtheme spawns nested children (constructed HAC)", {
+  # Construct a synthetic balanced HAC tree where the top split divides
+  # into two 16-code clusters (both > max_codes_per_subtheme = 25's
+  # half). For each 16-code half, the AI returns coherent_theme; AF-8
+  # triggers recursion (since 16 > 25? no -- need bigger clusters).
+  #
+  # Use 60 codes split 30/30 at top. Each 30-code child triggers AF-8
+  # (30 > 25). Recursion descends one level; the 30-code child's binary
+  # split (15 + 15) is below the threshold so no further recursion.
+  n <- 60L
+  # Build a balanced binary merge matrix bottom-up. Levels:
+  #   level 0: 60 leaves
+  #   level 1: 30 pairs -> 30 internal nodes (each 2 leaves)
+  #   level 2: 15 pairs -> 15 internal nodes (each 4 leaves)
+  #   ...
+  # Quicker: build via stats::hclust on a synthetic distance matrix
+  # that explicitly separates two clusters at the top.
+  set.seed(42)
+  pts <- rbind(
+    cbind(rnorm(n/2, mean = -5, sd = 0.1), rnorm(n/2, mean = 0, sd = 0.1)),
+    cbind(rnorm(n/2, mean =  5, sd = 0.1), rnorm(n/2, mean = 0, sd = 0.1))
+  )
+  dist_obj <- dist(pts)
+  fake_hac <- stats::hclust(dist_obj, method = "ward.D2")
+
+  codes <- lapply(seq_len(n), function(i) {
+    list(key = sprintf("c%02d", i), name = sprintf("Code %d", i),
+         description = "", type = "descriptive", frequency = 1L,
+         entry_ids = sprintf("e%02d", i), coded_segments = list())
+  })
+  dummy_dist <- as.matrix(dist_obj)
+
+  walk_state <- new.env(parent = emptyenv())
+  walk_state$n_calls <- 0L
+  walk_state$n_failed_calls <- 0L
+  walk_state$decisions <- list()
+  walk_state$themes_so_far <- list()
+  walk_ctx <- list(
+    walk_state = walk_state, provider = .fake_provider_for_theming(),
+    research_focus = "test", concept_str = "test",
+    calibration_text = "", reflexivity_block = "",
+    audit_log = NULL, response_cache = NULL,
+    live_tracker = NULL, methodology_override = NULL
+  )
+
+  testthat::local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt, task,
+                            temperature, response_schema, ...) {
+      list(
+        content = jsonlite::toJSON(list(
+          central_organizing_concept = paste(
+            "All codes orbit how participants weave their treatment",
+            "into the rhythm of meals, sleep, work, and family life."
+          ),
+          decision = "coherent_theme",
+          proposed_name = "Behavioral Patterns",
+          proposed_description = "...",
+          rationale = "..."
+        ), auto_unbox = TRUE, null = "null"),
+        usage = list()
+      )
+    },
+    .package = "pakhom"
+  )
+
+  # Call walker on the top node of the 60-code tree. The top split
+  # produces two 30-code branches. Each gets coherent_theme verdict ->
+  # forms a Subtheme. 30 > 25 -> AF-8 triggers recursion.
+  result <- pakhom:::.walk_for_subthemes(
+    theme_name             = "Test Theme",
+    theme_node_idx         = nrow(fake_hac$merge),
+    hac                    = fake_hac,
+    codes                  = codes,
+    distance_matrix        = dummy_dist,
+    co_occurrence          = NULL,
+    walk_ctx               = walk_ctx,
+    current_depth          = 1L,
+    max_subtheme_depth     = 3L,
+    max_codes_per_subtheme = 25L
+  )
+
+  # The top split is balanced (30/30) so AF-4 does NOT fire. Each 30-
+  # code child is named-coherent -> 2 subthemes at depth 1. Each
+  # 30-code subtheme triggers AF-8 (30 > 25) -> recurses one level
+  # deeper -> nested children.
+  expect_length(result, 2L)
+  for (st in result) {
+    expect_false(is.na(st$name),
+                 info = "Each top-split branch should be a named subtheme (got virtual)")
+    expect_true(length(st$children) > 0L,
+                info = sprintf("Subtheme '%s' (%d codes) should have nested children",
+                                st$name, length(st$code_indices)))
+  }
+})
+
+test_that("Tier 1 C-12: max_subtheme_depth = 1 reproduces pre-Phase-58 behavior", {
+  # Setting depth = 1 disables Phase 58 recursion entirely -- subthemes
+  # remain leaves regardless of size. Useful for replay-equivalence with
+  # pre-Phase-58 state files.
+  set.seed(42)
+  n <- 60L
+  pts <- rbind(
+    cbind(rnorm(n/2, mean = -5, sd = 0.1), rnorm(n/2, mean = 0, sd = 0.1)),
+    cbind(rnorm(n/2, mean =  5, sd = 0.1), rnorm(n/2, mean = 0, sd = 0.1))
+  )
+  dist_obj <- dist(pts)
+  fake_hac <- stats::hclust(dist_obj, method = "ward.D2")
+  codes <- lapply(seq_len(n), function(i) {
+    list(key = sprintf("c%02d", i), name = sprintf("Code %d", i),
+         description = "", type = "descriptive", frequency = 1L,
+         entry_ids = sprintf("e%02d", i), coded_segments = list())
+  })
+  walk_state <- new.env(parent = emptyenv())
+  walk_state$n_calls <- 0L
+  walk_state$n_failed_calls <- 0L
+  walk_state$decisions <- list()
+  walk_ctx <- list(
+    walk_state = walk_state, provider = .fake_provider_for_theming(),
+    research_focus = "test", concept_str = "test",
+    calibration_text = "", reflexivity_block = "",
+    audit_log = NULL, response_cache = NULL,
+    live_tracker = NULL, methodology_override = NULL
+  )
+
+  testthat::local_mocked_bindings(
+    ai_complete = function(...) {
+      list(
+        content = jsonlite::toJSON(list(
+          central_organizing_concept = paste(
+            "All codes orbit how participants weave their treatment",
+            "into the rhythm of meals, sleep, work, and family life."
+          ),
+          decision = "coherent_theme",
+          proposed_name = "Behavioral Patterns",
+          proposed_description = "...",
+          rationale = "..."
+        ), auto_unbox = TRUE, null = "null"),
+        usage = list()
+      )
+    },
+    .package = "pakhom"
+  )
+
+  # depth = 1 -> no recursion regardless of subtheme size.
+  result <- pakhom:::.walk_for_subthemes(
+    theme_name             = "Test Theme",
+    theme_node_idx         = nrow(fake_hac$merge),
+    hac                    = fake_hac,
+    codes                  = codes,
+    distance_matrix        = as.matrix(dist_obj),
+    co_occurrence          = NULL,
+    walk_ctx               = walk_ctx,
+    current_depth          = 1L,
+    max_subtheme_depth     = 1L,
+    max_codes_per_subtheme = 25L
+  )
+  expect_length(result, 2L)
+  for (st in result) {
+    expect_length(st$children, 0L)
+  }
+})
+
+test_that("Tier 1 AF-4: walker refuses imbalanced binary splits when theme has >3 codes", {
+  # Mock the HAC walker to test the AF-4 guard directly. We can't easily
+  # force a singleton HAC split in a clean test fixture, but we can
+  # exercise .walk_for_subthemes with a contrived theme_node_idx and
+  # synthetic hac to verify the guard fires.
+  #
+  # Build a 4-code state. HAC merge matrix is deterministic given
+  # distance matrix; ward.D2 may or may not produce a singleton split
+  # at any given internal node depending on the distance geometry.
+  # Easier: directly call .walk_for_subthemes with a constructed hac
+  # whose top node IS a singleton split.
+  fake_hac <- list(
+    # Synthetic merge matrix:
+    #   row 1: leaves -1 and -2 merge -> internal node 1 (2 leaves)
+    #   row 2: leaves -3 and 1 merge -> internal node 2 (3 leaves)
+    #   row 3: leaves -4 and 2 merge -> top node 3 (4 leaves, imbalanced)
+    merge = matrix(c(
+      -1L, -2L,
+      -3L,  1L,
+      -4L,  2L
+    ), ncol = 2, byrow = TRUE),
+    order = 1:4,
+    height = c(0.1, 0.5, 1.0)
+  )
+  codes <- list(
+    list(key = "c1", name = "Code 1", description = "", frequency = 1L),
+    list(key = "c2", name = "Code 2", description = "", frequency = 1L),
+    list(key = "c3", name = "Code 3", description = "", frequency = 1L),
+    list(key = "c4", name = "Code 4", description = "", frequency = 1L)
+  )
+  dummy_dist <- matrix(0.5, nrow = 4, ncol = 4)
+  walk_state <- new.env(parent = emptyenv())
+  walk_state$n_calls <- 0L
+  walk_state$n_failed_calls <- 0L
+  walk_state$decisions <- list()
+  walk_state$themes_so_far <- list()
+  walk_ctx <- list(
+    walk_state           = walk_state,
+    provider             = .fake_provider_for_theming(),
+    research_focus       = "test",
+    concept_str          = "test",
+    calibration_text     = "",
+    reflexivity_block    = "",
+    audit_log            = NULL,
+    response_cache       = NULL,
+    live_tracker         = NULL,
+    methodology_override = NULL
+  )
+
+  # Top node 3 has imbalanced cut: branch = -4 (1 leaf) and 2 (3 leaves).
+  # 4 > 3 codes total + 1 ≤ 1 leaf -> AF-4 guard fires.
+  result <- pakhom:::.walk_for_subthemes(
+    theme_name             = "Test Theme",
+    theme_node_idx         = 3L,
+    hac                    = fake_hac,
+    codes                  = codes,
+    distance_matrix        = dummy_dist,
+    co_occurrence          = NULL,
+    walk_ctx               = walk_ctx,
+    current_depth          = 1L,
+    max_subtheme_depth     = 3L,
+    max_codes_per_subtheme = 25L
+  )
+  # AF-4 should have collapsed to a single virtual subtheme holding all
+  # 4 codes (no named subtheme structure). Verify no AI calls fired.
+  expect_length(result, 1L)
+  expect_true(is.na(result[[1]]$name))
+  expect_setequal(result[[1]]$code_indices, c(1L, 2L, 3L, 4L))
+  expect_equal(walk_state$n_calls, 0L,
+               info = "AF-4 guard should pre-empt all AI calls for imbalanced splits")
+})
+
+test_that("Tier 1 AF-4: small (<=3 codes) imbalanced splits are preserved (legitimate edge case)", {
+  # When the theme has only 2-3 codes total, a 1-code branch is the
+  # legitimate HAC structure -- not an artifact. AF-4 must NOT fire.
+  fake_hac <- list(
+    merge = matrix(c(
+      -1L, -2L,   # row 1: leaves 1 + 2 merge
+      -3L,  1L    # row 2: leaf 3 + internal -> top (3 leaves, imbalanced)
+    ), ncol = 2, byrow = TRUE),
+    order = 1:3,
+    height = c(0.1, 0.5)
+  )
+  codes <- list(
+    list(key = "c1", name = "Code 1", description = "", frequency = 1L),
+    list(key = "c2", name = "Code 2", description = "", frequency = 1L),
+    list(key = "c3", name = "Code 3", description = "", frequency = 1L)
+  )
+  dummy_dist <- matrix(0.5, nrow = 3, ncol = 3)
+  walk_state <- new.env(parent = emptyenv())
+  walk_state$n_calls <- 0L
+  walk_state$n_failed_calls <- 0L
+  walk_state$decisions <- list()
+  walk_state$themes_so_far <- list()
+  walk_ctx <- list(
+    walk_state = walk_state, provider = .fake_provider_for_theming(),
+    research_focus = "test", concept_str = "test",
+    calibration_text = "", reflexivity_block = "",
+    audit_log = NULL, response_cache = NULL,
+    live_tracker = NULL, methodology_override = NULL
+  )
+
+  testthat::local_mocked_bindings(
+    ai_complete = function(...) {
+      list(
+        content = jsonlite::toJSON(list(
+          central_organizing_concept = "no single principle covers the cluster",
+          decision = "split_required",
+          proposed_name = NULL, proposed_description = NULL,
+          rationale = "..."
+        ), auto_unbox = TRUE, null = "null"),
+        usage = list()
+      )
+    },
+    .package = "pakhom"
+  )
+
+  result <- pakhom:::.walk_for_subthemes(
+    theme_name             = "Small Theme",
+    theme_node_idx         = 2L,
+    hac                    = fake_hac,
+    codes                  = codes,
+    distance_matrix        = dummy_dist,
+    co_occurrence          = NULL,
+    walk_ctx               = walk_ctx,
+    current_depth          = 1L,
+    max_subtheme_depth     = 3L,
+    max_codes_per_subtheme = 25L
+  )
+  # 3 codes total -- AF-4 does NOT fire; walker proceeds through normal
+  # decision path. With mocked split_required, the result is the
+  # standard virtual-coalesce output (1 group with all leaves).
+  expect_length(result, 1L)
+  # n_calls > 0 confirms AI was invoked (AF-4 didn't pre-empt).
+  expect_gt(walk_state$n_calls, 0L)
+})
+
+# ============================================================================
+# Phase 58 Tier 1 AF-3: n_subthemes schema clarity
+#
+# Pre-Phase-58 the JSON field n_subthemes counted only top-level real
+# subthemes but wasn't documented; the Phase 57 audit found 207 of 417
+# themes where n_subthemes != length(subthemes_structured) and called it
+# "unreliable". The fix exposes three distinct counters:
+#   n_subthemes              -- depth-1 real subthemes (legacy semantics)
+#   n_subthemes_total        -- real subthemes across all depths
+#   n_subthemes_structured   -- length(subthemes_structured) incl. virtual
+# ============================================================================
+
+test_that("Tier 1 AF-3: theme_n_subthemes returns depth-1 real subthemes only", {
+  # Build a theme with 2 top-level subthemes (1 real, 1 virtual) and
+  # a nested real sub-subtheme under the real top-level subtheme.
+  inner <- create_subtheme(name = "Inner Sub", codes = c("a", "b"))
+  outer_real    <- create_subtheme(name = "Outer Real", codes = c("c"),
+                                     subthemes = list(inner))
+  outer_virtual <- create_subtheme(name = NA_character_, codes = c("d"))
+  theme <- list(
+    name = "Test Theme", description = "",
+    subthemes = list(outer_real, outer_virtual)
+  )
+  # Legacy semantics: 1 real top-level subtheme.
+  expect_equal(theme_n_subthemes(theme), 1L)
+})
+
+test_that("Tier 1 AF-3: theme_n_subthemes_total recurses across every depth", {
+  # Same theme as above. n_subthemes_total counts BOTH the top-level
+  # real ('Outer Real') AND the nested real ('Inner Sub') -> 2.
+  inner <- create_subtheme(name = "Inner Sub", codes = c("a", "b"))
+  outer_real <- create_subtheme(name = "Outer Real", codes = c("c"),
+                                  subthemes = list(inner))
+  outer_virtual <- create_subtheme(name = NA_character_, codes = c("d"))
+  theme <- list(subthemes = list(outer_real, outer_virtual))
+  expect_equal(theme_n_subthemes_total(theme), 2L)
+})
+
+test_that("Tier 1 AF-3: theme_n_subthemes_total works on a 3-deep tree", {
+  l3 <- create_subtheme(name = "Depth 3", codes = c("e"))
+  l2 <- create_subtheme(name = "Depth 2", codes = c("d"),
+                          subthemes = list(l3))
+  l1 <- create_subtheme(name = "Depth 1", codes = c("c"),
+                          subthemes = list(l2))
+  theme <- list(subthemes = list(l1))
+  expect_equal(theme_n_subthemes(theme), 1L)
+  expect_equal(theme_n_subthemes_total(theme), 3L)
+})
+
+test_that("Tier 1 AF-3: subtheme_n_subthemes returns immediate-child count", {
+  # Direct subtheme getter (not theme-level).
+  inner1 <- create_subtheme(name = "Inner 1", codes = c("a"))
+  inner2 <- create_subtheme(name = "Inner 2", codes = c("b"))
+  outer  <- create_subtheme(name = "Outer", codes = c("c"),
+                              subthemes = list(inner1, inner2))
+  expect_equal(subtheme_n_subthemes(outer), 2L)
+  expect_equal(subtheme_n_subthemes(inner1), 0L)
+})
+
+test_that("Tier 1 C-13: subtheme_assignments persists in cascade output", {
+  # End-to-end smoke test: cascade attaches subtheme_assignments to
+  # analytic data; the per-theme CSV export includes the column.
+  # Build a minimal state + theme_set where cascade can route entries.
+  state <- create_coding_state()
+  state$codebook[["food_addiction"]] <- list(
+    code_name = "Food Addiction", description = "x",
+    type = "descriptive", frequency = 2L,
+    entry_ids = c("e1", "e2"),
+    coded_segments = list(
+      list(entry_id = "e1", text = "ate too much", start_char = 0L, end_char = 12L),
+      list(entry_id = "e2", text = "binge again", start_char = 0L, end_char = 11L)
+    )
+  )
+  state$entry_results[["e1"]] <- list(
+    codes_assigned = "food_addiction", skipped = FALSE,
+    coded_segments = list(state$codebook[["food_addiction"]]$coded_segments[[1]])
+  )
+  state$entry_results[["e2"]] <- list(
+    codes_assigned = "food_addiction", skipped = FALSE,
+    coded_segments = list(state$codebook[["food_addiction"]]$coded_segments[[2]])
+  )
+
+  ts <- create_theme_set(themes = list(
+    list(name = "Eating Patterns", description = "",
+         subthemes = list(create_subtheme(
+           name = "Compulsive Eating",
+           codes = list(create_code_object(key = "food_addiction",
+                                            name = "Food Addiction",
+                                            frequency = 2L))
+         )))
+  ))
+  ts <- rebuild_code_to_theme_map(ts, state)
+
+  data <- tibble::tibble(std_id = c("e1", "e2"), std_text = c("a", "b"))
+  out <- cascade_theme_assignments(data, state, ts)
+
+  # subtheme_assignments column exists and is populated.
+  expect_true("subtheme_assignments" %in% names(out))
+  expect_equal(out$subtheme_assignments, c("Compulsive Eating", "Compulsive Eating"))
+})

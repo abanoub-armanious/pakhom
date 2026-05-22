@@ -264,6 +264,16 @@ analysis:
     include_quotes: true          # Render representative quotes in the per-theme report.
     quotes_per_theme: 3           # Number of representative quotes selected per theme.
     approach: "inductive"         # "inductive" (Mode 2) or "deductive" (Mode 3 framework).
+    # Phase 58 Tier 1 C-12: HAC walker recursion depth. The walker
+    # descends theme -> subtheme -> sub-subtheme ... up to this many
+    # levels, triggered when a subtheme exceeds max_codes_per_subtheme.
+    # Default 3; set to 1 for pre-Phase-58 single-level behavior.
+    max_subtheme_depth: 3
+    # Phase 58 Tier 1 AF-8: a coherent subtheme with more codes than
+    # this is re-walked one level deeper into sub-subthemes. Prevents
+    # kitchen-sink subthemes (e.g. the 205-code mega-subtheme that
+    # the Phase 57 audit flagged).
+    max_codes_per_subtheme: 25
 
   correlations:
     method: "spearman"            # "spearman", "pearson", or "kendall".

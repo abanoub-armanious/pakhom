@@ -117,14 +117,27 @@
     # Fallback: if no merge_history map, walk Theme -> Subtheme -> Code
     # hierarchy directly. Phase 51: subthemes hold Code S3 objects rather
     # than bare strings, so resolve subtheme membership by Code$name.
+    # Phase 58 Tier 1 C-12: subthemes may now contain nested sub-
+    # subthemes; check both the subtheme's direct codes AND any nested
+    # children before attributing membership.
     if (is.null(theme_name)) {
+      # Recursive helper: collect all code names under a Subtheme,
+      # including nested sub-subthemes.
+      collect_all_names <- function(st) {
+        if (!inherits(st, "Subtheme")) return(character(0))
+        out <- subtheme_code_names(st)
+        for (child in st$subthemes %||% list()) {
+          out <- c(out, collect_all_names(child))
+        }
+        out
+      }
       for (t in theme_set$themes) {
         if (!(code_name %in% theme_codes(t))) next
         theme_name <- t$name
         for (s in t$subthemes %||% list()) {
           if (!inherits(s, "Subtheme")) next
           if (is.na(s$name) || nchar(s$name %||% "") == 0L) next
-          if (code_name %in% subtheme_code_names(s)) {
+          if (code_name %in% collect_all_names(s)) {
             subtheme_name <- s$name
             break
           }

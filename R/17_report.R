@@ -118,7 +118,11 @@ export_results <- function(data, theme_set, correlations_df, insights,
     flat_code_names <- theme_codes(t)
     flat_subtheme_names <- .subtheme_names_no_virtual(t)
 
-    structured <- lapply(t$subthemes %||% list(), function(s) {
+    # Phase 58 Tier 1 C-12: serialize the full subtheme tree (subthemes
+    # can now nest). Recursive walker emits nested $subthemes alongside
+    # the direct $codes at each level; consumers that don't know about
+    # the nesting (pre-Phase-58 readers) still get codes + name + desc.
+    serialize_subtheme <- function(s) {
       if (!inherits(s, "Subtheme")) return(NULL)
       list(
         name        = if (is.na(s$name)) NA_character_ else s$name,
@@ -133,26 +137,42 @@ export_results <- function(data, theme_set, correlations_df, insights,
             entry_ids   = I(as.character(c$entry_ids %||% character(0))),
             n_segments  = length(c$coded_segments %||% list())
           )
-        })
+        }),
+        subthemes = Filter(
+          Negate(is.null),
+          lapply(s$subthemes %||% list(), serialize_subtheme)
+        )
       )
-    })
+    }
+    structured <- lapply(t$subthemes %||% list(), serialize_subtheme)
     structured <- Filter(Negate(is.null), structured)
 
+    # Phase 58 Tier 1 AF-3: three subtheme counters expose the full
+    # decomposition shape to consumers. n_subthemes preserves the
+    # pre-Phase-58 semantics (depth-1 real subthemes only) for back-
+    # compat. n_subthemes_total counts every named subtheme at every
+    # depth (the "true" decomposition size when C-12's nested walker
+    # produces sub-subthemes). n_subthemes_structured matches
+    # length(subthemes_structured) exactly, including virtual NA-named
+    # wrappers -- the value that surprised the Phase 57 audit when it
+    # didn't match n_subthemes.
     list(
-      id                   = as.integer(t$id %||% 0L),
-      name                 = t$name %||% "",
-      description          = t$description %||% "",
-      prevalence           = t$prevalence %||% NA_character_,
-      sentiment_tendency   = t$sentiment_tendency %||% NA_character_,
-      entry_count          = as.integer(t$entry_count %||% 0L),
-      n_codes              = length(flat_code_names),
-      n_subthemes          = length(flat_subtheme_names),
-      codes_included       = I(flat_code_names),
-      subthemes            = I(flat_subtheme_names),
-      subthemes_structured = structured,
-      keywords             = I(as.character(t$keywords %||% character(0))),
-      narrative            = t$narrative %||% "",
-      supporting_quotes    = I(as.character(t$supporting_quotes %||% character(0)))
+      id                       = as.integer(t$id %||% 0L),
+      name                     = t$name %||% "",
+      description              = t$description %||% "",
+      prevalence               = t$prevalence %||% NA_character_,
+      sentiment_tendency       = t$sentiment_tendency %||% NA_character_,
+      entry_count              = as.integer(t$entry_count %||% 0L),
+      n_codes                  = length(flat_code_names),
+      n_subthemes              = length(flat_subtheme_names),
+      n_subthemes_total        = theme_n_subthemes_total(t),
+      n_subthemes_structured   = length(structured),
+      codes_included           = I(flat_code_names),
+      subthemes                = I(flat_subtheme_names),
+      subthemes_structured     = structured,
+      keywords                 = I(as.character(t$keywords %||% character(0))),
+      narrative                = t$narrative %||% "",
+      supporting_quotes        = I(as.character(t$supporting_quotes %||% character(0)))
     )
   })
   jsonlite::write_json(themes_json, themes_file, pretty = TRUE,
@@ -309,9 +329,16 @@ export_theme_entry_csvs <- function(data, theme_set, output_dir,
   # AC4 (methodology stamped on every output), Tier-0-relevant columns
   # propagate to all output artifacts -- silent omission would let a
   # downstream consumer recompute participant spread from the wrong shape.
+  # Phase 58 Tier 1 C-13: subtheme_assignments was missing from this
+  # export whitelist even though cascade_theme_assignments populates the
+  # column in analytic_data. Downstream consumers (Phase 55 paper-style
+  # subtheme tables, researcher manual review) had no way to reconstruct
+  # which subtheme each entry belonged to from the per-theme CSV alone.
+  # Adding it here makes the per-theme + master CSVs self-describing.
   export_cols <- intersect(
     c("std_id", "std_text", "std_author", "sentiment_score", "all_emotions",
-      "emotion_intensity", "emerged_themes", "n_themes", "source_table"),
+      "emotion_intensity", "emerged_themes", "n_themes", "subtheme_assignments",
+      "source_table"),
     names(data)
   )
 
@@ -3095,17 +3122,31 @@ sentiment_colors <- c(
     # Subthemes (Phase 51: ts$subthemes_structured is a list of Subtheme S3
     # objects with virtual NA-named wrappers already filtered out by
     # aggregate_theme_statistics, so this is a clean render).
+    # Phase 58 Tier 1 C-12: nested sub-subthemes render as indented
+    # children below their parent. Recursive emitter preserves the
+    # tree's depth budget (max 3 by default; deeper trees just keep
+    # indenting).
     if (!is.null(ts$subthemes_structured) && length(ts$subthemes_structured) > 0) {
-      html <- paste0(html, '<h2>Subthemes</h2>\n<div class="subthemes-list">\n')
-      for (s in ts$subthemes_structured) {
+      render_subtheme_html <- function(s, depth) {
         s_name <- s$name %||% ""
         s_desc <- s$description %||% ""
-        if (is.na(s_name) || nchar(s_name) == 0L) next
-        html <- paste0(html,
-          '<div class="subtheme-item" style="margin-bottom: 0.5rem;">\n',
+        if (is.na(s_name) || nchar(s_name) == 0L) return("")
+        indent_px <- 16 * (depth - 1L)
+        out <- paste0(
+          '<div class="subtheme-item" style="margin-bottom: 0.5rem; ',
+          'margin-left: ', indent_px, 'px;">\n',
           '<strong>', .html_esc(s_name), '</strong>',
           if (nchar(s_desc) > 0) paste0(' &mdash; ', .html_esc(s_desc)) else "",
-          '\n</div>\n')
+          '\n</div>\n'
+        )
+        for (child in s$subthemes %||% list()) {
+          out <- paste0(out, render_subtheme_html(child, depth + 1L))
+        }
+        out
+      }
+      html <- paste0(html, '<h2>Subthemes</h2>\n<div class="subthemes-list">\n')
+      for (s in ts$subthemes_structured) {
+        html <- paste0(html, render_subtheme_html(s, 1L))
       }
       html <- paste0(html, '</div>\n')
     } else if (length(ts$subthemes) > 0 && !all(is.na(ts$subthemes))) {

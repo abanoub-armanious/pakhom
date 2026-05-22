@@ -2,7 +2,7 @@
 % Please edit documentation in R/12_theme_data.R
 \name{theme_n_subthemes}
 \alias{theme_n_subthemes}
-\title{Number of subthemes in a theme (excludes virtual single-subtheme wrappers)}
+\title{Number of TOP-LEVEL real subthemes in a theme (excludes virtual wrappers)}
 \usage{
 theme_n_subthemes(theme)
 }
@@ -10,8 +10,13 @@ theme_n_subthemes(theme)
 \item{theme}{A theme list}
 }
 \value{
-Integer
+Integer; depth-1 named subtheme count.
 }
 \description{
-Number of subthemes in a theme (excludes virtual single-subtheme wrappers)
+Phase 58 Tier 1 AF-3: this counter is unchanged from Phase 51 -- it
+counts only the immediate (depth-1) named subthemes of the theme.
+Virtual (NA-named) subthemes are excluded; nested sub-subthemes are
+NOT counted. For "all real subthemes at every depth" use
+\code{theme_n_subthemes_total()}. For "raw structural count including
+virtual wrappers" use \code{length(theme$subthemes)}.
 }

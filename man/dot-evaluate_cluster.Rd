@@ -2,7 +2,7 @@
 % Please edit documentation in R/13_themes.R
 \name{.evaluate_cluster}
 \alias{.evaluate_cluster}
-\title{Ask the AI to evaluate a cluster}
+\title{Ask the AI to evaluate a cluster as a candidate theme or subtheme}
 \usage{
 .evaluate_cluster(
   cluster_leaves,
@@ -16,14 +16,13 @@
 )
 }
 \description{
-Builds the cluster summary prompt (with bias-mitigation context: most-
+Builds the cluster-summary prompt (with bias-mitigation context: most-
 distant pair, full per-code list when small, top-N + extremes when
 large) and calls \code{ai_complete()} with the
-\code{.theme_decision_schema()}.
-}
-\details{
-Returns a structured decision record (decision, name, description,
-rationale, articulation). Records the decision in walk_state and the
-audit_log.
+\code{.theme_decision_schema()}. Post-validates the articulation via
+Phase 58 Tier 0 C-1's quality gates (length / bucket-label opener /
+tautology). Returns a structured decision record (decision, name,
+description, rationale, articulation). Records the decision in
+\code{walk_state} and the \code{audit_log}.
 }
 \keyword{internal}
