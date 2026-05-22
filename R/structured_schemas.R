@@ -226,6 +226,37 @@
   )
 }
 
+#' Schema for the code-description refresh response (Phase 58 Tier 2 C-5)
+#'
+#' \preformatted{
+#'   {
+#'     "description": "<1-2 sentence refreshed description capturing the conceptual core>"
+#'   }
+#' }
+#'
+#' @keywords internal
+.code_description_refresh_schema <- function() {
+  list(
+    type                 = "object",
+    additionalProperties = FALSE,
+    required             = list("description"),
+    properties = list(
+      description = list(
+        type        = "string",
+        description = paste0(
+          "Refreshed description (1-2 sentences) that captures the CONCEPTUAL ",
+          "CORE shared across the sample segments shown. The original ",
+          "description was anchored to the first segment that created the ",
+          "code; if scope has drifted, the refresh must reflect the broader ",
+          "pattern. Specific enough to distinguish from sibling codes but ",
+          "general enough to cover every segment in the sample. AVOID just ",
+          "restating the code name."
+        )
+      )
+    )
+  )
+}
+
 #' Schema for the per-batch sentiment response (analyze_sentiment)
 #'
 #' \preformatted{

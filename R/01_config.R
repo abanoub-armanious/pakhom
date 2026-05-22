@@ -419,7 +419,16 @@ print.ThematicConfig <- function(x, ...) {
         segment_length_min = NULL,   # Min coded segment length in characters (default: 30)
         segment_length_max = NULL,   # Max coded segment length in characters (default: 200)
         code_label_min_words = NULL,  # Min code label length in words (default: 3)
-        code_label_max_words = NULL   # Max code label length in words (default: 8)
+        code_label_max_words = NULL,  # Max code label length in words (default: 8)
+        # Phase 58 Tier 2 C-5: description-refresh pass cadence + filter.
+        # Every `description_refresh_interval` new codes admitted, the
+        # AI re-describes every code with `frequency >=
+        # description_refresh_min_freq` using
+        # `description_refresh_sample_segments` of its coded_segments.
+        # Mode 3 (framework) skips the refresh entirely.
+        description_refresh_interval        = 100L,
+        description_refresh_min_freq        = 50L,
+        description_refresh_sample_segments = 5L
         # Phase 56: removed six pre-Phase-56 saturation knobs
         # (saturation_enabled, saturation_window, saturation_threshold,
         # saturation_confirmations, min_coded_before_saturation,

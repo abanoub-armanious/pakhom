@@ -138,7 +138,13 @@ create_coding_state <- function(learning_context = NULL, config_hash = NULL) {
     # checkpoint save/restore via saveRDS like the rest of state.
     semantic_cache = list(
       code_embeddings = list()
-    )
+    ),
+    # Phase 58 Tier 2 C-5: codebook size at the most recent
+    # description-refresh attempt. Drives the every-N-new-codes
+    # refresh cadence in .maybe_refresh_high_freq_descriptions.
+    # 0L initial value means the first refresh check fires once the
+    # codebook hits the refresh interval (default 100 codes).
+    last_description_refresh_at_size = 0L
   )
   class(state) <- "ProgressiveCodingState"
   state
@@ -395,6 +401,26 @@ run_progressive_coding <- function(data, provider, config = list(),
       framework_spec = framework_spec,
       framework_prompt_text = framework_prompt_text
     )
+
+    # Phase 58 Tier 2 C-5: every-N-new-codes description refresh pass.
+    # Skips silently when conditions aren't met (cheap O(N codes)
+    # filter). Mode 3 skips entirely because framework constructs
+    # carry researcher-authored descriptions that shouldn't be
+    # re-written.
+    if (is.null(framework_spec)) {
+      state <- .maybe_refresh_high_freq_descriptions(
+        state            = state,
+        provider         = provider,
+        audit_log        = audit_log,
+        response_cache   = response_cache,
+        refresh_interval = as.integer(
+          config$analysis$coding$description_refresh_interval %||% 100L),
+        min_freq         = as.integer(
+          config$analysis$coding$description_refresh_min_freq %||% 50L),
+        sample_segments  = as.integer(
+          config$analysis$coding$description_refresh_sample_segments %||% 5L)
+      )
+    }
 
     # Track this entry in the O(1) lists
     proc_idx <- proc_idx + 1L
@@ -1148,9 +1174,30 @@ run_progressive_coding <- function(data, provider, config = list(),
   )
 
   if (is_new || !(code_key %in% names(state$codebook))) {
+    # Phase 58 Tier 2 D-7: backfill empty descriptions on new code
+    # admission. The AI's schema is told "code_description required for
+    # NEW codes" but doesn't always comply -- and when it matches a
+    # learning-context name without re-stating the description, the
+    # field arrives empty. Without backfill, downstream consumers see
+    # codes with NA descriptions. The fallback uses the first segment's
+    # text as a "first observed" snippet so reviewers have at least
+    # one anchor for what the code captured. A subsequent Phase 58
+    # Tier 2 C-5 refresh pass replaces this placeholder once the code
+    # accumulates enough segments to support a real description.
+    admit_desc <- if (is.null(seg_desc) || !nzchar(trimws(seg_desc %||% ""))) {
+      snippet <- substr(as.character(seg_text)[1], 1, 150)
+      log_warn(paste0(
+        "Entry ", entry_id, ": new code '", code_name,
+        "' admitted with empty description; using first-segment ",
+        "snippet as placeholder (D-7 backfill)."
+      ))
+      paste0("[D-7 placeholder; awaiting refresh] First observed: ", snippet)
+    } else {
+      seg_desc
+    }
     state$codebook[[code_key]] <- list(
       code_name      = code_name,
-      description    = seg_desc,
+      description    = admit_desc,
       type           = seg_type,
       frequency      = 1L,
       entry_ids      = entry_id,
@@ -1459,6 +1506,165 @@ run_progressive_coding <- function(data, provider, config = list(),
 # ==============================================================================
 # Codebook summary for prompt injection
 # ==============================================================================
+
+#' AI-driven refresh of a single high-frequency code's description
+#'
+#' Phase 58 Tier 2 C-5: re-prompts the AI with a sample of the segments
+#' the code has accumulated and asks for a description that captures the
+#' SHARED conceptual core across them. The pre-Phase-58 codebook anchored
+#' each description to the FIRST segment that created the code, so
+#' high-frequency codes (e.g. Compulsive Eating Behavior, freq=1127)
+#' carried descriptions that described only one of many distinct meanings
+#' the code accumulated.
+#'
+#' Returns NULL on AI failure (caller leaves description unchanged but
+#' still bumps last_description_refresh_at to avoid retrying on every
+#' cadence).
+#'
+#' @keywords internal
+.refresh_code_description <- function(provider, code_name, current_description,
+                                        sample_segments,
+                                        audit_log = NULL,
+                                        response_cache = NULL,
+                                        methodology_override = NULL) {
+  if (is.null(provider)) return(NULL)
+  if (length(sample_segments) == 0L) return(NULL)
+
+  segment_block <- paste(vapply(seq_along(sample_segments), function(i) {
+    txt <- as.character(sample_segments[[i]]$text %||% "")[1]
+    sprintf("[%d] %s", i, substr(txt, 1, 300))
+  }, character(1)), collapse = "\n\n")
+
+  system_prompt <- paste0(
+    "You are reviewing a thematic code that has accumulated multiple ",
+    "segments since it was first created. Your task is to refresh the ",
+    "code's description so it accurately reflects the CONCEPTUAL CORE ",
+    "shared across all sample segments.\n\n",
+    "The current description was anchored to the FIRST segment that ",
+    "created the code; if the actual scope has drifted, your refresh ",
+    "should capture the broader pattern that unifies every segment in ",
+    "the sample. Be specific enough to distinguish from sibling codes ",
+    "but general enough to cover every segment shown."
+  )
+
+  prompt <- paste0(
+    "## CODE\n",
+    "Name: ", code_name, "\n",
+    "Current description: ", current_description %||% "(empty)", "\n\n",
+    "## SAMPLE SEGMENTS (n = ", length(sample_segments), ")\n\n",
+    segment_block,
+    "\n\n## TASK\n",
+    "Refresh the description in 1-2 sentences to accurately reflect ",
+    "what these segments share. Do not just restate the code name."
+  )
+
+  result <- tryCatch({
+    ai_result <- ai_complete(
+      provider, prompt, system_prompt,
+      task                  = "description_refresh",
+      temperature           = 0,
+      response_schema       = .code_description_refresh_schema(),
+      methodology_override  = methodology_override
+    )
+    if (!is.null(audit_log)) {
+      log_ai_request(audit_log, "description_refresh", ai_result, response_cache,
+                      code_name = code_name,
+                      n_sample_segments = length(sample_segments))
+    }
+    parse_json_safely(ai_result$content)
+  }, error = function(e) {
+    log_warn(paste0(
+      "Phase 58 C-5: description refresh failed for code '",
+      code_name, "': ", conditionMessage(e)
+    ))
+    NULL
+  })
+
+  if (is.null(result) || is.null(result$description)) return(NULL)
+  refreshed <- as.character(result$description)[1]
+  if (!nzchar(trimws(refreshed))) return(NULL)
+  trimws(refreshed)
+}
+
+#' Walk the codebook for high-frequency codes due for description refresh
+#'
+#' Phase 58 Tier 2 C-5: every \code{refresh_interval} new codes admitted
+#' to the codebook, scan for codes with \code{frequency >= min_freq}
+#' that haven't been refreshed in this cycle, sample
+#' \code{sample_segments} of their coded_segments, and ask the AI to
+#' refresh their description. Updates the codebook in place and stamps
+#' \code{last_description_refresh_at} on each refreshed code.
+#'
+#' @keywords internal
+.maybe_refresh_high_freq_descriptions <- function(state, provider,
+                                                    audit_log = NULL,
+                                                    response_cache = NULL,
+                                                    refresh_interval = 100L,
+                                                    min_freq = 50L,
+                                                    sample_segments = 5L,
+                                                    methodology_override = NULL) {
+  if (is.null(provider)) return(state)
+  cb <- state$codebook
+  current_size <- length(cb)
+  if (current_size == 0L) return(state)
+
+  last_attempt <- state$last_description_refresh_at_size %||% 0L
+  if (current_size - last_attempt < refresh_interval) return(state)
+
+  # Identify high-freq codes due for refresh.
+  needs_refresh <- character(0)
+  for (key in names(cb)) {
+    code <- cb[[key]]
+    if ((code$frequency %||% 0L) < min_freq) next
+    last_refresh <- code$last_description_refresh_at %||% 0L
+    if (current_size - last_refresh >= refresh_interval) {
+      needs_refresh <- c(needs_refresh, key)
+    }
+  }
+
+  state$last_description_refresh_at_size <- current_size
+
+  if (length(needs_refresh) == 0L) return(state)
+
+  log_info(paste0(
+    "Phase 58 Tier 2 C-5: description refresh pass for ",
+    length(needs_refresh), " code(s) (freq >= ", min_freq,
+    "; codebook = ", current_size, " codes)"
+  ))
+
+  for (key in needs_refresh) {
+    code <- state$codebook[[key]]
+    segs <- code$coded_segments %||% list()
+    n_seg <- length(segs)
+    if (n_seg == 0L) {
+      state$codebook[[key]]$last_description_refresh_at <- current_size
+      next
+    }
+
+    sample_idx <- if (n_seg <= sample_segments) {
+      seq_len(n_seg)
+    } else {
+      sort(sample(seq_len(n_seg), sample_segments))
+    }
+    sample_segs <- segs[sample_idx]
+
+    refreshed <- .refresh_code_description(
+      provider             = provider,
+      code_name            = code$code_name,
+      current_description  = code$description,
+      sample_segments      = sample_segs,
+      audit_log            = audit_log,
+      response_cache       = response_cache,
+      methodology_override = methodology_override
+    )
+    if (!is.null(refreshed)) {
+      state$codebook[[key]]$description <- refreshed
+    }
+    state$codebook[[key]]$last_description_refresh_at <- current_size
+  }
+
+  state
+}
 
 #' Defensive code-name normalization
 #'

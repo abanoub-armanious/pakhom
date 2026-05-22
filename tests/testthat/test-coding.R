@@ -782,6 +782,215 @@ test_that("C-6 audit LOW-4: cache accumulates across multiple calls (no re-embed
 })
 
 # ============================================================================
+# Phase 58 Tier 2 D-7: empty-description backfill on new code admission
+# ============================================================================
+
+test_that("D-7: new code with empty AI description gets D-7 placeholder", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  entry_text <- "I struggle with food addiction every single day."
+  # AI returns a NEW code with NO code_description -- the historical
+  # bug that produced 94 empty-description codes in the Phase 57 run.
+  mock_response <- jsonlite::toJSON(list(
+    skipped = FALSE, skip_reason = "",
+    coded_segments = list(list(
+      text = "food addiction", start_char = 19L, end_char = 33L,
+      code = "NEW: Food Addiction",
+      code_description = "",   # the bug condition
+      code_type = "descriptive"
+    ))
+  ), auto_unbox = TRUE)
+  local_mocked_bindings(
+    ai_complete = function(...) list(content = mock_response,
+                                       model = "x", request_id = "r",
+                                       usage = list(prompt_tokens = 1L,
+                                                    completion_tokens = 1L,
+                                                    total_tokens = 2L),
+                                       finish_reason = "stop",
+                                       raw_response = list(),
+                                       prompt_hash = "h"),
+    compute_embeddings = function(...) NULL,
+    .package = "pakhom"
+  )
+
+  state <- create_coding_state()
+  state <- suppressWarnings(pakhom:::.code_entry_progressive(
+    text = entry_text, entry_id = "e1", entry_index = 1L,
+    state = state, provider = mock_provider(),
+    config = list(max_retries_per_entry = 1L),
+    base_system_prompt = "test"
+  ))
+
+  # Code admitted with the D-7 placeholder marker, not an empty string.
+  expect_length(state$codebook, 1L)
+  desc <- state$codebook[["food addiction"]]$description
+  expect_true(nzchar(desc),
+              info = "Empty description should have been backfilled with a placeholder")
+  expect_true(grepl("D-7 placeholder", desc, fixed = TRUE),
+              info = "Backfill should be tagged with the D-7 marker for downstream identification")
+  expect_true(grepl("food addiction", desc, fixed = TRUE),
+              info = "Backfill should include the first-segment snippet for reviewer context")
+})
+
+# ============================================================================
+# Phase 58 Tier 2 C-5: per-N description-refresh for high-freq codes
+# ============================================================================
+
+test_that("C-5: .maybe_refresh_high_freq_descriptions no-ops when interval not hit", {
+  state <- create_coding_state()
+  # 80 codes, all over the min_freq threshold. interval = 100. Refresh
+  # should NOT fire on first call because the codebook hasn't grown 100
+  # codes since the (0L) initial last-refresh-at value... wait, it
+  # actually HAS, since 80 - 0 = 80 < 100. Correct -- no refresh.
+  for (i in seq_len(80)) {
+    key <- paste0("c", i)
+    state$codebook[[key]] <- list(
+      code_name = paste("Code", i), description = "desc",
+      type = "descriptive", frequency = 100L,
+      entry_ids = paste0("e", i),
+      coded_segments = list(list(entry_id = paste0("e", i),
+                                  text = "Some segment text"))
+    )
+  }
+  call_count <- 0L
+  testthat::local_mocked_bindings(
+    ai_complete = function(...) {
+      call_count <<- call_count + 1L
+      stop("AI should not have been called")
+    },
+    .package = "pakhom"
+  )
+  out <- pakhom:::.maybe_refresh_high_freq_descriptions(
+    state, provider = mock_provider(),
+    refresh_interval = 100L, min_freq = 50L
+  )
+  expect_equal(call_count, 0L)
+  # last_description_refresh_at_size unchanged.
+  expect_equal(out$last_description_refresh_at_size %||% 0L, 0L)
+})
+
+test_that("C-5: .maybe_refresh_high_freq_descriptions refreshes high-freq codes", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  state <- create_coding_state()
+  # 110 codes total. Two are above freq=50 (high-freq); the rest are
+  # low-freq. With interval = 100 and codebook >= 100, refresh fires.
+  for (i in seq_len(108)) {
+    key <- paste0("c", i)
+    state$codebook[[key]] <- list(
+      code_name = paste("Code", i), description = "Original (low-freq, untouched)",
+      type = "descriptive", frequency = 5L,
+      entry_ids = paste0("e", i),
+      coded_segments = list(list(entry_id = paste0("e", i),
+                                  text = "Some segment text"))
+    )
+  }
+  state$codebook[["hifreq_a"]] <- list(
+    code_name = "Food Addiction",
+    description = "Original (high-freq, should be refreshed)",
+    type = "descriptive", frequency = 200L,
+    entry_ids = c("e_a1", "e_a2"),
+    coded_segments = list(
+      list(entry_id = "e_a1", text = "compulsive eating after waking"),
+      list(entry_id = "e_a2", text = "binge at family dinner")
+    )
+  )
+  state$codebook[["hifreq_b"]] <- list(
+    code_name = "Sleep Disruption",
+    description = "Original (high-freq, should also be refreshed)",
+    type = "descriptive", frequency = 150L,
+    entry_ids = c("e_b1"),
+    coded_segments = list(
+      list(entry_id = "e_b1", text = "trouble sleeping after medication")
+    )
+  )
+
+  refresh_calls <- 0L
+  local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt, task,
+                            temperature, response_schema, ...) {
+      if (task == "description_refresh") {
+        refresh_calls <<- refresh_calls + 1L
+        list(content = jsonlite::toJSON(list(
+          description = "AI-refreshed description that captures the actual scope"
+        ), auto_unbox = TRUE), usage = list())
+      } else {
+        stop(sprintf("Unexpected task: %s", task))
+      }
+    },
+    .package = "pakhom"
+  )
+
+  out <- pakhom:::.maybe_refresh_high_freq_descriptions(
+    state, provider = mock_provider(),
+    refresh_interval = 100L, min_freq = 50L
+  )
+
+  # Both high-freq codes refreshed; low-freq codes untouched.
+  expect_equal(refresh_calls, 2L)
+  expect_equal(out$codebook[["hifreq_a"]]$description,
+               "AI-refreshed description that captures the actual scope")
+  expect_equal(out$codebook[["hifreq_b"]]$description,
+               "AI-refreshed description that captures the actual scope")
+  # Low-freq sample stays untouched.
+  expect_equal(out$codebook[["c1"]]$description,
+               "Original (low-freq, untouched)")
+  # last_description_refresh_at_size + per-code stamps updated.
+  expect_equal(out$last_description_refresh_at_size, 110L)
+  expect_equal(out$codebook[["hifreq_a"]]$last_description_refresh_at, 110L)
+})
+
+test_that("C-5: AI refresh failure leaves description unchanged + stamps timestamp", {
+  state <- create_coding_state()
+  for (i in seq_len(100)) {
+    key <- paste0("c", i)
+    state$codebook[[key]] <- list(
+      code_name = paste("Code", i), description = "low",
+      type = "descriptive", frequency = 5L,
+      entry_ids = paste0("e", i),
+      coded_segments = list(list(entry_id = paste0("e", i),
+                                  text = "x"))
+    )
+  }
+  state$codebook[["hifreq"]] <- list(
+    code_name = "Hifreq", description = "Original (should survive AI failure)",
+    type = "descriptive", frequency = 100L,
+    entry_ids = "e_x", coded_segments = list(list(entry_id = "e_x", text = "x"))
+  )
+
+  testthat::local_mocked_bindings(
+    ai_complete = function(...) stop("simulated AI failure"),
+    .package = "pakhom"
+  )
+
+  out <- suppressWarnings(pakhom:::.maybe_refresh_high_freq_descriptions(
+    state, provider = mock_provider(),
+    refresh_interval = 100L, min_freq = 50L
+  ))
+
+  # Description unchanged (refresh failed); timestamp still bumped so
+  # we don't retry on every entry.
+  expect_equal(out$codebook[["hifreq"]]$description,
+               "Original (should survive AI failure)")
+  expect_equal(out$codebook[["hifreq"]]$last_description_refresh_at, 101L)
+})
+
+test_that("C-5: no-provider short-circuits without errors", {
+  state <- create_coding_state()
+  state$codebook[["a"]] <- list(code_name = "A", description = "d",
+                                 frequency = 100L, entry_ids = "e1",
+                                 coded_segments = list(list(text = "x")))
+  out <- pakhom:::.maybe_refresh_high_freq_descriptions(
+    state, provider = NULL,
+    refresh_interval = 100L, min_freq = 50L
+  )
+  # State returned unchanged; no crash on NULL provider.
+  expect_identical(out$codebook[["a"]]$description, "d")
+})
+
+# ============================================================================
 # Saturation tracking math (curve computation)
 #
 # Background: the previous saturation calculation tried to derive each code's

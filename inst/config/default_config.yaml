@@ -246,6 +246,20 @@ analysis:
     segment_length_max: ~
     code_label_min_words: ~
     code_label_max_words: ~
+    # Phase 58 Tier 2 C-5: every-N-new-codes description-refresh pass.
+    # When `description_refresh_interval` (default 100) new codes have
+    # been admitted since the last refresh, the AI is re-prompted to
+    # rewrite the description for every code with frequency >=
+    # `description_refresh_min_freq` (default 50) using a sample of
+    # `description_refresh_sample_segments` (default 5) coded_segments.
+    # Pre-Phase-58 the description was anchored to the FIRST segment
+    # forever, so high-frequency codes carried descriptions that didn't
+    # match the actual conceptual scope. Set interval = 0 to disable.
+    # Mode 3 (framework) skips the refresh entirely (framework
+    # constructs have researcher-authored descriptions).
+    description_refresh_interval: 100
+    description_refresh_min_freq: 50
+    description_refresh_sample_segments: 5
     # Saturation: per C1 ("AI decides when to stop"), saturation is judged
     # by an AI arbiter (Phase 56; R/saturation_arbiter.R) rather than by
     # threshold-based heuristics. No user-facing saturation knobs --
