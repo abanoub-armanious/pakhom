@@ -341,6 +341,66 @@ paired with citation offsets) as a research spike.
 | Small corpus (under ~150 codes); want depth | **1** |
 | Medium-to-large corpus (200+ entries); want scale + audit trail | **2** |
 | Pre-registered framework analysis | **3** |
+| Your research focus differs from the corpus's *dominant signal* | **1** (see "Mode 2 drift" below) |
+
+## Mode 2 drift on skewed-signal corpora
+
+Phase 57 (re-validation on a 9,178-entry binge-eating + sleep + medication
+corpus) found a recurring failure mode you should know about before
+choosing Mode 2:
+
+**When the corpus's dominant signal is NOT the configured research focus,
+Mode 2 themes drift toward the corpus's natural topic structure and away
+from the question you asked.**
+
+Concretely: the Phase 57 run configured `research_focus =
+"medication × sleep × binge eating interactions"` against r/BingeEatingDisorder
+posts and comments. The corpus's actual dominant signal was generic
+binge-eating affect (purging, shame, emotional eating). Mode 2's
+HAC + AI tree walk faithfully recovered the dominant signal -- 417
+themes, organized cleanly. But of those 417, only **2** named all three
+of {medication, binge, sleep} together, and only **1** had substantive
+mass (~56 entries). The load-bearing medication × sleep interaction
+finding was buried in the long tail.
+
+This is not a bug in Mode 2. The HAC algorithm is bottom-up: it
+clusters by code-code similarity, not by research-question relevance.
+If 80% of the corpus is about emotional eating, 80% of the themes
+will be about emotional eating, regardless of what your
+`research_focus` says.
+
+### What to do about it
+
+1. **Audit your corpus's signal balance first**. If `research_focus`
+   is a niche intersection (e.g., "medication × sleep × binge eating"),
+   sample 100-200 random entries and ask: how many actually touch ALL
+   three concepts? If the answer is "fewer than 10%", Mode 2 will
+   produce themes that *contain* your focus but won't be *organized
+   around* it.
+
+2. **Switch to Mode 1 (Reflexive Scaffold) for the niche-focus case**.
+   In Mode 1 you author the themes; the AI doesn't get a vote on
+   theme generation. The themes are guaranteed to be organized around
+   your `research_focus`, and the AI's role is restricted to
+   provocateur loops + memo prompts that challenge what you wrote.
+   See `vignette("getting-started")` for the Mode 1 walkthrough.
+
+3. **Refine `research_focus` to match the dominant signal**.
+   If your data is mostly about generic binge eating, you can rewrite
+   the question as "How does generic binge eating intersect with
+   medication and sleep when it does?" The themes will then be about
+   binge eating with medication/sleep as discriminating features --
+   a publishable framing.
+
+4. **Hybrid pipeline (intermediate effort)**. Run Mode 2 first, then
+   manually curate the long-tail themes that touch your niche focus
+   into a Mode 1 frame for a focused write-up. The Mode 2 audit log
+   gives you cross-theme traceability for that curation.
+
+Mode 2 is excellent when the research focus matches the corpus's
+dominant signal (e.g., r/BingeEatingDisorder + "binge eating" focus).
+It is not the right tool for niche-intersection focuses on broad
+corpora.
 
 ## What every mode produces (universal Tier-0)
 

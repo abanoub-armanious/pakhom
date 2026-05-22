@@ -334,3 +334,93 @@ test_that("methodology_decision_aid errors when ta_family is missing in non-inte
     "ta_family"
   )
 })
+
+# ============================================================================
+# Phase 58 Tier 3 AH-5: deprecated-knob warnings
+# ============================================================================
+
+test_that("AH-5: .warn_deprecated_config_knobs flags pre-Phase-53 sequential-merge knobs", {
+  cfg <- list(
+    analysis = list(themes = list(
+      merge_strategy        = "auto",
+      max_merge_passes      = 5,
+      stopping_criterion    = "convergence",
+      min_merges_to_continue = 2,
+      include_subthemes     = TRUE  # still valid; should NOT be flagged
+    ))
+  )
+  flagged <- pakhom:::.warn_deprecated_config_knobs(cfg)
+  expect_length(flagged, 4L)
+  expect_true(any(grepl("merge_strategy", flagged)))
+  expect_true(any(grepl("max_merge_passes", flagged)))
+  expect_true(any(grepl("stopping_criterion", flagged)))
+  expect_true(any(grepl("min_merges_to_continue", flagged)))
+  expect_false(any(grepl("include_subthemes", flagged)))
+})
+
+test_that("AH-5: .warn_deprecated_config_knobs flags pre-Phase-56 saturation knobs", {
+  cfg <- list(analysis = list(coding = list(
+    saturation_enabled          = TRUE,
+    saturation_window           = 100L,
+    saturation_threshold        = 2L,
+    saturation_confirmations    = 3L,
+    min_coded_before_saturation = 50L,
+    ai_assessment_interval      = 10L
+  )))
+  flagged <- pakhom:::.warn_deprecated_config_knobs(cfg)
+  expect_length(flagged, 6L)
+})
+
+test_that("AH-5: empty config produces no deprecated-knob warnings", {
+  flagged <- pakhom:::.warn_deprecated_config_knobs(list())
+  expect_length(flagged, 0L)
+})
+
+# ============================================================================
+# Phase 58 Tier 3 AH-4: reflexivity-scaffold warnings
+# ============================================================================
+
+test_that("AH-4: .warn_empty_reflexivity flags fully-empty reflexivity scaffold", {
+  cfg <- list(study = list(
+    research_focus = "test",
+    researcher_positionality = NULL,
+    research_paradigm = NULL,
+    reflexive_notes = NULL
+  ))
+  empties <- pakhom:::.warn_empty_reflexivity(cfg)
+  expect_true(all(empties))
+})
+
+test_that("AH-4: empty-string / NA / whitespace-only are treated as empty", {
+  for (val in list("", "  ", NA_character_, NA)) {
+    cfg <- list(study = list(
+      researcher_positionality = val,
+      research_paradigm        = val,
+      reflexive_notes          = val
+    ))
+    empties <- pakhom:::.warn_empty_reflexivity(cfg)
+    expect_true(all(empties),
+                info = sprintf("value class %s should be empty", class(val)[1]))
+  }
+})
+
+test_that("AH-4: partially-populated reflexivity produces info-level signal", {
+  cfg <- list(study = list(
+    researcher_positionality = "Researcher with 10 years experience",
+    research_paradigm        = NULL,
+    reflexive_notes          = NULL
+  ))
+  empties <- pakhom:::.warn_empty_reflexivity(cfg)
+  expect_equal(sum(empties), 2L)
+  expect_false(empties["positionality"])
+})
+
+test_that("AH-4: fully-populated reflexivity produces no warning", {
+  cfg <- list(study = list(
+    researcher_positionality = "Clinical psychologist",
+    research_paradigm        = "critical realist",
+    reflexive_notes          = "Some reflexive notes"
+  ))
+  empties <- pakhom:::.warn_empty_reflexivity(cfg)
+  expect_false(any(empties))
+})

@@ -86,9 +86,16 @@ study:
   research_focus: ""              # REQUIRED. Your research question. Be specific.
   research_context: ""            # Brief description of data source and population.
   concepts: ~                     # Optional: 2-5 key concepts (list of strings).
-  researcher_positionality: ~     # Optional: your relevant expertise / standpoint.
-  research_paradigm: ~            # Optional: e.g. "critical realist", "pragmatist".
-  reflexive_notes: ~              # Optional: free-text notes on your assumptions.
+  # Phase 58 Tier 3 AH-4: reflexivity scaffolding. Olmos-Vega et al.
+  # (AMEE Guide 149) recommend positionality + paradigm + reflexive
+  # notes be present in every turn of qualitative analysis. pakhom
+  # injects these into the AI system prompt at every coding /
+  # theming / saturation call. Leaving them empty produces a silent
+  # reflexivity gap that pakhom warns about at pipeline start.
+  # Recommended for ANY publication-quality analysis:
+  researcher_positionality: ~     # e.g. "Clinical psychologist with 10 years experience in eating disorders"
+  research_paradigm: ~             # e.g. "critical realist" | "social constructionist" | "pragmatist"
+  reflexive_notes: ~               # Free-text reflections on your assumptions, biases, and prior knowledge that may shape interpretation.
 
 
 # -----------------------------------------------------------------------------

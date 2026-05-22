@@ -198,11 +198,164 @@ validate_config <- function(config) {
     errors <- c(errors, "output.results_dir is required")
   }
 
+  # Phase 58 Tier 3 AH-5: warn about deprecated knobs the user still
+  # carries in their personal config.yaml. The audit found four
+  # surviving knobs from the pre-Phase-53 sequential-merge algorithm
+  # in the user's project-root config.yaml. The package no longer
+  # reads them but they confuse anyone who edits the file later.
+  .warn_deprecated_config_knobs(config)
+
+  # Phase 58 Tier 3 AH-4: warn about empty reflexivity scaffold.
+  # Olmos-Vega AMEE Guide 149 recommends positionality + paradigm +
+  # reflexive notes be present in every turn of qualitative analysis.
+  # The audit found a Phase 57 run where all three were NULL ->
+  # silent reflexivity gap in the AI prompts. Warn (not error) so
+  # users on small / exploratory runs aren't blocked, but the
+  # methodology paper can no longer claim reflexive practice.
+  .warn_empty_reflexivity(config)
+
   if (length(errors) > 0) {
     stop("Configuration validation failed:\n  - ", paste(errors, collapse = "\n  - "))
   }
 
   invisible(config)
+}
+
+#' Warn about deprecated config knobs (Phase 58 Tier 3 AH-5)
+#'
+#' Walks the user's config for keys that the package no longer reads.
+#' Removed in cleanup waves Phase 50e (8 knobs), Phase 52/53 (5 knobs),
+#' Phase 56 (6 saturation knobs). Each surviving stale knob in a user's
+#' personal config.yaml is logged as a warn with the cleanup phase that
+#' removed it.
+#'
+#' @keywords internal
+.warn_deprecated_config_knobs <- function(config) {
+  deprecated <- list(
+    # Pre-Phase-52 sequential-merge algorithm knobs (removed Phase 52 / 53):
+    list(path = c("analysis", "themes", "merge_strategy"),
+         removed_in = "Phase 52/53",
+         reason = "HAC + AI-judged divisive tree walk replaced the sequential merge."),
+    list(path = c("analysis", "themes", "max_merge_passes"),
+         removed_in = "Phase 52/53",
+         reason = "Same as merge_strategy: no merge passes in the new algorithm."),
+    list(path = c("analysis", "themes", "stopping_criterion"),
+         removed_in = "Phase 52/53",
+         reason = "AI decides at each HAC node (C1: no count thresholds)."),
+    list(path = c("analysis", "themes", "min_merges_to_continue"),
+         removed_in = "Phase 52/53",
+         reason = "No merge-pass loop to gate."),
+    # Phase 52/53 also removed these theme knobs:
+    list(path = c("analysis", "themes", "min_themes"),       removed_in = "Phase 53",
+         reason = "C1: no count thresholds."),
+    list(path = c("analysis", "themes", "max_themes"),       removed_in = "Phase 53",
+         reason = "C1: no count thresholds."),
+    list(path = c("analysis", "themes", "max_theme_proportion"),
+         removed_in = "Phase 53",
+         reason = "C1: no count thresholds."),
+    list(path = c("analysis", "themes", "multi_label_assignment"),
+         removed_in = "Phase 53",
+         reason = "Cascade always produces multi-label assignments."),
+    list(path = c("analysis", "themes", "ai_batch_size"),    removed_in = "Phase 53",
+         reason = "Theming is one AI call per HAC node, not batched."),
+    # Phase 56 removed all six pre-Phase-56 saturation knobs:
+    list(path = c("analysis", "coding", "saturation_enabled"),
+         removed_in = "Phase 56",
+         reason = "Replaced by AI saturation arbiter (no user knob)."),
+    list(path = c("analysis", "coding", "saturation_window"),
+         removed_in = "Phase 56",
+         reason = "AI arbiter judges saturation; no window threshold."),
+    list(path = c("analysis", "coding", "saturation_threshold"),
+         removed_in = "Phase 56",
+         reason = "AI arbiter judges saturation; no count threshold."),
+    list(path = c("analysis", "coding", "saturation_confirmations"),
+         removed_in = "Phase 56",
+         reason = "AI arbiter judges saturation; no confirmation count."),
+    list(path = c("analysis", "coding", "min_coded_before_saturation"),
+         removed_in = "Phase 56",
+         reason = "AI arbiter has its own cadence (.saturation_cadence)."),
+    list(path = c("analysis", "coding", "ai_assessment_interval"),
+         removed_in = "Phase 56",
+         reason = "AI arbiter has its own cadence (.saturation_cadence).")
+  )
+
+  # Helper: walk path through a nested list, returning TRUE if every
+  # element exists (final value may be NULL).
+  has_path <- function(cfg, path) {
+    cur <- cfg
+    for (p in path) {
+      if (!is.list(cur)) return(FALSE)
+      if (!(p %in% names(cur))) return(FALSE)
+      cur <- cur[[p]]
+    }
+    TRUE
+  }
+
+  stale_found <- character(0)
+  for (d in deprecated) {
+    if (has_path(config, d$path)) {
+      stale_found <- c(stale_found, paste0(
+        paste(d$path, collapse = "."), " (removed ", d$removed_in,
+        "; ", d$reason, ")"
+      ))
+    }
+  }
+
+  if (length(stale_found) > 0L) {
+    log_warn(paste0(
+      "Found ", length(stale_found), " deprecated knob(s) in your ",
+      "config.yaml that pakhom no longer reads. These are safe to ",
+      "remove from your file."
+    ))
+    for (s in stale_found) log_warn(paste0("  - ", s))
+  }
+
+  invisible(stale_found)
+}
+
+#' Warn when the reflexivity scaffold is empty (Phase 58 Tier 3 AH-4)
+#'
+#' Olmos-Vega et al. (AMEE Guide 149) recommend positionality +
+#' paradigm + reflexive notes be present in every turn of qualitative
+#' analysis. pakhom injects \code{study.researcher_positionality},
+#' \code{study.research_paradigm}, and \code{study.reflexive_notes}
+#' into the AI system prompt at every coding / theming / saturation
+#' call (see R/methodology_rules.R). When all three are empty, the
+#' reflexivity block silently degrades to a placeholder -- a
+#' methodology paper relying on this run can no longer claim
+#' reflexive practice.
+#'
+#' @keywords internal
+.warn_empty_reflexivity <- function(config) {
+  is_empty <- function(x) {
+    is.null(x) ||
+      (length(x) == 1L && (is.na(x) || !nzchar(trimws(as.character(x)[1]))))
+  }
+  fields <- list(
+    positionality = config$study$researcher_positionality,
+    paradigm      = config$study$research_paradigm,
+    reflexive_notes = config$study$reflexive_notes
+  )
+  empties <- vapply(fields, is_empty, logical(1))
+  if (all(empties)) {
+    log_warn(paste0(
+      "Reflexivity scaffold is EMPTY: study.researcher_positionality, ",
+      "study.research_paradigm, and study.reflexive_notes are all unset. ",
+      "pakhom will inject placeholder text into AI prompts, but a ",
+      "methodology paper relying on this run cannot honestly claim ",
+      "reflexive practice (Olmos-Vega AMEE Guide 149). Set at least one ",
+      "of these fields in your config.yaml before a publication run."
+    ))
+  } else if (any(empties)) {
+    missing_names <- names(empties)[empties]
+    log_info(paste0(
+      "Reflexivity scaffold partially populated. Missing: ",
+      paste(paste0("study.", missing_names), collapse = ", "),
+      ". Pipeline continues; consider filling these before a ",
+      "publication run."
+    ))
+  }
+  invisible(empties)
 }
 
 #' Print method for ThematicConfig

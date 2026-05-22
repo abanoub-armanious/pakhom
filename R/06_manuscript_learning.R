@@ -675,7 +675,18 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
     for_coding_style = paste(coding_style_parts, collapse = "\n\n"),
     for_coding_discards = paste(coding_discard_parts, collapse = "\n\n"),
     for_coding_examples = entry_examples_text,
-    for_theming = paste(theming_parts, collapse = "\n\n"),
+    # Phase 58 Tier 3 AH-3: prepend a STUDY ROSTER to the theming
+    # context so every prior study appears equally prominent at the
+    # TOP of the AI's prompt context. Pre-Phase-58 the per-study
+    # chunks were concatenated in iteration order; the AI's attention
+    # disproportionately referenced whichever study was first
+    # (Dayvigo named 3x in the audit's calibration reflection;
+    # Ozempic + Vyvanse never named). The roster forces equal
+    # mention up front; the depth chunks below give the AI specifics.
+    for_theming = paste(
+      c(.build_study_roster(studies), theming_parts),
+      collapse = "\n\n"
+    ),
     for_review = paste(review_parts, collapse = "\n\n"),
     for_report = "",
     benchmarks = benchmarks,
@@ -706,6 +717,53 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
 # ==============================================================================
 # Internal helpers
 # ==============================================================================
+
+#' Phase 58 Tier 3 AH-3: prominent equal-weight roster of prior studies
+#'
+#' Returns a markdown-formatted listing of every study with a brief
+#' one-line characterization (n_codes, top theme count). Prepended to
+#' \code{ctx$for_theming} so every study name appears at the TOP of the
+#' AI's context window with equal prominence. Phase 57 audit found
+#' that without this, the AI's "synthesis reflection" referenced
+#' whichever study was iterated first (Dayvigo, 3x) and never named
+#' Ozempic or Vyvanse despite all three being in the context.
+#'
+#' Returns "" when fewer than 2 studies are available (a single
+#' study trivially gets full attention; no balancing needed).
+#'
+#' @keywords internal
+.build_study_roster <- function(studies) {
+  if (is.null(studies) || studies$n_studies < 2L) return("")
+
+  lines <- character(0)
+  for (s_name in names(studies$studies)) {
+    s <- studies$studies[[s_name]]
+    n_codes <- if (!is.null(s$codebook)) nrow(s$codebook) else 0L
+    n_themes <- if (!is.null(s$codebook_full)) {
+      sum(s$codebook_full$hierarchy_level == 0 & !s$codebook_full$is_discarded,
+          na.rm = TRUE)
+    } else NA_integer_
+
+    facets <- character(0)
+    if (n_codes > 0L) facets <- c(facets, sprintf("%d codes", n_codes))
+    if (!is.na(n_themes) && n_themes > 0L) {
+      facets <- c(facets, sprintf("%d top-level themes", n_themes))
+    }
+    facet_str <- if (length(facets) > 0L) paste0(" (", paste(facets, collapse = "; "), ")") else ""
+
+    lines <- c(lines, paste0("  - **", s_name, "**", facet_str))
+  }
+
+  paste0(
+    "## PRIOR STUDIES (treat each one with equal weight):\n",
+    "Each of the following ", studies$n_studies,
+    " prior analyses contributes calibration evidence. ",
+    "When you synthesize cross-study patterns, name **every** study by ",
+    "name -- do not preferentially cite one. The per-study chunks below ",
+    "provide depth; this roster gives each study equal prominence:\n",
+    paste(lines, collapse = "\n")
+  )
+}
 
 #' Empty learning context for when no studies are available
 #' @keywords internal
