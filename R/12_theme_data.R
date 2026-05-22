@@ -169,13 +169,33 @@ create_subtheme <- function(name = NA_character_, description = "",
   obj
 }
 
-#' Number of codes in a Subtheme
+#' Number of DIRECT codes in a Subtheme (excludes nested sub-subthemes)
+#'
+#' Phase 58 Tier 1 audit LOW-3/6 documentation: returns the count of
+#' codes attached DIRECTLY to this Subtheme. Codes in nested
+#' sub-subthemes are NOT counted. Use \code{subtheme_n_codes_total()}
+#' for the depth-recursive count.
+#'
 #' @param subtheme Subtheme S3
-#' @return Integer
+#' @return Integer; direct-code count (depth-0).
 #' @export
 subtheme_n_codes <- function(subtheme) {
   validate_class(subtheme, "Subtheme")
   length(subtheme$codes)
+}
+
+#' Number of codes in a Subtheme INCLUDING nested sub-subthemes
+#'
+#' Phase 58 Tier 1 audit LOW-3 addition: depth-recursive code count.
+#' Walks the Subtheme tree and sums direct-code counts at every depth.
+#' Use \code{subtheme_n_codes()} for the depth-0 (direct only) count.
+#'
+#' @param subtheme Subtheme S3
+#' @return Integer; total code count across every nested depth.
+#' @export
+subtheme_n_codes_total <- function(subtheme) {
+  validate_class(subtheme, "Subtheme")
+  length(.subtheme_codes_recursive(subtheme))
 }
 
 #' Code names (display) within a Subtheme
@@ -575,7 +595,13 @@ theme_set_to_tibble <- function(theme_set) {
     sentiment_tendency = vapply(theme_set$themes, function(t) t$sentiment_tendency, character(1)),
     entry_count = vapply(theme_set$themes, function(t) as.integer(t$entry_count), integer(1)),
     n_codes = vapply(theme_set$themes, function(t) length(theme_codes(t)), integer(1)),
+    # Phase 58 Tier 1 audit MEDIUM-1 followup: CSV form now exposes
+    # BOTH counters so consumers reading the tibble see the full
+    # decomposition shape, not just the depth-1 count. JSON form is
+    # canonical (see R/17_report.R) but the CSV is the most common
+    # downstream format and shouldn't underrepresent the nesting.
     n_subthemes = vapply(theme_set$themes, function(t) theme_n_subthemes(t), integer(1)),
+    n_subthemes_total = vapply(theme_set$themes, function(t) theme_n_subthemes_total(t), integer(1)),
     codes_included = vapply(theme_set$themes, function(t) {
       paste(theme_codes(t), collapse = "; ")
     }, character(1)),

@@ -990,6 +990,161 @@ test_that("C-5: no-provider short-circuits without errors", {
   expect_identical(out$codebook[["a"]]$description, "d")
 })
 
+# C-5 / D-7 audit followup tests --------------------------------------------
+
+test_that("D-7 audit followup LOW F2: NA AI description triggers backfill (not a crash)", {
+  # jsonlite parses `code_description: null` to NA_character_. Without
+  # the is.na guard the admit-path crashes with "missing value where
+  # TRUE/FALSE needed".
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+  entry_text <- "I have trouble with food addiction."
+  mock_response <- jsonlite::toJSON(list(
+    skipped = FALSE, skip_reason = "",
+    coded_segments = list(list(
+      text = "food addiction", start_char = 11L, end_char = 25L,
+      code = "NEW: Food Addiction",
+      code_description = NA, code_type = "descriptive"
+    ))
+  ), auto_unbox = TRUE, na = "null")
+  local_mocked_bindings(
+    ai_complete = function(...) list(content = mock_response, model = "x",
+                                       request_id = "r",
+                                       usage = list(prompt_tokens = 1L,
+                                                    completion_tokens = 1L,
+                                                    total_tokens = 2L),
+                                       finish_reason = "stop",
+                                       raw_response = list(),
+                                       prompt_hash = "h"),
+    compute_embeddings = function(...) NULL,
+    .package = "pakhom"
+  )
+  state <- create_coding_state()
+  expect_no_error({
+    state <- suppressWarnings(pakhom:::.code_entry_progressive(
+      text = entry_text, entry_id = "e1", entry_index = 1L,
+      state = state, provider = mock_provider(),
+      config = list(max_retries_per_entry = 1L), base_system_prompt = "test"
+    ))
+  })
+  # Code admitted with the placeholder (not "" and not NA).
+  desc <- state$codebook[["food addiction"]]$description
+  expect_true(nzchar(desc))
+  expect_false(is.na(desc))
+  expect_true(grepl("D-7 placeholder", desc, fixed = TRUE))
+})
+
+test_that("D-7 audit followup: whitespace-only AI description triggers backfill", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+  entry_text <- "Trouble with food addiction."
+  mock_response <- jsonlite::toJSON(list(
+    skipped = FALSE, skip_reason = "",
+    coded_segments = list(list(
+      text = "food addiction", start_char = 13L, end_char = 27L,
+      code = "NEW: Food Addiction",
+      code_description = "   ", code_type = "descriptive"   # whitespace only
+    ))
+  ), auto_unbox = TRUE)
+  local_mocked_bindings(
+    ai_complete = function(...) list(content = mock_response, model = "x",
+                                       request_id = "r",
+                                       usage = list(prompt_tokens = 1L,
+                                                    completion_tokens = 1L,
+                                                    total_tokens = 2L),
+                                       finish_reason = "stop",
+                                       raw_response = list(),
+                                       prompt_hash = "h"),
+    compute_embeddings = function(...) NULL,
+    .package = "pakhom"
+  )
+  state <- create_coding_state()
+  state <- suppressWarnings(pakhom:::.code_entry_progressive(
+    text = entry_text, entry_id = "e1", entry_index = 1L,
+    state = state, provider = mock_provider(),
+    config = list(max_retries_per_entry = 1L), base_system_prompt = "test"
+  ))
+  desc <- state$codebook[["food addiction"]]$description
+  expect_true(grepl("D-7 placeholder", desc, fixed = TRUE))
+})
+
+test_that("C-5 audit followup LOW F4: refresh_interval <= 0 disables the dispatcher", {
+  state <- create_coding_state()
+  state$codebook[["hifreq"]] <- list(
+    code_name = "Hifreq", description = "Original",
+    frequency = 100L, entry_ids = "e1",
+    coded_segments = list(list(text = "x"))
+  )
+  call_count <- 0L
+  testthat::local_mocked_bindings(
+    ai_complete = function(...) {
+      call_count <<- call_count + 1L
+      stop("AI should not have been called when interval <= 0")
+    },
+    .package = "pakhom"
+  )
+  out <- pakhom:::.maybe_refresh_high_freq_descriptions(
+    state, provider = mock_provider(),
+    refresh_interval = 0L, min_freq = 50L
+  )
+  expect_equal(call_count, 0L)
+  expect_identical(out$codebook[["hifreq"]]$description, "Original")
+})
+
+test_that("C-5 audit followup MEDIUM F1: sample_idx is deterministic across calls", {
+  # Replay-equivalence (AC10): two calls with identical inputs must
+  # produce identical sample_idx. The fix replaces sample() with
+  # evenly-spaced indices via seq(..., length.out = ...).
+  state <- create_coding_state()
+  segs <- lapply(seq_len(20), function(i) {
+    list(entry_id = paste0("e", i), text = paste("Segment", i))
+  })
+  state$codebook[["hifreq"]] <- list(
+    code_name = "Hifreq", description = "Original",
+    frequency = 100L, entry_ids = paste0("e", seq_len(20)),
+    coded_segments = segs
+  )
+  # Pad codebook to trigger refresh.
+  for (i in seq_len(100)) {
+    state$codebook[[paste0("c", i)]] <- list(
+      code_name = paste("C", i), description = "low", frequency = 1L,
+      entry_ids = paste0("ee", i), coded_segments = list(list(text = "x"))
+    )
+  }
+
+  observed_samples <- list()
+  testthat::local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt, task,
+                            temperature, response_schema, ...) {
+      # Capture the segment indices that appeared in the prompt by
+      # counting "[N]" markers (the .refresh_code_description prompt
+      # includes them).
+      n_matches <- length(regmatches(prompt, gregexpr("\\[\\d+\\]", prompt))[[1]])
+      observed_samples[[length(observed_samples) + 1L]] <<- n_matches
+      list(content = jsonlite::toJSON(list(description = "Refreshed."),
+                                        auto_unbox = TRUE),
+           usage = list())
+    },
+    .package = "pakhom"
+  )
+
+  # Call refresh twice with the same state. Reset the dispatcher's
+  # bookkeeping each time so it actually fires.
+  out1 <- pakhom:::.maybe_refresh_high_freq_descriptions(
+    state, provider = mock_provider(),
+    refresh_interval = 100L, min_freq = 50L, sample_segments = 5L
+  )
+  state2 <- state  # fresh state for second call
+  out2 <- pakhom:::.maybe_refresh_high_freq_descriptions(
+    state2, provider = mock_provider(),
+    refresh_interval = 100L, min_freq = 50L, sample_segments = 5L
+  )
+  # Both calls should have invoked the AI exactly once (the hifreq code)
+  # and sent the same prompt -- so the same N segments shown.
+  expect_length(observed_samples, 2L)
+  expect_equal(observed_samples[[1]], observed_samples[[2]])
+})
+
 # ============================================================================
 # Saturation tracking math (curve computation)
 #

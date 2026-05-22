@@ -321,6 +321,17 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
     snm <- s$name %||% NA_character_
     if (is.na(snm) || nchar(snm %||% "") == 0L) next  # virtual wrapper
 
+    # Phase 58 Tier 1 audit MEDIUM-2 followup: this loop iterates only
+    # depth-1 subthemes (theme$subthemes). Nested sub-subthemes
+    # (introduced by C-12) are NOT broken out as separate rows in the
+    # paper-style summary table -- their codes contribute to the
+    # parent subtheme's row instead. This matches the cascade design:
+    # subtheme_assignments stores only the top-level subtheme name. The
+    # full nested decomposition lives in themes.json and the HTML
+    # renderer's indented subtheme list. If a downstream consumer
+    # needs per-sub-subtheme stats, they can compute them from
+    # themes.json + theme_entries/*.csv directly.
+    #
     # Entries within this subtheme: filter the theme's entries by the
     # subtheme_assignments column (semicolon-separated names; same
     # serialization cascade_theme_assignments produces).

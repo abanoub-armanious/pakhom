@@ -1184,7 +1184,11 @@ run_progressive_coding <- function(data, provider, config = list(),
     # one anchor for what the code captured. A subsequent Phase 58
     # Tier 2 C-5 refresh pass replaces this placeholder once the code
     # accumulates enough segments to support a real description.
-    admit_desc <- if (is.null(seg_desc) || !nzchar(trimws(seg_desc %||% ""))) {
+    # Phase 58 Tier 2 audit LOW F2: also guard against NA. jsonlite
+    # parses JSON `null` to NA_character_ which would crash the
+    # subsequent if-condition ("missing value where TRUE/FALSE needed").
+    admit_desc <- if (is.null(seg_desc) || is.na(seg_desc) ||
+                      !nzchar(trimws(seg_desc %||% ""))) {
       snippet <- substr(as.character(seg_text)[1], 1, 150)
       log_warn(paste0(
         "Entry ", entry_id, ": new code '", code_name,
@@ -1608,6 +1612,13 @@ run_progressive_coding <- function(data, provider, config = list(),
   current_size <- length(cb)
   if (current_size == 0L) return(state)
 
+  # Phase 58 Tier 2 audit LOW F4: explicit disable when interval <= 0.
+  # Without this guard, interval=0 makes (current_size - last_attempt
+  # < 0) always FALSE -> dispatcher fires on every entry instead of
+  # never. The commit / config docs promise interval=0 disables; this
+  # makes that promise honest.
+  if (refresh_interval <= 0L) return(state)
+
   last_attempt <- state$last_description_refresh_at_size %||% 0L
   if (current_size - last_attempt < refresh_interval) return(state)
 
@@ -1641,10 +1652,16 @@ run_progressive_coding <- function(data, provider, config = list(),
       next
     }
 
+    # Phase 58 Tier 2 audit MEDIUM F1: deterministic sampling for
+    # replay-equivalence (AC10). Pre-fix `sample()` produced different
+    # segment indices on every rerun, persisting different refreshed
+    # descriptions in state -- the only stochastic R-side decision in
+    # the per-entry loop. Use evenly-spaced indices so the same code +
+    # same coded_segments always yield the same sample.
     sample_idx <- if (n_seg <= sample_segments) {
       seq_len(n_seg)
     } else {
-      sort(sample(seq_len(n_seg), sample_segments))
+      as.integer(round(seq(1, n_seg, length.out = sample_segments)))
     }
     sample_segs <- segs[sample_idx]
 

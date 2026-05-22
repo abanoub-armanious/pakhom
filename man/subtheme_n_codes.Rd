@@ -2,7 +2,7 @@
 % Please edit documentation in R/12_theme_data.R
 \name{subtheme_n_codes}
 \alias{subtheme_n_codes}
-\title{Number of codes in a Subtheme}
+\title{Number of DIRECT codes in a Subtheme (excludes nested sub-subthemes)}
 \usage{
 subtheme_n_codes(subtheme)
 }
@@ -10,8 +10,11 @@ subtheme_n_codes(subtheme)
 \item{subtheme}{Subtheme S3}
 }
 \value{
-Integer
+Integer; direct-code count (depth-0).
 }
 \description{
-Number of codes in a Subtheme
+Phase 58 Tier 1 audit LOW-3/6 documentation: returns the count of
+codes attached DIRECTLY to this Subtheme. Codes in nested
+sub-subthemes are NOT counted. Use \code{subtheme_n_codes_total()}
+for the depth-recursive count.
 }

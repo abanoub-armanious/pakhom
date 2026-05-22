@@ -1303,6 +1303,43 @@ test_that("Tier 1 AF-3: subtheme_n_subthemes returns immediate-child count", {
   expect_equal(subtheme_n_subthemes(inner1), 0L)
 })
 
+test_that("Tier 1 audit followup LOW-3: subtheme_n_codes_total recurses across depth", {
+  # Direct code count (depth-0) vs. recursive code count (all depths).
+  inner1 <- create_subtheme(name = "Inner 1", codes = c("a", "b"))
+  inner2 <- create_subtheme(name = "Inner 2", codes = c("c"))
+  outer  <- create_subtheme(name = "Outer", codes = c("d", "e", "f"),
+                              subthemes = list(inner1, inner2))
+  expect_equal(subtheme_n_codes(outer), 3L)         # direct (d, e, f)
+  expect_equal(subtheme_n_codes_total(outer), 6L)   # direct + a, b, c
+  expect_equal(subtheme_n_codes(inner1), 2L)
+  expect_equal(subtheme_n_codes_total(inner1), 2L)  # leaf -> direct == total
+})
+
+test_that("Tier 1 audit followup MEDIUM-1: theme_set_to_tibble exposes both n_subthemes counters", {
+  # CSV consumers should see both depth-1 (legacy) AND across-all-depths
+  # (total) counts; previously only depth-1 was emitted.
+  inner <- create_subtheme(name = "Inner Real", codes = c("a"))
+  outer <- create_subtheme(name = "Outer Real", codes = c("b"),
+                             subthemes = list(inner))
+  ts <- create_theme_set(themes = list(
+    list(id = 1L, name = "Theme A", description = "",
+         subthemes = list(outer)),
+    list(id = 2L, name = "Theme B", description = "",
+         subthemes = list(create_subtheme(name = NA_character_,
+                                            codes = c("c"))))
+  ))
+  tib <- theme_set_to_tibble(ts)
+  expect_true("n_subthemes" %in% names(tib))
+  expect_true("n_subthemes_total" %in% names(tib),
+              info = "tibble form should expose n_subthemes_total")
+  # Theme A: 1 top-level real ('Outer Real') + 1 nested real ('Inner Real') = 2 total.
+  expect_equal(tib$n_subthemes[tib$name == "Theme A"], 1L)
+  expect_equal(tib$n_subthemes_total[tib$name == "Theme A"], 2L)
+  # Theme B has only a virtual subtheme -> 0 real at any depth.
+  expect_equal(tib$n_subthemes[tib$name == "Theme B"], 0L)
+  expect_equal(tib$n_subthemes_total[tib$name == "Theme B"], 0L)
+})
+
 test_that("Tier 1 C-13: subtheme_assignments persists in cascade output", {
   # End-to-end smoke test: cascade attaches subtheme_assignments to
   # analytic data; the per-theme CSV export includes the column.
