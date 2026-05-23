@@ -877,12 +877,27 @@ interpret_correlations <- function(correlations_df, theme_stats) {
   if (has_meaningful) {
     n_meaningful <- sum(correlations_df$meaningful_effect, na.rm = TRUE)
     n_sig <- sum(correlations_df$significant, na.rm = TRUE)
+    # Phase 58 Tier 6 H-15: the publication-relevant headline is the
+    # intersection -- pairs that are BOTH statistically distinguishable
+    # AND large enough to matter substantively. Pre-Phase-58 the report
+    # quoted just `significant` (Bonferroni), which on a 5,000-entry
+    # corpus passes hundreds of trivial-magnitude pairs (|r| < 0.10)
+    # along with the substantive ones. The intersection number is the
+    # one a journal reviewer cares about; the standalone counts remain
+    # in the methodology appendix for full transparency.
+    n_meaningful_and_sig <- sum(
+      correlations_df$meaningful_effect & correlations_df$significant,
+      na.rm = TRUE
+    )
 
     summary_text <- paste0(
-      "Of ", n_total, " exploratory associations examined, **", n_meaningful,
-      "** had a meaningful effect size (|r| >= 0.10, Cohen's small-effect ",
-      "threshold) and **", n_sig, "** survived Bonferroni adjustment at ",
-      "alpha = 0.05.\n\n",
+      "Of ", n_total, " exploratory associations examined, **",
+      n_meaningful_and_sig, "** are both statistically significant after ",
+      "Bonferroni adjustment (alpha = 0.05) AND have a meaningful effect ",
+      "size (|r| >= 0.10, Cohen's small-effect threshold). For full ",
+      "transparency: ", n_meaningful, " pairs cross the effect-size ",
+      "threshold and ", n_sig, " pairs cross the significance threshold; ",
+      "the intersection above is the publication-relevant subset.\n\n",
       "_These associations are exploratory: themes were inductively derived ",
       "from the same data the correlations are computed on, so p-values are ",
       "best read as descriptive diagnostics rather than confirmatory tests ",
@@ -894,9 +909,9 @@ interpret_correlations <- function(correlations_df, theme_stats) {
     )
 
     pool <- correlations_df |>
-      filter(meaningful_effect) |>
+      filter(meaningful_effect & significant) |>
       arrange(desc(abs(correlation)))
-    label <- "The strongest associations (by effect size):"
+    label <- "The strongest associations (meaningful effect AND Bonferroni-significant):"
   } else {
     n_sig <- sum(correlations_df$significant, na.rm = TRUE)
     summary_text <- paste0(

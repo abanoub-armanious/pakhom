@@ -49,10 +49,31 @@ prepare_correlation_data <- function(data, theme_set, config = list()) {
     available_membership <- membership_cols[membership_cols %in% names(data)]
 
     if (length(available_membership) > 0) {
+      # Phase 58 Tier 6 H-16: apply min_theme_entries filter consistently
+      # with compare_theme_groups + test_theme_cooccurrence so the three
+      # statistical layers all denominate against the same theme cohort.
+      # Pre-Phase-58 the multi-label path admitted ANY membership column
+      # (frequency filter only fired on the emerged-themes fallback path),
+      # so the correlation matrix and theme-group / co-occurrence tibbles
+      # reported counts over slightly different denominators on the
+      # Phase 57 saturation run. The fallback path (lines 62-79 below)
+      # already applies the same filter.
+      kept <- 0L
+      excluded <- 0L
       for (col in available_membership) {
-        corr_data[[col]] <- data[[col]]
+        n_pos <- sum(data[[col]] == 1L, na.rm = TRUE)
+        if (n_pos >= config$min_theme_entries) {
+          corr_data[[col]] <- data[[col]]
+          kept <- kept + 1L
+        } else {
+          excluded <- excluded + 1L
+        }
       }
-      log_info("Using multi-label theme membership ({length(available_membership)} themes)")
+      log_info(paste0(
+        "Using multi-label theme membership: {kept} themes admitted ",
+        "(>= {config$min_theme_entries} members); ",
+        "{excluded} excluded for low frequency."
+      ))
     } else {
       log_warn("No multi-label columns found, falling back to exclusive assignment")
       config$use_multi_label <- FALSE
@@ -130,18 +151,31 @@ prepare_correlation_data <- function(data, theme_set, config = list()) {
 
 #' Detect variable types for dynamic correlation method selection
 #'
-#' Classifies each column as "binary", "ordinal" (<=7 unique values), or "continuous".
+#' Classifies each column as "binary", "ordinal", or "continuous". The
+#' ordinal threshold defaults to \code{<=21 unique values}, which covers
+#' (a) the VADER-shaped sentiment scale \code{[-1, 1]} quantized at 0.1
+#' (21 distinct levels), (b) the Likert-style 5/7/9/11-point scales
+#' common in survey research, and (c) AI-elicited intensity / confidence
+#' scores on a small integer grid. The pre-Phase-58 threshold of 7
+#' silently classified VADER sentiment as \emph{continuous} on the
+#' Phase 57 run, which then dispatched to Pearson (point-biserial for
+#' binary x quantized-sentiment pairs) -- methodologically wrong for an
+#' ordinal support. Spearman is correct when either variable is
+#' rank-orderable but not interval-scaled (H-13).
 #'
 #' @param corr_data Numeric tibble from prepare_correlation_data()
+#' @param ordinal_max Integer; upper bound on distinct values for the
+#'   ordinal classification. Default 21L. Datasets with finer-grained
+#'   ordinal scales (e.g. 0-50 Likert) can override.
 #' @return Named character vector with types per column
 #' @export
-detect_variable_types <- function(corr_data) {
+detect_variable_types <- function(corr_data, ordinal_max = 21L) {
   vapply(names(corr_data), function(col) {
     vals <- corr_data[[col]][!is.na(corr_data[[col]])]
     unique_vals <- sort(unique(vals))
     if (length(unique_vals) <= 2 && all(unique_vals %in% c(0, 1))) {
       "binary"
-    } else if (length(unique_vals) <= 7) {
+    } else if (length(unique_vals) <= as.integer(ordinal_max)) {
       "ordinal"
     } else {
       "continuous"
@@ -150,6 +184,17 @@ detect_variable_types <- function(corr_data) {
 }
 
 #' Select appropriate correlation method for a variable pair
+#'
+#' Phase 58 Tier 6 H-13 hardening: binary x ordinal pairs now route
+#' through Spearman (which yields the rank-biserial coefficient in that
+#' degenerate case). Pre-Phase-58 they routed to Pearson via the
+#' general binary+non-binary rule, which produces point-biserial -- a
+#' coefficient that assumes the non-binary side is interval-scaled. For
+#' AI-elicited sentiment / intensity / Likert scores the support is
+#' genuinely ordinal, not interval, and point-biserial is
+#' methodologically suspect. Binary x continuous remains Pearson
+#' (point-biserial is appropriate when the support genuinely is
+#' continuous).
 #'
 #' @param x Numeric vector
 #' @param y Numeric vector
@@ -160,6 +205,10 @@ detect_variable_types <- function(corr_data) {
 .select_pair_method <- function(x, y, type_x, type_y) {
   # Both binary -> Pearson (phi coefficient)
   if (type_x == "binary" && type_y == "binary") return("pearson")
+
+  # H-13: binary + ordinal -> Spearman (rank-biserial).
+  if ((type_x == "binary" && type_y == "ordinal") ||
+      (type_x == "ordinal" && type_y == "binary")) return("spearman")
 
   # One binary + one continuous -> Pearson (point-biserial)
   if ((type_x == "binary" && type_y == "continuous") ||
@@ -424,7 +473,11 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
     return(tibble::tibble(
       var1 = character(), var2 = character(), correlation = numeric(),
       p_value = numeric(), p_raw = numeric(), p_bh = numeric(),
-      p_bonferroni = numeric(), effect_size = character(),
+      p_bonferroni = numeric(),
+      # H-14: effect_size now uses 4-tier classification
+      # (negligible/small/medium/large) -- empty tibble keeps schema
+      # in sync so downstream consumers don't hit column-mismatch.
+      effect_size = character(),
       significant = logical(), meaningful_effect = logical(),
       method = character(), ci_lower = numeric(), ci_upper = numeric()
     ))
@@ -436,7 +489,15 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
       r <- cm[i, j]
       p <- pa[i, j]
       if (!is.na(r) && !is.na(p)) {
-        effect <- if (abs(r) >= 0.5) "large" else if (abs(r) >= 0.3) "medium" else "small"
+        # Phase 58 Tier 6 H-14: add "negligible" tier below Cohen's
+        # small-effect threshold (|r| < 0.10). Pre-Phase-58 the
+        # classifier labeled trivially small effects (e.g. |r| = 0.04
+        # with N > 5,000 passing Bonferroni) as "small", misleading
+        # readers about substantive magnitude.
+        effect <- if (abs(r) >= 0.5) "large"
+                  else if (abs(r) >= 0.3) "medium"
+                  else if (abs(r) >= 0.10) "small"
+                  else "negligible"
 
         # Determine method used for this pair
         pair_method <- if (!is.null(methods_used)) {
@@ -1073,8 +1134,11 @@ compare_theme_groups <- function(data, theme_set, config = list()) {
 
     members <- data[[mcol]] == 1
     non_members <- data[[mcol]] == 0
-    n_members <- sum(members, na.rm = TRUE)
-    n_non_members <- sum(non_members, na.rm = TRUE)
+    # H-17: explicit integer cast so the downstream tibble construction
+    # via vapply(..., integer(1), ...) doesn't crash on the boundary
+    # case where sum() returns double.
+    n_members <- as.integer(sum(members, na.rm = TRUE))
+    n_non_members <- as.integer(sum(non_members, na.rm = TRUE))
 
     if (n_members < min_group || n_non_members < min_group) next
 
@@ -1088,13 +1152,34 @@ compare_theme_groups <- function(data, theme_set, config = list()) {
 
       test_result <- tryCatch({
         wt <- wilcox.test(vals_members, vals_non, exact = FALSE)
-        n_total <- length(vals_members) + length(vals_non)
-        z_val <- qnorm(wt$p.value / 2)
-        effect_r <- abs(z_val) / sqrt(n_total)
+        # Phase 58 Tier 6 M-8 + M-9: replace the pre-Phase-58
+        # z-from-p-value derivation with a direct rank-biserial
+        # computation. Pre-Phase-58 effect_r was `abs(qnorm(p/2)) /
+        # sqrt(n_total)`, which (a) loses sign and (b) blows up to
+        # +/-Inf when p < 1e-300 (qnorm returns -Inf). Rank-biserial
+        # is `(U_members / (n_m * n_n)) - (U_non / (n_m * n_n))` =
+        # `2 * U_members / (n_m * n_n) - 1`, which is sign-aware and
+        # numerically stable. Magnitude scales conventionally on
+        # [-1, 1]; sign matches "higher rank in members".
+        n_m <- length(vals_members)
+        n_n <- length(vals_non)
+        u_members <- as.numeric(wt$statistic)  # R's wilcox W = U for x
+        rank_biserial <- (2 * u_members / (n_m * n_n)) - 1
 
         mean_m <- round(mean(vals_members), 3)
         mean_n <- round(mean(vals_non), 3)
-        direction <- if (mean_m > mean_n) "Higher in theme" else "Lower in theme"
+        # Tier 6 audit followup H-1: derive direction from the
+        # rank-biserial sign rather than mean comparison. On skewed
+        # distributions mean and rank centroid can disagree (e.g.
+        # outliers move the mean opposite the median), which pre-
+        # Tier-6-followup would render as "Higher in theme, r =
+        # -0.9" -- internally contradictory. Mann-Whitney IS a rank
+        # test, so the rank-based direction is the methodologically
+        # consistent one.
+        direction <- if (is.na(rank_biserial)) "Unknown"
+                      else if (rank_biserial > 0) "Higher in theme"
+                      else if (rank_biserial < 0) "Lower in theme"
+                      else "No difference"
 
         list(
           theme = theme_label,
@@ -1103,7 +1188,7 @@ compare_theme_groups <- function(data, theme_set, config = list()) {
           mean_non_members = mean_n,
           w_statistic = round(wt$statistic, 1),
           p_value = wt$p.value,
-          effect_r = round(effect_r, 3),
+          effect_r = round(rank_biserial, 3),
           direction = direction,
           n_members = n_members,
           n_non_members = n_non_members
@@ -1118,9 +1203,17 @@ compare_theme_groups <- function(data, theme_set, config = list()) {
 
   if (length(results) == 0) return(tibble::tibble())
 
+  # Phase 58 Tier 6 H-17: emit n_members + n_non_members. The internal
+  # results list already carried these (computed at lines above) but
+  # the tibble construction dropped them pre-Phase-58. Without them
+  # consumers couldn't tell whether an effect_r = 0.05 came from
+  # n_members = 5 (low power) or n_members = 500 (substantively
+  # negligible) -- a 100x power variation invisible to the consumer.
   df <- tibble::tibble(
     theme = vapply(results, `[[`, character(1), "theme"),
     variable = vapply(results, `[[`, character(1), "variable"),
+    n_members = vapply(results, `[[`, integer(1), "n_members"),
+    n_non_members = vapply(results, `[[`, integer(1), "n_non_members"),
     mean_members = vapply(results, `[[`, numeric(1), "mean_members"),
     mean_non_members = vapply(results, `[[`, numeric(1), "mean_non_members"),
     w_statistic = vapply(results, `[[`, numeric(1), "w_statistic"),
@@ -1138,11 +1231,22 @@ compare_theme_groups <- function(data, theme_set, config = list()) {
   df$p_bonferroni <- adjustments$bonferroni
   df$p_adjusted <- df$p_bonferroni                   # back-compat
   df$significant <- df$p_adjusted < 0.05             # back-compat
-  df$meaningful_effect <- df$effect_r >= 0.10        # Cohen's small-effect threshold
+  df$meaningful_effect <- abs(df$effect_r) >= 0.10   # Cohen's small-effect threshold (M-9: sign-aware)
+  # Phase 58 Tier 6 H-14: explicit effect-size label parallel to the
+  # correlation tibble's effect_size column. negligible / small /
+  # medium / large lets the report headline + downstream consumers
+  # filter / annotate consistently across statistical methods.
+  df$effect_size <- vapply(df$effect_r, function(r) {
+    if (is.na(r))            NA_character_
+    else if (abs(r) >= 0.5)  "large"
+    else if (abs(r) >= 0.3)  "medium"
+    else if (abs(r) >= 0.10) "small"
+    else                     "negligible"
+  }, character(1))
   df <- df[order(-abs(df$effect_r)), ]               # sort by effect size
 
   log_info("Theme group comparisons: {nrow(df)} tests; ",
-           "{sum(df$meaningful_effect, na.rm = TRUE)} with effect_r >= 0.10, ",
+           "{sum(df$meaningful_effect, na.rm = TRUE)} with |effect_r| >= 0.10, ",
            "{sum(df$significant)} significant after Bonferroni (p < 0.05). ",
            "All three p-adjustments (raw, BH, Bonferroni) reported per test.")
   df
@@ -1157,12 +1261,28 @@ compare_theme_groups <- function(data, theme_set, config = list()) {
 #' For each pair of themes, tests whether co-occurrence is significantly different
 #' from expected by chance.
 #'
+#' Phase 58 Tier 6 H-16: applies the same \code{min_theme_entries} filter
+#' that \code{prepare_correlation_data} and \code{compare_theme_groups}
+#' use, so the three statistical layers report counts over a consistent
+#' theme cohort. Pre-Phase-58 this function admitted every theme
+#' regardless of frequency, which produced thousands of degenerate
+#' Fisher tests on rare themes (the Phase 57 audit found 99.1% of
+#' Fisher pairs had \code{observed_both = 0}).
+#'
 #' @param data Tibble with theme_membership_* columns
 #' @param theme_set ThemeSet object
 #' @param min_expected Minimum expected cell count for chi-square (default 5)
+#' @param min_theme_entries Integer; themes with fewer than this many
+#'   positive entries are excluded. Default 5L, matching the
+#'   correlation matrix + theme-group test default.
+#' @param min_observed_both Integer; M-10 polish. Pairs whose observed
+#'   co-occurrence is below this count are skipped (Fisher tests on
+#'   zero-co-occurrence pairs are uninterpretable). Default 1L.
 #' @return Tibble with co-occurrence test results
 #' @export
-test_theme_cooccurrence <- function(data, theme_set, min_expected = 5) {
+test_theme_cooccurrence <- function(data, theme_set, min_expected = 5,
+                                      min_theme_entries = 5L,
+                                      min_observed_both = 1L) {
 
   membership_cols <- grep("^theme_membership_", names(data), value = TRUE)
   if (length(membership_cols) < 2) {
@@ -1170,8 +1290,34 @@ test_theme_cooccurrence <- function(data, theme_set, min_expected = 5) {
     return(tibble::tibble())
   }
 
+  # H-16: pre-filter membership columns by per-theme frequency so the
+  # cohort matches prepare_correlation_data + compare_theme_groups.
+  min_theme_entries <- as.integer(min_theme_entries %||% 5L)
+  if (is.na(min_theme_entries) || min_theme_entries < 1L) min_theme_entries <- 5L
+  n_input_themes <- length(membership_cols)
+  membership_cols <- membership_cols[vapply(
+    membership_cols,
+    function(col) sum(data[[col]] == 1L, na.rm = TRUE) >= min_theme_entries,
+    logical(1)
+  )]
+  n_excluded <- n_input_themes - length(membership_cols)
+  if (n_excluded > 0L) {
+    log_info(paste0(
+      "test_theme_cooccurrence: excluded {n_excluded} themes with ",
+      "< {min_theme_entries} members ({length(membership_cols)} themes remain)."
+    ))
+  }
+  if (length(membership_cols) < 2L) {
+    log_warn(
+      "After min_theme_entries filter, fewer than 2 themes remain for co-occurrence"
+    )
+    return(tibble::tibble())
+  }
+
   n_total <- nrow(data)
   results <- list()
+  min_observed_both <- as.integer(min_observed_both %||% 1L)
+  if (is.na(min_observed_both) || min_observed_both < 0L) min_observed_both <- 1L
 
   pairs <- utils::combn(membership_cols, 2, simplify = FALSE)
 
@@ -1194,6 +1340,12 @@ test_theme_cooccurrence <- function(data, theme_set, min_expected = 5) {
     observed_both <- ct[2, 2]
     expected_both <- round(sum(a == 1) * sum(b == 1) / n, 1)
 
+    # Phase 58 Tier 6 M-10: skip pairs with too-low observed co-occurrence.
+    # On the Phase 57 saturation run, 93.2% of Fisher pairs had
+    # observed_both = 0 -- the tests are vacuous and clog the output
+    # tibble with thousands of uninterpretable rows.
+    if (observed_both < min_observed_both) next
+
     # Check expected cell counts
     expected_mat <- outer(rowSums(ct), colSums(ct)) / n
     use_fisher <- any(expected_mat < min_expected)
@@ -1201,16 +1353,42 @@ test_theme_cooccurrence <- function(data, theme_set, min_expected = 5) {
     test_result <- tryCatch({
       if (use_fisher) {
         ft <- fisher.test(ct)
-        list(stat = NA_real_, p_value = ft$p.value, method = "Fisher")
+        # Phase 58 Tier 6 H-18: compute Cramer's V (= phi coefficient
+        # for a 2x2 table) directly from the contingency table when
+        # Fisher dispatches, so the Fisher path doesn't emit NA effect
+        # size. Pre-Phase-58 99.1% of Fisher tests had NA Cramer's V,
+        # giving the audit no way to rank them by magnitude.
+        # phi = (ad - bc) / sqrt((a+b)(c+d)(a+c)(b+d))
+        a11 <- as.numeric(ct[1, 1]); a12 <- as.numeric(ct[1, 2])
+        a21 <- as.numeric(ct[2, 1]); a22 <- as.numeric(ct[2, 2])
+        denom <- sqrt(
+          (a11 + a12) * (a21 + a22) * (a11 + a21) * (a12 + a22)
+        )
+        phi_2x2 <- if (is.finite(denom) && denom > 0) {
+          (a11 * a22 - a12 * a21) / denom
+        } else NA_real_
+        # chi_equiv = phi^2 * n, so sqrt(chi_equiv / n) = |phi|. Store
+        # chi_equiv as the test statistic for downstream consumers that
+        # expect a chi-square-shaped statistic; cramers_v derives from
+        # the absolute phi directly to skip the chi-square round-trip.
+        # Tier 6 audit followup L-4: dropped phi_signed (was created in
+        # the internal list but never carried into the output tibble,
+        # so consumers couldn't use it). Future sign-aware reporting
+        # can derive sign from a^ad-bc^>0 directly when needed.
+        chi_equiv <- if (!is.na(phi_2x2)) phi_2x2^2 * n else NA_real_
+        list(stat = if (!is.na(chi_equiv)) round(chi_equiv, 3) else NA_real_,
+              p_value = ft$p.value, method = "Fisher")
       } else {
         chi <- chisq.test(ct, correct = FALSE)
-        list(stat = round(chi$statistic, 3), p_value = chi$p.value, method = "Chi-square")
+        list(stat = round(chi$statistic, 3), p_value = chi$p.value,
+              method = "Chi-square")
       }
     }, error = function(e) NULL)
 
     if (is.null(test_result)) next
 
-    # Cramer's V
+    # Cramer's V (now populated for both Fisher and Chi-square paths via
+    # H-18 fix above).
     cramers_v <- if (!is.na(test_result$stat)) {
       round(sqrt(test_result$stat / n), 3)
     } else {
@@ -1253,6 +1431,16 @@ test_theme_cooccurrence <- function(data, theme_set, min_expected = 5) {
   df$p_adjusted <- df$p_bonferroni                   # back-compat
   df$significant <- df$p_adjusted < 0.05             # back-compat
   df$meaningful_effect <- abs(df$cramers_v) >= 0.10  # Cohen's small-effect threshold
+  # Phase 58 Tier 6 H-14: explicit effect-size label aligned with the
+  # correlation + theme-group tibbles. NA when Cramer's V is NA (still
+  # possible for some Fisher edge cases; H-18 closes the common path).
+  df$effect_size <- vapply(df$cramers_v, function(v) {
+    if (is.na(v))            NA_character_
+    else if (abs(v) >= 0.5)  "large"
+    else if (abs(v) >= 0.3)  "medium"
+    else if (abs(v) >= 0.10) "small"
+    else                     "negligible"
+  }, character(1))
   df <- df[order(-abs(df$cramers_v)), ]              # sort by effect size
 
   log_info("Theme co-occurrence: {nrow(df)} pairs; ",

@@ -2398,22 +2398,40 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   # --- Theme Group Comparisons (Mann-Whitney U) ---
   if (!is.null(theme_group_tests) && is.data.frame(theme_group_tests) && nrow(theme_group_tests) > 0) {
     has_tiered_p <- all(c("p_raw", "p_bh", "p_bonferroni") %in% names(theme_group_tests))
+    # Phase 58 Tier 6 audit followup M-2: surface n_members +
+    # n_non_members + effect_size in the rendered table. Pre-followup
+    # H-17 emitted these columns in the tibble but the renderer never
+    # showed them -- defeating the whole point of H-17. M-1 defensive
+    # guard against resume from pre-Tier-6 checkpoint (tibble without
+    # these columns falls back to the legacy rendered shape).
+    has_n_members <- all(c("n_members", "n_non_members") %in%
+                            names(theme_group_tests))
+    has_effect_size <- "effect_size" %in% names(theme_group_tests)
     content <- paste0(content,
       "## Theme Group Comparisons\n\n",
       "Mann-Whitney U tests comparing continuous variables (sentiment, emotion ",
       "intensity) between entries assigned to each theme versus those not ",
       "assigned. Effect sizes (Cohen's r conventions: 0.10 small, 0.30 medium, ",
-      "0.50 large) are the primary inferential signals; p-values under three ",
-      "regimes (raw, Benjamini-Hochberg FDR, Bonferroni FWER) are reported for ",
-      "transparency. Sorted by effect size.\n\n",
+      "0.50 large; below 0.10 negligible) are the primary inferential signals; ",
+      "p-values under three regimes (raw, Benjamini-Hochberg FDR, Bonferroni ",
+      "FWER) are reported for transparency. Sample sizes (n_members + ",
+      "n_non_members) accompany every test so power differences are visible. ",
+      "Sorted by absolute effect size.\n\n",
       "```{r theme-group-tests}\n",
       "tgt <- tibble::tibble(\n",
       "  Theme = ", deparse1(theme_group_tests$theme), ",\n",
       "  Variable = ", deparse1(theme_group_tests$variable), ",\n",
+      if (has_n_members) paste0(
+        "  `n (Members)` = ", deparse1(as.integer(theme_group_tests$n_members)), ",\n",
+        "  `n (Non-members)` = ", deparse1(as.integer(theme_group_tests$n_non_members)), ",\n"
+      ) else "",
       "  `Mean (Members)` = ", deparse1(round(theme_group_tests$mean_members, 3)), ",\n",
       "  `Mean (Non-members)` = ", deparse1(round(theme_group_tests$mean_non_members, 3)), ",\n",
       "  `W Statistic` = ", deparse1(theme_group_tests$w_statistic), ",\n",
       "  `Effect Size (r)` = ", deparse1(round(theme_group_tests$effect_r, 3)),
+      if (has_effect_size) paste0(",\n",
+        "  `Magnitude` = ", deparse1(theme_group_tests$effect_size)
+      ) else "",
       if (has_tiered_p) paste0(",\n",
         "  `p (raw)` = ", deparse1(signif(theme_group_tests$p_raw, 4)), ",\n",
         "  `p (BH FDR)` = ", deparse1(signif(theme_group_tests$p_bh, 4)), ",\n",
@@ -2438,6 +2456,18 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   # --- Theme Co-occurrence (Chi-square / Fisher's exact) ---
   if (!is.null(cooccurrence_tests) && is.data.frame(cooccurrence_tests) && nrow(cooccurrence_tests) > 0) {
     has_tiered_p <- all(c("p_raw", "p_bh", "p_bonferroni") %in% names(cooccurrence_tests))
+    # Phase 58 Tier 6 audit followup M-2: surface effect_size column
+    # when present. M-3: note count of pairs with degenerate (NA)
+    # Cramer's V separately, so the reader knows the headline applies
+    # to interpretable rows only.
+    has_effect_size <- "effect_size" %in% names(cooccurrence_tests)
+    n_na_cramers <- sum(is.na(cooccurrence_tests$cramers_v))
+    na_cramers_note <- if (n_na_cramers > 0L) {
+      sprintf(paste0(" Note: %d pair(s) had a degenerate contingency table ",
+                      "(one row or column all zero); their Cramer's V is ",
+                      "undefined and they are excluded from the meaningful-",
+                      "effect headline count."), n_na_cramers)
+    } else ""
     content <- paste0(content,
       "## Theme Co-occurrence\n\n",
       "Chi-square tests of independence (or Fisher's exact test when expected ",
@@ -2445,7 +2475,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
       "from what would be expected by chance. Cramer's V (effect size) is the ",
       "primary inferential signal; p-values under three regimes (raw, ",
       "Benjamini-Hochberg FDR, Bonferroni FWER) are reported for transparency. ",
-      "Sorted by |Cramer's V|.\n\n",
+      "Sorted by |Cramer's V|.", na_cramers_note, "\n\n",
       "```{r theme-cooccurrence}\n",
       "cooc <- tibble::tibble(\n",
       "  `Theme 1` = ", deparse1(cooccurrence_tests$theme1), ",\n",
@@ -2454,6 +2484,9 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
       "  `Expected Both` = ", deparse1(round(cooccurrence_tests$expected_both, 1)), ",\n",
       "  Statistic = ", deparse1(round(cooccurrence_tests$statistic, 3)), ",\n",
       "  `Cramer's V` = ", deparse1(round(cooccurrence_tests$cramers_v, 3)),
+      if (has_effect_size) paste0(",\n",
+        "  `Magnitude` = ", deparse1(cooccurrence_tests$effect_size)
+      ) else "",
       if (has_tiered_p) paste0(",\n",
         "  `p (raw)` = ", deparse1(signif(cooccurrence_tests$p_raw, 4)), ",\n",
         "  `p (BH FDR)` = ", deparse1(signif(cooccurrence_tests$p_bh, 4)), ",\n",

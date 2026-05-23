@@ -96,15 +96,33 @@ test_that("extract_significant computes CIs when corr_data provided", {
 # --- Dynamic method selection tests ---
 
 test_that("detect_variable_types identifies binary/ordinal/continuous", {
+  # Phase 58 Tier 6 H-13: ordinal threshold raised from 7 to 21 so
+  # VADER-shaped sentiment (21 levels) classifies as ordinal. Need
+  # > 21 distinct values for the "continuous" path.
+  set.seed(1L)
+  n <- 40L
   cd <- tibble::tibble(
-    binary_col = c(0, 1, 1, 0, 1, 0, 1, 0, 1, 0),
-    ordinal_col = c(1, 2, 3, 4, 5, 1, 2, 3, 4, 5),
-    continuous_col = rnorm(10)
+    binary_col = rep(c(0, 1), n / 2L),
+    ordinal_col = rep(1:5, n / 5L),
+    sentiment_like_col = round(runif(n, -1, 1), 1),  # 21-level grid
+    continuous_col = rnorm(n)                          # 40 distinct
   )
   types <- detect_variable_types(cd)
   expect_equal(types[["binary_col"]], "binary")
   expect_equal(types[["ordinal_col"]], "ordinal")
+  expect_equal(types[["sentiment_like_col"]], "ordinal")  # H-13 path
   expect_equal(types[["continuous_col"]], "continuous")
+})
+
+test_that("detect_variable_types honors override ordinal_max", {
+  cd <- tibble::tibble(
+    five_levels = c(1, 2, 3, 4, 5, 5, 4, 3, 2, 1)
+  )
+  # default (21L): 5 distinct -> ordinal
+  expect_equal(detect_variable_types(cd)[["five_levels"]], "ordinal")
+  # tighter cap (3L): 5 distinct -> continuous
+  expect_equal(detect_variable_types(cd, ordinal_max = 3L)[["five_levels"]],
+                "continuous")
 })
 
 test_that("calculate_correlations with dynamic_method selects per-pair", {
