@@ -10,7 +10,8 @@ create_theme_network(
   output_path = "theme_network.png",
   min_cooccurrence = 3,
   methodology_mode = NULL,
-  run_id = NULL
+  run_id = NULL,
+  max_inline_themes = 30L
 )
 }
 \arguments{
@@ -26,6 +27,10 @@ create_theme_network(
 adds a footer caption identifying the mode + run.}
 
 \item{run_id}{Optional character: run identifier.}
+
+\item{max_inline_themes}{Integer; when the graph has more nodes than
+this after isolated-vertex removal, the network is filtered to the
+top-N by weighted degree (sum of edge weights). Default 30L.}
 }
 \value{
 Invisible adjacency matrix, or NULL if igraph unavailable
@@ -34,4 +39,12 @@ Invisible adjacency matrix, or NULL if igraph unavailable
 Builds a network graph where nodes are themes and edges represent
 co-occurrence strength (entries assigned to both themes). Requires
 multi-label assignment columns (\code{theme_membership_*}).
+}
+\details{
+Phase 58 Tier 5 AH-9/V-1: at scale the unfiltered network was an
+unreadable hairball (Phase 57 audit observed 417 themes plotted at
+once with no legend). The \code{max_inline_themes} parameter caps
+the visible network at the top-N most-connected themes (ranked by
+weighted degree) and adds an inline legend explaining node size +
+edge width encoding.
 }

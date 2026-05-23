@@ -897,8 +897,11 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   content <- paste0(content, .build_emotional_landscape(overall_stats, export_files))
 
   # --- Thematic Analysis ---
+  # Phase 58 Tier 5 C-3: pass config so the section honors
+  # analysis$themes$max_inline_themes (top-N inline cards + compact
+  # rows for the remainder). Prevents pandoc OOM at scale.
   content <- paste0(content, .build_thematic_section(
-    theme_stats, theme_order, theme_count, export_files
+    theme_stats, theme_order, theme_count, export_files, config = config
   ))
 
   # --- Correlation Analysis ---
@@ -1292,7 +1295,22 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   content
 }
 
-.build_thematic_section <- function(theme_stats, theme_order, n_themes, export_files) {
+.build_thematic_section <- function(theme_stats, theme_order, n_themes, export_files,
+                                     config = NULL) {
+  # Phase 58 Tier 5 C-3: top-N inlining + tabular index for remainder.
+  # Themes beyond max_inline_themes are rendered as compact one-line
+  # rows linking to their per-theme detail HTMLs. Default 30 keeps the
+  # main Rmd well under pandoc's working-set limit even on corpora
+  # producing hundreds of themes.
+  max_inline_themes <- as.integer(
+    config$analysis$themes$max_inline_themes %||% 30L
+  )
+  if (is.na(max_inline_themes) || max_inline_themes < 1L) {
+    # Defensive: malformed user config falls back to package default,
+    # not to "no cap". A user setting it to 0 or NA would otherwise
+    # silently produce an all-compact report.
+    max_inline_themes <- 30L
+  }
   content <- paste0(
     "# Thematic Analysis\n\n",
     "The analysis identified **", n_themes, " distinct themes** through an iterative process of ",
@@ -1368,15 +1386,61 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   # Theme cards. Phase 54: inject a section header when the theme_kind
   # changes (framework -> emergent -> anomaly_bracket). For Mode 2 runs
   # (all theme_kind = "framework") the header injection never fires.
+  # Phase 58 Tier 5 C-3: themes beyond max_inline_themes render compact
+  # (one-line summary + link). The threshold counts across kinds so the
+  # cap is a global budget, not per-kind.
+  # Tier 5 audit followup M3: dedupe theme_order so an upstream caller
+  # that accidentally repeats a name doesn't render the same theme
+  # twice (which would also break the n_compact arithmetic). Phase 51
+  # invariants exclude duplicates in practice but defensive dedup
+  # cheap insurance.
+  theme_order <- unique(theme_order)
   theme_index <- 0
   last_kind <- NA_character_
+  compact_header_emitted <- FALSE
+  total_rendered <- length(intersect(theme_order, names(theme_stats)))
+  n_compact <- max(0L, total_rendered - max_inline_themes)
   for (tn in theme_order) {
     if (!tn %in% names(theme_stats)) next
     theme_index <- theme_index + 1
     ts <- theme_stats[[tn]]
     csv_info <- export_files$theme_csv_files[[tn]]
+    safe_fn <- make_safe_filename(tn)
 
     cur_kind <- ts$theme_kind %||% "framework"
+    is_compact <- theme_index > max_inline_themes
+
+    sent_class <- if (is.na(ts$sentiment$mean)) "neutral"
+      else if (ts$sentiment$mean < .SENTIMENT_NEGATIVE_THRESHOLD) "negative"
+      else if (ts$sentiment$mean > .SENTIMENT_POSITIVE_THRESHOLD) "positive"
+      else "neutral"
+
+    # Phase 58 Tier 5 C-3 audit followup H1: at the inline-to-compact
+    # boundary, emit the "## Additional themes" header BEFORE the
+    # theme_kind transition banner. Pre-followup the two banners
+    # stacked with no content in between when framework count exactly
+    # equaled max_inline_themes (i.e. the first compact theme was also
+    # the first emergent / anomaly_bracket theme). Reordering puts the
+    # cap-explanation banner first; the kind banner follows naturally
+    # inside the compact section and the reader sees coherent section
+    # boundaries.
+    if (is_compact && !compact_header_emitted) {
+      content <- paste0(content,
+        '<div class="additional-themes-header" style="margin-top: 2.5rem;">\n',
+        '## Additional themes\n\n',
+        '<p class="theme-description"><em>',
+        n_compact, ' theme(s) ranked beyond the top ',
+        max_inline_themes, ' are listed below as compact rows linking ',
+        'to their full per-theme detail pages. This keeps the main HTML ',
+        'renderable at scale (pandoc OOMs on inline cards for >400 themes; ',
+        'see Phase 58 Tier 5 C-3). Every theme retains complete provenance, ',
+        'entries, and the paper-style subtheme summary on its detail page.',
+        '</em></p>\n',
+        '</div>\n\n'
+      )
+      compact_header_emitted <- TRUE
+    }
+
     if (!identical(cur_kind, last_kind)) {
       header_html <- switch(cur_kind,
         framework = "",  # default; framework themes come first, no header needed
@@ -1406,10 +1470,41 @@ generate_report <- function(data, theme_set, correlations_df, insights,
       last_kind <- cur_kind
     }
 
-    sent_class <- if (is.na(ts$sentiment$mean)) "neutral"
-      else if (ts$sentiment$mean < .SENTIMENT_NEGATIVE_THRESHOLD) "negative"
-      else if (ts$sentiment$mean > .SENTIMENT_POSITIVE_THRESHOLD) "positive"
-      else "neutral"
+    # Phase 58 Tier 5 C-3: compact branch. Themes beyond the inline cap
+    # render a single-line card with badge + name + n + sentiment +
+    # detail link + CSV link. The per-theme detail HTML still has the
+    # full provenance + entries table + paper-style subtheme table
+    # (Phase 58 Tier 5 H-23). The "## Additional themes" section header
+    # was already emitted above (audit followup H1 ordering).
+    if (is_compact) {
+      # Tier 5 audit followup M1: format sentiment the same way the
+      # inline metric card does (rounded by the upstream aggregate but
+      # printed without further rounding here). NA falls through to
+      # "NA" verbatim, matching inline behavior; pre-followup the
+      # compact branch printed "n/a" instead, an inconsistency in
+      # the same report.
+      csv_link <- if (!is.null(csv_info))
+        paste0(' &middot; <a href="', csv_info$relative_path,
+                '" download>CSV</a>')
+      else ""
+      content <- paste0(content,
+        '<div class="theme-card-compact" id="theme-summary-', theme_index,
+        '">\n',
+        '<span class="theme-badge theme-badge-compact">', theme_index,
+        '</span> ',
+        '<a href="theme_details/theme_', safe_fn,
+        '.html" class="theme-compact-link" target="_blank"><strong>',
+        .html_esc(tn), '</strong></a> &mdash; ',
+        '<span class="compact-n">', ts$n_entries, ' entries (',
+        ts$pct_of_total, '%)</span> &middot; ',
+        '<span class="compact-sent text-', sent_class, '">sentiment ',
+        ts$sentiment$mean,
+        '</span>',
+        csv_link,
+        '\n</div>\n\n'
+      )
+      next
+    }
 
     content <- paste0(content,
       '<div class="theme-card theme-', theme_index, '" id="theme-summary-', theme_index, '">\n\n',
@@ -1493,8 +1588,8 @@ generate_report <- function(data, theme_set, correlations_df, insights,
       }
     }
 
-    # Detail link
-    safe_fn <- make_safe_filename(tn)
+    # Detail link (safe_fn already computed at loop top for Phase 58
+    # Tier 5 C-3 compact-row pathway)
     content <- paste0(content,
       '<a href="theme_details/theme_', safe_fn, '.html" class="drill-down-link" target="_blank">',
       'View Full Details: ', ts$n_entries, ' Entries</a>\n'
@@ -1742,6 +1837,106 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 
 
 # ==============================================================================
+# Skip-reason taxonomy clustering (Phase 58 Tier 5 V-7)
+# ==============================================================================
+
+#' Cluster free-text skip reasons into a coarse taxonomy
+#'
+#' AI-generated skip reasons (\code{coding_state$entry_results[[id]]$skip_reason})
+#' are short free-text justifications produced by the coding model when it
+#' judges an entry off-topic / non-applicable. On a 5,000-entry run the
+#' Phase 57 audit observed 580 distinct reason strings, almost all
+#' paraphrases of "the entry does not contain..." in slightly different
+#' wording. Rendering one HTML bullet per distinct string produced an
+#' unreadable 580-bullet list AND contributed measurably to pandoc OOM
+#' during HTML render (C-3).
+#'
+#' This helper buckets reasons into ~7 broad categories via case-insensitive
+#' keyword regex, first-match-wins. Categories are aggregated by total
+#' count; each carries up to 3 verbatim examples (most-frequent first)
+#' so the reader can still sample original wording.
+#'
+#' @param skip_reasons Named integer vector from \code{coverage$skip_reasons}
+#'   (names = verbatim reason strings; values = counts).
+#' @return List of category records, each with \code{label}, \code{count}
+#'   (total entries in this category), \code{n_distinct} (distinct
+#'   reason strings), and \code{examples} (character vector, up to 3).
+#'   Sorted by total count, descending.
+#' @keywords internal
+.cluster_skip_reasons <- function(skip_reasons) {
+  if (is.null(skip_reasons) || length(skip_reasons) == 0L) {
+    return(list())
+  }
+
+  # Order matters: first-match-wins. Broad-first patterns would absorb
+  # everything; specific patterns come first so they pull the obvious
+  # cases out before "off-topic" sweeps the rest. The "Other" bucket
+  # catches anything that doesn't match a known pattern.
+  patterns <- list(
+    "Media-only (image / video / GIF / emoji)" =
+      "\\b(gif|emoji|sticker|emoticon|image|images|photo|video|videos|media[ -]?only|attachment|attachments|reaction[- ]?image)\\b",
+    "Duplicate / near-duplicate" =
+      "\\b(duplicate|reposted|repost|already (covered|posted|discussed)|same as|identical|previously (mentioned|posted))\\b",
+    "Metadata / tag / link only" =
+      "(\\bsubreddit (tag|reference|mention)|/r/|\\btag(s|ged)? only|\\blink(s)?( only)?\\b|\\burl(s)?( only)?\\b|\\bmention(s)? only|\\bmetadata\\b|^@\\S+\\s*$)",
+    "Quote / reply with no original content" =
+      "(\\bquote (only|of)\\b|\\bquoting\\b|\\breply (to|that has)\\b|just a (reply|response|quote)|paraphrase of|forwarded)",
+    "Question without contributable content" =
+      "(\\bonly a question\\b|\\bquestion without\\b|\\bjust asking\\b|\\basking for (help|advice|info|information|opinions)|\\bwondering (if|how|when|what|where|why)|\\bseeking (advice|help|info|input))",
+    "Too short / no substantive content" =
+      "(\\btoo short\\b|\\binsufficient (content|text|detail|context)|\\bno (substantive|meaningful|relevant|usable) content|\\b(empty|blank) (entry|post|comment)|\\bstub\\b|\\bfewer than\\b|\\bless than [0-9]|\\bbrief (comment|reply)|\\bone[- ](word|liner)|\\bvery brief\\b)",
+    "Off-topic / not about research focus" =
+      "(\\boff[ -]?topic\\b|\\bnot (about|related|relevant|on[- ]?topic)|\\bunrelated\\b|\\birrelevant\\b|\\bdoes not (relate|pertain|concern|address|discuss|mention|involve|cover)|\\boutside (the )?(scope|topic|focus|study)|\\bdoesn'?t (relate|discuss|mention|address)|\\bnot pertinent\\b|\\bno (?:relevant )?information about\\b)"
+  )
+
+  reasons <- as.character(names(skip_reasons))
+  counts  <- as.integer(skip_reasons)
+  # NA / empty reasons get a stable label so they cluster rather than
+  # silently fold into the wrong category.
+  reasons[is.na(reasons) | !nzchar(reasons)] <- "(unspecified)"
+  reasons_lower <- tolower(reasons)
+
+  cat_label <- rep("Other / unspecified", length(reasons))
+  for (label in names(patterns)) {
+    unmatched <- cat_label == "Other / unspecified"
+    if (!any(unmatched)) break
+    hits <- unmatched & grepl(patterns[[label]], reasons_lower, perl = TRUE)
+    cat_label[hits] <- label
+  }
+
+  # Aggregate per category.
+  result <- list()
+  for (label in unique(cat_label)) {
+    in_cat <- cat_label == label
+    cat_count <- sum(counts[in_cat])
+    cat_reasons <- reasons[in_cat]
+    cat_counts <- counts[in_cat]
+
+    # Examples = top-3 by count within the category.
+    ord <- order(-cat_counts)
+    examples <- utils::head(cat_reasons[ord], 3L)
+
+    result[[label]] <- list(
+      label      = label,
+      count      = as.integer(cat_count),
+      n_distinct = length(cat_reasons),
+      examples   = as.character(examples)
+    )
+  }
+
+  # Preserve a sensible across-category ordering: by total count desc,
+  # but keep "Other / unspecified" at the end regardless of size so a
+  # reader expecting a known taxonomy sees the known categories first.
+  others <- result[names(result) == "Other / unspecified"]
+  known  <- result[names(result) != "Other / unspecified"]
+  if (length(known) > 0L) {
+    known <- known[order(-vapply(known, function(x) x$count, integer(1)))]
+  }
+  c(known, others)
+}
+
+
+# ==============================================================================
 # Corpus coverage card (Sprint-4 T0.3)
 # ==============================================================================
 
@@ -1875,19 +2070,49 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "AI judged: no applicable content"
   ))
 
-  # Skip-reason breakdown -- only render when we have skips
+  # Skip-reason breakdown -- only render when we have skips. Phase 58
+  # Tier 5 V-7: free-text reasons are clustered into ~7 broad
+  # categories via keyword matching, then rendered as category +
+  # total count + up to 3 verbatim examples (most-frequent first).
+  # Pre-Phase-58 the section emitted one <li> per distinct reason --
+  # the Phase 57 full run produced 580 distinct strings (mostly
+  # paraphrases of "the entry does not contain...") and the resulting
+  # 580-bullet list was a measurable contributor to HTML render OOM
+  # (C-3) and a major reader-cognitive-load issue.
   skip_block <- ""
   if (length(coverage$skip_reasons) > 0L) {
-    rows <- vapply(seq_along(coverage$skip_reasons), function(i) {
-      reason <- names(coverage$skip_reasons)[i]
-      n      <- coverage$skip_reasons[[i]]
-      sprintf("<li><strong>%s</strong>: %s</li>",
-              .html_esc(reason), format(n, big.mark = ","))
+    clustered <- .cluster_skip_reasons(coverage$skip_reasons)
+    cat_rows <- vapply(clustered, function(cat) {
+      examples_html <- if (length(cat$examples) > 0L) {
+        paste0(
+          '<ul class="coverage-skip-examples">',
+          paste(vapply(
+            cat$examples,
+            function(ex) sprintf('<li>%s</li>', .html_esc(ex)),
+            character(1)
+          ), collapse = ""),
+          '</ul>'
+        )
+      } else ""
+      sprintf(
+        '<li><strong>%s</strong>: %s entries (%d distinct reason%s)%s</li>',
+        .html_esc(cat$label),
+        format(cat$count, big.mark = ","),
+        cat$n_distinct,
+        ifelse(cat$n_distinct == 1L, "", "s"),
+        examples_html
+      )
     }, character(1))
+
     skip_block <- paste0(
       '<div class="coverage-skip-reasons">\n',
-      '<div class="coverage-subheader">Skip reasons</div>\n',
-      '<ul>', paste(rows, collapse = ""), '</ul>\n',
+      '<div class="coverage-subheader">Skip reasons (clustered)</div>\n',
+      '<p class="coverage-skip-caption"><em>Free-text reasons clustered by ',
+      'keyword into broad categories (Phase 58 Tier 5 V-7); up to 3 verbatim ',
+      'examples per category, most-frequent first.</em></p>\n',
+      '<ul class="coverage-skip-categories">',
+      paste(cat_rows, collapse = ""),
+      '</ul>\n',
       '</div>\n'
     )
   }
@@ -3215,6 +3440,23 @@ sentiment_colors <- c(
         }
         html <- paste0(html, '</div>\n')
       }
+    }
+
+    # Phase 58 Tier 5 H-23: render the paper-style per-subtheme summary
+    # table (Subtheme | n | Median(MAD) | Mean(SD) per metric | examples
+    # of comments) on each per-theme detail page too. Pre-Phase-58 the
+    # table only appeared in the main report -- so when a reader clicked
+    # "View Full Details" they LOST the paper-style breakdown that's the
+    # most important Phase 55 output. The renderer returns "" when the
+    # theme has no real subthemes (virtual-only) or no detectable
+    # metrics, so the section disappears gracefully when not applicable.
+    subtheme_table_html <- .build_subtheme_summary_table(ts)
+    if (nzchar(subtheme_table_html)) {
+      html <- paste0(html,
+        '<div class="detail-subtheme-summary">\n',
+        subtheme_table_html,
+        '</div>\n'
+      )
     }
 
     # Keywords

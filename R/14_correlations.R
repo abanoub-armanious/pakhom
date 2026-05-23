@@ -561,25 +561,28 @@ generate_insights <- function(correlations_df, theme_set, provider,
 
 #' Create correlation plot
 #'
+#' Renders a correlation heatmap for small matrices, OR a top-N
+#' effect-size lollipop chart for large matrices (Phase 58 Tier 5 C-10).
+#' Pre-Phase-58 the corrplot heatmap was unconditional, producing a
+#' 14,280x14,280 PNG (4.8 MB, browser-illegible) on the 228-variable
+#' Phase 57 saturation run. Above the \code{max_inline_vars} threshold
+#' the function now switches to a ggplot2 horizontal lollipop showing
+#' the top-N pairs ranked by absolute correlation, with significance
+#' encoded by point color.
+#'
 #' @param results CorrelationResults from calculate_correlations()
 #' @param output_path File path for PNG output
 #' @param methodology_mode Optional character (T1.7 / AC4): when supplied,
 #'   adds a footer caption identifying the methodology mode + run.
 #' @param run_id Optional character: run identifier.
+#' @param max_inline_vars Integer; correlation matrices with more
+#'   variables than this render as a top-N lollipop instead of a
+#'   heatmap. Default 30L.
 create_correlation_plot <- function(results, output_path,
                                       methodology_mode = NULL,
-                                      run_id = NULL) {
+                                      run_id = NULL,
+                                      max_inline_vars = 30L) {
   log_info("Creating correlation plot...")
-
-  # Phase 36 (CRAN prep): corrplot moved to Suggests. Skip the plot
-  # (with a friendly log line) when the package isn't installed,
-  # rather than crashing -- the rest of the pipeline produces full
-  # correlation results in correlations.csv regardless.
-  if (!requireNamespace("corrplot", quietly = TRUE)) {
-    log_warn("corrplot package not installed; skipping correlation plot. ",
-             "Install with: install.packages('corrplot')")
-    return(invisible(NULL))
-  }
 
   cm <- results$correlation_matrix
   pa <- results$p_adjusted
@@ -601,8 +604,39 @@ create_correlation_plot <- function(results, output_path,
   rownames(pa) <- .humanize_var(rownames(pa))
   colnames(pa) <- .humanize_var(colnames(pa))
 
-  # Scale plot size based on number of variables
   n_vars <- ncol(cm)
+  top_n <- as.integer(max_inline_vars %||% 30L)
+  # Tier 5 audit followup H3: cross-knob consistency. max_inline_themes
+  # uses `< 1L` (a 0 / negative / NA value falls back to default 30L);
+  # match that here. A user value of 1 dispatches to the lollipop on a
+  # 2+ variable matrix, which renders 1 pair (still useful for the
+  # degenerate case).
+  if (is.na(top_n) || top_n < 1L) top_n <- 30L
+
+  # Phase 58 Tier 5 C-10: large-matrix branch. The corrplot heatmap
+  # is illegible (and crashes browsers) above ~30 variables; switch
+  # to a top-N effect-size lollipop chart. Heatmap path remains for
+  # small matrices where it remains the best visualization.
+  if (n_vars > top_n) {
+    .create_correlation_lollipop(
+      cm = cm, pa = pa, output_path = output_path,
+      top_n = top_n, n_total_vars = n_vars,
+      methodology_mode = methodology_mode, run_id = run_id
+    )
+    return(invisible(NULL))
+  }
+
+  # Phase 36 (CRAN prep): corrplot moved to Suggests. Skip the plot
+  # (with a friendly log line) when the package isn't installed,
+  # rather than crashing -- the rest of the pipeline produces full
+  # correlation results in correlations.csv regardless.
+  if (!requireNamespace("corrplot", quietly = TRUE)) {
+    log_warn("corrplot package not installed; skipping correlation plot. ",
+             "Install with: install.packages('corrplot')")
+    return(invisible(NULL))
+  }
+
+  # Scale plot size based on number of variables
   plot_size <- max(1000, 600 + n_vars * 60)
   bottom_margin <- max(2, ceiling(max(nchar(colnames(cm))) * 0.15))
 
@@ -636,11 +670,150 @@ create_correlation_plot <- function(results, output_path,
   log_info("Correlation plot saved: {output_path}")
 }
 
+#' Top-N effect-size lollipop chart for large correlation matrices
+#'
+#' Phase 58 Tier 5 C-10 fallback: when the variable count exceeds the
+#' heatmap legibility threshold (\code{max_inline_vars}), render the
+#' top-N unique pairs by \code{|r|} as a horizontal lollipop. Pairs
+#' are extracted from the upper triangle of the correlation matrix
+#' (each pair appears once). Significance, when available, is encoded
+#' by point color (Bonferroni-adjusted \code{p < 0.05} vs not).
+#'
+#' @param cm Correlation matrix (rownames and colnames already humanized
+#'   by the caller).
+#' @param pa Adjusted-p matrix aligned to \code{cm}; NAs treated as
+#'   non-significant.
+#' @param output_path File path for PNG output.
+#' @param top_n Integer; number of top pairs to show.
+#' @param n_total_vars Integer; total variables in the underlying
+#'   matrix (used in the subtitle to make the filter explicit).
+#' @param methodology_mode AC4 caption.
+#' @param run_id AC4 caption.
+#' @keywords internal
+.create_correlation_lollipop <- function(cm, pa, output_path, top_n,
+                                          n_total_vars,
+                                          methodology_mode = NULL,
+                                          run_id = NULL) {
+  n <- ncol(cm)
+  if (n < 2L) return(invisible(NULL))
+
+  # Extract upper-triangle pairs. Vectorize via upper.tri() rather
+  # than nested loops so this stays O(n^2) without R's per-iteration
+  # interpreter overhead.
+  ut <- upper.tri(cm, diag = FALSE)
+  row_idx <- row(cm)[ut]
+  col_idx <- col(cm)[ut]
+  r_vals  <- cm[ut]
+  p_vals  <- if (!is.null(pa)) pa[ut] else rep(NA_real_, length(r_vals))
+
+  keep <- !is.na(r_vals)
+  if (!any(keep)) {
+    log_warn("No usable correlation pairs for lollipop chart")
+    return(invisible(NULL))
+  }
+  row_idx <- row_idx[keep]
+  col_idx <- col_idx[keep]
+  r_vals  <- r_vals[keep]
+  p_vals  <- p_vals[keep]
+
+  abs_r <- abs(r_vals)
+  ord <- order(-abs_r)
+  ord <- ord[seq_len(min(length(ord), as.integer(top_n)))]
+  row_idx <- row_idx[ord]
+  col_idx <- col_idx[ord]
+  r_vals  <- r_vals[ord]
+  p_vals  <- p_vals[ord]
+
+  pair_label <- paste(rownames(cm)[row_idx], "<->", colnames(cm)[col_idx])
+  signif_label <- ifelse(!is.na(p_vals) & p_vals < 0.05,
+                          "p < 0.05",
+                          "n.s.")
+
+  df <- data.frame(
+    label = factor(pair_label, levels = rev(pair_label)),
+    r = r_vals,
+    significant = factor(signif_label, levels = c("p < 0.05", "n.s.")),
+    stringsAsFactors = FALSE
+  )
+
+  caption_text <- if (!is.null(methodology_mode)) {
+    methodology_plot_caption(methodology_mode, run_id)
+  } else NULL
+
+  p <- ggplot2::ggplot(df, ggplot2::aes(x = .data$r, y = .data$label,
+                                          colour = .data$significant)) +
+    ggplot2::geom_segment(
+      ggplot2::aes(x = 0, xend = .data$r,
+                    y = .data$label, yend = .data$label),
+      linewidth = 0.5, na.rm = TRUE
+    ) +
+    ggplot2::geom_point(size = 3, na.rm = TRUE) +
+    ggplot2::geom_vline(xintercept = 0, colour = "#7F8C8D",
+                         linewidth = 0.3) +
+    ggplot2::scale_colour_manual(
+      values = c("p < 0.05" = "#3498DB", "n.s." = "#BDC3C7"),
+      drop = FALSE,
+      name = "Significance"
+    ) +
+    ggplot2::labs(
+      title    = sprintf("Top %d correlations by effect size", nrow(df)),
+      subtitle = sprintf("Showing %d highest-|r| pairs out of %d variables (%d unique pairs)",
+                          nrow(df), n_total_vars,
+                          as.integer(n_total_vars * (n_total_vars - 1L) / 2L)),
+      x        = "Correlation (r)",
+      y        = NULL,
+      caption  = caption_text
+    ) +
+    ggplot2::theme_minimal(base_family = "sans") +
+    ggplot2::theme(
+      plot.background    = ggplot2::element_rect(fill = "white", colour = NA),
+      panel.background   = ggplot2::element_rect(fill = "white", colour = NA),
+      panel.grid.major.x = ggplot2::element_line(colour = "#EAECEE",
+                                                  linewidth = 0.4),
+      panel.grid.major.y = ggplot2::element_blank(),
+      panel.grid.minor   = ggplot2::element_blank(),
+      axis.line          = ggplot2::element_line(colour = "#2C3E50",
+                                                  linewidth = 0.3),
+      axis.text          = ggplot2::element_text(colour = "#7F8C8D",
+                                                  size = 10),
+      axis.title         = ggplot2::element_text(colour = "#2C3E50",
+                                                  size = 11, face = "bold"),
+      plot.title         = ggplot2::element_text(colour = "#2C3E50",
+                                                  size = 15, face = "bold",
+                                                  margin = ggplot2::margin(b = 6)),
+      plot.subtitle      = ggplot2::element_text(colour = "#7F8C8D",
+                                                  size = 10,
+                                                  margin = ggplot2::margin(b = 12)),
+      legend.position    = "top",
+      legend.background  = ggplot2::element_rect(fill = "white", colour = NA),
+      plot.margin        = ggplot2::margin(15, 15, 15, 15),
+      plot.caption       = ggplot2::element_text(colour = "#7F8C8D",
+                                                  size = 7, hjust = 1)
+    )
+
+  height_px <- max(500L, as.integer(28L * nrow(df) + 200L))
+  grDevices::png(output_path, width = 1200L, height = height_px, res = 120)
+  tryCatch(
+    print(p),
+    error = function(e) log_warn("Correlation lollipop failed: {e$message}")
+  )
+  grDevices::dev.off()
+  log_info("Correlation lollipop plot saved: {output_path}")
+  invisible(NULL)
+}
+
 #' Create theme co-occurrence network visualization
 #'
 #' Builds a network graph where nodes are themes and edges represent
 #' co-occurrence strength (entries assigned to both themes). Requires
 #' multi-label assignment columns (\code{theme_membership_*}).
+#'
+#' Phase 58 Tier 5 AH-9/V-1: at scale the unfiltered network was an
+#' unreadable hairball (Phase 57 audit observed 417 themes plotted at
+#' once with no legend). The \code{max_inline_themes} parameter caps
+#' the visible network at the top-N most-connected themes (ranked by
+#' weighted degree) and adds an inline legend explaining node size +
+#' edge width encoding.
 #'
 #' @param data Tibble with theme_membership_* columns
 #' @param theme_set ThemeSet object
@@ -649,12 +822,16 @@ create_correlation_plot <- function(results, output_path,
 #' @param methodology_mode Optional character (T1.7 / AC4): when supplied,
 #'   adds a footer caption identifying the mode + run.
 #' @param run_id Optional character: run identifier.
+#' @param max_inline_themes Integer; when the graph has more nodes than
+#'   this after isolated-vertex removal, the network is filtered to the
+#'   top-N by weighted degree (sum of edge weights). Default 30L.
 #' @return Invisible adjacency matrix, or NULL if igraph unavailable
 #' @export
 create_theme_network <- function(data, theme_set, output_path = "theme_network.png",
                                   min_cooccurrence = 3,
                                   methodology_mode = NULL,
-                                  run_id = NULL) {
+                                  run_id = NULL,
+                                  max_inline_themes = 30L) {
   if (!requireNamespace("igraph", quietly = TRUE)) {
     log_warn("igraph not installed -- skipping theme network plot")
     return(invisible(NULL))
@@ -704,20 +881,61 @@ create_theme_network <- function(data, theme_set, output_path = "theme_network.p
     return(invisible(cooccur))
   }
 
+  # Phase 58 Tier 5 AH-9/V-1: top-N filter by weighted degree (sum of
+  # incident edge weights). At 400+ themes the pre-Phase-58 plot was
+  # an unreadable hairball with no legend. We keep the most-connected
+  # subgraph and report what was filtered in the subtitle so the
+  # reader knows this isn't the full network.
+  top_n <- as.integer(max_inline_themes %||% 30L)
+  if (is.na(top_n) || top_n < 1L) top_n <- 30L
+  n_pre_filter <- igraph::vcount(g)
+  if (n_pre_filter > top_n) {
+    weighted_deg <- igraph::strength(g)
+    keep_ord <- order(-weighted_deg)
+    keep_vertices <- igraph::V(g)[utils::head(keep_ord, top_n)]
+    g <- igraph::induced_subgraph(g, vids = keep_vertices)
+    log_info(
+      "theme_network.png: filtered {n_pre_filter} nodes to top-{top_n} by weighted degree"
+    )
+  }
+  n_post_filter <- igraph::vcount(g)
+  n_filtered <- n_pre_filter - n_post_filter
+
+  if (n_post_filter == 0L) {
+    log_info("All filtered themes had zero degree -- no network to plot")
+    return(invisible(cooccur))
+  }
+
   # Node size proportional to theme entry count
   node_counts <- diag(t(mat) %*% mat)
   names(node_counts) <- clean_names
   node_sizes <- node_counts[igraph::V(g)$name]
-  node_sizes <- 5 + 20 * (node_sizes / max(node_sizes, na.rm = TRUE))
+  # Defensive: a vertex name not found in node_counts would surface as
+  # NA and crash the plot. Hold to 5 (minimum visible) for any missing.
+  node_sizes[is.na(node_sizes)] <- 0
+  max_count <- max(node_sizes, na.rm = TRUE)
+  node_sizes <- if (max_count > 0) 5 + 20 * (node_sizes / max_count) else rep(5, length(node_sizes))
 
   # Edge width proportional to co-occurrence
   edge_weights <- igraph::E(g)$weight
-  edge_widths <- 1 + 4 * (edge_weights / max(edge_weights, na.rm = TRUE))
+  max_weight <- max(edge_weights, na.rm = TRUE)
+  edge_widths <- if (max_weight > 0) 1 + 4 * (edge_weights / max_weight) else rep(1, length(edge_weights))
 
-  # Plot
+  # Per Phase 58 Tier 5 V-1: build a real legend explaining node size
+  # + edge width encoding so the chart is interpretable without
+  # external documentation. Three representative node-size + edge-
+  # weight markers anchor the visual scale.
+  plot_title <- if (n_filtered > 0L) {
+    sprintf("Theme Co-occurrence Network (top %d of %d themes)",
+             n_post_filter, n_pre_filter)
+  } else {
+    "Theme Co-occurrence Network"
+  }
+
   png(output_path, width = 1400, height = 1100, res = 120)
   tryCatch({
-    par(mar = c(1, 1, 3, 1))
+    # Reserve space at the bottom for the legend strip.
+    par(mar = c(5, 1, 3, 1))
     igraph::plot.igraph(
       g,
       layout = igraph::layout_with_fr(g),
@@ -730,7 +948,27 @@ create_theme_network <- function(data, theme_set, output_path = "theme_network.p
       edge.color = grDevices::adjustcolor("#999999", alpha.f = 0.6),
       edge.label = edge_weights,
       edge.label.cex = 0.6,
-      main = "Theme Co-occurrence Network"
+      main = plot_title
+    )
+
+    # Legend: top-left, transparent background. Explains the visual
+    # encoding directly on the chart (Phase 58 Tier 5 V-1 -- pre-Phase-58
+    # the chart had no legend at all).
+    legend_lines <- c(
+      "Node size: # entries in theme",
+      "Edge width: co-occurrence count",
+      sprintf("Edge labels: # entries (>= %d shown)", min_cooccurrence)
+    )
+    if (n_filtered > 0L) {
+      legend_lines <- c(legend_lines,
+                         sprintf("Filtered: %d themes by weighted degree",
+                                  n_filtered))
+    }
+    graphics::legend(
+      "topleft", legend = legend_lines,
+      bty = "o", bg = grDevices::adjustcolor("white", alpha.f = 0.85),
+      cex = 0.75, text.col = "#2C3E50",
+      box.col = "#BDC3C7", box.lwd = 0.5
     )
   }, error = function(e) {
     log_warn("Theme network plot failed: {e$message}")
@@ -740,7 +978,7 @@ create_theme_network <- function(data, theme_set, output_path = "theme_network.p
   if (!is.null(methodology_mode)) {
     graphics::mtext(
       methodology_plot_caption(methodology_mode, run_id),
-      side = 1, line = 1.5, cex = 0.7, col = "#7F8C8D", adj = 1
+      side = 1, line = 3.5, cex = 0.7, col = "#7F8C8D", adj = 1
     )
   }
 

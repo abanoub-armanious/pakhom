@@ -335,6 +335,58 @@ a:hover {
   margin-top: 0.15rem;
 }
 
+/* Phase 58 Tier 5 C-3: compact theme card for top-N inlining.
+   Themes ranked beyond max_inline_themes render as a single-line
+   row linking to the per-theme detail HTML. Keeps the main report
+   renderable at scale (pandoc OOMs on inline cards for 400+ themes). */
+.theme-card-compact {
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.9rem;
+  margin: 0.35rem 0;
+  box-shadow: var(--shadow-sm);
+  border-left: 3px solid var(--secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.theme-card-compact .theme-badge-compact {
+  min-width: 24px;
+  height: 24px;
+  font-size: 0.72rem;
+  flex-shrink: 0;
+}
+
+.theme-card-compact .theme-compact-link {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.theme-card-compact .theme-compact-link:hover {
+  text-decoration: underline;
+}
+
+.theme-card-compact .compact-n,
+.theme-card-compact .compact-sent {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.theme-card-compact .compact-sent.text-positive { color: var(--positive); }
+.theme-card-compact .compact-sent.text-negative { color: var(--negative); }
+.theme-card-compact .compact-sent.text-neutral  { color: var(--neutral); }
+
+.additional-themes-header {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px dashed rgba(0,0,0,0.12);
+}
+
 /* Keywords pills */
 .keywords-container {
   display: flex;
@@ -515,6 +567,41 @@ a:hover {
 .coverage-card .coverage-skip-reasons li {
   margin: 0.15rem 0;
   color: var(--text-primary);
+}
+
+/* Phase 58 Tier 5 V-7: skip-reason taxonomy. Categories with up
+   to 3 verbatim examples each, instead of one bullet per distinct
+   reason string. The caption explains the clustering. */
+.coverage-card .coverage-skip-caption {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin: 0.15rem 0 0.35rem 0;
+  line-height: 1.5;
+}
+
+.coverage-card .coverage-skip-categories {
+  list-style: disc;
+  margin: 0.25rem 0 0 1.25rem;
+  padding: 0;
+  font-size: 0.86rem;
+}
+
+.coverage-card .coverage-skip-categories > li {
+  margin: 0.25rem 0;
+  color: var(--text-primary);
+}
+
+.coverage-card .coverage-skip-examples {
+  list-style: circle;
+  margin: 0.15rem 0 0.2rem 1.25rem;
+  padding: 0;
+  font-size: 0.78rem;
+}
+
+.coverage-card .coverage-skip-examples li {
+  margin: 0.05rem 0;
+  color: var(--text-secondary);
+  font-style: italic;
 }
 
 .coverage-card .coverage-citation {

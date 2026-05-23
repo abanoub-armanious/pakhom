@@ -896,17 +896,28 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
                                   methodology_mode = config$methodology$mode)
 
   if (isTRUE(config$output$generate_correlation_plot)) {
+    # Phase 58 Tier 5 C-10: max_inline_vars threshold above which the
+    # correlation plot switches from heatmap to top-N lollipop chart.
+    max_inline_vars <- as.integer(
+      config$analysis$correlations$max_inline_vars %||% 30L
+    )
     create_correlation_plot(corr_results, export_files$plot_file,
                              methodology_mode = config$methodology$mode,
-                             run_id = basename(output_dir))
+                             run_id = basename(output_dir),
+                             max_inline_vars = max_inline_vars)
   }
 
-  # Theme network plot
+  # Theme network plot. Phase 58 Tier 5 AH-9/V-1: top-N filter +
+  # legend keep the chart readable at scale.
   network_file <- file.path(output_dir, "theme_network.png")
+  network_max <- as.integer(
+    config$analysis$correlations$max_inline_themes_network %||% 30L
+  )
   tryCatch({
     create_theme_network(analytic_data, theme_set, output_path = network_file,
                           methodology_mode = config$methodology$mode,
-                          run_id = basename(output_dir))
+                          run_id = basename(output_dir),
+                          max_inline_themes = network_max)
   }, error = function(e) log_warn("Theme network plot failed: {e$message}"))
 
   # ========================================================================
@@ -992,9 +1003,15 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     temporal_results <- tryCatch({
       tr <- analyze_temporal_patterns(analytic_data, theme_set, coding_state)
       if (isTRUE(tr$has_temporal_data)) {
+        # Phase 58 Tier 5 AH-8/V-2: cap themes shown on temporal
+        # emergence chart for legibility.
+        temporal_max <- as.integer(
+          config$analysis$themes$max_inline_themes_temporal %||% 30L
+        )
         generate_temporal_plots(tr, output_dir,
                                   methodology_mode = config$methodology$mode,
-                                  run_id = basename(output_dir))
+                                  run_id = basename(output_dir),
+                                  max_inline_themes = temporal_max)
         log_info("Temporal analysis complete: {tr$period_type} periods")
       } else {
         log_info("No parseable timestamps -- temporal analysis skipped")

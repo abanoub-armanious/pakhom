@@ -310,7 +310,12 @@
       first_code_date      = as.character(
         if (!is.na(first_code_date)) as.Date(first_code_date) else NA
       ),
-      n_codes_at_emergence = n_codes_at_emergence
+      n_codes_at_emergence = n_codes_at_emergence,
+      # Phase 58 Tier 5 AH-8/V-2: cumulative entry count per theme so
+      # the temporal_emergence plot can filter to a top-N slice by
+      # prevalence (the pre-Phase-58 plot rendered all themes, producing
+      # an unreadable vertical wall at scale).
+      n_entries            = as.integer(nrow(theme_rows))
     )
   }
 
@@ -429,7 +434,10 @@ analyze_temporal_patterns <- function(data, theme_set, coding_state = NULL) {
       theme_name            = character(0),
       first_appearance_date = character(0),
       first_code_date       = character(0),
-      n_codes_at_emergence  = integer(0)
+      n_codes_at_emergence  = integer(0),
+      # Phase 58 Tier 5 AH-8/V-2: matches the active-path schema so
+      # top-N filtering doesn't crash on empty-stub inputs.
+      n_entries             = integer(0)
     ),
     period_type       = NA_character_,
     has_temporal_data = FALSE
@@ -455,11 +463,18 @@ analyze_temporal_patterns <- function(data, theme_set, coding_state = NULL) {
 #' @param methodology_mode Optional character (T1.7 / AC4): when supplied,
 #'   adds a caption to each plot identifying the mode + run id.
 #' @param run_id Optional character: run identifier.
+#' @param max_inline_themes Integer; the temporal emergence chart filters
+#'   to the top-N themes by entry count when more themes than this exist.
+#'   Phase 58 Tier 5 AH-8/V-2: pre-Phase-58 the chart rendered every
+#'   theme (4,059 codes on the Phase 57 saturation run -> 2.8 MB
+#'   vertical wall of text). Default 30L. Set very high (e.g. 10000L)
+#'   to disable filtering.
 #' @return Invisible character vector of file paths written
 #' @export
 generate_temporal_plots <- function(temporal_results, output_dir,
                                       methodology_mode = NULL,
-                                      run_id = NULL) {
+                                      run_id = NULL,
+                                      max_inline_themes = 30L) {
   if (!isTRUE(temporal_results$has_temporal_data)) {
     log_warn("No temporal data available -- skipping plot generation")
     return(invisible(character(0)))
@@ -548,6 +563,23 @@ generate_temporal_plots <- function(temporal_results, output_dir,
   if (nrow(emerg) > 0) {
     emerg_path <- file.path(output_dir, "temporal_emergence.png")
 
+    # Phase 58 Tier 5 AH-8/V-2: top-N filter by entry count keeps the
+    # chart legible at scale. n_entries was added to emergence_timeline
+    # in Phase 58 to enable this filter; pre-Phase-58 fixtures fall back
+    # to "show all" since the column won't exist (back-compat for
+    # comparison runs against historical themes.json).
+    top_n <- as.integer(max_inline_themes %||% 30L)
+    if (is.na(top_n) || top_n < 1L) top_n <- 30L
+    n_pre_filter <- nrow(emerg)
+    if ("n_entries" %in% names(emerg) && n_pre_filter > top_n) {
+      ord <- order(-emerg$n_entries)
+      emerg <- emerg[utils::head(ord, top_n), , drop = FALSE]
+      log_info(
+        "temporal_emergence.png: filtered {n_pre_filter} themes to top-{top_n} by entry count"
+      )
+    }
+    n_filtered <- n_pre_filter - nrow(emerg)
+
     emerg$appearance_date <- as.Date(emerg$first_appearance_date)
 
     # Sort by date
@@ -577,7 +609,14 @@ generate_temporal_plots <- function(temporal_results, output_dir,
       ggplot2::scale_x_date(date_labels = "%Y-%m-%d") +
       ggplot2::labs(
         title    = "Theme Emergence Timeline",
-        subtitle = "Date each theme first appeared in the data",
+        subtitle = if (n_filtered > 0L) {
+          sprintf(
+            "Date each theme first appeared (showing top %d of %d themes by entry count; %d filtered for legibility)",
+            nrow(emerg), n_pre_filter, n_filtered
+          )
+        } else {
+          "Date each theme first appeared in the data"
+        },
         x        = "Date",
         y        = NULL,
         caption  = meth_caption

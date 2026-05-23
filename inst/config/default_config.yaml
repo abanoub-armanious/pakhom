@@ -295,6 +295,18 @@ analysis:
     # kitchen-sink subthemes (e.g. the 205-code mega-subtheme that
     # the Phase 57 audit flagged).
     max_codes_per_subtheme: 25
+    # Phase 58 Tier 5 C-3: cap on full inline theme cards in the main
+    # HTML report. Themes ranked beyond this cap (by prevalence, with
+    # Phase 54 theme_kind ordering preserved) render as compact rows
+    # linking to per-theme detail HTML pages. Prevents pandoc OOM on
+    # corpora producing hundreds of themes. Per-theme detail HTMLs
+    # are unaffected -- every theme retains full provenance there.
+    max_inline_themes: 30
+    # Phase 58 Tier 5 AH-8/V-2: cap on themes shown on the
+    # temporal_emergence.png chart. Pre-Phase-58 every theme was
+    # rendered, producing an unreadable vertical wall at scale. Top
+    # themes are selected by cumulative entry count.
+    max_inline_themes_temporal: 30
 
   correlations:
     method: "spearman"            # "spearman", "pearson", or "kendall".
@@ -303,6 +315,18 @@ analysis:
     min_observations: 30
     min_theme_entries: 5
     use_multi_label: true
+    # Phase 58 Tier 5 C-10: correlation_plot.png switches from a
+    # corrplot heatmap to a top-N effect-size lollipop chart above
+    # this variable count. Default 30 keeps the heatmap when it is
+    # legible; above 30 the lollipop is publication-readable at any
+    # corpus scale.
+    max_inline_vars: 30
+    # Phase 58 Tier 5 AH-9/V-1: theme_network.png filters to the
+    # top-N most-connected themes when there are more themes than
+    # this. Default 30 keeps the chart from becoming an unreadable
+    # hairball on large theme inventories (the pre-Phase-58 plot
+    # rendered all 417 themes at once).
+    max_inline_themes_network: 30
 
   test_mode:
     enabled: false                # Set true for fast end-to-end validation runs.

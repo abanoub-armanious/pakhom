@@ -623,7 +623,24 @@ print.ThematicConfig <- function(x, ...) {
         # more codes than this, recurse one level deeper to break it
         # into sub-subthemes. 25 prevents kitchen-sink subthemes that
         # absorb most of a parent theme's codes.
-        max_codes_per_subtheme = 25L
+        max_codes_per_subtheme = 25L,
+        # Phase 58 Tier 5 C-3: cap on the number of themes rendered as
+        # full inline cards in the main HTML report. Themes ranked
+        # beyond this cap render as compact one-line rows linking to
+        # per-theme detail HTMLs. Without this cap a >400-theme run
+        # produces a 12+ MB Rmd that pandoc cannot render (OOM). The
+        # per-theme detail HTMLs are unaffected -- every theme retains
+        # full provenance + entry data on its own page. Set very high
+        # (e.g. 10000L) to disable on small corpora.
+        max_inline_themes = 30L,
+        # Phase 58 Tier 5 AH-8/V-2: cap on themes shown on the
+        # temporal_emergence.png lollipop chart. Pre-Phase-58 the
+        # plot rendered EVERY theme (Phase 57 audit observed 4,059
+        # codes / 417 themes -> 2.8 MB vertical wall of text). The
+        # filter selects the top-N themes by cumulative entry count;
+        # the n_entries column is added to emergence_timeline in
+        # Phase 58 to enable this ranking.
+        max_inline_themes_temporal = 30L
       ),
       correlations = list(
         method = "spearman",
@@ -631,7 +648,21 @@ print.ThematicConfig <- function(x, ...) {
         adjust_method = "bonferroni",
         min_observations = 30,
         min_theme_entries = 5,
-        use_multi_label = TRUE
+        use_multi_label = TRUE,
+        # Phase 58 Tier 5 C-10: variable-count threshold above which
+        # correlation_plot.png renders as a top-N effect-size lollipop
+        # (ranking pairs by |r|) instead of a full corrplot heatmap.
+        # The pre-Phase-58 unconditional heatmap scaled to 14,280x14,280
+        # pixels on the 228-variable Phase 57 saturation run -- 4.8 MB
+        # and browser-illegible. Lollipop stays publication-readable
+        # regardless of variable count.
+        max_inline_vars = 30L,
+        # Phase 58 Tier 5 AH-9/V-1: node-count threshold above which
+        # theme_network.png is filtered to the top-N most-connected
+        # themes before plotting. The pre-Phase-58 plot rendered 417
+        # themes as an unreadable hairball with no legend; filtering
+        # to top-30 + adding a legend restores publication quality.
+        max_inline_themes_network = 30L
       ),
       test_mode = list(
         enabled = FALSE,
