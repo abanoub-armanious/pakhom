@@ -932,13 +932,22 @@ create_theme_network <- function(data, theme_set, output_path = "theme_network.p
     "Theme Co-occurrence Network"
   }
 
+  # Phase 58 Tier 5 cross-tier audit J2: seed the Fruchterman-Reingold
+  # layout RNG so identical inputs produce byte-identical PNGs across
+  # runs (AC10 replay-equivalence). The pre-Phase-58 implementation
+  # called layout_with_fr() with no seed control, so even on identical
+  # data the network plot rendered with different node positions.
+  # withr::with_seed pattern matches R/06_manuscript_learning.R:237
+  # and R/14_correlations.R:185 (existing internal convention).
+  fr_layout <- withr::with_seed(42L, igraph::layout_with_fr(g))
+
   png(output_path, width = 1400, height = 1100, res = 120)
   tryCatch({
     # Reserve space at the bottom for the legend strip.
     par(mar = c(5, 1, 3, 1))
     igraph::plot.igraph(
       g,
-      layout = igraph::layout_with_fr(g),
+      layout = fr_layout,
       vertex.size = node_sizes,
       vertex.color = grDevices::adjustcolor("#4477AA", alpha.f = 0.7),
       vertex.frame.color = "#2255AA",
