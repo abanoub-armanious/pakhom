@@ -367,14 +367,40 @@ review_themes <- function(theme_set, output_dir, audit_log = NULL,
     # for ergonomics (CSV is a flat list of codes, not a hierarchy). Drop
     # the canonical Subtheme S3 list before mutation so create_theme_set()
     # at the end rebuilds subthemes from the post-edit codes_included via
-    # the back-compat path. Phase 52's clustering re-derives subtheme
-    # structure on demand if a researcher wants it after manual edits.
-    themes <- lapply(themes, function(t) {
-      t$codes_included       <- theme_codes(t)
-      t$subthemes            <- NULL
-      t$subthemes_structured <- NULL
-      t
-    })
+    # the back-compat path.
+    # Phase 58 Tier 8 M-28/P51-M3: only flatten when the reviewed CSV
+    # has actions that genuinely mutate code membership (codes_to_add /
+    # codes_to_remove / merge / split). Rename + description-only edits
+    # preserve subtheme structure exactly (no code reshuffling), so
+    # there's no need to discard the Phase 51 Subtheme S3 list for
+    # those. The audit found this loss was unnecessary for ~70% of
+    # researcher edits on the Phase 57 reviews.
+    code_mutating_actions <- c("merge", "split")
+    code_mutating_cols    <- intersect(c("codes_to_add", "codes_to_remove"),
+                                         names(reviewed))
+    has_code_action <- any(reviewed$action %in% code_mutating_actions)
+    has_code_edit   <- length(code_mutating_cols) > 0L && any(
+      vapply(code_mutating_cols, function(col) {
+        any(!is.na(reviewed[[col]]) & nzchar(trimws(reviewed[[col]])))
+      }, logical(1))
+    )
+    needs_flatten <- has_code_action || has_code_edit
+
+    if (needs_flatten) {
+      themes <- lapply(themes, function(t) {
+        t$codes_included       <- theme_codes(t)
+        t$subthemes            <- NULL
+        t$subthemes_structured <- NULL
+        t
+      })
+    } else {
+      # Just ensure codes_included is fresh for the rename / description
+      # path. Phase 52's clustering re-derives on demand otherwise.
+      themes <- lapply(themes, function(t) {
+        t$codes_included <- theme_codes(t)
+        t
+      })
+    }
 
     # Build list of themes to keep, with modifications
     new_themes <- list()

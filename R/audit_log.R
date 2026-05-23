@@ -11,6 +11,23 @@
 
 # -- Valid enums ---------------------------------------------------------------
 
+#' Audit log schema version
+#'
+#' Phase 58 Tier 8 H-11: every audit record stamps this version so a
+#' downstream replayer / cross-run comparator can detect schema drift.
+#' Pre-Tier-8 the ai_decisions.jsonl was the only first-class artifact
+#' lacking a version stamp (live tracker artifacts all carry
+#' schema_version="1.0.0"). Bump this constant when the record schema
+#' changes incompatibly.
+#'
+#' \itemize{
+#'   \item 1.0.0 (Phase 58 Tier 8): initial stamping. Schema includes
+#'     timestamp, step, decision_type, methodology_mode (when set),
+#'     plus arbitrary user-supplied \code{...} fields.
+#' }
+#' @keywords internal
+.AUDIT_LOG_SCHEMA_VERSION <- "1.0.0"
+
 .valid_audit_steps <- c(
   # Pre-T1.4 pipeline steps
   "coding", "sentiment", "theming", "saturation", "insight", "synthesis",
@@ -174,9 +191,10 @@ log_ai_decision <- function(audit, step, decision_type, ...) {
 
   # ---- Build the record ------------------------------------------------------
   base_fields <- list(
-    timestamp     = format(Sys.time(), "%Y-%m-%dT%H:%M:%OS3%z"),
-    step          = step,
-    decision_type = decision_type
+    timestamp      = format(Sys.time(), "%Y-%m-%dT%H:%M:%OS3%z"),
+    schema_version = .AUDIT_LOG_SCHEMA_VERSION,  # Phase 58 Tier 8 H-11
+    step           = step,
+    decision_type  = decision_type
   )
 
   # T1.4: Auto-stamp methodology_mode if it was captured at init_audit_log().

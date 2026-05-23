@@ -26,6 +26,14 @@
   # when representative quotes are selected.
   supporting_quote_records = list(),
   keywords = character(0),
+  # Phase 58 Tier 8 M-22/AF-30 DEPRECATION NOTICE: the `narrative`
+  # field was intended for a per-theme AI-synthesized narrative blurb
+  # but was never wired up. On every Phase 57 run all 417 themes had
+  # narrative = "". Field preserved here for back-compat with consumers
+  # that read the older themes.json schema; writer continues to emit
+  # an empty string. Future tier: either implement the synthesis pass
+  # OR remove the field entirely (current decision: keep until next
+  # major schema bump to avoid breaking external consumers).
   narrative = "",
   entry_count = 0L
 )

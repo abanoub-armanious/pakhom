@@ -340,3 +340,70 @@ render_tier0_coverage_card.default <- function(x, ...) {
     '</div>\n\n'
   )
 }
+
+#' Persist a CorpusCoverage / ProvocationCoverage object to disk
+#'
+#' Phase 58 Tier 8 H-10: pre-Tier-8 the CorpusCoverage S3 was computed
+#' in memory and rendered as HTML but never written to disk as
+#' machine-readable data. A reproducibility audit couldn't read
+#' coverage state without re-running the pipeline. This writer
+#' serializes the full coverage object as \code{coverage_card.json}
+#' alongside the report HTML, methodology-stamped per AC4.
+#'
+#' The JSON shape preserves every field on the S3 (\code{n_input_to_-
+#' coding}, \code{n_processed}, \code{n_unprocessed}, \code{n_skipped},
+#' \code{n_coded}, \code{skip_reasons}, \code{words_processed},
+#' \code{coverage_rate}, \code{no_silent_truncation}, \code{stop_-
+#' reason}, \code{saturation_reached}, \code{reached_at_entry}, etc.)
+#' so a downstream consumer can reconstruct the funnel + saturation
+#' state without the original coding_state.
+#'
+#' @param coverage CorpusCoverage / ProvocationCoverage / Tier0Coverage
+#'   object from \code{\link{compute_corpus_coverage}}.
+#' @param output_dir Run output directory.
+#' @param methodology_mode Optional methodology mode for AC4 stamping.
+#' @return Invisible path to the written JSON.
+#' @export
+write_corpus_coverage <- function(coverage, output_dir,
+                                    methodology_mode = NULL) {
+  if (is.null(coverage)) {
+    return(invisible(NULL))
+  }
+  dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+  path <- file.path(output_dir, "coverage_card.json")
+
+  # Unclass to a plain list so jsonlite renders all fields uniformly
+  # (the S3 class would otherwise dispatch any method that the auto-
+  # serializer happens to match). skip_reasons is a named integer
+  # vector; wrap in as.list so the JSON object retains names.
+  cov_list <- unclass(coverage)
+  if (!is.null(cov_list$skip_reasons)) {
+    cov_list$skip_reasons <- as.list(cov_list$skip_reasons)
+  }
+  # Phase 58 Tier 8 H-10: schema_version is populated by
+  # compute_corpus_coverage() at the source (R/corpus_coverage.R:204
+  # via .CORPUS_COVERAGE_SCHEMA_VERSION) and rides on the coverage
+  # object. Defensive fill-in only when the source object predates
+  # that field (e.g. a pre-Phase-58 cached coverage object loaded
+  # from an older run). Tier 8 audit followup HIGH-1: pre-followup
+  # this line unconditionally overwrote with "1.0.0", which would
+  # silently lie if .CORPUS_COVERAGE_SCHEMA_VERSION ever bumps.
+  if (is.null(cov_list$schema_version)) {
+    cov_list$schema_version <- .CORPUS_COVERAGE_SCHEMA_VERSION
+  }
+
+  jsonlite::write_json(cov_list, path, pretty = TRUE,
+                        auto_unbox = TRUE, null = "null",
+                        force = TRUE)
+
+  if (!is.null(methodology_mode)) {
+    tryCatch(
+      stamp_methodology_json(path, methodology_mode,
+                              run_id = basename(output_dir)),
+      error = function(e) log_debug("coverage_card.json stamp skipped: {e$message}")
+    )
+  }
+
+  log_info("Coverage card written: {path}")
+  invisible(path)
+}

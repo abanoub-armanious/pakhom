@@ -128,7 +128,13 @@ create_coding_state <- function(learning_context = NULL, config_hash = NULL) {
       # can rely on the field's presence without %||% gymnastics).
       ai_articulation = NA_character_,
       ai_rationale = NA_character_,
-      saturation_ratio = NA_real_
+      saturation_ratio = NA_real_,
+      # Phase 58 Tier 8 H-9 audit followup MEDIUM-3: pre-init the
+      # dedupe field so a freshly created ProgressiveCodingState has
+      # the same schema as a post-arbiter state. -1L means "no
+      # arbiter call has fired yet" (the modulo gate's `!= -1L`
+      # check accepts the first valid n_coded).
+      last_arbiter_n_coded = -1L
     ),
     # Phase 58 Tier 0 C-6: per-code embedding cache for additive semantic
     # retrieval. code_embeddings is keyed by code_key; each value is a
@@ -448,6 +454,14 @@ run_progressive_coding <- function(data, provider, config = list(),
           if (codes_before == 0L) character(0L) else
             head(names(state$codebook), codes_before)
         } else NULL
+        # Phase 58 Tier 8 M-12/E-9: dedupe is_new_code emission. Pre-Tier-8
+        # if an entry contributed multiple segments under a single NEW code,
+        # every segment received is_new_code=TRUE in the live tracker
+        # (audit_log fires new_code_created once correctly; the live event
+        # log over-counted by ~1.7%). Track which new codes have already
+        # been marked WITHIN this entry; subsequent segments under the
+        # same code emit is_new_code=FALSE.
+        first_seen_new_keys <- character(0L)
 
         for (seg in er$coded_segments) {
           if (!is.null(audit_log)) {
@@ -456,13 +470,18 @@ run_progressive_coding <- function(data, provider, config = list(),
                             code_key = seg$code_key)
           }
           if (!is.null(live_tracker)) {
+            is_new_segment <- !(seg$code_key %in% codes_before_set) &&
+                               !(seg$code_key %in% first_seen_new_keys)
+            if (is_new_segment) {
+              first_seen_new_keys <- c(first_seen_new_keys, seg$code_key)
+            }
             live_tracker <- live_record_assignment(
               tracker     = live_tracker,
               entry_id    = entry_id,
               code_key    = seg$code_key,
               code_name   = seg$code_name,
               segment     = seg,
-              is_new_code = !(seg$code_key %in% codes_before_set),
+              is_new_code = is_new_segment,
               entry_index = idx
             )
           }
@@ -574,7 +593,19 @@ run_progressive_coding <- function(data, provider, config = list(),
     # Fires every `saturation_cadence` coded entries -- no min-entries
     # gate, no kill switch. The AI can output "uncertain" when the
     # evidence is too thin to judge, so an early check is harmless.
-    if (n_coded > 0 && n_coded %% saturation_cadence == 0) {
+    # Phase 58 Tier 8 H-9: dedupe arbiter calls when an entry is
+    # SKIPPED right after a coded entry whose n_coded hit the cadence
+    # multiple. Pre-Tier-8 the modulo gate would re-fire on every
+    # skipped iteration that followed (since n_coded was unchanged),
+    # producing 26 duplicate arbiter calls at 9 distinct n_coded
+    # values on the Phase 57 run (~$0.30 wasted). last_arbiter_n_coded
+    # is the n_coded value the arbiter last evaluated; only re-fire
+    # when it advances. NULL on fresh runs (first arbiter call
+    # naturally falls through).
+    last_arbiter_n <- state$saturation$last_arbiter_n_coded %||% -1L
+    if (n_coded > 0 && n_coded %% saturation_cadence == 0 &&
+        n_coded != last_arbiter_n) {
+      state$saturation$last_arbiter_n_coded <- n_coded
       judgment <- .ai_judge_saturation(
         state = state, provider = provider,
         research_focus = research_focus,

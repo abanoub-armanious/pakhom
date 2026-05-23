@@ -481,6 +481,16 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   if ("progressive_coding" %in% completed) {
     log_info("\n[STEP 3] Loading coding state from checkpoint...")
     coding_state <- load_checkpoint(checkpoint, "progressive_coding")
+    # Phase 58 Tier 7 cross-tier audit (paralleling the Tier 6
+    # resume warning at line 851): a pre-Tier-7 coding checkpoint
+    # carries QuoteProvenance objects produced before the
+    # V-6/L-3 offset-reference fix and the M-13/E-19 failure-reason
+    # field. Detect the schema gap via the first quote's field set
+    # and warn so a researcher reading the published report knows
+    # the verification numbers and prose may straddle methodology
+    # eras (cached quotes are Phase-57-style; fresh quotes on a
+    # rerun would be Tier-7-style).
+    .warn_pre_tier7_coding_resume(coding_state)
   } else {
     log_info("\n[STEP 3] Running progressive sequential coding...")
     log_info("  Processing {nrow(data)} entries one at a time (no batching)...")
@@ -567,6 +577,18 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
       NULL
     }
   )
+
+  # Phase 58 Tier 8 H-10: persist the CorpusCoverage as
+  # coverage_card.json so a reproducibility audit can read coverage
+  # state without re-running the pipeline. Pre-Tier-8 the S3 lived
+  # only in memory + rendered HTML.
+  if (!is.null(coverage)) {
+    tryCatch(
+      write_corpus_coverage(coverage, output_dir,
+                              methodology_mode = config$methodology$mode),
+      error = function(e) log_warn("coverage_card.json write failed: {e$message}")
+    )
+  }
 
   # Derive analytic sample (entries that received at least one code)
   analytic_data <- get_analytic_sample(coding_state, data)
@@ -1165,4 +1187,54 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     paste(parts, collapse = "\n"),
     "\nLet this perspective inform your analysis.\n"
   )
+}
+
+
+#' Warn when resuming from a pre-Tier-7 coding checkpoint
+#'
+#' Phase 58 Tier 7 cross-tier audit (paralleling the Tier 6 helper at
+#' the correlations checkpoint): a pre-Tier-7 coding state carries
+#' \code{QuoteProvenance} objects produced before the V-6/L-3 offset
+#' fix (JSON-escape bug) and the M-13/E-19 failure-reason field.
+#' Detect by inspecting the first quote's field set. Emit a
+#' \code{log_warn} explaining the methodology-era drift and how to
+#' realign (delete progressive_coding from checkpoint.rds and re-run
+#' from step 3). Silent on fresh runs (no checkpoint = no warning).
+#'
+#' @param coding_state A loaded ProgressiveCodingState, possibly NULL.
+#' @return Invisible NULL.
+#' @keywords internal
+.warn_pre_tier7_coding_resume <- function(coding_state) {
+  if (is.null(coding_state)) return(invisible(NULL))
+  # Probe a single QuoteProvenance from any codebook entry's
+  # coded_segments. The schema gap is the absence of
+  # `verification_failure_reason` on a pre-Tier-7 quote.
+  codebook <- coding_state$codebook %||% list()
+  for (code in codebook) {
+    segs <- code$coded_segments %||% list()
+    for (s in segs) {
+      prov <- s$provenance
+      if (inherits(prov, "QuoteProvenance")) {
+        if (!"verification_failure_reason" %in% names(prov)) {
+          log_warn(paste0(
+            "Resuming from a pre-Phase-58-Tier-7 progressive_coding ",
+            "checkpoint: cached QuoteProvenance objects predate the ",
+            "V-6/L-3 offset-reference fix (the JSON-escape bug that ",
+            "drove Phase 57 to 99.89% verified_fuzzy) and the ",
+            "M-13/E-19 failure_reason field. The cached verification ",
+            "results stand (re-verification is not invalidated by the ",
+            "schema gap), but the report's Tier-0 dashboard prose ",
+            "describes the Tier 7 ladder while the cached quotes were ",
+            "produced under the older prompt + verifier pairing. To ",
+            "align, delete the 'progressive_coding' step from ",
+            "outputs/<run>/checkpoint.rds and rerun from step 3. See ",
+            "PHASE_57_DEEP_AUDIT_FINDINGS.md (Tier 7) for the prompt ",
+            "+ ladder rewrite details."
+          ))
+        }
+        return(invisible(NULL))  # one probe is enough
+      }
+    }
+  }
+  invisible(NULL)
 }

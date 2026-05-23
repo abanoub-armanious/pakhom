@@ -499,6 +499,20 @@ a:hover {
   color: var(--text-primary);
 }
 
+/* Phase 58 Tier 8 H-6: saturation-banner variant. The renderer at
+   R/17_report.R:1898 emits this class when Phase 56 saturation-aware
+   coverage reports saturation_reached = TRUE (i.e. the AI arbiter
+   intentionally stopped before consuming the full corpus). Pre-Tier-8
+   the CSS was missing; the class fell through to the default
+   .coverage-banner base style with no visual differentiation between
+   intentional saturation and silent truncation. Blue (information)
+   tint distinguishes from green (ok) + red (warn). */
+.coverage-card .coverage-banner-saturated {
+  background: rgba(52, 152, 219, 0.10);
+  border-left: 3px solid #3498DB;
+  color: var(--text-primary);
+}
+
 .coverage-card .coverage-funnel-wrapper {
   overflow-x: auto;
 }

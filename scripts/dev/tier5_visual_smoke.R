@@ -259,4 +259,139 @@ res <- interpret_correlations(test_df, theme_stats = list())
 stopifnot(grepl("meaningful effect AND Bonferroni-significant", res$summary, fixed = TRUE))
 cat("  H-15: headline filters on meaningful AND significant intersection\n")
 
+# ----- 8. Tier 7 T0.1 verification fidelity smoke -----
+cat("\n=== Tier 7 T0.1 verification fidelity smoke ===\n")
+
+# (a) V-6/L-3: schema prompt embeds entry text verbatim in <entry_text>
+#     fences (was JSON-escaped pre-Tier-7)
+raw_text <- 'Quote contains "embedded" and \\ slash.'
+prompt <- pakhom:::.build_progressive_schema_user_prompt(raw_text)
+stopifnot(grepl("<entry_text>", prompt, fixed = TRUE))
+stopifnot(grepl(raw_text, prompt, fixed = TRUE))  # text appears verbatim
+cat("  V-6/L-3: entry text embedded verbatim in <entry_text> fence\n")
+
+# (b) H-T7-3 audit followup: adversarial </entry_text> in entry doesn't
+#     break the fence
+adv_text <- "Mentions </entry_text> literally."
+adv_prompt <- pakhom:::.build_progressive_schema_user_prompt(adv_text)
+n_close <- length(gregexpr("</entry_text>", adv_prompt, fixed = TRUE)[[1L]])
+stopifnot(n_close == 1L)
+cat("  H-T7-3: adversarial </entry_text> in entry produces single fence\n")
+
+# (c) M-13/E-19: verify_quote populates verification_failure_reason on
+#     fabricated quote
+src <- "Source text says actual content."
+q <- make_quote("d1", "test", src, 0L, 10L, "FAKE CONTENT")
+v <- verify_quote(q, src, provider = NULL)
+stopifnot(identical(v$verification_status, "fabricated"))
+stopifnot(!is.na(v$verification_failure_reason))
+cat(sprintf("  M-13/E-19: fabricated quote carries reason '%s'\n",
+              v$verification_failure_reason))
+
+# (d) L-2/M-24: .normalize_quote_text collapses NBSP + smart apostrophe
+nbsp_text <- "I’m hungry"   # smart apostrophe + NBSP
+ascii_text <- "I'm hungry"
+stopifnot(identical(
+  pakhom:::.normalize_quote_text(nbsp_text),
+  pakhom:::.normalize_quote_text(ascii_text)
+))
+cat("  L-2/M-24: smart apostrophe + NBSP normalize identically to ASCII\n")
+
+# (e) M-25/AF-34 + C-T7-1 followup: themes.json supports
+#     supporting_quote_records roundtrip
+tj <- list(list(
+  id = 1L, name = "T", description = "",
+  codes_included = I("c1"), subthemes = I(character(0)),
+  subthemes_structured = list(), keywords = I("k"),
+  narrative = "", supporting_quotes = I("Q"),
+  supporting_quote_records = list(
+    list(text = "Q", entry_id = "e1", source_table = "posts",
+          std_author = "alice", sentiment_score = 0.5,
+          position = "most_negative")
+  )
+))
+tj_path <- file.path(out_dir, "themes_t7_roundtrip.json")
+jsonlite::write_json(tj, tj_path, pretty = TRUE, auto_unbox = TRUE,
+                      null = "null", force = TRUE)
+back <- jsonlite::read_json(tj_path)
+stopifnot("supporting_quote_records" %in% names(back[[1L]]))
+stopifnot(back[[1L]]$supporting_quote_records[[1L]]$entry_id == "e1")
+cat("  M-25/AF-34 + C-T7-1: supporting_quote_records roundtrips through themes.json\n")
+
+# (f) Schema version bumped to 1.1.0 (Tier 7 cross-tier polish)
+stopifnot(identical(pakhom:::.QUOTE_PROVENANCE_SCHEMA_VERSION, "1.1.0"))
+cat("  Schema version: QuoteProvenance v1.1.0 (was 1.0.0 pre-Tier-7)\n")
+
+# ----- 9. Tier 8 polish + carry-forwards smoke -----
+cat("\n=== Tier 8 polish + carry-forwards smoke ===\n")
+
+# (a) H-9 dedupe: fresh coding state has last_arbiter_n_coded = -1L
+cs_fresh <- create_coding_state()
+stopifnot(identical(cs_fresh$saturation$last_arbiter_n_coded, -1L))
+cat("  H-9 + audit followup MEDIUM-3: last_arbiter_n_coded pre-init = -1L\n")
+
+# (b) H-11 audit log schema_version
+cs_audit_td <- file.path(out_dir, "audit_test")
+dir.create(cs_audit_td, recursive = TRUE, showWarnings = FALSE)
+audit <- init_audit_log(cs_audit_td, config = NULL)
+log_ai_decision(audit, "coding", "code_assignment",
+                  entry_id = "e1", code_name = "test_code")
+close_audit_log(audit)
+audit_lines <- readLines(file.path(cs_audit_td, "ai_decisions.jsonl"))
+audit_rec <- jsonlite::fromJSON(audit_lines[1L])
+stopifnot(audit_rec$schema_version == "1.0.0")
+cat("  H-11: ai_decisions.jsonl record carries schema_version = 1.0.0\n")
+
+# (c) H-10 coverage_card.json roundtrip
+cov_td <- file.path(out_dir, "coverage_test")
+dir.create(cov_td, recursive = TRUE, showWarnings = FALSE)
+cov_obj <- structure(list(
+  n_input_to_coding = 100L, n_processed = 100L, n_unprocessed = 0L,
+  n_skipped = 0L, n_coded = 100L,
+  skip_reasons = stats::setNames(integer(0), character(0)),
+  words_processed = 1000L, coverage_rate = 1.0,
+  no_silent_truncation = TRUE, stop_reason = "all_entries_processed",
+  saturation_reached = FALSE, reached_at_entry = NA_integer_
+), class = c("CorpusCoverage", "Tier0Coverage"))
+cov_path <- write_corpus_coverage(cov_obj, cov_td, methodology_mode = NULL)
+stopifnot(file.exists(cov_path))
+cov_back <- jsonlite::read_json(cov_path, simplifyVector = TRUE)
+stopifnot("schema_version" %in% names(cov_back))
+cat("  H-10: write_corpus_coverage roundtrips with schema_version present\n")
+
+# (d) H-26 keywords cap to top-8 by codebook frequency
+keyword_codebook <- setNames(
+  lapply(1:15, function(i) list(code_name = paste0("c_", i),
+                                  description = "", type = "descriptive",
+                                  frequency = 16L - i,
+                                  entry_ids = paste0("e", i),
+                                  coded_segments = list())),
+  paste0("c_", 1:15)
+)
+kw_cs <- list(codebook = keyword_codebook, entry_results = list())
+class(kw_cs) <- "ProgressiveCodingState"
+kw_ts <- create_theme_set(list(list(id = 1L, name = "TK",
+                                      description = "",
+                                      codes_included = paste0("c_", 1:15))))
+kw_data <- tibble::tibble(std_id = paste0("e", 1:15),
+                            std_text = rep("x", 15L),
+                            sentiment_score = rep(0, 15L))
+kw_enr <- suppressWarnings(enrich_themes(kw_ts, kw_data, coding_state = kw_cs))
+stopifnot(length(kw_enr$themes[[1L]]$keywords) == 8L)
+cat("  H-26: enrich_themes caps keywords to top-8 by codebook frequency\n")
+
+# (e) M-21 description fallback wired correctly (audit followup CRITICAL-1)
+stub_decision <- list(
+  decision = "coherent_theme",
+  central_organizing_concept = "Real articulation here",
+  proposed_description = ""  # forces fallback
+)
+desc <- pakhom:::.derive_theme_description(
+  leaf_indices = 1L,
+  codes = list(list(name = "x", frequency = 1L)),
+  articulation = stub_decision$central_organizing_concept
+)
+stopifnot(desc == "Real articulation here")
+cat("  M-21 + audit followup CRITICAL-1: fallback uses central_organizing_concept\n")
+
 cat("\n--- All visual smoke checks PASSED ---\n")

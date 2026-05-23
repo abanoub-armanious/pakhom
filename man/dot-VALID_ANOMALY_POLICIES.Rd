@@ -38,10 +38,16 @@ where the researcher expects to update the spec for a
 future run after inspecting which segments resisted the
 framework. The existing after_themes review pause
 (config$analysis$review_points$after_themes) is the
-integration point where the researcher acts on the CSV;
-a dedicated after_framework_coding pause is deferred
-to a future phase (it requires resumable runs with
-in-flight spec edits, beyond current checkpoint scope).
+integration point where the researcher acts on the CSV.
+Phase 58 Tier 8 M-26 status: a dedicated after_framework_-
+coding pause point remains deferred -- the architectural
+requirement (resumable runs that re-load an in-flight
+spec edit + re-route already-coded anomaly segments
+through the updated framework) is substantial enough
+that shipping half-implementation would be worse than
+continued deferral. Today after_themes serves as the
+review point; M-26 is queued for the post-rewrite
+Phase 60+ checkpoint redesign.
 "bracket"  -- preserve the pre-Phase-54 behavior: a single "Anomaly
 (non-fitting)" catch-all theme containing every
 non-fitting segment. Right when the framework is mature

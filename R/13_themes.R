@@ -500,10 +500,28 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
   )
 
   if (decision$decision %in% c("coherent_theme", "atomic_outlier")) {
+    # Phase 58 Tier 8 M-21/AF-29: fall back to a derived description
+    # when the AI omits one. Pre-Tier-8 the description silently stayed
+    # empty -- Phase 57 had 5 themes with empty descriptions in the
+    # final report. The fallback PREFERS the AI's articulation (the
+    # Tier-0-C1-gated central_organizing_concept field, already quality-
+    # checked for non-vacuous output), then falls back to a top-3-code
+    # summary if both proposed_description AND articulation are empty.
+    # Tier 8 audit followup CRITICAL-1: pre-followup this read
+    # `decision$articulation` -- there is no such field on the decision
+    # record. The Tier 0 C-1 work was silently bypassed in 100% of
+    # cases. Correct field name is `central_organizing_concept`
+    # (see R/13_themes.R:1124/1136 where the record is assembled).
+    derived_description <- if (nzchar(decision$proposed_description %||% "")) {
+      decision$proposed_description
+    } else {
+      .derive_theme_description(leaves, codes,
+                                  decision$central_organizing_concept)
+    }
     return(list(.make_theme_record(
       leaves, hac_node_idx, codes,
       name        = decision$proposed_name %||% .fallback_theme_name(leaves, codes),
-      description = decision$proposed_description %||% "",
+      description = derived_description,
       decision_origin = decision$decision
     )))
   }
@@ -736,6 +754,36 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
   freqs <- vapply(leaf_indices, function(i) codes[[i]]$frequency, integer(1))
   top <- leaf_indices[which.max(freqs)]
   paste(codes[[top]]$name, "(and related)")
+}
+
+#' Derive a fallback theme description when the AI omits one
+#'
+#' Phase 58 Tier 8 M-21/AF-29: pre-Tier-8 a coherent_theme verdict
+#' with \code{proposed_description = ""} silently produced a theme
+#' with an empty description (5 themes on the Phase 57 run). Downstream
+#' renderers then displayed blank theme cards. The fallback derives
+#' a short summary from (a) the AI's articulation (when non-empty)
+#' and (b) the theme's top-3 codes by frequency. Worst-case output
+#' is "Theme grouping: <code1>, <code2>, <code3>" -- not poetry, but
+#' provably non-empty.
+#' @keywords internal
+.derive_theme_description <- function(leaf_indices, codes,
+                                        articulation = NULL) {
+  # Prefer the AI's articulation when available (it was just gated by
+  # the Tier 0 C-1 articulation-quality check, so non-empty = non-
+  # vacuous by construction).
+  if (!is.null(articulation) && nzchar(articulation %||% "")) {
+    return(as.character(articulation))
+  }
+  # Fall back to top-3 codes by frequency
+  freqs <- vapply(leaf_indices, function(i) codes[[i]]$frequency, integer(1))
+  ord <- order(freqs, decreasing = TRUE)
+  top_names <- vapply(
+    utils::head(leaf_indices[ord], 3L),
+    function(i) codes[[i]]$name,
+    character(1)
+  )
+  paste0("Theme grouping: ", paste(top_names, collapse = "; "), ".")
 }
 
 #' Add code_keys to theme records for the live cluster snapshot
@@ -2239,6 +2287,45 @@ apply_framework_themes <- function(coding_state, framework_spec,
     }
   }
 
+  # Phase 58 Tier 8 M-27/P54-(iv): emit a live cluster snapshot after
+  # framework themes are assembled so a researcher cat'ing the
+  # code_to_cluster.json mid-run sees the deductive Mode 3 theme
+  # construction. Pre-Tier-8 only Mode 2 + Mode 3 emergent HAC walks
+  # snapshotted; the deductive framework pass was invisible to live
+  # tracking. The snapshot fires once at the end of the deductive
+  # pass (multiple emergent walks already snapshot inside the
+  # walk_for_themes machinery; this is the orthogonal deductive
+  # surface). NULL tracker is a no-op (matches the rest of the file).
+  # Tier 8 audit followup HIGH-2: the snapshot reader at
+  # R/live_tracking.R:291-298 expects field names `name`,
+  # `description`, `decision_origin`, `n_codes` (from code_indices),
+  # `code_keys` (unlist of all subtheme keys). Pre-followup this
+  # builder used `proposed_name` (-> NA in the snapshot) and only
+  # the first key per subtheme (-> n_codes=0, truncated key list).
+  if (!is.null(live_tracker) && length(themes) > 0L) {
+    framework_snapshot_themes <- lapply(themes, function(t) {
+      # Aggregate every key under every subtheme (not just the first)
+      all_keys <- unlist(lapply(t$subthemes %||% list(), function(s) {
+        if (inherits(s, "Subtheme")) subtheme_code_keys(s) else character(0)
+      }), use.names = FALSE)
+      list(
+        name            = t$name %||% NA_character_,
+        description     = t$description %||% "",
+        decision_origin = t$theme_kind %||% "framework",
+        code_indices    = seq_along(all_keys),  # surfaces n_codes correctly
+        code_keys       = as.character(all_keys)
+      )
+    })
+    tryCatch(
+      live_snapshot_clusters(live_tracker,
+                              walk_status   = "framework_deductive_complete",
+                              themes_so_far = framework_snapshot_themes),
+      error = function(e) log_debug(
+        "Mode 3 deductive live snapshot skipped: {e$message}"
+      )
+    )
+  }
+
   if (length(themes) == 0L) {
     log_warn(paste0("apply_framework_themes: no constructs received any ",
                      "coded entries -- generating empty theme set"))
@@ -2375,13 +2462,50 @@ enrich_themes <- function(theme_set, data, coding_state = NULL,
     # was told to look for). Overwriting with codes_included would erase
     # exactly the framework signal Mode 3 is supposed to surface, so
     # detect Mode 3 themes via the framework_construct_id marker and
-    # preserve their keywords. Mode 2 keeps the existing behavior.
+    # preserve their keywords. Mode 2 keeps a SUBSET of the codes.
     if (is.null(theme_set$themes[[i]]$framework_construct_id)) {
-      # Phase 51: read from the canonical hierarchy via theme_codes() rather
-      # than the denormalised codes_included field. Avoids any staleness
-      # risk if a future caller mutates subthemes between create_theme_set()
-      # and enrich_themes() without recomputing the denorm.
-      theme_set$themes[[i]]$keywords <- theme_codes(theme_set$themes[[i]])
+      # Phase 58 Tier 8 H-26/AF-31: pre-Tier-8 this assignment copied
+      # ALL codes (a verbatim duplicate of codes_included) into the
+      # keywords field. Phase 57 audit measured every theme's keywords
+      # = codes_included verbatim, including the 237-code mega-theme
+      # carrying 237 keywords. Payload bloat + misleading field name
+      # (users reasonably expect 5-15 representative terms, not the
+      # full code inventory).
+      #
+      # Fix: keep the top-N codes by frequency in the theme's
+      # codebook. Falls back to all-codes when length < N. This makes
+      # keywords a useful highlight subset without losing the data --
+      # the full code inventory remains in codes_included +
+      # subthemes_structured.
+      keyword_cap <- 8L
+      theme_codes_full <- theme_codes(theme_set$themes[[i]])
+      if (length(theme_codes_full) > keyword_cap) {
+        # Rank by frequency: pull from coding_state$codebook when
+        # available; otherwise fall back to identity order.
+        if (!is.null(coding_state$codebook)) {
+          # Tier 8 audit followup MEDIUM-1: use the canonical
+          # theme_code_keys() helper rather than tolower(name)
+          # round-trip. Phase 51's code key IS lowercase(name) for
+          # ASCII names but may diverge for unicode / normalized
+          # names; the canonical accessor returns the keys directly
+          # without re-deriving.
+          theme_code_key_vec <- theme_code_keys(theme_set$themes[[i]])
+          freqs <- vapply(theme_code_key_vec, function(k) {
+            cb <- coding_state$codebook[[k]]
+            if (is.null(cb)) 0L else as.integer(cb$frequency %||% 0L)
+          }, integer(1))
+          ord <- order(freqs, decreasing = TRUE)
+          theme_set$themes[[i]]$keywords <- theme_codes_full[
+            utils::head(ord, keyword_cap)
+          ]
+        } else {
+          theme_set$themes[[i]]$keywords <- utils::head(
+            theme_codes_full, keyword_cap
+          )
+        }
+      } else {
+        theme_set$themes[[i]]$keywords <- theme_codes_full
+      }
     }
   }
 
