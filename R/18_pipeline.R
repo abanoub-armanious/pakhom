@@ -835,6 +835,31 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     insights <- corr_result$insights
     theme_group_tests <- corr_result$theme_group_tests
     cooccurrence_tests <- corr_result$cooccurrence_tests
+    # Phase 58 Tier 6 cross-tier audit I: a pre-Tier-6 checkpoint
+    # carries correlation tibbles that predate the H-13/H-17/H-18
+    # methodology rewrite -- the renderer's presence guards keep the
+    # report from crashing, but the cached numbers were produced by
+    # the older statistical pipeline (Pearson where Spearman would
+    # now fire, NA Cramer's V on Fisher pairs, no n_members column,
+    # 3-tier effect_size without "negligible"). Detect the schema
+    # gap via the n_members column on theme_group_tests and warn the
+    # user that the published prose will describe Tier 6 methods
+    # while the numbers come from the older pipeline. The user can
+    # recompute by deleting outputs/<run>/checkpoint.rds step 6.
+    if (!is.null(theme_group_tests) && is.data.frame(theme_group_tests) &&
+        nrow(theme_group_tests) > 0L &&
+        !"n_members" %in% names(theme_group_tests)) {
+      log_warn(paste0(
+        "Resuming from a pre-Phase-58-Tier-6 checkpoint: cached correlation ",
+        "tibbles were produced by the older statistical pipeline (pre-",
+        "rank-biserial effect_r, pre-negligible effect tier, pre-Fisher ",
+        "Cramer's V). The published report's methodology prose describes ",
+        "the Tier 6 methods. To realign, delete the 'correlations' step ",
+        "from outputs/<run>/checkpoint.rds and rerun from this point. ",
+        "See PHASE_57_DEEP_AUDIT_FINDINGS.md (Tier 6) for the methodology ",
+        "rewrite details."
+      ))
+    }
   } else {
     log_info("\n[STEP 6] Running correlation analysis...")
     corr_data <- prepare_correlation_data(analytic_data, theme_set,

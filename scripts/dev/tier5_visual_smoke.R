@@ -219,4 +219,44 @@ cat(sprintf("Replay-equivalence: PNG md5 match = %s (J2 fix verified)\n",
             identical(unname(md5_1), unname(md5_2))))
 stopifnot(identical(unname(md5_1), unname(md5_2)))
 
+# ----- 7. Tier 6 statistical hygiene smoke (added by Tier 6 cross-tier audit) -----
+cat("\n=== Tier 6 statistical hygiene smoke ===\n")
+# (a) H-13: VADER-shaped sentiment classifies as ordinal
+sentiment_cd <- tibble::tibble(
+  binary_theme   = rep(c(0L, 1L), 30L),
+  sentiment_score = round(runif(60L, -1, 1), 1)  # 21-level grid
+)
+types <- detect_variable_types(sentiment_cd)
+stopifnot(types[["binary_theme"]] == "binary")
+stopifnot(types[["sentiment_score"]] == "ordinal")
+cat("  H-13: sentiment_score classifies as ordinal (was continuous pre-Tier-6)\n")
+
+# (b) .select_pair_method: binary x ordinal -> spearman
+m <- pakhom:::.select_pair_method(
+  sentiment_cd$binary_theme, sentiment_cd$sentiment_score,
+  "binary", "ordinal"
+)
+stopifnot(m == "spearman")
+cat("  H-13: binary x ordinal routes to Spearman (was Pearson pre-Tier-6)\n")
+
+# (c) H-15: interpret_correlations headline reports the intersection
+test_df <- tibble::tibble(
+  var1 = c("a", "b", "c", "d"),
+  var2 = c("x", "y", "z", "w"),
+  correlation = c(0.5, 0.3, 0.05, 0.02),
+  p_value = c(1e-10, 0.5, 1e-10, 0.7),
+  p_raw = c(1e-10, 0.5, 1e-10, 0.7),
+  p_bh = c(1e-10, 0.5, 1e-10, 0.7),
+  p_bonferroni = c(1e-10, 0.5, 1e-10, 0.7),
+  effect_size = c("large", "medium", "negligible", "negligible"),
+  significant = c(TRUE, FALSE, TRUE, FALSE),
+  meaningful_effect = c(TRUE, TRUE, FALSE, FALSE),
+  method = rep("spearman", 4L),
+  ci_lower = c(0.4, 0.2, 0.04, 0.01),
+  ci_upper = c(0.6, 0.4, 0.06, 0.03)
+)
+res <- interpret_correlations(test_df, theme_stats = list())
+stopifnot(grepl("meaningful effect AND Bonferroni-significant", res$summary, fixed = TRUE))
+cat("  H-15: headline filters on meaningful AND significant intersection\n")
+
 cat("\n--- All visual smoke checks PASSED ---\n")
