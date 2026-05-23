@@ -198,7 +198,8 @@
 #' @return xml2 document
 #' @keywords internal
 .build_qde_xml <- function(coding_state, data, source_paths,
-                            theme_set = NULL, study_name = "pakhom export") {
+                            theme_set = NULL, study_name = "pakhom export",
+                            output_path = NULL) {
 
   creation_dt <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S")
   project_guid <- .qdpx_guid("project")
@@ -244,14 +245,42 @@
     if (!is.null(prov_stats) && !identical(prov_stats$total, 0L)) {
       total <- prov_stats$total
       v_rate <- prov_stats$verification_rate %||% NA_real_
-      f_rate <- prov_stats$fabrication_rate  %||% 0
       v_pct  <- if (is.na(v_rate)) "n/a" else sprintf("%.1f%%", 100 * v_rate)
-      f_pct  <- if (is.na(f_rate)) "n/a" else sprintf("%.1f%%", 100 * f_rate)
       n_api  <- prov_stats$n_citations_api %||% 0L
+
+      # Phase 58 Tier 7 AH-10: report pre-rejection fabrication count
+      # honestly. compute_quote_provenance_stats's fabrication_rate is
+      # computed over SURVIVING quotes only (i.e. close to zero by
+      # construction since fabricated quotes are dropped before
+      # surfacing). Pre-Tier-7 the QDPX <Description> reported that
+      # near-zero rate as "fabrication rate 0.0%" -- which lied to a
+      # reviewer importing the QDPX about whether fabrication
+      # detection actually fired. Now read fabrication_log.csv to
+      # surface the pre-rejection count + rate alongside the
+      # post-rejection verification rate, parallel to the Tier 4 V-5
+      # fix in the T0.1 dashboard.
+      # output_path is the .qdpx file path passed by export_qdpx; the
+      # fabrication_log.csv lives in the same directory.
+      output_dir <- if (!is.null(output_path)) dirname(output_path) else "."
+      fab_log_path <- file.path(output_dir, "fabrication_log.csv")
+      n_caught <- .count_pre_rejection_fabrications(
+        fabrication_log_path = fab_log_path
+      )
+      n_attempts <- if (!is.null(n_caught)) total + n_caught else total
+      caught_pct <- if (!is.null(n_caught) && n_attempts > 0L) {
+        sprintf("%.1f%%", 100 * n_caught / n_attempts)
+      } else "0.0%"
+
       desc_parts <- c(desc_parts,
-        sprintf("Quote provenance: %d AI-attributed verbatim claims;", total),
-        sprintf("verification rate %s; fabrication rate %s.", v_pct, f_pct),
-        sprintf("Anthropic Citations API path: %d/%d quotes.", n_api, total)
+        sprintf("Quote provenance: %d AI-attributed verbatim claims surviving verification (of %d attempts);",
+                 total, n_attempts),
+        sprintf("verification rate %s (post-rejection); fabrication caught + excluded: %s (%s of attempts).",
+                 v_pct,
+                 if (is.null(n_caught)) "n/a"
+                 else format(n_caught, big.mark = ","),
+                 caught_pct),
+        sprintf("Anthropic Citations API path: %d/%d surviving quotes.",
+                 n_api, total)
       )
     }
     desc_parts <- c(desc_parts,
@@ -559,7 +588,10 @@ export_qdpx <- function(coding_state, data, output_path,
     data = data,
     source_paths = source_paths,
     theme_set = theme_set,
-    study_name = study_name
+    study_name = study_name,
+    # Phase 58 Tier 7 AH-10: pass the .qdpx path so the description
+    # can read fabrication_log.csv from the same directory.
+    output_path = output_path
   )
 
   qde_path <- file.path(staging_dir, "project.qde")

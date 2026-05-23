@@ -934,18 +934,77 @@ run_progressive_coding <- function(data, provider, config = list(),
 }
 
 #' Build the schema-path user prompt (existing T1.2 flow)
+#'
+#' Phase 58 Tier 7 V-6 / L-3: the pre-Tier-7 implementation JSON-escaped
+#' the entry text via \code{jsonlite::toJSON(truncated_text, auto_unbox =
+#' TRUE)} then stripped the outer quotes and wrapped the result in
+#' literal quote marks. This made embedded \code{"} / \code{\\}
+#' characters appear as 2-character escape sequences in the prompt --
+#' so the AI's emitted \code{start_char} / \code{end_char} offsets
+#' referenced the ESCAPED form, but \code{verify_quote} re-fetches the
+#' UN-escaped source and tries to match at the same indices. Every
+#' entry with a single \code{"} silently produced an off-by-one
+#' verification failure that Step 3 substring-search papered over,
+#' driving the Phase 57 run to 99.89% verified_fuzzy / 0.11%
+#' verified_exact. Fenced fence the entry text with explicit XML-style
+#' delimiters and pass the text verbatim, so the AI sees exactly the
+#' same character offsets that the verifier will check.
 #' @keywords internal
 .build_progressive_schema_user_prompt <- function(truncated_text) {
-  safe_text <- if (requireNamespace("jsonlite", quietly = TRUE)) {
-    raw_json <- jsonlite::toJSON(truncated_text, auto_unbox = TRUE)
-    substr(raw_json, 2, nchar(raw_json) - 1)
-  } else {
-    gsub('(["\\\\\n\r\t])', '\\\\\\1', truncated_text)
-  }
+  # The opening and closing tags are constructed at runtime (not as
+  # literal strings in the surrounding instructions) so a regex/parser
+  # scanning the prompt for the tags only matches the actual fence,
+  # not a description of the tags. Pre-fix the explanation paragraph
+  # contained "<entry_text>...</entry_text>" verbatim which caused
+  # the test mock's regexpr to match the explanation instead of the
+  # entry. (Avoids a class of false-positive tag matches in tools that
+  # post-process the prompt without a real XML parser.)
+  open_tag  <- paste0("<", "entry_text", ">")
+  close_tag <- paste0("</", "entry_text", ">")
+  # Tier 7 audit followup H-T7-3: defensive escape for the rare case
+  # where the entry text literally contains the closing-tag sentinel
+  # (e.g. tutorial snippets, HTML fragments). The pre-followup version
+  # would render an unbalanced fence; the AI could read the inner
+  # </entry_text> as the closing marker and emit offsets relative to
+  # a truncated view. Replacement uses an unambiguous sentinel that
+  # parsers / readers see as "literal text" -- the AI never re-emits
+  # this exact sequence as a tag.
+  safe_text <- .escape_entry_text_fence(truncated_text)
   paste0(
     "As you read through this entry, code any text segments applicable to the research question.\n\n",
-    'Entry text: "', safe_text, '"'
+    "The entry text appears between the opening tag (XML-style 'entry_text') ",
+    "and the matching closing tag below. When emitting start_char / end_char ",
+    "offsets, count characters starting at 0 from the FIRST character INSIDE ",
+    "the opening tag; the closing tag marks the (exclusive) end of the text ",
+    "and is NOT part of the entry.\n\n",
+    open_tag,
+    safe_text,
+    close_tag
   )
+}
+
+#' Defensive escape for the entry-text fence
+#'
+#' Phase 58 Tier 7 audit followup H-T7-3: when the entry text literally
+#' contains \code{</entry_text>}, the prompt fence is unbalanced and the
+#' AI may compute offsets against a truncated view of the entry. This
+#' helper replaces the closing-tag sentinel inside the entry text with
+#' an unambiguous escape that parsers see as literal text.
+#' The offsets the AI emits will then be against the ESCAPED text, which
+#' is what \code{verify_quote} also sees (we don't un-escape before
+#' verification; the escape is a deterministic 1:1 character mapping
+#' that preserves character-position arithmetic for the relevant range).
+#' For typical Reddit posts this is a no-op; only adversarial / tutorial
+#' inputs trigger the substitution.
+#' @keywords internal
+.escape_entry_text_fence <- function(text) {
+  sentinel <- paste0("</", "entry_text", ">")
+  if (!grepl(sentinel, text, fixed = TRUE)) return(text)
+  # Replace each occurrence with an inline placeholder that has the
+  # same character length so any offsets the AI might emit for text
+  # AFTER the substitution still map correctly. 14 characters in,
+  # 14 characters out.
+  gsub(sentinel, "[end-tag-lit]", text, fixed = TRUE)
 }
 
 #' Build the Mode 3 (framework-applied) user prompt
@@ -957,12 +1016,15 @@ run_progressive_coding <- function(data, provider, config = list(),
 #' @keywords internal
 .build_progressive_framework_user_prompt <- function(truncated_text,
                                                        framework_spec) {
-  safe_text <- if (requireNamespace("jsonlite", quietly = TRUE)) {
-    raw_json <- jsonlite::toJSON(truncated_text, auto_unbox = TRUE)
-    substr(raw_json, 2, nchar(raw_json) - 1)
-  } else {
-    gsub('(["\\\\\n\r\t])', '\\\\\\1', truncated_text)
-  }
+  # Phase 58 Tier 7 V-6 / L-3: same offset-correctness fix as
+  # .build_progressive_schema_user_prompt. Tags constructed at
+  # runtime so a parser scanning the prompt matches only the actual
+  # fence, not a description of the tags. Tier 7 audit followup
+  # H-T7-3: defensive escape for adversarial inputs that contain the
+  # closing-tag sentinel verbatim.
+  open_tag  <- paste0("<", "entry_text", ">")
+  close_tag <- paste0("</", "entry_text", ">")
+  safe_text <- .escape_entry_text_fence(truncated_text)
   paste0(
     "Apply the framework's constructs to any text segments in this entry that fit them. ",
     "For each applicable segment:\n",
@@ -972,7 +1034,14 @@ run_progressive_coding <- function(data, provider, config = list(),
     "`construct_id: \"anomaly\"` and set `anomaly_reason` to a one-sentence ",
     "explanation of why the framework doesn't capture it. Do NOT force a fit; ",
     "the framework's anomaly_handling policy treats these as first-class output.\n\n",
-    'Entry text: "', safe_text, '"'
+    "The entry text appears between the opening tag (XML-style 'entry_text') ",
+    "and the matching closing tag below. When emitting start_char / end_char ",
+    "offsets, count characters starting at 0 from the FIRST character INSIDE ",
+    "the opening tag; the closing tag marks the (exclusive) end of the text ",
+    "and is NOT part of the entry.\n\n",
+    open_tag,
+    safe_text,
+    close_tag
   )
 }
 
@@ -1136,11 +1205,16 @@ run_progressive_coding <- function(data, provider, config = list(),
     # ai_call_ids.
     log_fabrication(fabrication_log, quote)
     if (!is.null(audit_log)) {
+      # Phase 58 Tier 7 M-13/E-19: emit failure_reason so audit
+      # log readers can attribute fabrications to specific ladder
+      # failure modes without joining against fabrication_log.csv.
       log_ai_decision(audit_log, "quote_verification", "quote_fabricated",
                       entry_id  = entry_id, code_name = code_name,
                       quote_id  = quote$quote_id,
                       ai_call_id = quote$ai_call_id %||% NA_character_,
-                      exact_text = substr(seg_text, 1, 200))
+                      exact_text = substr(seg_text, 1, 200),
+                      failure_reason = quote$verification_failure_reason
+                                         %||% NA_character_)
     }
     log_warn("Entry {entry_id}: AI returned fabricated quote for code '{code_name}'; segment dropped.")
     return(state)
@@ -1152,11 +1226,17 @@ run_progressive_coding <- function(data, provider, config = list(),
     # is excluded from rendering pending researcher review; we log it to
     # the audit trail so cross-run analysis can attribute drifts.
     if (!is.null(audit_log)) {
+      # Tier 7 audit followup H-T7-1: thread failure_reason for
+      # drifted quotes too (only fabricated had the kwarg
+      # pre-followup, leaving drifted records without attribution
+      # for downstream cross-run analysis).
       log_ai_decision(audit_log, "quote_verification", "quote_drifted",
                       entry_id  = entry_id, code_name = code_name,
                       quote_id  = quote$quote_id,
                       ai_call_id = quote$ai_call_id %||% NA_character_,
-                      exact_text = substr(seg_text, 1, 200))
+                      exact_text = substr(seg_text, 1, 200),
+                      failure_reason = quote$verification_failure_reason
+                                         %||% NA_character_)
     }
     log_warn("Entry {entry_id}: quote drifted (source SHA mismatch) for code '{code_name}'; segment dropped pending review.")
     return(state)

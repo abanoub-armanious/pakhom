@@ -66,15 +66,26 @@
         # returned segment is verbatim (otherwise verify_quote drops
         # it as "fabricated" and the codebook stays empty -- exactly
         # the silent failure mode that masked the audit H2 finding).
-        # The Mode 2 / Mode 3 / Citations prompt all wrap the entry
-        # text in `Entry text: "..."`; extract the first ~10 chars.
+        # Phase 58 Tier 7 V-6/L-3: the Mode 2 / Mode 3 prompts wrap
+        # entry text in `<entry_text>...</entry_text>` fences (pre-
+        # Tier-7 they used `Entry text: "..."`). Match the new fence
+        # first, then fall back to the legacy format for back-compat
+        # with older fixtures.
         m <- regmatches(prompt,
-                          regexpr('Entry text:\\s*"([^"]{1,200})', prompt))
+                          regexpr("<entry_text>[^<]+", prompt, perl = TRUE))
         slice <- if (length(m) > 0L && nzchar(m)) {
-          inner <- sub('^Entry text:\\s*"', "", m)
+          inner <- sub("^<entry_text>", "", m)
           substr(inner, 1L, min(15L, nchar(inner)))
         } else {
-          "test"  # fallback; will likely fail verify_quote in production
+          # Legacy `Entry text: "..."` format (pre-Tier-7)
+          m2 <- regmatches(prompt,
+                            regexpr('Entry text:\\s*"([^"]{1,200})', prompt))
+          if (length(m2) > 0L && nzchar(m2)) {
+            inner <- sub('^Entry text:\\s*"', "", m2)
+            substr(inner, 1L, min(15L, nchar(inner)))
+          } else {
+            "test"  # fallback; will likely fail verify_quote in production
+          }
         }
         # Include both Mode 2 fields (code, code_description, code_type)
         # and Mode 3 fields (construct_id, anomaly_reason) so a single

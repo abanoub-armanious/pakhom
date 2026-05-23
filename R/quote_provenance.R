@@ -170,6 +170,13 @@ make_quote <- function(source_doc_id, source_doc_type, source_text,
     verification_status = "unverified",
     verification_method = NA_character_,
     verification_score  = NA_real_,
+    # Phase 58 Tier 7 M-13/E-19: structured failure reason populated
+    # when verification_status ends as "fabricated" or "drifted". Lets
+    # the methodology paper attribute fabrications to specific ladder
+    # failure modes (offset_mismatch / normalized_mismatch /
+    # substring_not_found / embedding_below_threshold / source_drift_
+    # all_ladder_failed). NA when status is verified_* or unverified.
+    verification_failure_reason = NA_character_,
     verified_at         = NA_character_,
     schema_version      = .QUOTE_PROVENANCE_SCHEMA_VERSION
   )
@@ -421,6 +428,13 @@ verify_quote <- function(quote, source_text, provider = NULL) {
 
   now_iso <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z")
 
+  # Phase 58 Tier 7 M-13/E-19: track the latest-attempted-and-failed
+  # ladder step so a downstream fabricated/drifted quote carries an
+  # attributable reason. Updated at each step's failure; when all
+  # four steps fail the latest value names the deepest step the
+  # ladder tried.
+  last_failure_reason <- NA_character_
+
   # ---- Step 1: strict string match at recorded offsets ---------------------
   # OFFSETS ARE 0-INDEXED EXCLUSIVE-END (Anthropic Citations API convention).
   # R's substr is 1-indexed inclusive-end -- convert: +1 for start, end as-is
@@ -433,6 +447,9 @@ verify_quote <- function(quote, source_text, provider = NULL) {
       return(.set_verification(quote, "verified_exact", "string_match",
                                 1.0, now_iso))
     }
+    last_failure_reason <- "step1_offset_mismatch"
+  } else {
+    last_failure_reason <- "step1_offset_out_of_bounds"
   }
 
   # ---- Step 2: normalized match at recorded offsets ------------------------
@@ -443,6 +460,7 @@ verify_quote <- function(quote, source_text, provider = NULL) {
       return(.set_verification(quote, "verified_fuzzy", "normalized_match",
                                 0.95, now_iso))
     }
+    last_failure_reason <- "step2_normalized_mismatch"
   }
 
   # ---- Step 3: substring search fallback (corrects drift in offsets) ------
@@ -458,6 +476,9 @@ verify_quote <- function(quote, source_text, provider = NULL) {
       return(.set_verification(quote, "verified_fuzzy", "substring_search",
                                 0.85, now_iso))
     }
+    last_failure_reason <- "step3_substring_not_found"
+  } else {
+    last_failure_reason <- "step3_target_empty_after_normalization"
   }
 
   # ---- Step 4: embedding cosine similarity (paraphrase tolerance) ---------
@@ -474,13 +495,22 @@ verify_quote <- function(quote, source_text, provider = NULL) {
       return(.set_verification(quote, "verified_fuzzy", "embedding_cosine",
                                 embedding_score, now_iso))
     }
+    last_failure_reason <- if (is.na(embedding_score)) {
+      "step4_embedding_unavailable"
+    } else {
+      "step4_embedding_below_threshold"
+    }
+  } else {
+    last_failure_reason <- "step4_skipped_no_provider"
   }
 
   # ---- All ladder steps failed --------------------------------------------
   if (source_drifted) {
-    .set_verification(quote, "drifted", NA_character_, NA_real_, now_iso)
+    .set_verification(quote, "drifted", NA_character_, NA_real_, now_iso,
+                       failure_reason = "source_text_sha256_mismatch")
   } else {
-    .set_verification(quote, "fabricated", NA_character_, NA_real_, now_iso)
+    .set_verification(quote, "fabricated", NA_character_, NA_real_, now_iso,
+                       failure_reason = last_failure_reason %||% "all_steps_failed")
   }
 }
 
@@ -541,10 +571,15 @@ init_fabrication_log <- function(output_dir, methodology_mode = NULL) {
 
   # Always write a fresh header. If a fabricated quote was logged in a prior
   # session the user is starting over; rotating logs would be over-engineering.
+  # Phase 58 Tier 7 M-13/E-19: append failure_reason column so a methodology
+  # paper can attribute fabrications to specific ladder failure modes
+  # (step1_offset_mismatch, step2_normalized_mismatch, step3_substring_
+  # not_found, step4_embedding_below_threshold, source_text_sha256_
+  # mismatch, etc.).
   header <- c(
     "timestamp", "quote_id", "source_doc_id", "attributed_theme_id",
     "attributed_code_id", "ai_model", "ai_call_id", "exact_text",
-    "verification_status"
+    "verification_status", "failure_reason"
   )
   con <- file(log_path, open = "w")
   writeLines(paste(header, collapse = ","), con = con)
@@ -602,7 +637,12 @@ log_fabrication <- function(flog, quote) {
     # Truncate exact_text to keep the CSV scannable; full text is in the
     # raw_response cache and the original audit log.
     exact_text          = substr(quote$exact_text, 1, 500),
-    verification_status = quote$verification_status
+    verification_status = quote$verification_status,
+    # Phase 58 Tier 7 M-13/E-19: structured failure reason populated by
+    # verify_quote. NA on legacy QuoteProvenance objects without the
+    # field (back-compat for runs replayed from pre-Tier-7 cache).
+    failure_reason      = quote$verification_failure_reason %||%
+                            NA_character_
   )
 
   tryCatch({
@@ -791,26 +831,52 @@ print.QuoteProvenance <- function(x, ...) {
 # ==============================================================================
 
 #' Set verification fields on a quote
+#'
+#' Phase 58 Tier 7 M-13/E-19: optional \code{failure_reason} populates
+#' \code{verification_failure_reason} for fabricated / drifted statuses.
+#' NA when the status is verified_* (the field carries meaning only
+#' when verification failed).
 #' @keywords internal
-.set_verification <- function(quote, status, method, score, verified_at) {
-  quote$verification_status <- status
-  quote$verification_method <- method
-  quote$verification_score  <- score
-  quote$verified_at         <- verified_at
+.set_verification <- function(quote, status, method, score, verified_at,
+                                failure_reason = NA_character_) {
+  quote$verification_status         <- status
+  quote$verification_method         <- method
+  quote$verification_score          <- score
+  quote$verified_at                 <- verified_at
+  quote$verification_failure_reason <- failure_reason
   quote
 }
 
 #' Normalize text for the verification ladder's fuzzy steps
 #'
-#' Applies (in order): NFC unicode normalization (where supported), smart
-#' quote -> ASCII quote conversion, whitespace collapse, case-folding.
-#' This catches the most common attribution drift patterns: model returns
-#' typographic quotes where source has straight ASCII, model collapses or
-#' inserts whitespace, model lowercases.
+#' Applies (in order): NFC unicode normalization (where stringi is
+#' available), smart quote -> ASCII quote conversion, unicode-aware
+#' whitespace collapse, case-folding. This catches the most common
+#' attribution drift patterns: model returns typographic quotes where
+#' source has straight ASCII, model collapses or inserts whitespace
+#' (including unicode NBSP / em-space / etc. that the default \code{\\s}
+#' regex misses), model lowercases.
+#'
+#' Phase 58 Tier 7 M-24 + L-2: pre-Tier-7 this helper only did smart-
+#' quote ASCII-fication + standard \code{\\s} whitespace collapse. The
+#' Phase 57 audit found 8 of 50 sampled verbatim spot-checks failed
+#' (16% miss rate) -- mostly because (a) source had typographic
+#' apostrophes that weren't NFC-normalized to combine with the AI's
+#' ASCII rendering, and (b) source had U+00A0 NBSP / U+2009 thin-space
+#' that R's PCRE \code{\\s} doesn't match by default. NFC normalization
+#' + unicode-aware whitespace class \code{[\\p{Z}\\s]} together resolve
+#' both classes of false-positive in the fabrication log.
 #' @keywords internal
 .normalize_quote_text <- function(x) {
   if (is.na(x) || !nzchar(x)) return("")
-  # Convert smart quotes to ASCII straights first. Using \u escapes (rather
+  # Phase 58 Tier 7 M-24: NFC normalization, gated on stringi
+  # availability (in Suggests). NFC composes precomposed unicode chars
+  # back to their canonical form -- so an a + combining-acute matches
+  # an a-acute precomposed.
+  if (requireNamespace("stringi", quietly = TRUE)) {
+    x <- stringi::stri_trans_nfc(x)
+  }
+  # Convert smart quotes to ASCII straights. Using \u escapes (rather
   # than literal multi-byte UTF-8 chars in the source) so chartr's
   # length-equality check works regardless of source-file encoding -- some
   # platforms read this file with Encoding(x) = "unknown" which makes
@@ -829,8 +895,14 @@ print.QuoteProvenance <- function(x, ...) {
   smart_quotes <- "\u2018\u2019\u201A\u201C\u201D\u201E\u2032\u2033"
   ascii_quotes <- "'''\"\"\"'\""
   x <- chartr(smart_quotes, ascii_quotes, x)
-  # Whitespace collapse
-  x <- gsub("\\s+", " ", x, perl = TRUE)
+  # Phase 58 Tier 7 L-2: unicode-aware whitespace collapse. The default
+  # PCRE \s matches [ \t\n\r\f\v] in C locale -- it does NOT match
+  # U+00A0 NBSP, U+2009 thin space, U+2003 em space, etc. Sources
+  # scraped from web content frequently contain these characters where
+  # the AI emits ordinary spaces, producing a substring-search false-
+  # positive in the verification ladder. \p{Z} covers all unicode
+  # Separator categories (Zs space, Zl line, Zp paragraph).
+  x <- gsub("[\\s\\p{Z}]+", " ", x, perl = TRUE)
   # Trim
   x <- trimws(x)
   # Case fold

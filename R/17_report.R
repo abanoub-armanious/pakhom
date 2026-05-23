@@ -172,7 +172,17 @@ export_results <- function(data, theme_set, correlations_df, insights,
       subthemes_structured     = structured,
       keywords                 = I(as.character(t$keywords %||% character(0))),
       narrative                = t$narrative %||% "",
-      supporting_quotes        = I(as.character(t$supporting_quotes %||% character(0)))
+      supporting_quotes        = I(as.character(t$supporting_quotes %||% character(0))),
+      # Phase 58 Tier 7 M-25/AF-34 audit followup C-T7-1: persist the
+      # structured supporting_quote_records to disk so downstream
+      # consumers (themes.json readers, comparison runs, cross-run
+      # T0.2 audits) can trace each rendered quote back to its source
+      # entry. Pre-followup the field was in-memory only -- defeating
+      # the M-25 purpose since any persistent consumer saw only the
+      # bare-string supporting_quotes legacy field. Empty list when
+      # the theme has no representative quotes (default-shaped
+      # themes from create_theme_set hydration).
+      supporting_quote_records = t$supporting_quote_records %||% list()
     )
   })
   jsonlite::write_json(themes_json, themes_file, pretty = TRUE,

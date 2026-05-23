@@ -1169,10 +1169,28 @@ generate_downloads_section <- function(export_files, theme_stats) {
     emotion_val <- if ("all_emotions" %in% names(q)) {
       q$all_emotions %||% NA_character_
     } else NA_character_
+    # Phase 58 Tier 7 M-25/AF-34: record entry_id + source_table +
+    # author alongside text + sentiment so a downstream consumer can
+    # reconstruct the link from quote-text back to its source entry.
+    # Pre-Tier-7 this was a bare text string -- T0.2 provenance was
+    # partially missing because the renderer couldn't trace a published
+    # quote back to its row in the data tibble.
+    entry_id_val <- if ("std_id" %in% names(q)) {
+      as.character(q$std_id %||% NA_character_)
+    } else NA_character_
+    source_table_val <- if ("source_table" %in% names(q)) {
+      as.character(q$source_table %||% NA_character_)
+    } else NA_character_
+    author_val <- if (has_authors) {
+      as.character(q$std_author %||% NA_character_)
+    } else NA_character_
     quotes[[label]] <- list(
-      text      = truncate_text(q[[text_col]], 300),
-      sentiment = round(q$sentiment_score, 2),
-      emotion   = emotion_val
+      text         = truncate_text(q[[text_col]], 300),
+      sentiment    = round(q$sentiment_score, 2),
+      emotion      = emotion_val,
+      entry_id     = entry_id_val,
+      source_table = source_table_val,
+      author       = author_val
     )
     taken_indices <- c(taken_indices, chosen_idx)
     if (has_authors) {

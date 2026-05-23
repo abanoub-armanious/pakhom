@@ -4,9 +4,19 @@
 \alias{.set_verification}
 \title{Set verification fields on a quote}
 \usage{
-.set_verification(quote, status, method, score, verified_at)
+.set_verification(
+  quote,
+  status,
+  method,
+  score,
+  verified_at,
+  failure_reason = NA_character_
+)
 }
 \description{
-Set verification fields on a quote
+Phase 58 Tier 7 M-13/E-19: optional \code{failure_reason} populates
+\code{verification_failure_reason} for fabricated / drifted statuses.
+NA when the status is verified_* (the field carries meaning only
+when verification failed).
 }
 \keyword{internal}

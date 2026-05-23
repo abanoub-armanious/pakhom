@@ -530,13 +530,20 @@ print.Provocation <- function(x, ...) {
   if (identical(q$verification_status, "fabricated")) {
     log_fabrication(fabrication_log, q)
     if (!is.null(audit_log)) {
+      # Tier 7 audit followup H-T7-2: Mode 1 provocateur fabrications
+      # now thread failure_reason through the audit decision, matching
+      # the Mode 2 + Mode 3 coding fabrication-attribution behavior
+      # introduced by Tier 7 M-13/E-19. Pre-followup provocateur
+      # fabrications were indistinguishable from Phase-57 records.
       log_ai_decision(audit_log, "quote_verification", "quote_fabricated",
                       entry_id   = entry_id,
                       theme_name = theme_name,
                       quote_id   = q$quote_id,
                       ai_call_id = q$ai_call_id %||% NA_character_,
                       provocation_category = category,
-                      exact_text = substr(exact_text, 1, 200))
+                      exact_text = substr(exact_text, 1, 200),
+                      failure_reason = q$verification_failure_reason
+                                         %||% NA_character_)
     }
     log_warn("Provocation [{category}] for theme '{theme_name}' cited a fabricated quote; dropped.")
     return(NULL)

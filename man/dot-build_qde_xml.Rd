@@ -9,7 +9,8 @@
   data,
   source_paths,
   theme_set = NULL,
-  study_name = "pakhom export"
+  study_name = "pakhom export",
+  output_path = NULL
 )
 }
 \arguments{

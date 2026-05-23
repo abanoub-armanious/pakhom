@@ -2345,6 +2345,28 @@ enrich_themes <- function(theme_set, data, coding_state = NULL,
       qtexts <- qtexts[nchar(qtexts) > 0]
       if (length(qtexts) > 0L) {
         theme_set$themes[[i]]$supporting_quotes <- unname(qtexts)
+        # Phase 58 Tier 7 M-25/AF-34: parallel structured records so a
+        # downstream consumer can trace each quote text back to its
+        # source entry. The bare-string supporting_quotes field is
+        # preserved verbatim for back-compat with any consumer that
+        # reads the legacy shape; new consumers should prefer
+        # supporting_quote_records.
+        records <- lapply(ordered_labels, function(lbl) {
+          s <- selected[[lbl]]
+          if (is.null(s) || is.null(s$text) || !nzchar(s$text)) return(NULL)
+          list(
+            text         = substr(as.character(s$text), 1, 200),
+            sentiment_score = s$sentiment %||% NA_real_,
+            entry_id     = s$entry_id %||% NA_character_,
+            source_table = s$source_table %||% NA_character_,
+            std_author   = s$author %||% NA_character_,
+            position     = lbl  # one of "most_negative" / "median" / "most_positive"
+          )
+        })
+        records <- Filter(Negate(is.null), records)
+        if (length(records) > 0L) {
+          theme_set$themes[[i]]$supporting_quote_records <- records
+        }
       }
     }
 

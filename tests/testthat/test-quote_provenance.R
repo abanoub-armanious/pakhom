@@ -26,6 +26,9 @@ test_that("make_quote constructs a QuoteProvenance with all schema fields", {
                        "attributed_code_id", "ai_model", "ai_call_id",
                        "citation_source", "verification_status",
                        "verification_method", "verification_score",
+                       # Phase 58 Tier 7 M-13/E-19: failure_reason field
+                       # populated on fabricated / drifted; NA otherwise.
+                       "verification_failure_reason",
                        "verified_at", "schema_version")
   expect_setequal(names(q), expected_fields)
   # Newly-constructed quote starts unverified
@@ -193,7 +196,9 @@ test_that("init_fabrication_log creates the CSV with header row", {
   header <- readLines(flog$path)[1]
   # Verify header lists the expected columns
   expect_match(header, "timestamp,quote_id,source_doc_id")
-  expect_match(header, "verification_status$")
+  # Phase 58 Tier 7 M-13/E-19: failure_reason column appended after
+  # verification_status.
+  expect_match(header, "verification_status,failure_reason$")
 })
 
 test_that("log_fabrication appends one row per fabricated quote", {

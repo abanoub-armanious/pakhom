@@ -20,6 +20,11 @@
   prevalence = "medium",
   sentiment_tendency = "neutral",
   supporting_quotes = character(0),
+  # Phase 58 Tier 7 M-25/AF-34: parallel structured records carrying
+  # text + entry_id + source_table + std_author + sentiment_score +
+  # position label. Empty list() default; populated by enrich_themes
+  # when representative quotes are selected.
+  supporting_quote_records = list(),
   keywords = character(0),
   narrative = "",
   entry_count = 0L
