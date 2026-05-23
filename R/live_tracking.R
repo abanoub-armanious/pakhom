@@ -138,6 +138,28 @@ print.LiveTracker <- function(x, ...) {
 #' Appends a JSONL line to \code{code_assignments.jsonl}. Safe to call with
 #' \code{tracker = NULL} (no-op).
 #'
+#' Phase 58 Tier 9 L-1/F-6: schema relationship to the audit log.
+#' \code{code_assignment} events live in TWO places by design:
+#' \itemize{
+#'   \item \code{outputs/<run>/live/code_assignments.jsonl} (this writer):
+#'     append-only EVENT log. One JSONL line per (entry_id, code_key,
+#'     segment) triple. Carries text + offsets + verification_status
+#'     inline so a researcher can \code{tail -F} the file mid-run.
+#'   \item \code{outputs/<run>/ai_decisions.jsonl} (\code{R/audit_log.R}):
+#'     append-only DECISION log. One JSONL line per audit event;
+#'     \code{step = "coding"} + \code{decision_type = "code_assignment"}
+#'     records the same logical event. Carries methodology stamp + AI
+#'     metadata (model, request_id, methodology_mode) but NOT segment
+#'     text or offsets.
+#' }
+#' The two are joined by \code{(entry_id, code_key)}. The split is
+#' intentional: the audit log is the methodology-of-record (provenance,
+#' AC9 stamping, replay) while the live tracker is the researcher's
+#' real-time view (text + offsets + verification status for
+#' \code{tail -F}). Pre-Phase-58-Tier-9 the docstring was silent on
+#' this; downstream consumers had to infer the join from the field
+#' names. Now documented.
+#'
 #' @param tracker A \code{LiveTracker} or NULL
 #' @param entry_id Character entry id (std_id)
 #' @param code_key Codebook key (sanitized id)

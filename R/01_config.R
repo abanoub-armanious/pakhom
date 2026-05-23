@@ -101,7 +101,7 @@ default_config <- function(methodology = NULL) {
                             caller = "default_config")
   config <- .config_defaults()
   config$methodology$mode <- methodology
-  config$methodology$mode_locked_at <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z")
+  config$methodology$mode_locked_at <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC")
   structure(config, class = "ThematicConfig")
 }
 

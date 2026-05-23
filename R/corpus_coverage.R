@@ -200,7 +200,7 @@ compute_corpus_coverage <- function(coding_state, data,
     stop_reason              = stop_reason,
     saturation_reached       = saturation_reached,
     reached_at_entry         = coerce_int(coding_state$saturation$reached_at_entry %||% NA_integer_),
-    computed_at              = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    computed_at              = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     schema_version           = .CORPUS_COVERAGE_SCHEMA_VERSION
   )
   # Multi-class: Tier0Coverage is the virtual parent that the report

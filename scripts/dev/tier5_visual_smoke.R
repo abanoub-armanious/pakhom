@@ -394,4 +394,43 @@ desc <- pakhom:::.derive_theme_description(
 stopifnot(desc == "Real articulation here")
 cat("  M-21 + audit followup CRITICAL-1: fallback uses central_organizing_concept\n")
 
+# ----- 10. Tier 9 cleanup smoke -----
+cat("\n=== Tier 9 cleanup smoke ===\n")
+
+# (a) V-8 word-boundary truncation
+v8_long <- paste(rep("alpha beta gamma delta", 50L), collapse = " ")
+v8_out <- pakhom:::.truncate_quote_word_boundary(v8_long, max_chars = 60L)
+stopifnot(endsWith(v8_out, " ..."))
+stopifnot(nchar(v8_out) <= 60L)
+cat("  V-8: word-boundary truncation respects max_chars + appends ' ...'\n")
+
+# (b) L-15 UTC timestamps in audit log
+utc_td <- file.path(out_dir, "utc_test")
+dir.create(utc_td, recursive = TRUE, showWarnings = FALSE)
+utc_audit <- init_audit_log(utc_td, config = NULL)
+log_ai_decision(utc_audit, "coding", "code_assignment",
+                  entry_id = "e1", code_name = "x")
+close_audit_log(utc_audit)
+utc_lines <- readLines(file.path(utc_td, "ai_decisions.jsonl"))
+utc_rec <- jsonlite::fromJSON(utc_lines[1L])
+stopifnot(grepl("\\+0000$", utc_rec$timestamp))
+cat("  L-15: audit log timestamp ends in +0000 (UTC)\n")
+
+# (c) Tier 8 MEDIUM-2 schema_version first field
+stopifnot(grepl('^\\{"schema_version":', utc_lines[1L]))
+cat("  Tier 8 MEDIUM-2: schema_version is first field in audit record\n")
+
+# (d) Tier 5/7 M-T7-1 prompt_template_version in run_metadata
+pt_td <- file.path(out_dir, "prompt_template_test")
+dir.create(pt_td, recursive = TRUE, showWarnings = FALSE)
+pt_meta <- init_run_state(pt_td, "test_run", "codebook_collaborative")
+stopifnot(pt_meta$prompt_template_version == "phase58_tier7")
+cat("  M-T7-1: prompt_template_version stamped in run_metadata.json\n")
+
+# (e) L-21 code_style removed from default config
+yaml_text <- paste(readLines(system.file("config", "default_config.yaml",
+                                            package = "pakhom")), collapse = "\n")
+stopifnot(!grepl('code_style:\\s*"descriptive"', yaml_text))
+cat("  L-21: code_style removed from default_config.yaml\n")
+
 cat("\n--- All visual smoke checks PASSED ---\n")

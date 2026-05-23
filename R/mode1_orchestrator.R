@@ -1258,7 +1258,7 @@ run_mode1 <- function(data, theme_set,
     provider                = config$ai$provider,
     model_primary           = provider$models$primary,
     model_fast              = provider$models$fast %||% provider$models$primary,
-    timestamp               = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    timestamp               = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     config_hash             = if (!is.null(config_path)) hash_config(config_path)
                                 else NA_character_,
     study_name              = config$study$name,

@@ -3555,7 +3555,15 @@ sentiment_colors <- c(
           row <- theme_entries[ri, ]
           entry_id <- as.character(row$std_id)
           full_text <- as.character(row[[text_col]])
-          display_text <- .html_esc(substr(full_text, 1, 200))
+          # Phase 58 Tier 9 V-8 followup (M-4): use the word-boundary
+          # helper so the per-theme entries table doesn't cut mid-word
+          # either (the helper was Tier-9-applied at the metric-tagged
+          # quote site in R/16_report_helpers.R; the audit caught that
+          # this parallel site at the per-theme detail HTML was still
+          # doing a hard substr).
+          display_text <- .html_esc(
+            .truncate_quote_word_boundary(full_text, max_chars = 200L)
+          )
           sent_val <- round(row$sentiment_score %||% 0, 2)
           emotion <- .html_esc(row$all_emotions %||% "N/A")
           conf <- round(row$confidence %||% 0, 2)

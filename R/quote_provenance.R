@@ -446,7 +446,7 @@ verify_quote <- function(quote, source_text, provider = NULL) {
                                   serialize = FALSE)
   source_drifted <- !identical(current_hash, quote$source_text_sha256)
 
-  now_iso <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z")
+  now_iso <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC")
 
   # Phase 58 Tier 7 M-13/E-19: track the latest-attempted-and-failed
   # ladder step so a downstream fabricated/drifted quote carries an
@@ -553,7 +553,7 @@ verify_quotes <- function(quotes, corpus_lookup, provider = NULL) {
     if (!inherits(q, "QuoteProvenance")) return(q)
     src <- corpus_lookup[[q$source_doc_id]]
     if (is.null(src)) {
-      now_iso <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z")
+      now_iso <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC")
       return(.set_verification(q, "drifted", NA_character_, NA_real_, now_iso))
     }
     verify_quote(q, src, provider = provider)
@@ -647,7 +647,7 @@ log_fabrication <- function(flog, quote) {
   if (!identical(quote$verification_status, "fabricated")) return(invisible(flog))
 
   row <- list(
-    timestamp           = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    timestamp           = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     quote_id            = quote$quote_id,
     source_doc_id       = quote$source_doc_id,
     attributed_theme_id = quote$attributed_theme_id %||% NA_character_,

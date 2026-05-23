@@ -190,9 +190,23 @@ log_ai_decision <- function(audit, step, decision_type, ...) {
   }
 
   # ---- Build the record ------------------------------------------------------
+  # Phase 58 Tier 9 L-15: emit timestamps in UTC so cross-file
+  # ordering (ai_decisions.jsonl + live/*.json + fabrication_log.csv)
+  # doesn't require parsing each record's TZ offset. The %z format
+  # specifier still carries the offset for back-compat with parsers
+  # that expect ISO 8601 with offset. Pre-Tier-9 the audit log used
+  # the system's local TZ while the live tracker already used UTC
+  # -- normalizing both to UTC makes the audit trail mergeable
+  # without per-record TZ resolution.
+  # Phase 58 Tier 9 (Tier 8 MEDIUM-2 deferred): schema_version is
+  # the FIRST field in every record, matching live tracker
+  # convention (see live_record_assignment in R/live_tracking.R).
+  # Pre-Tier-9 the audit log had it as the second field, which
+  # inconsistency surfaced to any downstream consumer that read
+  # records positionally.
   base_fields <- list(
-    timestamp      = format(Sys.time(), "%Y-%m-%dT%H:%M:%OS3%z"),
     schema_version = .AUDIT_LOG_SCHEMA_VERSION,  # Phase 58 Tier 8 H-11
+    timestamp      = format(Sys.time(), "%Y-%m-%dT%H:%M:%OS3%z", tz = "UTC"),
     step           = step,
     decision_type  = decision_type
   )

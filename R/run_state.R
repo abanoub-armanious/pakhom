@@ -30,6 +30,27 @@
 #' @keywords internal
 .RUN_METADATA_SCHEMA_VERSION <- "1.0.0"
 
+#' Prompt-template generation marker (Phase 58 Tier 9, M-T7-1)
+#'
+#' Stamped into \code{run_metadata.json$prompt_template_version} so a
+#' future OS.5 replayer can detect when a loaded cache was produced
+#' under a different prompt template generation. The value maps 1:1 to
+#' the most recent Phase 58 tier that materially changed the prompt
+#' body. Bump whenever a prompt rewrite shifts the AI-visible
+#' character offsets or the response schema (e.g. Phase 58 Tier 7's
+#' \code{<entry_text>} fence change).
+#'
+#' \itemize{
+#'   \item \code{"pre_phase58"}  -- pre-Phase-58 prompt (JSON-escaped
+#'     \code{Entry text:} wrapping)
+#'   \item \code{"phase58_tier7"} -- current generation, post-V-6/L-3
+#'     prompt rewrite (\code{<entry_text>...</entry_text>} fence with
+#'     verbatim text; offset arithmetic preserved through
+#'     \code{.escape_entry_text_fence})
+#' }
+#' @keywords internal
+.PROMPT_TEMPLATE_VERSION <- "phase58_tier7"
+
 #' Path to the run-metadata JSON for a run directory
 #' @keywords internal
 .run_metadata_path <- function(run_dir) {
@@ -138,7 +159,7 @@ init_run_state <- function(run_dir, run_id, methodology_mode,
     return(existing)
   }
 
-  now_iso <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z")
+  now_iso <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC")
   meta <- list(
     run_id              = run_id,
     methodology_mode    = methodology_mode,
@@ -148,7 +169,15 @@ init_run_state <- function(run_dir, run_id, methodology_mode,
     is_finalized        = FALSE,
     finalized_at        = NULL,
     created_at          = now_iso,
-    schema_version      = .RUN_METADATA_SCHEMA_VERSION
+    schema_version      = .RUN_METADATA_SCHEMA_VERSION,
+    # Phase 58 Tier 9 (M-T7-1 deferred from Tier 7): stamp the
+    # prompt-template tier into run_metadata so a future OS.5
+    # replayer can detect when a loaded cache was produced under a
+    # different prompt template generation. The constant maps 1:1 to
+    # the Phase 58 tier identifier; Tier 7 V-6/L-3 was the most
+    # recent generation-shift (JSON-escape -> <entry_text> fence).
+    # Future prompt rewrites should bump this value.
+    prompt_template_version = .PROMPT_TEMPLATE_VERSION
   )
   extra <- list(...)
   for (nm in names(extra)) meta[[nm]] <- extra[[nm]]
@@ -202,7 +231,12 @@ finalize_run <- function(run_dir) {
     return(meta)
   }
   meta$is_finalized <- TRUE
-  meta$finalized_at <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z")
+  # Phase 58 Tier 9 L-15: UTC TZ for cross-file ordering consistency
+  # with created_at (init_run_state line 162) + ai_decisions.jsonl
+  # + live/*.json + fabrication_log.csv. Pre-Tier-9-followup this
+  # field was the only one in run_metadata.json still using local
+  # TZ -- the audit caught the self-inconsistency.
+  meta$finalized_at <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC")
   .write_run_metadata(run_dir, meta)
   log_info("Run finalized: {run_dir}")
   meta

@@ -112,7 +112,7 @@
 #' @return A \code{ResearcherReflectionLog} S3 object.
 #' @export
 create_reflection_log <- function(config_hash = NULL) {
-  now_iso <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z")
+  now_iso <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC")
   log <- list(
     provocations               = list(),
     memos                      = list(),
@@ -252,7 +252,7 @@ make_provocation <- function(category, theme_name, reason,
     extra             = extra,
     ai_model          = ai_model,
     ai_call_id        = ai_call_id,
-    prompted_at       = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    prompted_at       = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     researcher_action = NA_character_,  # set later by review UI: opened|memo_added|theme_revised|dismissed
     schema_version    = .PROVOCATION_SCHEMA_VERSION
   )
@@ -1144,7 +1144,7 @@ run_provocateur_questioning <- function(data, theme_set, provider,
         data.frame(
           theme_name = tn,
           reason     = reason,
-          skipped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+          skipped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
           stringsAsFactors = FALSE
         )
       )
@@ -1186,7 +1186,7 @@ run_provocateur_questioning <- function(data, theme_set, provider,
           theme_name   = tn,
           category     = cat,
           n_emitted    = as.integer(length(provs)),
-          attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+          attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
           stringsAsFactors = FALSE
         )
       )
@@ -1211,6 +1211,6 @@ run_provocateur_questioning <- function(data, theme_set, provider,
     }
   }
 
-  log$last_updated <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z")
+  log$last_updated <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC")
   log
 }

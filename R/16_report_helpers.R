@@ -429,11 +429,58 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
   vapply(picked_idx, function(i) {
     if (is.na(i)) return(NA_character_)
     row <- entries[i, , drop = FALSE]
-    q <- substr(as.character(row[[text_col]] %||% ""), 1, 280)
+    # Phase 58 Tier 9 V-8: word-boundary-aware truncation with
+    # visible ellipsis instead of a bare substr cut. Pre-Tier-9 the
+    # quote was cut at exactly 280 chars even mid-word, then the
+    # metric tag was butted up against the partial word (Phase 57
+    # examples: "I've gained 7 pounds since Ma[score: 5]"). Now:
+    # truncate to <= 280 chars, back off to the last whitespace
+    # boundary if necessary, append " ..." marker.
+    raw_text <- as.character(row[[text_col]] %||% "")
+    q <- .truncate_quote_word_boundary(raw_text, max_chars = 280L)
     if (nchar(q) == 0L) return(NA_character_)
     tag <- .format_metric_tag(row, metric_cols)
     if (nzchar(tag)) paste0(q, " ", tag) else q
   }, character(1)) |> stats::na.omit() |> as.character()
+}
+
+#' Word-boundary-aware quote truncation with visible ellipsis
+#'
+#' Phase 58 Tier 9 V-8: a quote longer than \code{max_chars} is cut
+#' back to the LAST whitespace character before the limit, then a
+#' " ..." marker is appended so the reader sees the truncation. Falls
+#' back to a hard substr cut + "..." when the entry contains no
+#' whitespace within the budget (rare; typically single-token URLs or
+#' user handles).
+#'
+#' @param text Input string (may be NA).
+#' @param max_chars Total budget INCLUDING the " ..." marker.
+#' @return Truncated character.
+#' @keywords internal
+.truncate_quote_word_boundary <- function(text, max_chars = 280L) {
+  if (is.na(text) || !nzchar(text)) return("")
+  text <- as.character(text)
+  if (nchar(text) <= max_chars) return(text)
+  # Reserve 4 chars for the " ..." marker
+  budget <- max_chars - 4L
+  if (budget <= 0L) {
+    return(substr(text, 1L, max(1L, max_chars - 3L)))
+  }
+  cut <- substr(text, 1L, budget)
+  last_ws <- regexpr("\\s\\S*$", cut, perl = TRUE)
+  # If the budget cut already landed at whitespace OR no whitespace
+  # within the budget, fall through to the hard cut path.
+  if (last_ws > 0L && (last_ws + attr(last_ws, "match.length") - 1L) == budget) {
+    cut <- substr(cut, 1L, last_ws - 1L)
+  } else if (last_ws > 0L) {
+    # Cut at the last whitespace so we don't break a word
+    cut <- substr(cut, 1L, last_ws - 1L)
+  }
+  cut <- trimws(cut)
+  if (nchar(cut) == 0L) {
+    return(paste0(substr(text, 1L, budget), "..."))
+  }
+  paste0(cut, " ...")
 }
 
 #' Format a bracketed metric-tag block for one entry row

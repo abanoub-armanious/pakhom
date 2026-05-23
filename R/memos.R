@@ -65,7 +65,7 @@
 #' @keywords internal
 .generate_memo_id <- function(timestamp = NULL) {
   if (is.null(timestamp) || is.na(timestamp) || !nzchar(timestamp)) {
-    timestamp <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z")
+    timestamp <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC")
   }
   # Convert "2026-05-03T10:33:00-0400" -> "2026-05-03T10-33-00-0400"
   ts_safe <- gsub(":", "-", timestamp, fixed = TRUE)
@@ -134,7 +134,7 @@ make_memo <- function(body,
          call. = FALSE)
   }
   if (is.null(timestamp)) {
-    timestamp <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z")
+    timestamp <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC")
   }
   if (is.null(id)) {
     id <- .generate_memo_id(timestamp)
@@ -278,7 +278,7 @@ add_memo <- function(log, body = NULL, ..., memo = NULL,
   }
 
   log$memos[[length(log$memos) + 1L]] <- memo
-  log$last_updated <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z")
+  log$last_updated <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC")
 
   if (!is.null(audit_log)) {
     tryCatch(

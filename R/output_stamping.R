@@ -262,7 +262,7 @@ stamp_methodology_json <- function(json_path, mode, run_id = NULL) {
       mode       = mode,
       label      = methodology_label(mode),
       run_id     = run_id,
-      stamped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z")
+      stamped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC")
     ),
     `_payload` = payload
   )
