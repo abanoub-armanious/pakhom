@@ -26,7 +26,7 @@
 .qdpx_guid <- function(tag = NULL) {
   base <- paste0(
     "TA-",
-    format(Sys.time(), "%Y%m%d%H%M%S"),
+    format(Sys.time(), "%Y%m%d%H%M%S", tz = "UTC"),
     "-",
     sample(100000:999999, 1)
   )
@@ -201,7 +201,9 @@
                             theme_set = NULL, study_name = "pakhom export",
                             output_path = NULL) {
 
-  creation_dt <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S")
+  # QDPX creationDateTime in UTC so the value is unambiguous when imported
+  # into NVivo / MAXQDA across timezones (Phase 59 meta-audit M4).
+  creation_dt <- format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
   project_guid <- .qdpx_guid("project")
   user_guid <- .qdpx_guid("user")
 

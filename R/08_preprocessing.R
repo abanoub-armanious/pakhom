@@ -135,9 +135,8 @@ preprocess_text <- function(data, config = list()) {
   cleaned <- .decode_unicode_escapes(cleaned)
 
   # --- Always: Unicode NFC normalization (ensures consistent representation) ---
-  if (requireNamespace("stringi", quietly = TRUE)) {
-    cleaned <- stringi::stri_trans_nfc(cleaned)
-  }
+  # stringi is in Imports (Phase 59 meta-audit M3: load-bearing for T0.1).
+  cleaned <- stringi::stri_trans_nfc(cleaned)
 
   # --- Always: normalize whitespace ---
   cleaned <- gsub("\\s+", " ", cleaned)

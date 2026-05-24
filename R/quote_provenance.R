@@ -889,13 +889,11 @@ print.QuoteProvenance <- function(x, ...) {
 #' @keywords internal
 .normalize_quote_text <- function(x) {
   if (is.na(x) || !nzchar(x)) return("")
-  # Phase 58 Tier 7 M-24: NFC normalization, gated on stringi
-  # availability (in Suggests). NFC composes precomposed unicode chars
-  # back to their canonical form -- so an a + combining-acute matches
-  # an a-acute precomposed.
-  if (requireNamespace("stringi", quietly = TRUE)) {
-    x <- stringi::stri_trans_nfc(x)
-  }
+  # Phase 58 Tier 7 M-24: NFC normalization. NFC composes precomposed
+  # unicode chars back to their canonical form -- so an a + combining-acute
+  # matches an a-acute precomposed. stringi is in Imports (Phase 59 meta-
+  # audit M3: load-bearing for T0.1 verification fidelity).
+  x <- stringi::stri_trans_nfc(x)
   # Convert smart quotes to ASCII straights. Using \u escapes (rather
   # than literal multi-byte UTF-8 chars in the source) so chartr's
   # length-equality check works regardless of source-file encoding -- some

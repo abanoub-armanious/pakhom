@@ -149,7 +149,7 @@ the entry text — AI offsets referenced the ESCAPED form, but
 - Audit log `schema_version` moved to first field in `base_fields`
   matching live tracker convention.
 
-### Architectural commitments verified preserved across all 11 tiers
+### Architectural commitments verified preserved across all ten tiers
 
 AC1-AC10, T0.1, T0.2, T0.3, T1.1-T1.7 invariants confirmed via
 per-tier audit subagent + cross-tier audit subagent after each tier.

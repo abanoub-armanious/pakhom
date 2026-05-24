@@ -35,7 +35,7 @@
     theme_name   = rep(theme_names, each = rows_per_theme),
     category     = rep(categories, length(theme_names)),
     n_emitted    = as.integer(n_emitted_by_pos),
-    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
   log$provocations <- replicate(sum(n_emitted_by_pos),
@@ -182,7 +182,7 @@ test_that("explicit skip with reason is NOT a silent skip", {
   log$skipped_themes <- data.frame(
     theme_name = "Resistance",
     reason     = "no_supporting_entries",
-    skipped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    skipped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
   ts <- .mock_theme_set(c("Adherence", "Resistance"))
@@ -202,7 +202,7 @@ test_that("attempts_complete = FALSE when attempt matrix is partial", {
     category   = c("counter_narrative", "absent_voice",
                    "alternative_interpretation"),
     n_emitted  = c(1L, 0L, 1L),
-    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
   ts <- .mock_theme_set(c("Adherence"))
@@ -222,7 +222,7 @@ test_that("requested_categories subset reduces expected attempts", {
     theme_name = rep(c("Adherence", "Resistance"), each = 2L),
     category   = rep(c("counter_narrative", "disconfirming_evidence"), 2L),
     n_emitted  = c(1L, 0L, 2L, 1L),
-    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
   log$provocations <- replicate(4, list(category = "x", theme_name = "y"),
@@ -370,7 +370,7 @@ test_that("attempts_per_category and explicit_skip_reasons serialize as named JS
   log$skipped_themes <- data.frame(
     theme_name = "OtherTheme",
     reason     = "no_supporting_entries",
-    skipped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    skipped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
   ts <- .mock_theme_set(c("Adherence", "OtherTheme"))
@@ -410,7 +410,7 @@ test_that("attempts against categories outside requested_categories are surfaced
     theme_name = c("Adherence", "Adherence"),
     category   = c("counter_narrative", "assumption_surfacing"),
     n_emitted  = c(1L, 1L),
-    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
   log$provocations <- replicate(2, list(category="x", theme_name="y"),
@@ -463,7 +463,7 @@ test_that("all-themes-explicitly-skipped is graded as NOT no_silent_skip", {
   log$skipped_themes <- data.frame(
     theme_name = c("Adherence", "Resistance"),
     reason     = c("no_supporting_entries", "no_supporting_entries"),
-    skipped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    skipped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
   ts <- .mock_theme_set(c("Adherence", "Resistance"))
@@ -480,7 +480,7 @@ test_that("render_tier0_coverage_card.ProvocationCoverage flags all-explicit-ski
   log$skipped_themes <- data.frame(
     theme_name = c("Adherence", "Resistance"),
     reason     = c("no_supporting_entries", "no_supporting_entries"),
-    skipped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    skipped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
   ts <- .mock_theme_set(c("Adherence", "Resistance"))

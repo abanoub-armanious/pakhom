@@ -61,28 +61,24 @@ test_that("audit log timestamps are emitted in UTC", {
   expect_match(rec$timestamp, "\\+0000$")
 })
 
-test_that("every %z timestamp emission in R/ also carries tz = \"UTC\" (Tier 9 L-15 invariant)", {
-  # Static source-code audit: any `format(Sys.time(), ..., \"%z\", ...)` call
-  # without `tz = \"UTC\"` will emit the runner's LOCAL TZ offset (e.g. -0400
-  # on EDT), silently violating the L-15 invariant. The bug class caught
-  # twice already: Tier 9 audit followup, and the Stage 1 cross-tier audit
-  # that found mode1_orchestrator.R:363. This regex-driven test ensures any
-  # new call site emits +0000 by construction.
-  r_files <- list.files(
-    test_path("..", "..", "R"),
-    pattern = "\\.R$", full.names = TRUE
-  )
+# Phase 59 meta-audit M2 + M4: helper for the static UTC test.
+# Walks every `format(Sys.time(), ...)` call in `files` (after stripping
+# whole-line R comments) and returns offenders that lack `tz = "UTC"`.
+# Used by both the R/ scope test and the tests/ hygiene test.
+.collect_utc_offenders <- function(files) {
   offenders <- character()
-  for (f in r_files) {
+  for (f in files) {
     src <- readLines(f, warn = FALSE)
-    # Multi-line `format(...)` calls: collapse logical lines that end in a
-    # comma into the next line so the call is on one searchable line.
+    # M2: strip whole-line comments so a comment like
+    # `# example: format(Sys.time(), "%z")` does not get walked as a real
+    # call. Inline trailing comments are left alone -- safer than mishandling
+    # `#` inside string literals.
+    src <- src[!grepl("^\\s*#", src)]
     text <- paste(src, collapse = "\n")
-    # Walk every "format(Sys.time()," call up to its closing paren.
     starts <- gregexpr("format\\(Sys\\.time\\(\\),", text, perl = TRUE)[[1L]]
     if (starts[1L] == -1L) next
     for (pos in starts) {
-      # Walk forward, balancing parens, to find the matching close.
+      # Walk forward balancing parens to find the matching close.
       depth <- 0L
       i <- pos
       end <- -1L
@@ -98,22 +94,55 @@ test_that("every %z timestamp emission in R/ also carries tz = \"UTC\" (Tier 9 L
       }
       if (end == -1L) next
       call_text <- substr(text, pos, end)
-      uses_z <- grepl("%z", call_text, fixed = TRUE)
       declares_utc <- grepl("tz\\s*=\\s*\"UTC\"", call_text, perl = TRUE)
-      if (uses_z && !declares_utc) {
+      if (!declares_utc) {
         offenders <- c(offenders, paste0(basename(f), ": ", call_text))
       }
     }
   }
+  offenders
+}
+
+test_that("every format(Sys.time(), ...) in R/ declares tz = \"UTC\" (L-15 invariant)", {
+  # Strict hygiene: any `format(Sys.time(), ...)` call -- whether or not it
+  # uses %z -- must declare tz = "UTC". Otherwise the runner's LOCAL TZ
+  # leaks into user-visible artifacts (run IDs, report footers, QDPX
+  # creation dates, JSONL timestamps). Two researchers in different
+  # timezones running identical code would otherwise produce divergent
+  # artifacts. Caught:
+  #   - Tier 9 L-15 audit: 14 sites in R/
+  #   - Stage 1 cross-tier audit: mode1_orchestrator.R:363 (Tier 9 missed)
+  #   - Phase 59 meta-audit M4: utils.R / 17_report.R / qdpx_export.R
+  # This static-source test catches the ENTIRE bug class for any future site.
+  r_files <- list.files(
+    test_path("..", "..", "R"),
+    pattern = "\\.R$", full.names = TRUE
+  )
+  offenders <- .collect_utc_offenders(r_files)
   expect_equal(
     offenders, character(),
     info = paste0(
-      "Found format(Sys.time(), ..., %z, ...) calls without tz = \"UTC\".",
-      " These silently emit local-TZ offset on non-UTC runners, violating",
-      " L-15. Offenders:\n", paste(offenders, collapse = "\n"),
+      "Found format(Sys.time(), ...) calls without tz = \"UTC\".",
+      " Offenders:\n", paste(offenders, collapse = "\n"),
       "\nFix: add `, tz = \"UTC\"` to the format() call."
     )
   )
+})
+
+test_that("test fixtures in tests/testthat/ also declare tz = \"UTC\" (hygiene)", {
+  # Phase 59 meta-audit L1: test fixtures should model the package's own
+  # hygiene rule. If a maintainer copies a `format(Sys.time(), ...)` line
+  # from a test fixture into R/ code, the UTC declaration should travel
+  # with it. Otherwise the same class of bug as M4 can re-enter.
+  test_files <- list.files(
+    test_path("..", "testthat"),
+    pattern = "\\.R$", full.names = TRUE
+  )
+  # Exclude THIS file -- its own .collect_utc_offenders example strings
+  # would otherwise self-match.
+  test_files <- test_files[!grepl("test-phase58-tier9\\.R$", test_files)]
+  offenders <- .collect_utc_offenders(test_files)
+  expect_equal(offenders, character())
 })
 
 test_that("ProvocationCoverage computed_at is UTC (Stage 1 cross-tier finding 1)", {

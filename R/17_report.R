@@ -975,7 +975,8 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   content <- paste0(content,
     "---\n\n",
     "<p style='text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-top: 3rem;'>",
-    "Report generated on ", format(Sys.time(), "%Y-%m-%d at %H:%M:%S"),
+    "Report generated on ",
+    format(Sys.time(), "%Y-%m-%d at %H:%M:%S", tz = "UTC"), " UTC",
     " using ", tryCatch(
       paste0("pakhom v", as.character(utils::packageVersion("pakhom"))),
       error = function(e) "pakhom"

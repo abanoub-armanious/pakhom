@@ -106,7 +106,7 @@ test_that("generate_mode1_report rejects non-data.frame data", {
     theme_name   = c("Adherence", "Resistance"),
     category     = c("counter_narrative", "counter_narrative"),
     n_emitted    = c(1L, 0L),
-    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
   cov <- compute_mode1_coverage(log, ts, data,
@@ -178,7 +178,7 @@ test_that(".build_mode1_rmd_content includes the Skipped Themes section when ski
   inp$reflection_log$skipped_themes <- data.frame(
     theme_name = "Empty",
     reason     = "no_supporting_entries",
-    skipped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    skipped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
   prov_stats <- compute_provocation_provenance_stats(inp$reflection_log)
@@ -221,7 +221,7 @@ test_that(".build_mode1_executive_summary flags participant concentration when p
   log$provocation_attempts <- data.frame(
     theme_name = "Concentrated", category = "counter_narrative",
     n_emitted = 0L,
-    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
   cov <- compute_mode1_coverage(log, ts, data,
@@ -252,7 +252,7 @@ test_that("Mode 1 with zero provocations renders without crashing", {
   log$provocation_attempts <- data.frame(
     theme_name = "T", category = "counter_narrative",
     n_emitted = 0L,
-    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
   cov <- compute_mode1_coverage(log, ts, data,
@@ -288,7 +288,7 @@ test_that("Mode 1 with all-observational provocations does not falsely claim 'no
   log$provocation_attempts <- data.frame(
     theme_name = "T", category = "absent_voice",
     n_emitted = 1L,
-    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
   ts <- create_theme_set(list(list(id = 1L, name = "T", description = "",
@@ -332,7 +332,7 @@ test_that("special characters in theme name are HTML-escaped, not interpreted", 
   log$provocation_attempts <- data.frame(
     theme_name = evil_name, category = "counter_narrative",
     n_emitted = 0L,
-    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
   cov <- compute_mode1_coverage(log, ts, data,

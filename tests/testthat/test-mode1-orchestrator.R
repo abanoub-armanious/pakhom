@@ -608,7 +608,7 @@ test_that(".read_reflection_log_json re-classes nested Provocation + QuoteProven
   log$provocation_attempts <- data.frame(
     theme_name = "Adherence", category = "counter_narrative",
     n_emitted = 1L,
-    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z"),
+    attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
 

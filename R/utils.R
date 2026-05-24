@@ -87,10 +87,15 @@ truncate_text <- function(text, max_length = 200) {
   paste0(substr(text, 1, max_length - 3), "...")
 }
 
-#' Generate a unique run ID based on timestamp
+#' Generate a unique run ID based on timestamp (UTC).
+#'
+#' Always emitted in UTC so two researchers in different timezones running the
+#' same analysis at the same wall-clock moment produce comparable run IDs
+#' (Phase 59 meta-audit M4 / Tier 9 L-15).
+#'
 #' @return Character string like "run_2026-02-23_143052"
 generate_run_id <- function() {
-  paste0("run_", format(Sys.time(), "%Y-%m-%d_%H%M%S"))
+  paste0("run_", format(Sys.time(), "%Y-%m-%d_%H%M%S", tz = "UTC"))
 }
 
 #' Create a progress bar that works in non-interactive/background mode
