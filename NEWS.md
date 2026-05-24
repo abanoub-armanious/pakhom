@@ -1,5 +1,163 @@
 # pakhom 1.0.0
 
+## Phase 58 / Stage 1A: methodological transparency report bundler (OS.6)
+
+`bundle_transparency_report(run_dir, output_path = NULL)` — new public
+function that closes the Sprint-4 OS.6 "anti-Jowsey compliance pack"
+commitment. Reads disk artifacts only (never re-runs the pipeline)
+and emits a single self-contained HTML methodological-transparency
+report plus a machine-readable JSON companion. The report bundles:
+
+- Run metadata + prompt template generation marker
+- Lincoln & Guba (1985) trustworthiness mapping
+  (credibility / dependability / confirmability / transferability)
+  with pakhom-mechanism citations and run-specific evidence
+- Reflexivity scaffold completeness (Olmos-Vega AMEE Guide 149)
+- T0.1 quote provenance summary
+- T0.3 corpus coverage funnel
+- AC9 audit log summary
+- Theme set summary
+
+Defensive against the AC4 stamping envelope; idempotent + safe to
+re-run. Phase 58 Stage 1A audit followup added an unwrap helper for
+methodology-stamped artifacts + regression tests for the
+stamped-coverage_card.json + stamped-themes.json paths + XSS-resistant
+HTML escaping + mode-fork (parent_run_id) rendering.
+
+## Phase 58: ten-tier rewrite-cleanup campaign (closes 113 Phase 57 audit findings)
+
+Phase 58 was a focused cleanup campaign that closed every CRITICAL +
+HIGH + MEDIUM finding from the Phase 57 three-round audit (113
+findings collapsing to ~12 root-cause clusters). The package now
+passes R CMD check 0E/0W/1N with 3,300+ tests; the smoke script
+(`scripts/dev/tier5_visual_smoke.R`) exercises 22 cross-tier
+invariants spanning Tiers 5-9.
+
+### Tier 0 (foundation: upstream root-cause fixes)
+
+- **C-4** (numbered-list prompt leak): coding prompt no longer
+  emits `%d.` prefixes that the AI echoed into code names; +
+  post-parse defensive strip of `^\d+\.\s*"?`.
+- **C-9** (multi-table merge `intersect → union`): `num_comments`
+  + `upvote_ratio` survive the data-loading join instead of
+  being silently dropped.
+- **C-6** (codebook 80-code window → additive semantic retrieval):
+  per-entry codebook summary now combines top-N most-frequent codes
+  with per-entry top-K semantically similar codes (via embeddings
+  cached at code-creation time). Replaces the 80-code window that
+  silently capped what the AI saw past entry ~1000.
+- **C-1** (articulation gate hardening): log-scaling minimum-chars
+  (`30 + 30 * log10(n_codes)`); bucket-label opener rejection;
+  tautological-restatement check.
+
+### Tier 1-3 (HAC walker, description refresh, research-focus alignment)
+
+- **C-12** recursive HAC walker (subthemes nest up to
+  `max_subtheme_depth = 3`).
+- **C-5** every-N-new-codes description refresh for high-frequency
+  codes; **D-7** empty-description backfill.
+- **C-2** Mode 2 drift documentation; **AH-3** round-robin
+  learning-context; **AH-4** reflexivity config template warnings.
+
+### Tier 4 (the "stop lying" tier — report integrity)
+
+Eight credibility-damaging report-vs-reality mismatches closed:
+**C-7** Spearman/Pearson methodology label, **V-5** T0.1 "No
+fabrications" dashboard honesty, **V-3** stale merge-pass text,
+**V-9** processed-vs-coded count, **V-10** saturation citation,
+**V-4** Token Limits temperature, **H-12** mean sentiment on
+resume, **C-11** 71 missing theme detail HTMLs via `make.names()`
+round-trip.
+
+### Tier 5 (report scaling)
+
+- **C-3** `max_inline_themes = 30` top-N inlining with compact
+  rows for the tail (closes >400-theme pandoc OOM).
+- **C-10** correlation_plot.png switches to top-N effect-size
+  lollipop chart above `max_inline_vars = 30` (was 14k x 14k
+  corrplot heatmap pre-Tier-5).
+- **V-7** `.cluster_skip_reasons` skip-reason taxonomy clustering.
+- **AH-8/V-2** `temporal_emergence.png` top-N filter; **AH-9/V-1**
+  `theme_network.png` top-N + inline legend.
+- **H-23** Phase 55 paper-style subtheme tables now render in
+  per-theme detail HTMLs too.
+
+### Tier 6 (statistical layer hygiene)
+
+- **H-13** sentiment quantized at 21 levels: `detect_variable_types`
+  ordinal_max raised from 7 to 21; binary x ordinal → Spearman.
+- **H-14** "negligible" effect-size tier (|r| < 0.10) on all 3
+  statistical layers.
+- **H-15** headline reports `meaningful_effect ∩ significant`
+  intersection.
+- **H-16** `min_theme_entries = 5` applied consistently across
+  correlation matrix + theme-group tests + co-occurrence.
+- **H-17** `n_members` + `n_non_members` emitted.
+- **H-18** Cramer's V populated on Fisher dispatch path via direct
+  phi formula.
+- **M-8/M-9/M-10** rank-biserial effect_r (sign-aware,
+  numerically stable); `min_observed_both` filter.
+
+### Tier 7 (T0.1 verification fidelity — the "99.89% fuzzy" finding)
+
+Phase 57 saturation run had 99.89% verified_fuzzy / 0.11%
+verified_exact. Root cause: per-entry coding prompt JSON-escaped
+the entry text — AI offsets referenced the ESCAPED form, but
+`verify_quote` checked against UN-escaped source. Fix:
+
+- **V-6 + L-3** prompt rewrites to pass entry text VERBATIM inside
+  `<entry_text>...</entry_text>` XML-style fences. Expected
+  post-Tier-7 fresh runs: ~99% verified_exact.
+- **M-13/E-19** new `verification_failure_reason` field on
+  `QuoteProvenance`, populated at each ladder step's failure.
+  Threaded into `log_fabrication` CSV + `log_ai_decision` audit.
+- **AH-10** QDPX `<Description>` honestly reports pre-rejection
+  fabrication-caught counts.
+- **L-2 + M-24** unicode NFC normalization + unicode-aware
+  whitespace class `[\\s\\p{Z}]+` in `.normalize_quote_text`.
+- **M-25/AF-34** structured `supporting_quote_records` carrying
+  text + entry_id + source_table + std_author + sentiment_score
+  + position.
+
+### Tier 8 (Phase 56 polish + Phase 51-54 carry-forwards)
+
+- **H-6** `.coverage-banner-saturated` CSS rule.
+- **H-9** saturation arbiter dedupe via
+  `state$saturation$last_arbiter_n_coded`.
+- **H-10** `write_corpus_coverage()` persists `coverage_card.json`.
+- **H-11** audit log `schema_version` stamped on every record.
+- **H-26/AF-31** keywords field caps to top-8 codes by codebook
+  frequency in Mode 2.
+- **M-12/E-9** `is_new_code` dedupe within an entry.
+- **M-21/AF-29** `.derive_theme_description` fallback when AI omits
+  a description.
+- **M-22/AF-30** dead `narrative` field marked DEPRECATED.
+- **M-27/P54-(iv)** Mode 3 deductive `live_snapshot_clusters`.
+- **M-28/P51-M3** researcher review selective flatten — preserves
+  Phase 51 Subtheme hierarchy across rename + description-only
+  edits.
+
+### Tier 9 (cleanup)
+
+- **V-8** word-boundary quote truncation with visible " ..."
+  ellipsis (`.truncate_quote_word_boundary`).
+- **L-15** timestamps emitted in UTC across all 14 sites.
+- **L-21** dead `code_style` config knob removed.
+- **L-1/F-6** `code_assignment` provenance schema split documented.
+- New `.PROMPT_TEMPLATE_VERSION = "phase58_tier7"` constant stamped
+  into `run_metadata.json` (forward-compat for OS.5 replay).
+- Audit log `schema_version` moved to first field in `base_fields`
+  matching live tracker convention.
+
+### Architectural commitments verified preserved across all 11 tiers
+
+AC1-AC10, T0.1, T0.2, T0.3, T1.1-T1.7 invariants confirmed via
+per-tier audit subagent + cross-tier audit subagent after each tier.
+Smoke script (`scripts/dev/tier5_visual_smoke.R`) doubles as the
+canonical cross-tier regression guard.
+
+---
+
 ## Sprint-4 phase 37: comprehensive audit pass (3 agents, 12+ findings, 1 CRITICAL bug fixed)
 
 Three parallel audit subagents (UX surface review / AC1-AC10 cross-mode

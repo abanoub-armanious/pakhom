@@ -118,13 +118,29 @@ voice. The author is Coptic Egyptian.
 
 - **Progressive sequential coding** -- entries are read one at a time, just as
   a human researcher would in NVivo. The AI codes applicable text segments
-  inline, building and reusing a codebook organically as it goes
-- **Thematic saturation detection** -- triangulated monitoring (code creation
-  rate, reuse stability, AI self-assessment) stops coding when no new patterns
-  are emerging, saving time and cost
-- **Iterative bottom-up theme generation** -- codes are merged into clusters
-  through sequential passes until no more productive groupings exist. Themes
-  and subthemes emerge organically from the data, not from top-down labels
+  inline, building and reusing a codebook organically as it goes. Per-entry
+  prompts use additive semantic retrieval: top-N most-frequent codes plus
+  top-K semantically similar codes per entry (Phase 58 Tier 0 C-6), so the
+  AI never sees a truncated codebook and rarely re-invents existing codes
+- **AI saturation arbiter** -- per the architectural commitment that the AI
+  decides when to stop (C1), saturation is judged by a structured AI call
+  ("reached / not_yet / uncertain" with a 30+ char articulation requirement)
+  every cadence ticks; no hardcoded windows / thresholds / confirmation
+  counts (Phase 56). Cadence auto-scales with corpus size; the arbiter
+  refuses vacuous articulations
+- **HAC + AI-judged divisive tree walk for themes** -- ward.D2 hierarchical
+  clustering on cosine distance from code embeddings (Jaccard fallback) plus
+  an AI judge at every internal node deciding `coherent_theme | split_required
+  | atomic_outlier` (Phase 52). The articulation gate (Phase 58 Tier 0 C-1)
+  log-scales with cluster size and rejects bucket-label openers + tautological
+  restatements of the proposed name -- so 237-code mega-themes can't pass
+  with vacuous summaries. Replaces the pre-Phase-52 sequential merge
+  algorithm that produced kitchen-sink themes
+- **Recursive subtheme decomposition** -- subthemes nest up to
+  `max_subtheme_depth` levels (default 3) when a subtheme exceeds
+  `max_codes_per_subtheme` codes (Phase 58 Tier 1 C-12); paper-style
+  per-subtheme summary tables (Phase 55) render Median(MAD) + Mean(SD) per
+  auto-detected metric column with quotes tagged `[metric: value]`
 - **Deterministic code-path cascading** -- entries map to themes through their
   codes (no AI re-reading of raw text), faithful to the inductive process
 - **Code-aware sentiment analysis** -- sentiment is scored after coding, using
@@ -132,11 +148,24 @@ voice. The author is Coptic Egyptian.
 - **Codebook-first learning from prior studies** -- learns coding conventions,
   structural relationships, and discarded patterns from QDPX codebooks (NVivo),
   Excel, or CSV files. Manuscripts serve as supplementary clarification
+- **Live tracking artifacts** -- per-entry codebook snapshot + per-decision
+  cluster snapshot are streamed to `outputs/<run>/live/` so a researcher
+  can `tail -F` mid-run and watch the codebook + theme hierarchy grow
+  (Phase 53; C3 commitment)
+- **Methodology-grade statistical layer** -- Spearman/Kendall for ordinal
+  sentiment (Phase 58 Tier 6 H-13), 4-tier effect-size labels including
+  "negligible" (|r| < 0.10), rank-biserial effect_r (sign-aware,
+  numerically stable on extreme p-values), Cramer's V populated on the
+  Fisher dispatch path, `meaningful_effect ∩ significant` headline counts
 - **Researcher review points** -- pause the pipeline after coding or theme
-  generation to curate the AI's output before continuing
+  generation to curate the AI's output before continuing. Phase 51 Subtheme
+  S3 hierarchy is preserved across rename + description-only edits (Phase
+  58 Tier 8 M-28); only code-mutating edits trigger a re-flatten
 - **Checkpoint/resume** -- long-running analyses can be interrupted and
   resumed without losing progress. Flat checkpoint architecture ensures
-  reliable resume across retries
+  reliable resume across retries. Pre-tier resume paths emit explicit
+  WARN banners describing methodology-era drift (Phase 58 Tier 6 + Tier 7
+  + Tier 8 + Tier 9 each thread a resume warning)
 - **Inter-rater reliability** -- built-in IRR computation (Cohen's kappa,
   Krippendorff's alpha) for human verification of AI-generated codes
 - **Multiple AI providers** -- works with OpenAI (GPT-4o) or Anthropic (Claude),
@@ -144,24 +173,40 @@ voice. The author is Coptic Egyptian.
 - **Inter-model reliability** -- run the pipeline with different AI models and
   compare results via `compare_models()` to compute inter-model agreement
   (Cohen's kappa, theme similarity, sentiment correlation)
-- **Embedding-augmented theme emergence** -- uses text embeddings and code
-  co-occurrence statistics to provide quantitative context during iterative
-  code merging, complementing the AI's semantic judgment
 - **Researcher reflexivity** -- injects researcher positionality, research
   paradigm, and reflexive notes into all AI prompts, aligning with Braun &
-  Clarke's emphasis on reflexive practice
-- **AI decision audit trail** -- every AI decision (code assignments, merges,
-  skips, saturation signals) is logged to a JSONL file with full rationale
-  for post-hoc transparency review
+  Clarke's emphasis on reflexive practice and Olmos-Vega AMEE Guide 149
+- **Full audit trail** -- every AI decision (code assignments, merges, skips,
+  saturation judgments, fabrication catches) is logged to JSONL with
+  methodology stamp + schema_version + rationale. Pre-rejection fabrication
+  attempts are logged to `fabrication_log.csv` with a structured
+  `failure_reason` field (which ladder step failed) for methodology-paper
+  attribution (Phase 58 Tier 7 M-13/E-19)
 - **QDPX export** -- exports codebook and coded segments in QDPX format for
-  import into NVivo, ATLAS.ti, or MAXQDA for manual verification
+  import into NVivo, ATLAS.ti, or MAXQDA. Project Description honestly
+  reports pre-rejection fabrication-caught counts (Phase 58 Tier 7 AH-10)
 - **Longitudinal analysis** -- when entries have timestamps, tracks theme
-  prevalence trends and emergence timelines within a single run
+  prevalence trends and emergence timelines within a single run; figures
+  filter to top-N by entry count to stay legible at scale (Phase 58 Tier 5
+  AH-8/V-2)
 - **Publication-quality reports** -- generates self-contained HTML reports with
-  theme narratives, representative quotes, sentiment breakdowns, saturation
-  curves, correlation tables, confidence intervals, and decision transparency
+  paper-style per-subtheme summary tables, representative quotes (sentiment-
+  positioned + author-spread-aware), saturation arbiter rationale,
+  effect-size lollipop charts for large correlation matrices, theme network
+  filtered to top-N by weighted degree with an explanatory legend, top-N
+  inline cards plus compact-row tail for large theme inventories (Phase 58
+  Tier 5)
+- **Methodological transparency report bundler** -- `bundle_transparency_-
+  report(run_dir)` produces a single self-contained HTML + JSON companion
+  bundling audit log + Lincoln & Guba (1985) credibility / dependability /
+  confirmability / transferability mapping + reflexivity scaffold + T0.1
+  dashboard + T0.3 coverage card + theme set summary. The "AI does the
+  bookkeeping so the human does the reflexivity, here is the receipt for
+  everything" artifact (Sprint-4 OS.6, Phase 58)
 - **Run comparison** -- compare results across pipeline runs to assess
-  stability and track how themes evolve
+  stability and track how themes evolve. Coverage card persistence
+  (`coverage_card.json`, Phase 58 Tier 8 H-10) lets reproducibility audits
+  reconstruct the funnel without re-running the pipeline
 
 ## Quick Start
 
@@ -268,9 +313,9 @@ pakhom::persist_memos(result$reflection_log, result$output_dir)
 | 1. Learn from prior studies | Parses QDPX codebooks and manuscripts for coding conventions and structural patterns |
 | 2. Load & preprocess data | Reads from SQLite database, cleans text, standardizes columns |
 | 3. Progressive coding | AI reads each entry sequentially, coding applicable text with existing or novel codes |
-| 4. Saturation detection | Monitors code creation rate and reuse stability; stops when codebook plateaus |
+| 4. Saturation detection | AI arbiter judges saturation at adaptive cadence (`reached` / `not_yet` / `uncertain` with a 30-char articulation floor; Phase 56). Replaces the pre-Phase-56 heuristic that monitored code-creation rate and reuse stability |
 | 5. Sentiment analysis | AI scores sentiment on coded entries, using codes as context |
-| 6. Theme generation | Sequential bottom-up merging of codes into clusters across multiple passes |
+| 6. Theme generation | HAC (ward.D2 linkage, cosine distance on code embeddings; Jaccard fallback) + AI-judged divisive top-down tree walk. AI articulates the central organizing concept at every internal node and decides `coherent_theme` / `split_required` / `atomic_outlier` (Phase 52) |
 | 7. Theme cascading | Deterministic entry-to-theme mapping through the code hierarchy |
 | 8. Correlations | Statistical analysis of theme-sentiment relationships and co-occurrence |
 | 9. QDPX export | Exports codebook and coded segments for QDA software interoperability |
@@ -334,8 +379,8 @@ independence. For reviewer-guided analysis, use single-model sequential runs.
 ## For methodologists / reviewers: architectural commitments
 
 The package codifies ten load-bearing commitments. Each is regression-
-tested at the integration level (the test suite as of phase 36 has
-2391 expectations pinning them against silent regression). They are
+tested at the integration level (the test suite as of Phase 58 has
+3,300+ expectations pinning them against silent regression). They are
 the contract a peer reviewer can check the package's claims against:
 
 - **AC1**: AI is scaffold by architecture, not by configuration.

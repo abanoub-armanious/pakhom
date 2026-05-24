@@ -68,9 +68,13 @@ analysis works:
 4. **Researcher review** (optional) -- You curate the codebook before theming
 5. **Code-aware sentiment analysis** -- AI assigns sentiment scores using the
    codes assigned to each entry as context for more accurate scoring
-6. **Iterative bottom-up theme generation** -- Codes are merged in multiple
-   passes until no more productive groupings exist. Themes and subthemes
-   emerge organically from the merge depth
+6. **HAC + AI-judged theme generation** (Phase 52) -- code embeddings are
+   clustered with hierarchical agglomerative clustering (ward.D2 linkage on
+   cosine distance; Jaccard fallback). An AI judge walks the dendrogram
+   top-down and decides `coherent_theme` / `split_required` / `atomic_outlier`
+   at every internal node, articulating the central organizing concept
+   before each decision. Subthemes recurse up to `max_subtheme_depth` when a
+   subtheme exceeds `max_codes_per_subtheme` codes
 7. **Deterministic theme cascading** -- Entry-to-theme assignment flows through
    the code hierarchy (pure R, no AI re-reading of entries)
 8. **Correlation analysis** -- Statistical tests between themes and variables
@@ -552,9 +556,18 @@ analysis:
     dynamic_batching: true
 
   themes:
-    merge_strategy: "auto"        # "auto" or "manual" (pause each pass)
-    max_merge_passes: 5
-    min_merges_to_continue: 2
+    # Per C1 ("AI decides when to stop"), pakhom does not gate theme
+    # generation on hardcoded n_themes / merge passes. The Phase 52
+    # HAC + AI-judged divisive tree walk cuts the dendrogram wherever
+    # the AI articulates a coherent central organizing concept.
+    include_subthemes: true       # Walk one level deeper for subthemes
+    include_quotes: true          # Render representative quotes per theme
+    quotes_per_theme: 3
+    approach: "inductive"         # "inductive" (Mode 2) or "deductive" (Mode 3)
+    max_subtheme_depth: 3         # Phase 58 Tier 1 C-12: nested sub-subthemes
+    max_codes_per_subtheme: 25    # Phase 58 Tier 1 AF-8: triggers recursion
+    max_inline_themes: 30         # Phase 58 Tier 5 C-3: top-N inlining cap
+    max_inline_themes_temporal: 30  # Phase 58 Tier 5 AH-8: temporal plot
 
   human_verification:
     enabled: false                # Enable for inter-rater reliability
@@ -564,22 +577,17 @@ analysis:
   review_points:
     after_coding: false           # Pause for codebook review
     after_themes: false           # Pause for theme review
-
-  themes:
-    min_themes: 3
-    max_themes: 10
-    multi_label_assignment: true  # Allow entries in multiple themes
-    membership_threshold: 0.15   # Minimum confidence for theme membership
-    max_theme_proportion: 0.60   # Max fraction of entries in one theme
-    max_rebalance_iterations: 3
-    review_iterations: 2
+    format: "csv"                 # "csv" or "qdpx"
+    max_iterations: 3             # Cap on recursive review cycles
 
   correlations:
     method: "spearman"
     adjust_method: "bonferroni"
     min_observations: 30
-    min_theme_entries: 5
-    dynamic_method: true          # Auto-select method per variable pair
+    min_theme_entries: 5          # Phase 58 Tier 6 H-16: harmonized
+    use_multi_label: true
+    max_inline_vars: 30           # Phase 58 Tier 5 C-10: lollipop above
+    max_inline_themes_network: 30  # Phase 58 Tier 5 AH-9: network top-N
 
 output:
   results_dir: "outputs/results"
@@ -709,5 +717,5 @@ This runs the full pipeline on just 20 entries in a few minutes.
 If you use this package in published research, please cite:
 
 > [Armanious, A. J.](https://www.linkedin.com/in/abanoubarmanious/) (2026).
-> pakhom: AI-Integrated Thematic Analysis Following
-> Braun and Clarke [R package]. Version 1.0.0.
+> pakhom: AI-Assisted Reflexive Thematic Analysis with
+> Methodology-as-Architecture [R package]. Version 1.0.0.
