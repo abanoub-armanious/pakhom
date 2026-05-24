@@ -361,7 +361,8 @@ compute_mode1_coverage <- function(reflection_log, theme_set, data,
     no_unexpected_category_attempts = no_unexpected_category_attempts,
     no_silent_skip                = no_silent_skip,
     computed_at                   = format(Sys.time(),
-                                            "%Y-%m-%dT%H:%M:%S%z"),
+                                            "%Y-%m-%dT%H:%M:%S%z",
+                                            tz = "UTC"),
     schema_version                = .PROVOCATION_COVERAGE_SCHEMA_VERSION
   )
   class(obj) <- c("ProvocationCoverage", "Tier0Coverage")

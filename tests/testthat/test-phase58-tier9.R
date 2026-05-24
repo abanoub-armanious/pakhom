@@ -61,6 +61,77 @@ test_that("audit log timestamps are emitted in UTC", {
   expect_match(rec$timestamp, "\\+0000$")
 })
 
+test_that("every %z timestamp emission in R/ also carries tz = \"UTC\" (Tier 9 L-15 invariant)", {
+  # Static source-code audit: any `format(Sys.time(), ..., \"%z\", ...)` call
+  # without `tz = \"UTC\"` will emit the runner's LOCAL TZ offset (e.g. -0400
+  # on EDT), silently violating the L-15 invariant. The bug class caught
+  # twice already: Tier 9 audit followup, and the Stage 1 cross-tier audit
+  # that found mode1_orchestrator.R:363. This regex-driven test ensures any
+  # new call site emits +0000 by construction.
+  r_files <- list.files(
+    test_path("..", "..", "R"),
+    pattern = "\\.R$", full.names = TRUE
+  )
+  offenders <- character()
+  for (f in r_files) {
+    src <- readLines(f, warn = FALSE)
+    # Multi-line `format(...)` calls: collapse logical lines that end in a
+    # comma into the next line so the call is on one searchable line.
+    text <- paste(src, collapse = "\n")
+    # Walk every "format(Sys.time()," call up to its closing paren.
+    starts <- gregexpr("format\\(Sys\\.time\\(\\),", text, perl = TRUE)[[1L]]
+    if (starts[1L] == -1L) next
+    for (pos in starts) {
+      # Walk forward, balancing parens, to find the matching close.
+      depth <- 0L
+      i <- pos
+      end <- -1L
+      n <- nchar(text)
+      while (i <= n) {
+        ch <- substr(text, i, i)
+        if (ch == "(") depth <- depth + 1L
+        else if (ch == ")") {
+          depth <- depth - 1L
+          if (depth == 0L) { end <- i; break }
+        }
+        i <- i + 1L
+      }
+      if (end == -1L) next
+      call_text <- substr(text, pos, end)
+      uses_z <- grepl("%z", call_text, fixed = TRUE)
+      declares_utc <- grepl("tz\\s*=\\s*\"UTC\"", call_text, perl = TRUE)
+      if (uses_z && !declares_utc) {
+        offenders <- c(offenders, paste0(basename(f), ": ", call_text))
+      }
+    }
+  }
+  expect_equal(
+    offenders, character(),
+    info = paste0(
+      "Found format(Sys.time(), ..., %z, ...) calls without tz = \"UTC\".",
+      " These silently emit local-TZ offset on non-UTC runners, violating",
+      " L-15. Offenders:\n", paste(offenders, collapse = "\n"),
+      "\nFix: add `, tz = \"UTC\"` to the format() call."
+    )
+  )
+})
+
+test_that("ProvocationCoverage computed_at is UTC (Stage 1 cross-tier finding 1)", {
+  obj <- list(
+    n_corpus_entries_searchable = 10L,
+    corpus_provided_to_per_category_fns = TRUE,
+    llm_prompt_includes_full_corpus = TRUE,
+    n_memos = 0L,
+    memos_by_type = list(),
+    no_silent_theme_skip = TRUE,
+    no_unexpected_category_attempts = TRUE,
+    no_silent_skip = TRUE,
+    computed_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
+    schema_version = pakhom:::.PROVOCATION_COVERAGE_SCHEMA_VERSION
+  )
+  expect_match(obj$computed_at, "\\+0000$")
+})
+
 
 # ==========================================================================
 # Tier 8 MEDIUM-2: schema_version is the FIRST field
