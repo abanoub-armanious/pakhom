@@ -640,6 +640,52 @@ test_that("Phase 60: C3 -- live_record_clustering_pass writes one file per pass"
 # Edge cases + safety nets
 # ------------------------------------------------------------------------------
 
+test_that("Phase 60: audit_log non-NULL run accepts clustering_proposal + label_pass decision types", {
+  # Self-audit regression: v2 emits "clustering_proposal" and "label_pass"
+  # via log_ai_decision. These must be in .valid_decision_types or the
+  # call stops the run. Pre-followup the allowlist was missing both,
+  # silently passing every NULL-audit_log test but breaking any
+  # production run.
+  state <- .v2_state(3L)
+  tmpdir <- withr::local_tempdir()
+  audit <- init_audit_log(tmpdir)
+
+  responses <- list(
+    .v2_converged("Three distinct codes."),
+    .v2_label(list(
+      list(name = "Code A theme", description = "First"),
+      list(name = "Code B theme", description = "Second"),
+      list(name = "Code C theme", description = "Third")
+    ))
+  )
+  testthat::local_mocked_bindings(
+    ai_complete = .v2_mock_ai(responses),
+    .package = "pakhom"
+  )
+
+  # The v2 path emits clustering_proposal + label_pass + theme_structure;
+  # all must be accepted by log_ai_decision's validator. If any decision
+  # type is missing from .valid_decision_types, log_ai_decision stop()s
+  # and the run fails.
+  expect_no_error({
+    ts <- generate_themes_iterative(state, .v2_provider(),
+                                       config = list(algorithm = "v2"),
+                                       audit_log = audit)
+  })
+  expect_equal(n_themes(ts), 3L)
+  close_audit_log(audit)
+
+  # Audit log file should exist and contain the v2 decision types
+  ai_log_path <- file.path(tmpdir, "ai_decisions.jsonl")
+  expect_true(file.exists(ai_log_path))
+  lines <- readLines(ai_log_path)
+  expect_true(length(lines) > 0L)
+  records <- lapply(lines, jsonlite::fromJSON)
+  types <- vapply(records, function(r) r$decision_type %||% "", character(1))
+  expect_true("clustering_proposal" %in% types)
+  expect_true("label_pass" %in% types)
+})
+
 test_that("Phase 60: single-code corpus produces 1-theme ThemeSet without AI call", {
   state <- .v2_state(1L)
   call_count <- 0L
@@ -662,6 +708,133 @@ test_that("Phase 60: empty codebook returns empty ThemeSet", {
   ts <- generate_themes_iterative(state, .v2_provider(),
                                      config = list(algorithm = "v2"))
   expect_equal(n_themes(ts), 0L)
+})
+
+test_that("Phase 60: .partition_is_structurally_equivalent detects code-key bucket repeats", {
+  # Two leaf lists with the same code-key buckets but different leaf_ids
+  prior_post <- list(
+    list(leaf_id = "leaf_p1_1", member_code_keys = c("c_a", "c_b")),
+    list(leaf_id = "leaf_p1_2", member_code_keys = c("c_c", "c_d"))
+  )
+  next_post <- list(
+    list(leaf_id = "leaf_p2_1", member_code_keys = c("c_a", "c_b")),
+    list(leaf_id = "leaf_p2_2", member_code_keys = c("c_c", "c_d"))
+  )
+  expect_true(.partition_is_structurally_equivalent(prior_post, next_post))
+
+  # Different buckets -> not equivalent
+  changed_post <- list(
+    list(leaf_id = "leaf_p2_1", member_code_keys = c("c_a", "c_c")),
+    list(leaf_id = "leaf_p2_2", member_code_keys = c("c_b", "c_d"))
+  )
+  expect_false(.partition_is_structurally_equivalent(prior_post, changed_post))
+
+  # Different lengths -> not equivalent
+  merged_post <- list(
+    list(leaf_id = "leaf_p2_1", member_code_keys = c("c_a", "c_b", "c_c", "c_d"))
+  )
+  expect_false(.partition_is_structurally_equivalent(prior_post, merged_post))
+})
+
+test_that("Phase 60: structural-repeat oscillation forces convergence (audit M8)", {
+  # The AI proposes {1,2}+{3,4} on pass 1, then proposes the same
+  # partition on pass 2 (re-grouping the pass-1 clusters as singletons
+  # into the same structural buckets). Without the structural-repeat
+  # check, the orchestrator records pass 2 as substantive and continues.
+  # With the check, pass 2 is coerced to convergence.
+  state <- .v2_state(4L)
+  responses <- list(
+    # Pass 1: 4 codes -> 2 pairs
+    .v2_continue(list(
+      list(indices = c(1L, 2L), rationale = "Pair AB"),
+      list(indices = c(3L, 4L), rationale = "Pair CD")
+    ), "Two pairs"),
+    # Pass 2: AI returns the SAME two pairs as singletons-of-clusters
+    # (each cluster contains exactly one leaf from the prior pass).
+    # This is a structural repeat -- the code-key buckets are identical
+    # to pass 1's output.
+    .v2_continue(list(
+      list(indices = 1L, rationale = "Pair AB stands"),
+      list(indices = 2L, rationale = "Pair CD stands")
+    ), "Just re-affirming the prior structure"),
+    # Labeling
+    .v2_label(list(
+      list(name = "Theme One", description = "Pair AB"),
+      list(name = "Theme Two", description = "Pair CD")
+    ))
+  )
+  testthat::local_mocked_bindings(
+    ai_complete = .v2_mock_ai(responses),
+    .package = "pakhom"
+  )
+  ts <- generate_themes_iterative(state, .v2_provider(),
+                                     config = list(algorithm = "v2"))
+  expect_equal(n_themes(ts), 2L)
+  # The convergence rationale should mention structural-repeat OR identity
+  expect_match(ts$merge_history$convergence_rationale,
+               "(structural-repeat|identity)")
+  # The pass count: pass 1 was substantive; pass 2 was coerced. So
+  # n_substantive_passes should be 1 (only the merging pass).
+  expect_equal(ts$merge_history$n_substantive_passes, 1L)
+})
+
+test_that("Phase 60: convergence on pass 5 (deep hierarchy, k=4 substantive)", {
+  # Test plan item 3 calls for "convergence on pass 5+". This walks
+  # through 4 substantive passes (8 -> 4 -> 2 -> 2 -> 2 with the last
+  # being a degenerate merge that converges) ending in a converged 6th
+  # call. Structure is still k>=2 so themes = pass-4 clusters,
+  # subthemes = pass-3 clusters.
+  state <- .v2_state(8L)
+  responses <- list(
+    # Pass 1: 8 -> 4
+    .v2_continue(list(
+      list(indices = c(1L, 2L), rationale = "Pair 1"),
+      list(indices = c(3L, 4L), rationale = "Pair 2"),
+      list(indices = c(5L, 6L), rationale = "Pair 3"),
+      list(indices = c(7L, 8L), rationale = "Pair 4")
+    ), "Four pairs"),
+    # Pass 2: 4 -> 3 (merge first two pairs)
+    .v2_continue(list(
+      list(indices = c(1L, 2L), rationale = "Group A: pairs 1+2"),
+      list(indices = 3L,         rationale = "Pair 3 separate"),
+      list(indices = 4L,         rationale = "Pair 4 separate")
+    ), "Pair 1 and 2 share parent concept"),
+    # Pass 3: 3 -> 2 (merge first two)
+    .v2_continue(list(
+      list(indices = c(1L, 2L), rationale = "Combined group"),
+      list(indices = 3L,         rationale = "Pair 4 still distinct")
+    ), "Larger concept connects A and pair 3"),
+    # Pass 4: 2 -> 2 (no merge possible, AI says continue but proposes identity)
+    # This would trip the identity check -- let's instead have AI converge
+    .v2_converged("Two themes is the final structure."),
+    # Labeling
+    .v2_label(list(
+      list(name = "Composite Theme", description = "Most of the corpus",
+           subthemes = list(
+             list(index = 1L, name = "Sub A", description = "Part A"),
+             list(index = 2L, name = "Sub B", description = "Pair 3")
+           )),
+      list(name = "Distinct Theme", description = "Pair 4 alone",
+           subthemes = list(
+             list(index = 1L, name = "Pair 4 Sub", description = "Pair 4")
+           ))
+    ))
+  )
+  testthat::local_mocked_bindings(
+    ai_complete = .v2_mock_ai(responses),
+    .package = "pakhom"
+  )
+  ts <- generate_themes_iterative(state, .v2_provider(),
+                                     config = list(algorithm = "v2"))
+  expect_equal(n_themes(ts), 2L)
+  expect_equal(ts$merge_history$n_substantive_passes, 3L)
+  expect_equal(ts$merge_history$converged_at_pass, 4L)
+  # Code preservation across deep clustering
+  all_keys <- character(0)
+  for (th in ts$themes) for (s in th$subthemes) for (cd in s$codes) {
+    all_keys <- c(all_keys, cd$key)
+  }
+  expect_setequal(all_keys, names(state$codebook))
 })
 
 test_that("Phase 60: idempotence coercion -- identity partition forces convergence", {

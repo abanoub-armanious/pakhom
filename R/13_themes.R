@@ -43,17 +43,18 @@
 #     walk operates on a deductive codebook; Mode 1 doesn't use this
 #     file at all (run_mode1 invokes the provocateur loop).
 #
-# PHASE 60 REWRITE TARGETS (deferred to a separate phase per
-# notes/strategic_audit/PHASE_60_THEME_ALGORITHM_REWRITE.md):
-#   - Honor C1 more faithfully by removing the articulation gate that
-#     currently flips 79-87% of the AI's coherent_theme verdicts to
-#     split_required, and by removing the single-leaf auto-theme
-#     shortcut (current behaviour produces 87-92% single-code themes).
-#   - Implement multi-pass clustering with AI-declared convergence
-#     (per the user's mental model that this file departs from since
-#     Phase 52). The penultimate stable pass labels subthemes; the
-#     final stable pass labels themes; labeling happens AFTER all
-#     structural decisions.
+# PHASE 60 STATUS (2026-05-25): The new v2 algorithm in
+# R/theme_algorithm_v2.R is now the production default. It implements:
+#   - Multi-pass clustering with AI-declared convergence (C-tenet 3).
+#   - Label-after-clustering with the whole tree visible (C-tenet 5).
+#   - No articulation gate; no single-leaf auto-theme shortcut.
+# The code in THIS file remains as the v1 algorithm for back-compat with
+# calibrated test fixtures (test-themes.R Phase 52 + C-1 test groups).
+# Dispatch lives in generate_themes_iterative() below: callers passing
+# config$algorithm = "v2" (the default) get the new algorithm;
+# config$algorithm = "v1" gets the legacy code path in this file.
+# The v1 path is scheduled for deletion after Phase 60.8 empirical
+# re-validation confirms v2 is stable on real corpora.
 # ==============================================================================
 
 .SENTIMENT_TENDENCY_THRESHOLD <- 0.2
@@ -1584,10 +1585,12 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
 #   (b) Build a synthetic ProgressiveCodingState whose codebook contains
 #       these inductive codes (each carrying the segments it labels) and
 #       whose entry_results map original entry_ids to these codes.
-#   (c) Run generate_themes_iterative() (Phase 52: HAC + AI-judged divisive
-#       tree walk) on the synthetic state. The resulting themes are
-#       "emergent" -- patterns the framework didn't anticipate, surfaced
-#       inductively from its residuals.
+#   (c) Run generate_themes_iterative() on the synthetic state. As of
+#       Phase 60 the default algorithm is v2 (multi-pass clustering +
+#       label-after-clustering); the dispatch in generate_themes_iterative
+#       routes here automatically. The resulting themes are "emergent" --
+#       patterns the framework didn't anticipate, surfaced inductively
+#       from its residuals.
 #
 # Per AC2/AC8, the framework spec is NOT mutated. The emergent themes
 # extend the analysis OUTPUT, not the framework definition. If a
@@ -1609,8 +1612,9 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
 #'   \item 0 anomaly segments: returns empty list (caller should not
 #'     normally reach this; \code{apply_framework_themes} short-circuits).
 #'   \item 1 anomaly segment: returns one single-code emergent theme
-#'     directly (no AI call -- HAC degenerate case).
-#'   \item N=2 anomaly segments: minimum viable HAC tree (1 internal node).
+#'     directly (no AI call -- single-code degenerate case under both v1
+#'     and v2).
+#'   \item N=2 anomaly segments: minimum viable clustering input.
 #' }
 #'
 #' @keywords internal

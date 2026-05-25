@@ -128,14 +128,21 @@ voice. The author is Coptic Egyptian.
   every cadence ticks; no hardcoded windows / thresholds / confirmation
   counts (Phase 56). Cadence auto-scales with corpus size; the arbiter
   refuses vacuous articulations
-- **HAC + AI-judged divisive tree walk for themes** -- ward.D2 hierarchical
-  clustering on cosine distance from code embeddings (Jaccard fallback) plus
-  an AI judge at every internal node deciding `coherent_theme | split_required
-  | atomic_outlier` (Phase 52). The articulation gate (Phase 58 Tier 0 C-1)
-  log-scales with cluster size and rejects bucket-label openers + tautological
-  restatements of the proposed name -- so 237-code mega-themes can't pass
-  with vacuous summaries. Replaces the pre-Phase-52 sequential merge
-  algorithm that produced kitchen-sink themes
+- **Multi-pass clustering with label-after-clustering for themes** -- the AI
+  sees ALL codes at once and proposes a partition into top-level clusters
+  (pass 1); pass 2+ takes prior-pass clusters as new "leaves" and the AI
+  may merge them further or declare convergence (Phase 60). NO hardcoded
+  pass count, NO hardcoded cluster-size thresholds. Labeling is a DEDICATED
+  post-convergence pass: only after the AI declares convergence does it
+  see the full tree and assign researcher-facing names + descriptions to
+  every theme and subtheme, with cross-theme name distinctness enforced.
+  This honors C-tenet 3 (AI-declared convergence) and C-tenet 5
+  (label-after-clustering). Replaces both the pre-Phase-52 sequential
+  pairwise insertion (kitchen-sink theme bug) AND the Phase 52 HAC +
+  tree-walk (87-92% single-code themes; the prior algorithm couldn't
+  pass either tenet). The legacy Phase 52 path is preserved under
+  `config$analysis$themes$algorithm = "v1"` for test-fixture back-compat
+  only and will be removed once Phase 60.8 empirical re-validation lands
 - **Recursive subtheme decomposition** -- subthemes nest up to
   `max_subtheme_depth` levels (default 3) when a subtheme exceeds
   `max_codes_per_subtheme` codes (Phase 58 Tier 1 C-12); paper-style
@@ -315,7 +322,7 @@ pakhom::persist_memos(result$reflection_log, result$output_dir)
 | 3. Progressive coding | AI reads each entry sequentially, coding applicable text with existing or novel codes |
 | 4. Saturation detection | AI arbiter judges saturation at adaptive cadence (`reached` / `not_yet` / `uncertain` with a 30-char articulation floor; Phase 56). Replaces the pre-Phase-56 heuristic that monitored code-creation rate and reuse stability |
 | 5. Sentiment analysis | AI scores sentiment on coded entries, using codes as context |
-| 6. Theme generation | HAC (ward.D2 linkage, cosine distance on code embeddings; Jaccard fallback) + AI-judged divisive top-down tree walk. AI articulates the central organizing concept at every internal node and decides `coherent_theme` / `split_required` / `atomic_outlier` (Phase 52) |
+| 6. Theme generation | Multi-pass AI-judged clustering with label-after-clustering (Phase 60). At every pass, the AI sees all current leaves (codes initially, then prior-pass clusters) and either proposes a partition into new clusters OR declares convergence. After convergence, a single dedicated labeling pass assigns researcher-facing names to every theme + subtheme with the whole tree visible. NO hardcoded thresholds (C1); codes preserved as atomic leaves (C2); no name leakage during clustering (C5) |
 | 7. Theme cascading | Deterministic entry-to-theme mapping through the code hierarchy |
 | 8. Correlations | Statistical analysis of theme-sentiment relationships and co-occurrence |
 | 9. QDPX export | Exports codebook and coded segments for QDA software interoperability |
@@ -417,8 +424,9 @@ output rendering must honour them:
   `max_themes`, `max_passes`, `min_codes_per_theme`, or saturation
   thresholds. The AI judges saturation and clustering convergence;
   pakhom records the AI's articulation but never overrides it with a
-  count gate. Enforced in `R/saturation_arbiter.R` and (post-Phase 60)
-  in `R/13_themes.R`.
+  count gate. Enforced in `R/saturation_arbiter.R` (coding saturation)
+  and `R/theme_algorithm_v2.R` (multi-pass clustering convergence,
+  Phase 60).
 - **C2 — Codes preserved through clustering.** Codes are atomic
   leaves; themes and subthemes are GROUPS of codes, not summaries that
   replace them. Clustering never mutates code names, descriptions, or
@@ -442,9 +450,13 @@ output rendering must honour them:
 - **C5 — No catch-all / "Other" buckets.** In the inductive modes
   (Mode 2), the AI is never given an "Other" or "Miscellaneous" code
   to dump uncertain segments into. Every coded segment must articulate
-  what it represents. In Mode 3, the `anomaly` bucket is intentional
-  and methodologically required — it surfaces framework-resistant
-  data rather than hiding it.
+  what it represents. During theme clustering (Phase 60), the AI's
+  prompts in `R/theme_algorithm_v2.R` explicitly forbid bucket-label
+  openers ("Various aspects of X", "Mixed experiences with Y"); the
+  `.clustering_schema()` has no name/description fields at all so
+  labeling pressure cannot leak into structural decisions. In Mode 3,
+  the `anomaly` bucket is intentional and methodologically required —
+  it surfaces framework-resistant data rather than hiding it.
 - **C6 — Arbitrary research-question length/complexity.** No
   hardcoded character limits on the research focus; no assumption
   that the question is a single sentence. Multi-paragraph research

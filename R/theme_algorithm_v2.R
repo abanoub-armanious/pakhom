@@ -244,17 +244,32 @@ generate_themes_phase60 <- function(coding_state, provider, config = list(),
     new_leaves <- apply_partition(current_leaves, proposal$cluster_assignments,
                                     pass_n = pass_n)
 
-    # Idempotence check: if the new partition is identical to the previous
-    # state (i.e., AI proposed N singletons that exactly re-create the
-    # current leaves), force convergence. This is the "no useful further
-    # grouping" signal the AI may not always articulate as verdict='converged'.
-    if (.partition_is_identity(current_leaves, new_leaves)) {
-      log_info("[v2] Pass {pass_n}: proposed partition is identity (no merges). Forcing convergence.")
+    # Idempotence checks: detect "no useful further grouping" even when
+    # the AI didn't articulate verdict='converged'.
+    #
+    # Check A (identity): every new cluster contains exactly one source
+    # leaf -- the partition didn't merge anything.
+    #
+    # Check B (structural equivalence): the new buckets carry the same
+    # code-key sets as the previous-pass buckets. The AI repeated its
+    # prior partition. Phase 60.1 audit M8.
+    structurally_repeated_prior <- FALSE
+    if (length(pass_history) > 0L) {
+      prior_post <- pass_history[[length(pass_history)]]$post_leaves
+      if (.partition_is_structurally_equivalent(prior_post, new_leaves)) {
+        structurally_repeated_prior <- TRUE
+      }
+    }
+    if (.partition_is_identity(current_leaves, new_leaves) ||
+        structurally_repeated_prior) {
+      reason_label <- if (structurally_repeated_prior) "structural-repeat" else "identity"
+      log_info("[v2] Pass {pass_n}: proposed partition is {reason_label} (no new grouping). Forcing convergence.")
       converged_at <- pass_n
       convergence_rationale <- paste0(
-        "Identity-partition coercion at pass ", pass_n, ": ",
-        "AI proposed a partition that didn't merge any leaves; treated as ",
-        "convergence. ", proposal$overall_rationale %||% ""
+        "Partition coercion at pass ", pass_n, " (", reason_label,
+        "): AI proposed a partition that didn't introduce new groupings ",
+        "vs. the prior state; treated as convergence. ",
+        proposal$overall_rationale %||% ""
       )
       break
     }
@@ -861,6 +876,36 @@ apply_partition <- function(leaves, cluster_assignments, pass_n) {
   setequal(pre_ids, post_sources)
 }
 
+#' Check whether two partitions are structurally equivalent (oscillation)
+#'
+#' Phase 60.1 audit M8: \code{.partition_is_identity} only catches
+#' literal-identity partitions (each cluster has one source leaf). An
+#' AI that proposes the SAME multi-leaf partition on consecutive passes
+#' (e.g., {A,B}+{C,D} then {A,B}+{C,D} again) is also signalling that
+#' no further useful grouping is possible -- but the second pass's
+#' partition isn't an identity over its input (which is already
+#' \{A,B\}, \{C,D\}), so the identity check misses it.
+#'
+#' This helper compares two sets of leaves by the SETS of their
+#' \code{member_code_keys}. If the two leaf-lists carry the same
+#' code-key buckets (treating cluster order as irrelevant), they are
+#' structurally equivalent and we can coerce convergence.
+#'
+#' @keywords internal
+.partition_is_structurally_equivalent <- function(pre_leaves, post_leaves) {
+  if (length(pre_leaves) != length(post_leaves)) return(FALSE)
+  pre_buckets <- lapply(pre_leaves, function(l) {
+    sort(as.character(l$member_code_keys %||% character(0)))
+  })
+  post_buckets <- lapply(post_leaves, function(l) {
+    sort(as.character(l$member_code_keys %||% character(0)))
+  })
+  # Canonical sort: convert each bucket to a single string for set comparison
+  pre_keys  <- vapply(pre_buckets,  function(b) paste(b, collapse = "|"), character(1))
+  post_keys <- vapply(post_buckets, function(b) paste(b, collapse = "|"), character(1))
+  setequal(pre_keys, post_keys) && length(pre_keys) == length(post_keys)
+}
+
 
 # ==============================================================================
 # Derive theme + subtheme structure: pure function
@@ -1182,12 +1227,20 @@ ai_label_theme_set <- function(skeleton, codes, provider,
     cd <- code_by_key[[keys[[1]]]]
     return(as.character(cd$name %||% keys[[1]]))
   }
-  # Multi-code: build a "X, Y, and Z" composite from top 3 by frequency
-  members <- lapply(keys, function(k) code_by_key[[k]])
+  # Multi-code: build a "X, Y, and Z" composite from top 3 by frequency.
+  # Filter NULL lookups defensively (Phase 60.1 audit L2): the lookup
+  # would normally hit, since codes is the same list that produced the
+  # keys, but if upstream tampering ever creates a mismatch we don't
+  # want empty-string artifacts in the fallback name.
+  members <- Filter(Negate(is.null), lapply(keys, function(k) code_by_key[[k]]))
+  if (length(members) == 0L) return(paste(keys, collapse = " / "))
   freqs <- vapply(members, function(c) as.integer(c$frequency %||% 0L), integer(1))
   ord <- order(freqs, decreasing = TRUE)
   top_names <- vapply(members[ord[seq_len(min(3L, length(members)))]],
-                       function(c) c$name %||% "", character(1))
+                       function(c) as.character(c$name %||% c$key %||% ""),
+                       character(1))
+  top_names <- top_names[nzchar(top_names)]
+  if (length(top_names) == 0L) return(paste(keys[seq_len(min(3L, length(keys)))], collapse = " / "))
   paste(top_names, collapse = " / ")
 }
 
@@ -1208,11 +1261,16 @@ ai_label_theme_set <- function(skeleton, codes, provider,
     cd <- code_by_key[[keys[[1]]]]
     return(as.character(cd$description %||% ""))
   }
-  members <- lapply(keys, function(k) code_by_key[[k]])
+  # Filter NULL lookups defensively (Phase 60.1 audit L2)
+  members <- Filter(Negate(is.null), lapply(keys, function(k) code_by_key[[k]]))
+  if (length(members) == 0L) return("")
   freqs <- vapply(members, function(c) as.integer(c$frequency %||% 0L), integer(1))
   ord <- order(freqs, decreasing = TRUE)
   top_names <- vapply(members[ord[seq_len(min(3L, length(members)))]],
-                       function(c) c$name %||% "", character(1))
+                       function(c) as.character(c$name %||% c$key %||% ""),
+                       character(1))
+  top_names <- top_names[nzchar(top_names)]
+  if (length(top_names) == 0L) return("")
   paste0(
     "Codes share a conceptual organizing principle expressed across: ",
     paste(top_names, collapse = ", "), if (length(members) > 3L) ", and others." else "."

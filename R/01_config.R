@@ -352,6 +352,49 @@ validate_config <- function(config) {
     for (s in stale_found) log_warn(paste0("  - ", s))
   }
 
+  # Phase 60: warn about v1-only knobs that are STILL READ by the legacy
+  # v1 path but are NO-OPS under the v2 default (algorithm = "v2"). These
+  # aren't deprecated -- they work if you pin algorithm = "v1" -- but a
+  # user tuning them under the default would silently waste effort. The
+  # check only fires when the user has explicitly set the knob (the
+  # value differs from the default), so a freshly-loaded default config
+  # doesn't trigger noise.
+  algorithm <- tryCatch(
+    as.character(config$analysis$themes$algorithm %||% "v2"),
+    error = function(e) "v2"
+  )
+  if (identical(algorithm, "v2")) {
+    v1_only <- list(
+      list(path = c("analysis", "themes", "max_subtheme_depth"),
+           default = 3L,
+           reason = "Subtheme depth is derived from the multi-pass clustering tree under v2; this knob is read only by the v1 HAC walker."),
+      list(path = c("analysis", "themes", "max_codes_per_subtheme"),
+           default = 25L,
+           reason = "Subtheme membership is determined by penultimate-pass clusters under v2; this knob is read only by the v1 HAC walker.")
+    )
+    inert_found <- character(0)
+    for (k in v1_only) {
+      if (!has_path(config, k$path)) next
+      val <- config
+      for (p in k$path) val <- val[[p]]
+      if (!isTRUE(all.equal(val, k$default))) {
+        inert_found <- c(inert_found, paste0(
+          paste(k$path, collapse = "."), " = ", as.character(val),
+          " (v1-only; no-op under algorithm='v2'. ", k$reason, ")"
+        ))
+      }
+    }
+    if (length(inert_found) > 0L) {
+      log_warn(paste0(
+        "Found ", length(inert_found), " v1-only knob(s) in your config ",
+        "that have no effect under the default algorithm = 'v2'. Either ",
+        "set analysis.themes.algorithm = 'v1' to use the legacy walker, ",
+        "or remove these knobs (they will be deleted after Phase 60.8):"
+      ))
+      for (s in inert_found) log_warn(paste0("  - ", s))
+    }
+  }
+
   invisible(stale_found)
 }
 

@@ -27,8 +27,9 @@ Edge cases:
 \item 0 anomaly segments: returns empty list (caller should not
 normally reach this; \code{apply_framework_themes} short-circuits).
 \item 1 anomaly segment: returns one single-code emergent theme
-directly (no AI call -- HAC degenerate case).
-\item N=2 anomaly segments: minimum viable HAC tree (1 internal node).
+directly (no AI call -- single-code degenerate case under both v1
+and v2).
+\item N=2 anomaly segments: minimum viable clustering input.
 }
 }
 \keyword{internal}

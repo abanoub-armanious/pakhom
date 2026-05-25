@@ -334,7 +334,13 @@ list_available_runs <- function(results_base) {
   }, error = function(e) NULL)
 
   codes <- tryCatch({
-    f <- file.path(run_dir, "consolidated_codes.csv")
+    # Phase 60.6 rename: "consolidated_codes.csv" -> "codes.csv". Read
+    # either filename for back-compat with run dirs produced before the
+    # rename (pakhom is young and a few legacy runs may still exist on
+    # users' disks).
+    f_new <- file.path(run_dir, "codes.csv")
+    f_old <- file.path(run_dir, "consolidated_codes.csv")
+    f <- if (file.exists(f_new)) f_new else f_old
     if (file.exists(f)) readr::read_csv(f, show_col_types = FALSE, comment = "#") else NULL
   }, error = function(e) NULL)
 

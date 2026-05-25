@@ -75,7 +75,9 @@
   "coverage_failure",                 # T0.3: corpus-coverage computation failed
   "cluster_decision",                 # Phase 52: HAC tree-walk per-node verdict
   "framework_revision_suggested",     # Phase 54: revise policy wrote framework_review.csv
-  "saturation_judgment"               # Phase 56: AI arbiter verdict (reached/not_yet/uncertain)
+  "saturation_judgment",              # Phase 56: AI arbiter verdict (reached/not_yet/uncertain)
+  "clustering_proposal",              # Phase 60: v2 per-pass clustering proposal (continue|converged)
+  "label_pass"                        # Phase 60: v2 post-convergence labeling pass
 )
 
 # -- Constructor ---------------------------------------------------------------

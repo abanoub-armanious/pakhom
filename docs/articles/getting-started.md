@@ -391,7 +391,7 @@ All results are also exported as machine-readable files:
 | File | Contents |
 |----|----|
 | `sentiment_scores.csv` | Every entry with sentiment score, emotion, intensity |
-| `consolidated_codes.csv` | Codebook with all codes and frequencies |
+| `codes.csv` | Codebook with all codes and frequencies (Phase 60.6 rename from `consolidated_codes.csv`) |
 | `correlations.csv` | All pairwise correlation results |
 | `themes.json` | Complete theme definitions (name, description, codes, quotes) |
 | `theme_entries/` | One CSV per theme containing its assigned entries |

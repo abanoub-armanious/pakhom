@@ -69,15 +69,18 @@ export_results <- function(data, theme_set, correlations_df, insights,
   export_files$sentiment_file <- sentiment_file
   log_info("Exported sentiment scores: {sentiment_file}")
 
-  # --- Consolidated codes CSV (Bug #2 fix: actually writes data) ---
-  codes_file <- file.path(output_dir, "consolidated_codes.csv")
+  # --- Codes CSV (Phase 60.6 rename: was "consolidated_codes.csv"; the
+  # old filename violated C-tenet 2 because it implied codes are
+  # consolidated/merged, when in fact pakhom preserves codes as atomic
+  # leaves throughout clustering. New filename is honest.) ---
+  codes_file <- file.path(output_dir, "codes.csv")
   if (!is.null(consolidated) && !is.null(consolidated$codes) && nrow(consolidated$codes) > 0) {
     readr::write_csv(consolidated$codes, codes_file)
-    log_info("Exported {nrow(consolidated$codes)} consolidated codes: {codes_file}")
+    log_info("Exported {nrow(consolidated$codes)} codes: {codes_file}")
   } else {
     readr::write_csv(tibble(code_text = character(), frequency = integer(), code_type = character()),
                       codes_file)
-    log_warn("No consolidated codes to export")
+    log_warn("No codes to export")
   }
   .stamp(codes_file)
   export_files$codes_file <- codes_file
@@ -235,7 +238,7 @@ verify_run_integrity <- function(run_dir, config = list()) {
   # warnings on every legitimate generate_report=FALSE run.
   expected <- c(
     "sentiment_scores.csv",
-    "consolidated_codes.csv",
+    "codes.csv",  # Phase 60.6: renamed from "consolidated_codes.csv" (C2)
     "correlations.csv",
     "themes.json",
     "theme_entries",

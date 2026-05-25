@@ -185,7 +185,7 @@ test_that("verify_run_integrity detects complete run", {
   # Sprint-4 update: integrity check now also requires the Tier-0 + Tier-1
   # outputs (run_metadata.json, rules/methodology_rules.md, fabrication
   # log, audit log, api_responses dir per AC4). Test fixture creates them.
-  core_files <- c("sentiment_scores.csv", "consolidated_codes.csv",
+  core_files <- c("sentiment_scores.csv", "codes.csv",
                    "correlations.csv", "themes.json", "analysis_report.Rmd",
                    "run_metadata.json", "fabrication_log.csv",
                    "ai_decisions.jsonl")
@@ -208,13 +208,13 @@ test_that("verify_run_integrity detects missing files", {
   result <- verify_run_integrity(tmp_dir, config = list())
   expect_false(result$complete)
   expect_true("sentiment_scores.csv" %in% result$missing)
-  expect_true("consolidated_codes.csv" %in% result$missing)
+  expect_true("codes.csv" %in% result$missing)
   expect_false("themes.json" %in% result$missing)
 })
 
 test_that("verify_run_integrity checks conditional files from config", {
   tmp_dir <- withr::local_tempdir()
-  core_files <- c("sentiment_scores.csv", "consolidated_codes.csv",
+  core_files <- c("sentiment_scores.csv", "codes.csv",
                    "themes.json", "analysis_report.Rmd")
   for (f in core_files) file.create(file.path(tmp_dir, f))
   dir.create(file.path(tmp_dir, "theme_entries"))

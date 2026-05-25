@@ -652,7 +652,7 @@ test_that("verify_run_integrity expects framework_applied.{yaml|yml|json} when M
   writeLines("framework: { name: stub, constructs: [] }",
              file.path(d, "framework_applied.yaml"))
   # Drop the OTHER mandatory artifacts so we test only the framework path
-  for (f in c("sentiment_scores.csv", "consolidated_codes.csv",
+  for (f in c("sentiment_scores.csv", "codes.csv",
                 "correlations.csv", "themes.json", "analysis_report.Rmd",
                 "run_metadata.json", "fabrication_log.csv",
                 "ai_decisions.jsonl")) {
@@ -811,7 +811,7 @@ test_that("Mode 3 report integration: generate_report writes an Rmd with Framewo
   # rendered Rmd.
   export_files <- list(
     sentiment_file    = file.path(out_dir, "sentiment_scores.csv"),
-    codes_file        = file.path(out_dir, "consolidated_codes.csv"),
+    codes_file        = file.path(out_dir, "codes.csv"),
     correlations_file = file.path(out_dir, "correlations.csv"),
     themes_file       = file.path(out_dir, "themes.json"),
     plot_file         = file.path(out_dir, "correlation_plot.png"),
@@ -897,7 +897,7 @@ test_that("Mode 2 report does NOT include the Framework Declaration section", {
 
   export_files <- list(
     sentiment_file = file.path(out_dir, "sentiment_scores.csv"),
-    codes_file     = file.path(out_dir, "consolidated_codes.csv"),
+    codes_file     = file.path(out_dir, "codes.csv"),
     correlations_file = file.path(out_dir, "correlations.csv"),
     themes_file    = file.path(out_dir, "themes.json"),
     plot_file      = file.path(out_dir, "correlation_plot.png"),

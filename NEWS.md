@@ -1,5 +1,91 @@
 # pakhom 1.0.0
 
+## Phase 60: theme-algorithm rewrite (multi-pass clustering + label-after-clustering)
+
+The Phase 59 Stage 2 smoke campaign found that the Phase 52 HAC + AI tree-walk
+produced 87-92% single-code themes on the binge-eating corpus -- not
+publication-quality. Three independent audits confirmed the algorithm
+diverged from two of the user's eight architectural commitments (C-tenets):
+C-tenet 3 (multi-pass clustering until AI-declared convergence) and
+C-tenet 5 (label-after-clustering, not during).
+
+This phase replaces the algorithm. The Phase 52 path is preserved under
+`config$analysis$themes$algorithm = "v1"` for test-fixture back-compat
+only; new runs use the v2 algorithm by default.
+
+### Algorithm rewrite (60.1)
+
+- **New file `R/theme_algorithm_v2.R`** (~1100 lines): the multi-pass
+  clustering algorithm. `generate_themes_phase60()` orchestrates the
+  loop; `ai_propose_clustering()` is the per-pass AI call;
+  `apply_partition()` and `derive_theme_subtheme_structure()` are pure
+  functions; `ai_label_theme_set()` is the single post-convergence
+  labeling pass. The AI sees ALL leaves in every call (no chunking) and
+  proposes a partition; convergence is the AI's call. If the proposed
+  partition is the identity (no merges), convergence is forced.
+  Runaway safety net at 20 passes (NOT a methodological cap).
+- **New schemas in `R/structured_schemas.R`**: `.clustering_schema()` for
+  per-pass partition proposals (NO name/description fields -- C5 hygiene);
+  `.theme_labeling_schema()` for the post-convergence labeling call
+  (themes + nested subthemes, with cross-theme distinctness enforced
+  by the prompt).
+- **Removed (from the v2 hot path)**: the articulation gate
+  (`.articulation_min_chars`, `.is_bucket_label_opener`,
+  `.is_tautological_articulation`) and the single-leaf auto-theme
+  shortcut. The AI's structural verdicts stand without post-validation
+  rejection. The v1 path retains them for legacy test fixtures.
+
+### Mode-aware wiring (60.2)
+
+- **Mode 2 (default)**: v2 algorithm runs end-to-end.
+- **Mode 3 deductive**: `apply_framework_themes()` still bypasses
+  `generate_themes_iterative()` (framework constructs ARE the themes).
+- **Mode 3 inductive**: `.generate_emergent_themes_from_anomalies`
+  routes through the dispatch, so anomaly emergent themes now use
+  multi-pass clustering with label-after.
+
+### Live tracking per pass (60.3)
+
+- **`live_record_clustering_pass()`** in `R/live_tracking.R` writes
+  `outputs/<run>/live/clustering_pass_<N>.json` for every pass with the
+  AI's partition + per-cluster rationale + overall rationale. A
+  researcher can `cat clustering_pass_2.json` mid-run and see exactly
+  what pass 2 did. Honors C-tenet 3.
+
+### Smaller fixes (60.4-60.7, partially from the prior session)
+
+- **60.4 (saturation gate)**: `R/09_coding.R:606` now gates the AI
+  saturation arbiter on `is.null(framework_spec)` so Mode 3 never
+  invokes it (Mode 3 themes are determined by the framework, not
+  saturation).
+- **60.5 (dataset-agnostic stats)**: `R/14_correlations.R:41` and
+  `:1114` now use `.detect_metric_columns()` so EVERY numeric column is
+  correlated and Mann-Whitney-tested, not just `sentiment_score` +
+  `emotion_intensity`. Honors C-tenet 4.
+- **60.6 (filename rename)**: `consolidated_codes.csv` ->
+  `codes.csv`. The old filename implied codes were merged before
+  export, which violates C-tenet 2 ("codes preserved as atomic
+  leaves"). The reader in `R/15_comparison.R` falls back to the old
+  filename for back-compat with legacy run dirs.
+- **60.7 (OpenAI seed)**: `R/02_ai_providers.R:343` now passes
+  `body$seed = 42L` on every request for best-effort determinism.
+
+### Test status
+
+3,601 tests / 0 FAIL / 0 SKIP (was 3,498 baseline; +103 Phase 60 tests
+in `test-phase60-theme-rewrite.R` covering the 8-item test plan plus
+edge cases). R CMD check on R-tree: clean.
+
+### What's NOT in Phase 60
+
+- **60.8 empirical re-validation**: rerun of the Phase 59 Stage 2 smoke
+  campaign on the corrected algorithm (~$20-30 OpenAI API). Requires
+  user authorization.
+- **60.9 publication-quality deep dive + configuration selection
+  guide**: depends on 60.8.
+- **Removal of the v1 algorithm**: scheduled for after 60.8
+  validates v2 is stable.
+
 ## Phase 59: documentation refresh + six-angle verification campaign
 
 Closes the user-facing surface drift between Phase 58's architectural

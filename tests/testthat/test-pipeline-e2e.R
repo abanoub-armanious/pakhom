@@ -322,7 +322,7 @@ test_that("Mode 2 e2e: run_analysis produces complete artifact set + finalize_ru
   # AC4 / AC8 / AC7: every required Mode 2 artifact present
   d <- result$output_dir
   expect_true(file.exists(file.path(d, "sentiment_scores.csv")))
-  expect_true(file.exists(file.path(d, "consolidated_codes.csv")))
+  expect_true(file.exists(file.path(d, "codes.csv")))
   expect_true(file.exists(file.path(d, "correlations.csv")))
   expect_true(file.exists(file.path(d, "themes.json")))
   expect_true(dir.exists(file.path(d, "theme_entries")))
@@ -621,7 +621,7 @@ test_that("AC8: run_mode1 produces Mode 1 artifact set (different from run_analy
 
   # Mode 2/3 artifacts NOT present in Mode 1
   expect_false(file.exists(file.path(d, "sentiment_scores.csv")))
-  expect_false(file.exists(file.path(d, "consolidated_codes.csv")))
+  expect_false(file.exists(file.path(d, "codes.csv")))
   expect_false(file.exists(file.path(d, "correlations.csv")))
   expect_false(file.exists(file.path(d, "framework_applied.yaml")))
   expect_false(dir.exists(file.path(d, "theme_entries")))

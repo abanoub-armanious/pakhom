@@ -550,7 +550,7 @@ test_that(".load_run_snapshot reads stamped CSVs without choking on the AC4 comm
   src <- file.path(fixture_dir, "run_2026-01-01_120000")
   dir.create(run_dir, recursive = TRUE)
   file.copy(list.files(src, full.names = TRUE), run_dir, recursive = TRUE)
-  for (fn in c("sentiment_scores.csv", "consolidated_codes.csv",
+  for (fn in c("sentiment_scores.csv", "codes.csv",
                "correlations.csv")) {
     stamp_methodology_csv(file.path(run_dir, fn),
                            "codebook_collaborative", run_id = "r1")

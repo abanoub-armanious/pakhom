@@ -207,7 +207,7 @@ A finalized run directory at `outputs/<run-id>_M2/` with:
 - All universal Tier-0/Tier-1 artifacts (run_metadata, methodology
   rules, fabrication_log, ai_decisions)
 - `sentiment_scores.csv` — per-entry sentiment + emotions + intensity
-- `consolidated_codes.csv` — the merged codebook
+- `codes.csv` — the codebook (codes preserved as atomic leaves per C2; renamed from `consolidated_codes.csv` in Phase 60.6)
 - `themes.json` — theme set with merge_history + supporting quotes
 - `theme_entries/` — one CSV per theme with member entries
 - `correlations.csv` — Spearman correlations + Bonferroni-adjusted
