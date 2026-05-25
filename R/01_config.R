@@ -260,6 +260,18 @@ validate_config <- function(config) {
          reason = "Cascade always produces multi-label assignments."),
     list(path = c("analysis", "themes", "ai_batch_size"),    removed_in = "Phase 53",
          reason = "Theming is one AI call per HAC node, not batched."),
+    # Phase 50e removed three more theme knobs (Phase 59 code review caught
+    # that these were missing from the warner -- live foot-gun because
+    # docs/articles/getting-started.html:625 still recommended one of them):
+    list(path = c("analysis", "themes", "membership_threshold"),
+         removed_in = "Phase 50e",
+         reason = "Cascade is deterministic; no membership-score gate."),
+    list(path = c("analysis", "themes", "max_rebalance_iterations"),
+         removed_in = "Phase 50e",
+         reason = "No rebalance loop; HAC + AI divisive tree walk converges in one pass."),
+    list(path = c("analysis", "themes", "review_iterations"),
+         removed_in = "Phase 50e",
+         reason = "Researcher review is pause-based, not a fixed-iteration loop (`review_points.max_iterations` is the live knob)."),
     # Phase 56 removed all six pre-Phase-56 saturation knobs:
     list(path = c("analysis", "coding", "saturation_enabled"),
          removed_in = "Phase 56",

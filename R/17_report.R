@@ -1541,9 +1541,13 @@ generate_report <- function(data, theme_set, correlations_df, insights,
       '</div>\n\n'
     )
 
-    # Keywords
+    # Keywords -- Tier 8 H-26/AF-31 caps at 8 frequency-ranked codes
+    # upstream in 13_themes.R (`keyword_cap <- 8L`); renderer respects the
+    # whole curated set rather than truncating again. Pre-Phase-59 bug was
+    # `seq_len(min(5, ...))` here, silently dropping 3 of the 8 (caught by
+    # the high-effort code review).
     if (!is.null(ts$keywords) && length(ts$keywords) > 0 && !all(is.na(ts$keywords))) {
-      pills <- vapply(ts$keywords[seq_len(min(5, length(ts$keywords)))], function(k) {
+      pills <- vapply(ts$keywords[seq_along(ts$keywords)], function(k) {
         paste0('<span class="keyword-pill">', .html_esc(k), '</span>')
       }, character(1))
       content <- paste0(content,

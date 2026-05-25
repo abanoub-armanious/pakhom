@@ -1206,35 +1206,45 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
 #' @keywords internal
 .warn_pre_tier7_coding_resume <- function(coding_state) {
   if (is.null(coding_state)) return(invisible(NULL))
-  # Probe a single QuoteProvenance from any codebook entry's
-  # coded_segments. The schema gap is the absence of
-  # `verification_failure_reason` on a pre-Tier-7 quote.
+  # Walk every QuoteProvenance in every coded segment looking for the
+  # schema gap (absence of `verification_failure_reason`). A mixed-vintage
+  # checkpoint can hold both pre- and post-Tier-7 QPs (e.g., a partial
+  # run that was interrupted and resumed under the Tier-7 prompt); a
+  # first-QP-only probe (pre-Phase-59 behaviour) would miss the warning
+  # when the first probed QP is the modern one. Phase 59 code review
+  # caught this gap.
   codebook <- coding_state$codebook %||% list()
+  n_total <- 0L
+  n_legacy <- 0L
   for (code in codebook) {
     segs <- code$coded_segments %||% list()
     for (s in segs) {
       prov <- s$provenance
       if (inherits(prov, "QuoteProvenance")) {
+        n_total <- n_total + 1L
         if (!"verification_failure_reason" %in% names(prov)) {
-          log_warn(paste0(
-            "Resuming from a pre-Phase-58-Tier-7 progressive_coding ",
-            "checkpoint: cached QuoteProvenance objects predate the ",
-            "V-6/L-3 offset-reference fix (the JSON-escape bug that ",
-            "drove Phase 57 to 99.89% verified_fuzzy) and the ",
-            "M-13/E-19 failure_reason field. The cached verification ",
-            "results stand (re-verification is not invalidated by the ",
-            "schema gap), but the report's Tier-0 dashboard prose ",
-            "describes the Tier 7 ladder while the cached quotes were ",
-            "produced under the older prompt + verifier pairing. To ",
-            "align, delete the 'progressive_coding' step from ",
-            "outputs/<run>/checkpoint.rds and rerun from step 3. See ",
-            "PHASE_57_DEEP_AUDIT_FINDINGS.md (Tier 7) for the prompt ",
-            "+ ladder rewrite details."
-          ))
+          n_legacy <- n_legacy + 1L
         }
-        return(invisible(NULL))  # one probe is enough
       }
     }
+  }
+  if (n_legacy > 0L) {
+    log_warn(paste0(
+      "Resuming from a pre-Phase-58-Tier-7 progressive_coding ",
+      "checkpoint: ", n_legacy, " of ", n_total,
+      " cached QuoteProvenance objects predate the ",
+      "V-6/L-3 offset-reference fix (the JSON-escape bug that ",
+      "drove Phase 57 to 99.89% verified_fuzzy) and the ",
+      "M-13/E-19 failure_reason field. The cached verification ",
+      "results stand (re-verification is not invalidated by the ",
+      "schema gap), but the report's Tier-0 dashboard prose ",
+      "describes the Tier 7 ladder while the cached quotes were ",
+      "produced under the older prompt + verifier pairing. To ",
+      "align, delete the 'progressive_coding' step from ",
+      "outputs/<run>/checkpoint.rds and rerun from step 3. See ",
+      "PHASE_57_DEEP_AUDIT_FINDINGS.md (Tier 7) for the prompt ",
+      "+ ladder rewrite details."
+    ))
   }
   invisible(NULL)
 }

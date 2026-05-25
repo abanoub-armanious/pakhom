@@ -164,7 +164,16 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
       intensity = intensity,
       emotions = emotions,
       participant_spread = participant_spread,
-      keywords = t$keywords %||% theme_codes(t)[seq_len(min(5, length(theme_codes(t))))],
+      # Tier 8 H-26/AF-31 caps theme$keywords at 8 frequency-ranked codes
+      # upstream. The fallback fires only when a cached pre-Tier-8 theme_set
+      # is resumed (no $keywords on the object). In that case we cannot
+      # recover frequency ranking (codebook not in scope here), so we cap
+      # at 8 to match the modern count contract and leave the order as the
+      # theme's HAC-leaf order. The pre-Tier-7 resume warner
+      # (.warn_pre_tier7_coding_resume) covers the corresponding QuoteProvenance
+      # case; cached theme_sets without $keywords are a separate Phase-50e
+      # vintage that this fallback documents rather than silently degrades.
+      keywords = t$keywords %||% theme_codes(t)[seq_len(min(8L, length(theme_codes(t))))],
       subthemes = real_subtheme_names,
       subthemes_structured = real_subtheme_objs,
       subtheme_stats = subtheme_stats,
@@ -461,24 +470,26 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
   if (is.na(text) || !nzchar(text)) return("")
   text <- as.character(text)
   if (nchar(text) <= max_chars) return(text)
-  # Reserve 4 chars for the " ..." marker
+  # Reserve 4 chars for the " ..." marker (space + 3-dot ellipsis)
   budget <- max_chars - 4L
   if (budget <= 0L) {
     return(substr(text, 1L, max(1L, max_chars - 3L)))
   }
   cut <- substr(text, 1L, budget)
   last_ws <- regexpr("\\s\\S*$", cut, perl = TRUE)
-  # If the budget cut already landed at whitespace OR no whitespace
-  # within the budget, fall through to the hard cut path.
-  if (last_ws > 0L && (last_ws + attr(last_ws, "match.length") - 1L) == budget) {
-    cut <- substr(cut, 1L, last_ws - 1L)
-  } else if (last_ws > 0L) {
-    # Cut at the last whitespace so we don't break a word
+  if (last_ws > 0L) {
+    # Cut at the last whitespace so we don't break a word. The
+    # boundary-equality case (last_ws + match.length - 1 == budget) used to
+    # have a separate branch with identical behaviour -- collapsed in
+    # Phase 59 to keep the contract single-pathed.
     cut <- substr(cut, 1L, last_ws - 1L)
   }
   cut <- trimws(cut)
   if (nchar(cut) == 0L) {
-    return(paste0(substr(text, 1L, budget), "..."))
+    # Hard-cut fall-through (no whitespace in budget, e.g. a long URL).
+    # Use the same " ..." marker as the normal path so the docstring's
+    # 4-char budget invariant is honoured (Phase 59 code review).
+    return(paste0(substr(text, 1L, budget), " ..."))
   }
   paste0(cut, " ...")
 }
