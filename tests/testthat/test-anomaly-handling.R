@@ -325,7 +325,7 @@ test_that("cascade routes anomaly entries into emergent themes (CRITICAL-8 regre
       props <- response_schema$properties
       if ("coded_segments" %in% names(props)) {
         # Inductive coding: split the 3 segments into 2 different codes so
-        # downstream HAC produces multiple emergent themes.
+        # downstream clustering produces multiple emergent themes.
         list(
           content = jsonlite::toJSON(list(
             coded_segments = list(
@@ -342,9 +342,36 @@ test_that("cascade routes anomaly entries into emergent themes (CRITICAL-8 regre
           ), auto_unbox = TRUE, null = "null"),
           usage = list()
         )
+      } else if ("verdict" %in% names(props)) {
+        # Phase 60 v2 clustering call: 2 codes are conceptually distinct,
+        # converge immediately at pass 1 with no merges.
+        list(
+          content = jsonlite::toJSON(list(
+            verdict = "converged",
+            cluster_assignments = NULL,
+            overall_rationale = "The two emergent codes capture distinct conceptual patterns and should remain as separate themes; no useful further grouping is possible."
+          ), auto_unbox = TRUE, null = "null"),
+          usage = list()
+        )
+      } else if ("themes" %in% names(props)) {
+        # Phase 60 v2 labeling call: name the 2 emergent themes.
+        list(
+          content = jsonlite::toJSON(list(
+            themes = list(
+              list(theme_index = 1L,
+                   name = "Pattern A Theme",
+                   description = "First emergent conceptual pattern from anomaly residuals.",
+                   subthemes = list()),
+              list(theme_index = 2L,
+                   name = "Pattern B Theme",
+                   description = "Second distinct emergent pattern.",
+                   subthemes = list())
+            )
+          ), auto_unbox = TRUE, null = "null"),
+          usage = list()
+        )
       } else {
-        # HAC tree-walk: split at the root so each pattern becomes its
-        # own theme.
+        # Legacy v1 HAC tree-walk fallback (kept for any v1-pinned callers).
         list(
           content = jsonlite::toJSON(list(
             central_organizing_concept = "no single principle covers both patterns of anomaly content",

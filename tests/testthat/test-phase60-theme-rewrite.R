@@ -864,30 +864,81 @@ test_that("Phase 60: idempotence coercion -- identity partition forces convergen
   expect_match(ts$merge_history$convergence_rationale, "[Ii]dentity")
 })
 
-test_that("Phase 60: AI failure on clustering call falls back to convergence (not split)", {
-  state <- .v2_state(3L)
+test_that("Phase 60: Round-6 lesson -- pass 1 AI failure aborts loudly, not silently degenerate", {
+  # Round 6 of Phase 60.8 exposed a critical failure mode: when the
+  # AI call at pass 1 fails (in that case, OpenAI quota exhaustion),
+  # the parse-failure fallback coerces to verdict='converged' which
+  # produces one theme per code (167 single-code themes at the time).
+  # That is the exact v1 pathology the v2 rewrite was meant to fix.
+  # The orchestrator must now abort the run rather than silently emit
+  # degenerate output.
+  state <- .v2_state(8L)
+  responses <- list(
+    # AI call returns garbage that normalizer coerces to convergence
+    list(garbage = "no verdict here")
+  )
+  testthat::local_mocked_bindings(
+    ai_complete = .v2_mock_ai(responses),
+    .package = "pakhom"
+  )
+  expect_error(
+    suppressWarnings(generate_themes_iterative(state, .v2_provider(),
+                                                  config = list(algorithm = "v2"))),
+    regexp = "aborted at pass 1.*single-code"
+  )
+})
+
+test_that("Phase 60: pass 1 AI failure with 1 leaf does NOT trip the abort (n=1 is normal)", {
+  # The abort guard is conditional on length(current_leaves) > 1L --
+  # with a single code there's no failure mode (the single-code degenerate
+  # path is correct, not a v1 pathology). Exercise that branch.
+  state <- .v2_state(1L)
+  # Single-code path doesn't even call ai_complete; this test just
+  # confirms the n=1 path still produces a 1-theme ThemeSet.
+  testthat::local_mocked_bindings(
+    ai_complete = function(...) stop("should not be called"),
+    .package = "pakhom"
+  )
+  ts <- generate_themes_iterative(state, .v2_provider(),
+                                     config = list(algorithm = "v2"))
+  expect_equal(n_themes(ts), 1L)
+})
+
+test_that("Phase 60: AI failure on PASS 2+ recoverable via prior-pass clusters", {
+  # The Round 6 hardening only aborts at pass 1 (where failure ->
+  # degenerate output). At pass 2+, the prior pass's clusters ARE the
+  # natural fallback -- we just stop iterating and use what we have.
+  state <- .v2_state(4L)
   call_idx <- 0L
   testthat::local_mocked_bindings(
     ai_complete = function(provider, prompt, system_prompt, task,
                             temperature, response_schema, ...) {
       call_idx <<- call_idx + 1L
-      if (call_idx == 1L) stop("network failure")
-      # Labeling pass: succeed
-      list(
-        content = jsonlite::toJSON(.v2_label(list(
-          list(name = "Code 1", description = "First"),
-          list(name = "Code 2", description = "Second"),
-          list(name = "Code 3", description = "Third")
+      if (call_idx == 1L) {
+        # Pass 1: succeed, merge into 2 clusters
+        list(content = jsonlite::toJSON(.v2_continue(list(
+          list(indices = c(1L, 2L), rationale = "Pair AB"),
+          list(indices = c(3L, 4L), rationale = "Pair CD")
+        ), "Two pairs"), auto_unbox = TRUE, null = "null"),
+        usage = list())
+      } else if (call_idx == 2L) {
+        # Pass 2: FAIL
+        stop("network failure at pass 2")
+      } else {
+        # Labeling pass: succeed (gets pass-1's 2 clusters)
+        list(content = jsonlite::toJSON(.v2_label(list(
+          list(name = "Theme One", description = "First pair"),
+          list(name = "Theme Two", description = "Second pair")
         )), auto_unbox = TRUE, null = "null"),
-        usage = list()
-      )
+        usage = list())
+      }
     },
     .package = "pakhom"
   )
   ts <- suppressWarnings(generate_themes_iterative(state, .v2_provider(),
                                                        config = list(algorithm = "v2")))
-  # Failure coerces to convergence at pass 1, so each code is its own theme
-  expect_equal(n_themes(ts), 3L)
+  # Pass 2 failure coerces to convergence at pass 2 => themes = pass-1 clusters (2)
+  expect_equal(n_themes(ts), 2L)
   expect_equal(ts$merge_history$n_failed_calls, 1L)
 })
 
@@ -917,25 +968,25 @@ test_that("Phase 60: missing leaf indices are added as auto-singletons (partitio
   expect_equal(n_themes(ts), 2L)
 })
 
-test_that("Phase 60: malformed AI response on clustering call coerces convergence safely", {
+test_that("Phase 60: malformed AI response on clustering call aborts loudly (Round 6 hardening)", {
+  # Post-Round-6 behavior: malformed responses at pass 1 are NOT silently
+  # coerced to one-theme-per-code. They abort the run with a clear error
+  # message so the operator can diagnose (typically: provider quota /
+  # response_schema strict-mode failure / network).
   state <- .v2_state(3L)
   responses <- list(
     # Garbage response: missing verdict
-    list(overall_rationale = "I don't know what to say"),
-    # Labeling
-    .v2_label(list(
-      list(name = "A", description = "a"),
-      list(name = "B", description = "b"),
-      list(name = "C", description = "c")
-    ))
+    list(overall_rationale = "I don't know what to say")
   )
   testthat::local_mocked_bindings(
     ai_complete = .v2_mock_ai(responses),
     .package = "pakhom"
   )
-  ts <- suppressWarnings(generate_themes_iterative(state, .v2_provider(),
-                                                       config = list(algorithm = "v2")))
-  expect_equal(n_themes(ts), 3L)
+  expect_error(
+    suppressWarnings(generate_themes_iterative(state, .v2_provider(),
+                                                  config = list(algorithm = "v2"))),
+    regexp = "aborted at pass 1"
+  )
 })
 
 

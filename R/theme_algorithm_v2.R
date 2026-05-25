@@ -234,6 +234,33 @@ generate_themes_phase60 <- function(coding_state, provider, config = list(),
                                  codes = codes)
 
     if (identical(proposal$verdict, "converged")) {
+      # CRITICAL FAILURE GUARD (Phase 60.8 Round 6 lesson): if the AI call
+      # at pass 1 failed and was coerced to convergence by the normalizer,
+      # we would silently output one theme per code -- the v1 pathology
+      # the entire v2 rewrite was meant to fix. Abort loudly instead.
+      # Pass N>1 failure is recoverable (we have prior-pass clusters as
+      # the natural fallback) so this guard fires only at the very first
+      # call's failure mode.
+      ai_failure_coerced <- isTRUE(walk_state$n_failed_calls > 0L) ||
+                              grepl("malformed|coerced|unparseable|absent",
+                                     proposal$overall_rationale %||% "",
+                                     ignore.case = TRUE)
+      if (pass_n == 1L && ai_failure_coerced && length(current_leaves) > 1L) {
+        log_error(paste0(
+          "[v2] CRITICAL: pass 1 AI call failed and would coerce to ",
+          length(current_leaves), " single-code themes. Aborting rather ",
+          "than producing degenerate output. Check provider quota / ",
+          "network / response_schema strict-mode compliance. ",
+          "Rationale recorded: ", substr(proposal$overall_rationale %||% "", 1, 200)
+        ))
+        live_record_clustering_pass(live_tracker, pass_n, current_leaves, proposal,
+                                     codes = codes)
+        stop(sprintf(
+          "v2 theme generation aborted at pass 1: AI call failed and coerced fallback would emit %d single-code themes. See log for details.",
+          length(current_leaves)
+        ), call. = FALSE)
+      }
+
       log_info("[v2] AI declared convergence at pass {pass_n} ({length(current_leaves)} final leaves)")
       converged_at <- pass_n
       convergence_rationale <- proposal$overall_rationale %||% ""
