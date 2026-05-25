@@ -393,6 +393,248 @@
   )
 }
 
+#' Schema for the per-pass clustering proposal (Phase 60)
+#'
+#' Used by \code{ai_propose_clustering()} during the multi-pass theme-
+#' clustering algorithm in \code{generate_themes_phase60()}. Replaces (for the
+#' v2 algorithm) the single-call \code{.theme_decision_schema()} which fused
+#' structural and labeling decisions in one shot.
+#'
+#' Design contract honored by this schema (binding under C-tenet 3 and 5,
+#' \code{pakhom/notes/strategic_audit/REWRITE_PLAN_PHASE_50_TO_59.md:498-528}
+#' and \code{PHASE_60_THEME_ALGORITHM_REWRITE.md}):
+#'
+#' (a) NO \code{name} / \code{description} fields. Labeling happens in a
+#'     dedicated post-convergence pass (\code{.theme_labeling_schema()}).
+#'     The AI cannot leak name pressure into the structural decision.
+#'
+#' (b) Per-cluster \code{rationale} field. The AI must justify EACH proposed
+#'     grouping in its own words, naming the codes it's grouping and why.
+#'     This is the "look at each code carefully" property without falling
+#'     into the pre-Phase-52 sequential-pairwise cascade. The AI still sees
+#'     ALL leaves at once -- the "full picture" -- but is forced to write a
+#'     justification per cluster.
+#'
+#' (c) Closed two-valued \code{verdict} enum (\code{continue} or
+#'     \code{converged}). The AI either proposes a new partition that
+#'     groups the current leaves OR declares convergence. No hedging.
+#'
+#' (d) \code{cluster_assignments} is nullable. When verdict is
+#'     \code{converged} the field is \code{null}. OpenAI strict mode
+#'     forbids conditional schemas (no \code{oneOf}), so the validation
+#'     contract is post-call: orchestrator checks that
+#'     \code{continue + null} or \code{converged + non-null} are rejected
+#'     and re-prompts.
+#'
+#' \preformatted{
+#'   {
+#'     "verdict": "continue" | "converged",
+#'     "cluster_assignments": [
+#'       { "leaf_indices": [int, ...], "cluster_rationale": str }, ...
+#'     ] | null,
+#'     "overall_rationale": str
+#'   }
+#' }
+#'
+#' @keywords internal
+.clustering_schema <- function() {
+  list(
+    type                  = "object",
+    additionalProperties  = FALSE,
+    required              = list("verdict", "cluster_assignments",
+                                  "overall_rationale"),
+    properties = list(
+      verdict = list(
+        type        = "string",
+        enum        = list("continue", "converged"),
+        description = paste0(
+          "'continue' = propose a new partition that groups the current ",
+          "leaves into clusters. 'converged' = no further useful grouping ",
+          "is possible; the current leaves are the final structure. ",
+          "Setting verdict='converged' requires cluster_assignments=null."
+        )
+      ),
+      cluster_assignments = list(
+        type  = list("array", "null"),
+        items = list(
+          type                  = "object",
+          additionalProperties  = FALSE,
+          required              = list("leaf_indices", "cluster_rationale"),
+          properties = list(
+            leaf_indices = list(
+              type  = "array",
+              items = list(type = "integer"),
+              description = paste0(
+                "1-based indices into the LEAVES list shown in the prompt. ",
+                "Every leaf MUST appear in exactly one cluster (partition ",
+                "property). Singleton clusters (length 1) are acceptable ",
+                "when a leaf does not belong with any others."
+              )
+            ),
+            cluster_rationale = list(
+              type        = "string",
+              description = paste0(
+                "Why THESE specific leaves belong together. Name each leaf ",
+                "you are grouping by its code name (pass 1) or its member ",
+                "code names (pass 2+), and explain the unifying principle. ",
+                "Do NOT name the cluster -- naming is a separate post-",
+                "convergence pass. 30-400 characters."
+              )
+            )
+          )
+        ),
+        description = paste0(
+          "Array of clusters partitioning the current leaves. NULL when ",
+          "verdict='converged'. Each cluster must be non-empty; every leaf ",
+          "must appear in exactly one cluster."
+        )
+      ),
+      overall_rationale = list(
+        type        = "string",
+        description = paste0(
+          "Top-level reasoning: why this partition (or why convergence)? ",
+          "If continuing, explain the conceptual fault lines you found ",
+          "across leaves. If converged, explain why no further grouping ",
+          "would yield useful structure. 50-500 characters."
+        )
+      )
+    )
+  )
+}
+
+#' Schema for the post-convergence theme + subtheme labeling pass (Phase 60)
+#'
+#' Used by \code{ai_label_theme_set()} in a single AI call after multi-pass
+#' clustering has converged. The AI sees the FULL converged tree
+#' (themes -> subthemes -> codes) and assigns researcher-facing names +
+#' descriptions to every node.
+#'
+#' Design contract (binding under C-tenet 5):
+#'
+#' (a) Labeling happens AFTER structural decisions. The AI cannot influence
+#'     which codes belong to which theme during this call -- the structure
+#'     is fixed.
+#'
+#' (b) The AI sees ALL themes + ALL subthemes + ALL codes in one prompt, so
+#'     cross-theme name distinctness is enforceable (the AI is explicitly
+#'     instructed not to use the same or near-duplicate names for two
+#'     themes).
+#'
+#' (c) The response shape mirrors the structural skeleton: themes array,
+#'     each theme has subthemes array. The orchestrator binds names back to
+#'     the skeleton positionally via \code{theme_index} and
+#'     \code{subtheme_index}.
+#'
+#' (d) The AI returns the same number of themes as the skeleton has, and the
+#'     same number of subthemes per theme. Orchestrator post-validates this
+#'     and re-prompts on mismatch.
+#'
+#' \preformatted{
+#'   {
+#'     "themes": [
+#'       {
+#'         "theme_index": int,             // 1-based, must match skeleton
+#'         "name": str,                    // 3-12 words, substantive noun phrase
+#'         "description": str,             // 1-2 sentences in researcher voice
+#'         "subthemes": [
+#'           { "subtheme_index": int, "name": str, "description": str }, ...
+#'         ]
+#'       }, ...
+#'     ]
+#'   }
+#' }
+#'
+#' @keywords internal
+.theme_labeling_schema <- function() {
+  list(
+    type                  = "object",
+    additionalProperties  = FALSE,
+    required              = list("themes"),
+    properties = list(
+      themes = list(
+        type  = "array",
+        items = list(
+          type                  = "object",
+          additionalProperties  = FALSE,
+          required              = list("theme_index", "name", "description",
+                                        "subthemes"),
+          properties = list(
+            theme_index = list(
+              type        = "integer",
+              description = paste0(
+                "1-based index of this theme in the skeleton. Must match the ",
+                "order shown in the prompt. The orchestrator binds names to ",
+                "skeleton positions via this index."
+              )
+            ),
+            name = list(
+              type        = "string",
+              description = paste0(
+                "Substantive noun phrase (3-12 words) that names the theme's ",
+                "central organizing concept. Sounds like a research finding ",
+                "(e.g. 'Identity reconstruction after medication onset'). ",
+                "NOT a list-of-things or bucket label (avoid 'Various aspects ",
+                "of X', 'Mixed experiences with Y'). Must be DISTINCT from ",
+                "every other theme name in this response."
+              )
+            ),
+            description = list(
+              type        = "string",
+              description = paste0(
+                "1-2 sentence theme description in researcher voice. States ",
+                "what the central organizing concept IS and how it manifests ",
+                "across the codes in this theme. Specific enough to ",
+                "distinguish from sibling themes."
+              )
+            ),
+            subthemes = list(
+              type  = "array",
+              items = list(
+                type                  = "object",
+                additionalProperties  = FALSE,
+                required              = list("subtheme_index", "name",
+                                              "description"),
+                properties = list(
+                  subtheme_index = list(
+                    type        = "integer",
+                    description = paste0(
+                      "1-based index of this subtheme within its parent ",
+                      "theme. Must match the order shown in the prompt."
+                    )
+                  ),
+                  name = list(
+                    type        = "string",
+                    description = paste0(
+                      "Subtheme name (3-10 words) that names what this ",
+                      "subset of codes shares. Distinct from sibling ",
+                      "subtheme names AND from the parent theme name."
+                    )
+                  ),
+                  description = list(
+                    type        = "string",
+                    description = paste0(
+                      "1 sentence description of the subtheme. States what ",
+                      "the codes in this subtheme have in common that ",
+                      "distinguishes them from sibling subthemes."
+                    )
+                  )
+                )
+              ),
+              description = paste0(
+                "Array of subtheme labels, one per subtheme in the skeleton ",
+                "for this theme. Must be the same length as the skeleton's ",
+                "subtheme list and in the same order. Empty array when the ",
+                "theme has no subtheme structure (single-pass convergence ",
+                "or theme contains codes directly)."
+              )
+            )
+          )
+        )
+      )
+    )
+  )
+}
+
 #' Schema for batch inductive coding of Mode 3 anomaly segments (Phase 54)
 #'
 #' Used by .inductive_code_anomaly_segments() to turn the segments that

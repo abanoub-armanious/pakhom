@@ -321,7 +321,7 @@ test_that("Phase 52: generate_themes_iterative single-code corpus produces 1-the
   )
   class(fake_provider) <- "AIProvider"
 
-  ts <- generate_themes_iterative(state, fake_provider, config = list())
+  ts <- generate_themes_iterative(state, fake_provider, config = list(algorithm = "v1"))
   expect_s3_class(ts, "ThemeSet")
   expect_equal(n_themes(ts), 1L)
   expect_equal(ts$themes[[1]]$name, "Solo Code")
@@ -338,7 +338,7 @@ test_that("Phase 52: generate_themes_iterative empty codebook returns empty Them
   )
   class(fake_provider) <- "AIProvider"
 
-  ts <- generate_themes_iterative(state, fake_provider, config = list())
+  ts <- generate_themes_iterative(state, fake_provider, config = list(algorithm = "v1"))
   expect_s3_class(ts, "ThemeSet")
   expect_equal(n_themes(ts), 0L)
 })
@@ -402,7 +402,7 @@ test_that("Phase 52: .evaluate_cluster coherent_theme path produces a single the
   )
 
   ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
-                                     config = list())
+                                     config = list(algorithm = "v1"))
   expect_s3_class(ts, "ThemeSet")
   expect_equal(n_themes(ts), 1L)
   expect_equal(ts$themes[[1]]$name, "Medication management routines")
@@ -428,7 +428,7 @@ test_that("Phase 52: .evaluate_cluster split_required cascade produces N atomic 
   )
 
   ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
-                                     config = list())
+                                     config = list(algorithm = "v1"))
   # 3 codes + always-split = recurse to leaves = 3 single-code themes
   expect_equal(n_themes(ts), 3L)
 })
@@ -457,7 +457,7 @@ test_that("Phase 52: AI failure increments n_failed_calls + returns split_requir
   )
 
   ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
-                                     config = list())
+                                     config = list(algorithm = "v1"))
   # AI failure defaults to split_required at the failed node -> recurse to
   # leaves; downstream nodes succeed -> 3 single-code themes total.
   expect_equal(n_themes(ts), 3L)
@@ -491,7 +491,7 @@ test_that("Phase 52: articulation enforcement forces split on vacuous coherent_t
   # it. We assert behavior instead: forced split at every node -> all three
   # codes atomic-outlier themes.
   ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
-                                     config = list())
+                                     config = list(algorithm = "v1"))
   expect_equal(n_themes(ts), 3L)
 })
 
@@ -609,7 +609,7 @@ test_that("C-1 integration: .evaluate_cluster forces split on log-scaled too-sho
   )
   # Forced split at every node -> recurse to leaves -> 30 atomic themes.
   ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
-                                     config = list())
+                                     config = list(algorithm = "v1"))
   expect_equal(n_themes(ts), 30L)
 })
 
@@ -650,7 +650,7 @@ test_that("C-1 integration: log-scaled floor rejects 50-char articulation that f
     .package = "pakhom"
   )
   ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
-                                     config = list())
+                                     config = list(algorithm = "v1"))
   # 30 atomic themes confirms the recursive walk forced split at every
   # node (top cluster: length fails; small clusters: tautology fires).
   expect_equal(n_themes(ts), 30L)
@@ -680,7 +680,7 @@ test_that("C-1 integration: .evaluate_cluster forces split on bucket-label opene
     .package = "pakhom"
   )
   ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
-                                     config = list())
+                                     config = list(algorithm = "v1"))
   # Forced split -> 3 atomic themes
   expect_equal(n_themes(ts), 3L)
 })
@@ -709,7 +709,7 @@ test_that("C-1 integration: .evaluate_cluster forces split on tautological artic
     .package = "pakhom"
   )
   ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
-                                     config = list())
+                                     config = list(algorithm = "v1"))
   # Forced split -> 3 atomic themes
   expect_equal(n_themes(ts), 3L)
 })
@@ -739,7 +739,7 @@ test_that("C-1 integration: legacy 30-char minimum still triggers on n=1 singlet
     .package = "pakhom"
   )
   ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
-                                     config = list())
+                                     config = list(algorithm = "v1"))
   # Single code, articulation too short -> forced split. Single-code split
   # produces 1 atomic-outlier theme regardless.
   expect_equal(n_themes(ts), 1L)
@@ -850,7 +850,7 @@ test_that("C-1 audit LOW-7: substantive long articulation IS accepted under log-
     .package = "pakhom"
   )
   ts <- generate_themes_iterative(state, .fake_provider_for_theming(),
-                                     config = list())
+                                     config = list(algorithm = "v1"))
   # 10 codes accepted as ONE coherent theme -> n_themes == 1L (subtheme
   # walk may add subthemes inside the theme, but the top-level theme
   # count is 1).
@@ -879,7 +879,7 @@ test_that("Phase 52: circuit breaker aborts theme generation at >25% failure rat
   )
   expect_error(
     suppressWarnings(generate_themes_iterative(state, .fake_provider_for_theming(),
-                                                  config = list())),
+                                                  config = list(algorithm = "v1"))),
     "Theme generation aborted"
   )
 })

@@ -339,6 +339,105 @@ live_snapshot_clusters <- function(tracker, walk_status,
 }
 
 # ==============================================================================
+# Phase 60: per-pass clustering snapshot (v2 algorithm)
+# ==============================================================================
+
+#' Record one clustering-pass snapshot to the live tracker (Phase 60 / C3)
+#'
+#' Writes \code{outputs/<run>/live/clustering_pass_<N>.json} with the AI's
+#' partition proposal for pass N: the input leaves, the proposed cluster
+#' assignments, and the AI's rationale per cluster + overall. Called from
+#' \code{generate_themes_phase60()} in \code{R/theme_algorithm_v2.R} after
+#' every clustering call.
+#'
+#' Honors C-tenet 3 (live tracking artifacts during processing): a
+#' researcher can \code{cat outputs/<run>/live/clustering_pass_2.json}
+#' mid-run and see exactly what pass 2 did.
+#'
+#' Atomic rewrite (write-temp + rename) so a researcher \code{cat}-ing the
+#' file always sees a coherent snapshot. Safe to call with
+#' \code{tracker = NULL} (no-op).
+#'
+#' @param tracker A \code{LiveTracker} or NULL.
+#' @param pass_n Integer; the pass number (1-based).
+#' @param leaves The list of leaves shown to the AI at this pass (each
+#'   leaf record carries \code{leaf_id}, \code{leaf_type}, and
+#'   \code{member_code_keys}).
+#' @param proposal The AI's proposal record returned by
+#'   \code{ai_propose_clustering()}: \code{verdict},
+#'   \code{cluster_assignments}, \code{overall_rationale}.
+#' @param codes Optional list of code records (the original codebook
+#'   extraction); used to enrich the snapshot with code names per leaf.
+#' @return The (possibly updated) tracker, invisibly.
+#' @export
+live_record_clustering_pass <- function(tracker, pass_n, leaves, proposal,
+                                           codes = NULL) {
+  if (is.null(tracker)) return(invisible(NULL))
+  validate_class(tracker, "LiveTracker")
+
+  # Build a code_key -> code_name lookup so the snapshot is researcher-readable
+  # without joining to codebook_live.json. Skip names if codes were not passed.
+  code_name_lookup <- if (!is.null(codes) && length(codes) > 0L) {
+    stats::setNames(
+      vapply(codes, function(c) as.character(c$name %||% c$key %||% ""), character(1)),
+      vapply(codes, function(c) as.character(c$key %||% ""), character(1))
+    )
+  } else character(0)
+
+  resolve_names <- function(keys) {
+    keys <- as.character(keys %||% character(0))
+    if (length(code_name_lookup) == 0L) return(I(keys))
+    nm <- unname(code_name_lookup[keys])
+    nm[is.na(nm)] <- keys[is.na(nm)]
+    I(nm)
+  }
+
+  leaves_payload <- lapply(seq_along(leaves), function(i) {
+    l <- leaves[[i]]
+    list(
+      leaf_index       = i,
+      leaf_id          = l$leaf_id %||% NA_character_,
+      leaf_type        = l$leaf_type %||% NA_character_,
+      n_codes          = as.integer(l$n_codes %||% length(l$member_code_keys %||% character(0))),
+      member_code_keys = I(as.character(l$member_code_keys %||% character(0))),
+      member_code_names = resolve_names(l$member_code_keys),
+      prior_rationale  = as.character(l$cluster_rationale %||% "")
+    )
+  })
+
+  assignments_payload <- if (is.null(proposal$cluster_assignments)) {
+    list()
+  } else {
+    lapply(seq_along(proposal$cluster_assignments), function(c_idx) {
+      cl <- proposal$cluster_assignments[[c_idx]]
+      list(
+        cluster_index     = c_idx,
+        leaf_indices      = I(as.integer(cl$leaf_indices %||% integer(0))),
+        cluster_rationale = as.character(cl$cluster_rationale %||% "")
+      )
+    })
+  }
+
+  pass_path <- file.path(dirname(tracker$paths$cluster_snapshot),
+                          sprintf("clustering_pass_%d.json", as.integer(pass_n)))
+
+  payload <- list(
+    schema_version      = "1.0.0",
+    snapshot_time       = .live_now_iso(),
+    pass_n              = as.integer(pass_n),
+    n_leaves            = length(leaves),
+    verdict             = as.character(proposal$verdict %||% NA_character_),
+    overall_rationale   = as.character(proposal$overall_rationale %||% ""),
+    leaves              = leaves_payload,
+    cluster_assignments = assignments_payload
+  )
+
+  .live_atomic_write_json(pass_path, payload)
+  invisible(tracker)
+}
+
+
+# ==============================================================================
 # Helpers
 # ==============================================================================
 

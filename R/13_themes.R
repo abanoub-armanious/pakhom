@@ -116,6 +116,33 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
   }
   validate_provider(provider, caller = "generate_themes_iterative")
 
+  # ------------------------------------------------------------------
+  # Phase 60 dispatch: algorithm = "v2" (default) routes to the multi-
+  # pass clustering + label-after-clustering implementation in
+  # R/theme_algorithm_v2.R. algorithm = "v1" preserves the legacy
+  # Phase 52 HAC + tree-walk for back-compat with calibrated test
+  # fixtures. The legacy code is targeted for deletion once Phase 60.8
+  # empirical re-validation confirms v2 is stable.
+  # ------------------------------------------------------------------
+  algorithm <- as.character(config$algorithm %||% "v2")
+  if (identical(algorithm, "v2")) {
+    return(generate_themes_phase60(
+      coding_state          = coding_state,
+      provider              = provider,
+      config                = config,
+      learning_context      = learning_context,
+      research_focus        = research_focus,
+      concepts              = concepts,
+      audit_log             = audit_log,
+      response_cache        = response_cache,
+      live_tracker          = live_tracker,
+      methodology_override  = methodology_override
+    ))
+  }
+  if (!identical(algorithm, "v1")) {
+    log_warn("Unknown themes algorithm '{algorithm}'; falling back to v1 (legacy)")
+  }
+
   # Extract codes from the codebook into a uniform record list
   codes <- .extract_codes_from_state(coding_state)
 
@@ -1649,11 +1676,13 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
     segment_codes    = segment_codes
   )
 
-  # Step (c): run Phase 52 HAC + AI-judged tree walk on the synthetic state.
-  # The standard generate_themes_iterative() takes care of clustering +
-  # naming + subtheme detection. We don't need the resulting ThemeSet --
-  # we need the inner theme records so apply_framework_themes can merge
-  # them with theme_kind = "emergent".
+  # Step (c): run the standard theme-generation pipeline on the synthetic
+  # state. As of Phase 60 the default algorithm is v2 (multi-pass
+  # clustering + label-after-clustering); the dispatch lives in
+  # generate_themes_iterative() so anomaly emergent themes automatically
+  # benefit from C-tenets 3+5 the same way Mode 2 themes do. We don't need
+  # the resulting ThemeSet wrapper -- we need the inner theme records so
+  # apply_framework_themes can merge them with theme_kind = "emergent".
   emergent_ts <- generate_themes_iterative(
     coding_state         = synth_state,
     provider             = provider,

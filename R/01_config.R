@@ -642,6 +642,15 @@ print.ThematicConfig <- function(x, ...) {
         # .saturation_cadence(). No user-facing knobs.
       ),
       themes = list(
+        # Phase 60: algorithm selector. "v2" (the default) uses the
+        # multi-pass clustering + label-after-clustering implementation
+        # in R/theme_algorithm_v2.R. "v1" uses the legacy Phase 52 HAC +
+        # tree-walk in R/13_themes.R, kept for back-compat with
+        # calibrated test fixtures only. The v1 path is broken in
+        # production (87-92% single-code themes on the Phase 59 Stage 2
+        # smoke campaign) and is scheduled for deletion after Phase 60.8
+        # empirical re-validation. NEW USERS: leave as "v2".
+        algorithm = "v2",
         # Phase 53 cleanup of Phase 52 audit deferral: removed five more
         # dead theme knobs (min_themes, max_themes, max_theme_proportion,
         # multi_label_assignment, ai_batch_size). Per C1 (AI decides when
