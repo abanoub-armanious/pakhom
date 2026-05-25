@@ -21,6 +21,9 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Getting Started</h6></li>
     <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started with pakhom</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Methodology Modes</h6></li>
+    <li><a class="dropdown-item" href="../articles/methodology-modes.html">Methodology Modes: Choosing Mode 1, 2, or 3</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
@@ -35,7 +38,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Generate the full HTML analysis report</h1>
-
+      <small class="dont-index">Source: <a href="https://github.com/abanoub-armanious/pakhom/blob/HEAD/R/17_report.R" class="external-link"><code>R/17_report.R</code></a></small>
       <div class="d-none name"><code>generate_report.Rd</code></div>
     </div>
 
@@ -63,7 +66,12 @@
 <span>  coding_state <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  excerpt_verification <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  theme_group_tests <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  cooccurrence_tests <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  cooccurrence_tests <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  audit_log <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  response_cache <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  coverage <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  framework_spec <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  framework_archive <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -153,6 +161,45 @@ correlation section gains a 'Theme Group Comparisons' subsection.</p></dd>
 <code>test_theme_cooccurrence</code> (chi-square / Fisher tests). When
 provided, the correlation section gains a 'Theme Co-occurrence'
 subsection.</p></dd>
+
+
+<dt id="arg-audit-log">audit_log<a class="anchor" aria-label="anchor" href="#arg-audit-log"></a></dt>
+<dd><p>Optional <code>AuditLog</code> object (T1.4) forwarded to
+<code>generate_ai_synthesis</code> so the executive-summary AI call is
+recorded as an <code>ai_request</code> audit decision.</p></dd>
+
+
+<dt id="arg-response-cache">response_cache<a class="anchor" aria-label="anchor" href="#arg-response-cache"></a></dt>
+<dd><p>Optional <code>ResponseCache</code> object (T1.4)
+forwarded to <code>generate_ai_synthesis</code> so the raw API response is
+written to the cache and referenced from the audit log.</p></dd>
+
+
+<dt id="arg-coverage">coverage<a class="anchor" aria-label="anchor" href="#arg-coverage"></a></dt>
+<dd><p>Optional <code>CorpusCoverage</code> object (T0.3) from
+<code><a href="compute_corpus_coverage.html">compute_corpus_coverage</a></code>. When provided, the report
+renders a Tier-0 corpus-coverage card asserting that every entry
+surviving preprocessing reached the LLM (no silent truncation).
+When NULL the card renders an explicit "coverage not computed"
+notice rather than silently omitting – absence is itself a
+transparency signal per AC4.</p></dd>
+
+
+<dt id="arg-framework-spec">framework_spec<a class="anchor" aria-label="anchor" href="#arg-framework-spec"></a></dt>
+<dd><p>Optional <code>FrameworkSpec</code> object (Mode 3
+only). When provided AND <code>config$methodology$mode</code> is
+<code>"framework_applied"</code>, the report renders a Framework
+Declaration section with the framework's name, citations,
+epistemic stance, anomaly handling policy, and full constructs
+list. NULL on Mode 1 / Mode 2 runs.</p></dd>
+
+
+<dt id="arg-framework-archive">framework_archive<a class="anchor" aria-label="anchor" href="#arg-framework-archive"></a></dt>
+<dd><p>Optional named list returned by
+<code><a href="archive_framework_spec.html">archive_framework_spec</a></code> carrying the archived
+framework's path + sha256 hash. When provided alongside
+<code>framework_spec</code>, the Framework Declaration section
+includes the sha256 fingerprint and a link to the archived spec.</p></dd>
 
 </dl></div>
     <div class="section level2">

@@ -31,9 +31,9 @@ compute_dynamic_batches(
 
 - chars_per_entry:
 
-  Max characters that will be used per entry in the prompt (e.g., 1500
-  for relevance, 800 for sentiment). Entries are virtually truncated to
-  this length for token estimation.
+  Max characters that will be used per entry in the prompt (e.g., 800
+  for sentiment batching). Entries are virtually truncated to this
+  length for token estimation.
 
 ## Value
 

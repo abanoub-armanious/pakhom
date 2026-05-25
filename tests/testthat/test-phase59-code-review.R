@@ -9,7 +9,18 @@
 # Tier 8's 8 frequency-ranked keywords. Now uses seq_along.
 # ==========================================================================
 
+# Static-source tests require access to R/*.R source files (devtools::test
+# context); skip under covr / installed-package contexts where sources are
+# not on disk.
+skip_if_no_r_source <- function() {
+  src_dir <- test_path("..", "..", "R")
+  if (!dir.exists(src_dir)) {
+    testthat::skip("R/ source directory not available (covr / install context)")
+  }
+}
+
 test_that("theme detail HTML renders all keywords (cap respected at source, not re-truncated)", {
+  skip_if_no_r_source()
   # Synthesize a theme_set summary with 8 keywords (Tier 8 cap).
   ts_summary <- list(
     name = "Synthetic",
@@ -50,6 +61,7 @@ test_that("theme detail HTML renders all keywords (cap respected at source, not 
 # ==========================================================================
 
 test_that("compute_theme_stats keyword fallback caps at 8 (matches Tier 8 contract)", {
+  skip_if_no_r_source()
   src <- readLines(
     test_path("..", "..", "R", "16_report_helpers.R"),
     warn = FALSE

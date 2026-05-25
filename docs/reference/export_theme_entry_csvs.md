@@ -5,7 +5,7 @@ Export CSV files for each theme's entries
 ## Usage
 
 ``` r
-export_theme_entry_csvs(data, theme_set, output_dir)
+export_theme_entry_csvs(data, theme_set, output_dir, methodology_mode = NULL)
 ```
 
 ## Arguments
@@ -21,6 +21,12 @@ export_theme_entry_csvs(data, theme_set, output_dir)
 - output_dir:
 
   Output directory
+
+- methodology_mode:
+
+  Optional methodology mode (T1.7). When non-NULL, every CSV produced is
+  stamped with a comment header identifying the mode and run id (per
+  AC4). NULL skips stamping – used by tests / legacy callers.
 
 ## Value
 

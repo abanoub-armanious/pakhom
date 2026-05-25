@@ -23,7 +23,12 @@ generate_report(
   coding_state = NULL,
   excerpt_verification = NULL,
   theme_group_tests = NULL,
-  cooccurrence_tests = NULL
+  cooccurrence_tests = NULL,
+  audit_log = NULL,
+  response_cache = NULL,
+  coverage = NULL,
+  framework_spec = NULL,
+  framework_archive = NULL
 )
 ```
 
@@ -110,6 +115,44 @@ generate_report(
   Optional tibble returned by `test_theme_cooccurrence` (chi-square /
   Fisher tests). When provided, the correlation section gains a 'Theme
   Co-occurrence' subsection.
+
+- audit_log:
+
+  Optional `AuditLog` object (T1.4) forwarded to `generate_ai_synthesis`
+  so the executive-summary AI call is recorded as an `ai_request` audit
+  decision.
+
+- response_cache:
+
+  Optional `ResponseCache` object (T1.4) forwarded to
+  `generate_ai_synthesis` so the raw API response is written to the
+  cache and referenced from the audit log.
+
+- coverage:
+
+  Optional `CorpusCoverage` object (T0.3) from
+  [`compute_corpus_coverage`](https://abanoub-armanious.github.io/pakhom/reference/compute_corpus_coverage.md).
+  When provided, the report renders a Tier-0 corpus-coverage card
+  asserting that every entry surviving preprocessing reached the LLM (no
+  silent truncation). When NULL the card renders an explicit "coverage
+  not computed" notice rather than silently omitting – absence is itself
+  a transparency signal per AC4.
+
+- framework_spec:
+
+  Optional `FrameworkSpec` object (Mode 3 only). When provided AND
+  `config$methodology$mode` is `"framework_applied"`, the report renders
+  a Framework Declaration section with the framework's name, citations,
+  epistemic stance, anomaly handling policy, and full constructs list.
+  NULL on Mode 1 / Mode 2 runs.
+
+- framework_archive:
+
+  Optional named list returned by
+  [`archive_framework_spec`](https://abanoub-armanious.github.io/pakhom/reference/archive_framework_spec.md)
+  carrying the archived framework's path + sha256 hash. When provided
+  alongside `framework_spec`, the Framework Declaration section includes
+  the sha256 fingerprint and a link to the archived spec.
 
 ## Value
 

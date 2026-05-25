@@ -11,7 +11,8 @@ run_human_verification(
   coding_state,
   config = list(),
   output_dir = ".",
-  checkpoint = NULL
+  checkpoint = NULL,
+  methodology_mode = NULL
 )
 ```
 
@@ -36,6 +37,12 @@ run_human_verification(
 - checkpoint:
 
   CheckpointManager (or NULL)
+
+- methodology_mode:
+
+  Optional methodology mode (T1.7 / AC4). When non-NULL, every IRR CSV
+  produced is stamped with a comment header identifying the mode and run
+  id. NULL skips stamping (legacy / test callers).
 
 ## Value
 

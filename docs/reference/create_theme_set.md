@@ -1,6 +1,9 @@
 # Create a ThemeSet object (canonical internal representation)
 
-Create a ThemeSet object (canonical internal representation)
+Accepts both the new hierarchy shape (themes with first-class Subtheme
+S3 objects) and the legacy flat shape (themes with codes_included
+character vectors). Legacy input is wrapped into a single virtual
+Subtheme per theme.
 
 ## Usage
 
@@ -18,8 +21,10 @@ create_theme_set(
 
 - themes:
 
-  List of theme lists, each with at minimum: id, name, description,
-  codes_included
+  List of theme lists. Each theme requires id and name; codes and
+  subthemes follow either the new (subthemes = list of Subtheme S3) or
+  legacy (codes_included = character vector, subthemes = character
+  vector) shape.
 
 - thematic_map:
 

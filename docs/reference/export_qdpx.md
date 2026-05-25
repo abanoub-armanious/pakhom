@@ -12,7 +12,8 @@ export_qdpx(
   data,
   output_path,
   theme_set = NULL,
-  study_name = "pakhom export"
+  study_name = "pakhom export",
+  methodology_mode = NULL
 )
 ```
 
@@ -40,6 +41,13 @@ export_qdpx(
 
   Character string used as the project name inside the QDPX file.
   Defaults to `"pakhom export"`.
+
+- methodology_mode:
+
+  Optional character (T1.7 / AC4): when supplied, the QDPX project's
+  Description is stamped with the methodology mode alongside the Tier-0
+  verification stats. NULL preserves legacy behavior (no methodology
+  stamp).
 
 ## Value
 

@@ -27,6 +27,9 @@ to the ProgressiveCodingState."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Getting Started</h6></li>
     <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started with pakhom</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Methodology Modes</h6></li>
+    <li><a class="dropdown-item" href="../articles/methodology-modes.html">Methodology Modes: Choosing Mode 1, 2, or 3</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
@@ -41,7 +44,7 @@ to the ProgressiveCodingState."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Export progressive codebook for researcher review</h1>
-
+      <small class="dont-index">Source: <a href="https://github.com/abanoub-armanious/pakhom/blob/HEAD/R/19_researcher_review.R" class="external-link"><code>R/19_researcher_review.R</code></a></small>
       <div class="d-none name"><code>review_progressive_codebook.Rd</code></div>
     </div>
 
@@ -58,7 +61,8 @@ to the ProgressiveCodingState.</p>
 <span>  <span class="va">coding_state</span>,</span>
 <span>  <span class="va">output_dir</span>,</span>
 <span>  audit_log <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  irr_result <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  irr_result <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  methodology_mode <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -72,6 +76,21 @@ to the ProgressiveCodingState.</p>
 
 <dt id="arg-output-dir">output_dir<a class="anchor" aria-label="anchor" href="#arg-output-dir"></a></dt>
 <dd><p>Pipeline output directory</p></dd>
+
+
+<dt id="arg-audit-log">audit_log<a class="anchor" aria-label="anchor" href="#arg-audit-log"></a></dt>
+<dd><p>Optional AuditLog</p></dd>
+
+
+<dt id="arg-irr-result">irr_result<a class="anchor" aria-label="anchor" href="#arg-irr-result"></a></dt>
+<dd><p>Optional IRR result list</p></dd>
+
+
+<dt id="arg-methodology-mode">methodology_mode<a class="anchor" aria-label="anchor" href="#arg-methodology-mode"></a></dt>
+<dd><p>Optional methodology mode (T1.7 / AC4). When
+non-NULL, the exported review CSV is stamped with a comment header
+identifying the mode and run id. NULL skips stamping (legacy /
+test callers).</p></dd>
 
 </dl></div>
     <div class="section level2">

@@ -12,7 +12,8 @@ review_progressive_codebook(
   coding_state,
   output_dir,
   audit_log = NULL,
-  irr_result = NULL
+  irr_result = NULL,
+  methodology_mode = NULL
 )
 ```
 
@@ -25,6 +26,20 @@ review_progressive_codebook(
 - output_dir:
 
   Pipeline output directory
+
+- audit_log:
+
+  Optional AuditLog
+
+- irr_result:
+
+  Optional IRR result list
+
+- methodology_mode:
+
+  Optional methodology mode (T1.7 / AC4). When non-NULL, the exported
+  review CSV is stamped with a comment header identifying the mode and
+  run id. NULL skips stamping (legacy / test callers).
 
 ## Value
 

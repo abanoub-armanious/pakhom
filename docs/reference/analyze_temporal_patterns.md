@@ -37,7 +37,9 @@ A list with elements:
 - emergence_timeline:
 
   Tibble: theme_name, first_appearance_date, first_code_date,
-  n_codes_at_emergence
+  n_codes_at_emergence, n_entries (Phase 58 Tier 5 AH-8/V-2 – cumulative
+  entry count per theme, used by the temporal_emergence.png top-N
+  filter)
 
 - period_type:
 

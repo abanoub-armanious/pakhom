@@ -11,7 +11,8 @@ export_results(
   correlations_df,
   insights,
   consolidated,
-  output_dir
+  output_dir,
+  methodology_mode = NULL
 )
 ```
 
@@ -40,6 +41,12 @@ export_results(
 - output_dir:
 
   Output directory path
+
+- methodology_mode:
+
+  Optional methodology mode (T1.7). When non-NULL, every CSV produced is
+  stamped with a comment header identifying the mode and run id (per
+  AC4). NULL skips stamping – used by tests / legacy callers.
 
 ## Value
 

@@ -7,7 +7,7 @@ generation.
 ## Usage
 
 ``` r
-review_themes(theme_set, output_dir, audit_log = NULL)
+review_themes(theme_set, output_dir, audit_log = NULL, methodology_mode = NULL)
 ```
 
 ## Arguments
@@ -19,6 +19,16 @@ review_themes(theme_set, output_dir, audit_log = NULL)
 - output_dir:
 
   Pipeline output directory
+
+- audit_log:
+
+  Optional AuditLog
+
+- methodology_mode:
+
+  Optional methodology mode (T1.7 / AC4). When non-NULL, the exported
+  review and disposition CSVs are stamped with a comment header. NULL
+  skips stamping (legacy / test callers).
 
 ## Value
 

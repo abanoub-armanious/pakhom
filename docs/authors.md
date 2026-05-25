@@ -8,8 +8,11 @@
 
 ## Citation
 
-Armanious AJ (2026). *pakhom: AI-Integrated Thematic Analysis
-Following Braun and Clarke*. R package version 1.0.0,
+Source:
+[`inst/CITATION`](https://github.com/abanoub-armanious/pakhom/blob/HEAD/inst/CITATION)
+
+Armanious AJ (2026). *pakhom: AI-Integrated Thematic Analysis Following
+Braun and Clarke*. R package version 1.0.0,
 <https://github.com/abanoub-armanious/pakhom>.
 
     @Manual{,

@@ -2,11 +2,20 @@
 
 ## What is pakhom?
 
-**pakhom** is an R package that automates reflexive thematic
-analysis (Braun & Clarke, 2006) using AI. It takes a dataset of text
-entries (e.g., forum posts, survey responses, interview transcripts) and
+**pakhom** is an R package that automates reflexive thematic analysis
+(Braun & Clarke, 2006) using AI. It takes a dataset of text entries
+(e.g., forum posts, survey responses, interview transcripts) and
 produces a publication-quality HTML report containing themes, codes,
 sentiment analysis, correlation analysis, and supporting evidence.
+
+The package’s name is the Coptic word for *eagle* and honors Saint
+Pachomius the Great (c. 292–348 CE), whose written **Rule** of communal
+discipline established the genre of methodology-as-written-document.
+pakhom (the package) extends that lineage to AI-assisted qualitative
+analysis: methodology is codified at the architectural level, not left
+to user discipline at the configuration level. See
+[`?pakhom`](https://abanoub-armanious.github.io/pakhom/reference/pakhom-package.md)
+for the longer note on the name.
 
 You give it your data and your research question. It gives you back a
 complete thematic analysis – including the kinds of tables, figures, and
@@ -41,9 +50,14 @@ analysis works:
 5.  **Code-aware sentiment analysis** – AI assigns sentiment scores
     using the codes assigned to each entry as context for more accurate
     scoring
-6.  **Iterative bottom-up theme generation** – Codes are merged in
-    multiple passes until no more productive groupings exist. Themes and
-    subthemes emerge organically from the merge depth
+6.  **HAC + AI-judged theme generation** (Phase 52) – code embeddings
+    are clustered with hierarchical agglomerative clustering (ward.D2
+    linkage on cosine distance; Jaccard fallback). An AI judge walks the
+    dendrogram top-down and decides `coherent_theme` / `split_required`
+    / `atomic_outlier` at every internal node, articulating the central
+    organizing concept before each decision. Subthemes recurse up to
+    `max_subtheme_depth` when a subtheme exceeds
+    `max_codes_per_subtheme` codes
 7.  **Deterministic theme cascading** – Entry-to-theme assignment flows
     through the code hierarchy (pure R, no AI re-reading of entries)
 8.  **Correlation analysis** – Statistical tests between themes and
@@ -57,13 +71,47 @@ continues from where it left off.
 
 ------------------------------------------------------------------------
 
+## Which mode is this vignette for?
+
+pakhom has **three methodology modes** (Reflexive Scaffold, Codebook
+Collaborative, Framework Applied). The mode declaration is mandatory in
+every config; it shapes what the AI may produce, what the researcher
+must author, and which transparency artifacts are mandatory.
+
+**This getting-started vignette covers Mode 2 (Codebook Collaborative)**
+— the auto-pipeline you’d recognize from manual codebook TA. The AI
+proposes codes + themes; you gate each at pause-points; the package
+produces a publication-quality HTML report with full audit trail.
+
+For a worked example of all three modes plus a decision rubric for
+choosing among them, see
+[`vignette("methodology-modes")`](https://abanoub-armanious.github.io/pakhom/articles/methodology-modes.md).
+In short:
+
+- **Mode 1 (`reflexive_scaffold`)** — AI as Socratic gadfly; researcher
+  authors all themes + codes; pakhom contributes provocations only. Use
+  [`run_mode1()`](https://abanoub-armanious.github.io/pakhom/reference/run_mode1.md).
+  Best for reflexive TA + constructionist epistemology.
+- **Mode 2 (`codebook_collaborative`)** — AI proposes codes + themes;
+  researcher gates each. Use
+  [`run_analysis()`](https://abanoub-armanious.github.io/pakhom/reference/run_analysis.md).
+  This vignette.
+- **Mode 3 (`framework_applied`)** — Apply a researcher-supplied
+  theoretical framework (TPB, COM-B, TDF, or your own) verbatim; flag
+  anomalies. Use
+  [`run_analysis()`](https://abanoub-armanious.github.io/pakhom/reference/run_analysis.md)
+  with `methodology.framework_spec_path` set. Best for theory-driven /
+  deductive analyses.
+
+------------------------------------------------------------------------
+
 ## Prerequisites
 
 ### R and RStudio
 
 You need R (version 4.1 or higher) installed on your computer. We
 strongly recommend using
-[RStudio](https://posit.co/download/rstudio-desktop/), which provides a
+[RStudio](https://posit.co/download/rstudio-desktop), which provides a
 user-friendly interface for running R code.
 
 If you have never used R before: RStudio has a console pane (usually at
@@ -72,8 +120,8 @@ That is all you need to know to use this package.
 
 ### An AI API Key
 
-pakhom uses AI services to analyze your text. You need an API key
-from one of these providers:
+pakhom uses AI services to analyze your text. You need an API key from
+one of these providers:
 
 - **OpenAI** (recommended for beginners): Sign up at
   [platform.openai.com](https://platform.openai.com). Go to API Keys and
@@ -94,7 +142,9 @@ Your text data must be in a **SQLite database** (a `.db` file). If your
 data is currently in CSV, Excel, or another format, you can convert it:
 
 ``` r
+
 # Convert a CSV to SQLite
+# install.packages(c("DBI", "RSQLite"))   # if not already installed
 library(DBI)
 library(RSQLite)
 
@@ -111,22 +161,30 @@ text content.
 ### Optional: Reddit API Access (only if you’ll use the built-in scraper)
 
 The package includes an optional Reddit scraper
-([`scrape_reddit()`](../reference/scrape_reddit.md)) that can populate
-your SQLite database directly. **You don’t need this if your data is
-already prepared.** If you do want to use it, note that as of November
-2025 Reddit no longer offers self-service API key creation — you must
-first be approved through Reddit’s Responsible Builder Program:
+([`scrape_reddit()`](https://abanoub-armanious.github.io/pakhom/reference/scrape_reddit.md))
+that can populate your SQLite database directly. **You don’t need this
+if your data is already prepared.** If you do want to use it, note that
+as of November 2025 Reddit no longer offers self-service API key
+creation — you must first be approved through Reddit’s Responsible
+Builder Program:
 
 - Review the policy:
   <https://support.reddithelp.com/hc/en-us/articles/42728983564564-Responsible-Builder-Policy>
+
 - File a support ticket describing your use case (subreddits, expected
   request volume, whether commercial vs academic). Target turnaround is
   ~7 days for academic / non-commercial research.
+
 - For sensitive-population subreddits (e.g. anything health-related),
   Reddit reviewers significantly favor applications that cite IRB
   approval or an exemption letter from your institution.
+
 - Once approved, store credentials in `.Renviron`:
-  `REDDIT_CLIENT_ID=your_id_here REDDIT_CLIENT_SECRET=your_secret_here REDDIT_USER_AGENT=pakhom/1.0.0 (by u/YourRedditUsername)`
+
+      REDDIT_CLIENT_ID=your_id_here
+      REDDIT_CLIENT_SECRET=your_secret_here
+      REDDIT_USER_AGENT=pakhom/1.0.0 (by u/YourRedditUsername)
+
 - In your config: `scraping.enabled: true` plus the list of subreddits.
 
 If approval is pending or you’d rather skip the scraper, just leave
@@ -138,16 +196,18 @@ SQLite `.db` file using whatever method you prefer.
 ## Installation
 
 ``` r
+
 # Install from a local copy of the package:
 devtools::install("path/to/pakhom")
 
-# Or if hosted on GitHub:
-# devtools::install_github("username/pakhom")
+# Or install directly from GitHub:
+# devtools::install_github("abanoub-armanious/pakhom")
 ```
 
 If you see errors about missing packages, install them first:
 
 ``` r
+
 install.packages(c("dplyr", "tibble", "stringr", "readr", "jsonlite",
                     "yaml", "DBI", "RSQLite", "httr2", "stringdist",
                     "corrplot", "ggplot2", "rmarkdown", "knitr",
@@ -171,6 +231,7 @@ echo 'OPENAI_API_KEY=sk-proj-your-key-here' >> ~/.Renviron
 **On Windows**, run this in R:
 
 ``` r
+
 # This opens the file for editing
 usethis::edit_r_environ()
 # Add the line: OPENAI_API_KEY=sk-proj-your-key-here
@@ -180,6 +241,7 @@ usethis::edit_r_environ()
 Verify it works:
 
 ``` r
+
 Sys.getenv("OPENAI_API_KEY")
 # Should print your key (not an empty string)
 ```
@@ -190,12 +252,13 @@ For Anthropic, use `ANTHROPIC_API_KEY` instead.
 
 ## Step 2: Create Your Configuration File
 
-The configuration file (`config.yaml`) tells pakhom everything it
-needs to know about your study. You have three options:
+The configuration file (`config.yaml`) tells pakhom everything it needs
+to know about your study. You have three options:
 
 ### Option A: Web-Based Wizard (Recommended)
 
 ``` r
+
 library(pakhom)
 config_wizard_app("config.yaml")
 ```
@@ -208,6 +271,7 @@ preview. When done, it saves the file. Requires the `shiny` package
 ### Option B: CLI Wizard
 
 ``` r
+
 config_wizard("config.yaml")
 ```
 
@@ -268,6 +332,7 @@ use `"generic"`.
 Before running the analysis, preview what is in your database:
 
 ``` r
+
 library(pakhom)
 
 config <- load_config("config.yaml")
@@ -283,6 +348,7 @@ you expect.
 ## Step 4: Run the Analysis
 
 ``` r
+
 results <- run_analysis("config.yaml")
 ```
 
@@ -294,6 +360,7 @@ which step is currently running.
 etc.), simply re-run with `resume = TRUE`:
 
 ``` r
+
 results <- run_analysis("config.yaml", resume = TRUE)
 ```
 
@@ -332,6 +399,7 @@ All results are also exported as machine-readable files:
 ### Working with Results in R
 
 ``` r
+
 # Access the theme set
 ts <- results$theme_set
 theme_names(ts)          # List theme names
@@ -415,8 +483,8 @@ Actions are the same as for codes: `keep`, `delete`, or `merge`.
 
 ## Learning from Previous Studies
 
-If you have previously completed manual thematic analyses, pakhom
-can learn from them to produce more consistent and calibrated results.
+If you have previously completed manual thematic analyses, pakhom can
+learn from them to produce more consistent and calibrated results.
 
 ### Setting Up
 
@@ -477,7 +545,9 @@ data:
   source_type: "reddit"           # reddit, twitter, clinical, generic
   preprocessing:
     min_char: 50                  # Minimum characters to keep an entry
-    saturation_enabled: true       # Enable thematic saturation detection
+    # Phase 56: thematic saturation is now AI-arbited; no user knobs.
+    # The AI judges saturation per max(20, ceiling(n_corpus / 50))
+    # coded entries -- see ?pakhom::run_progressive_coding.
 
 learning:
   enabled: false
@@ -501,9 +571,18 @@ analysis:
     dynamic_batching: true
 
   themes:
-    merge_strategy: "auto"        # "auto" or "manual" (pause each pass)
-    max_merge_passes: 5
-    min_merges_to_continue: 2
+    # Per C1 ("AI decides when to stop"), pakhom does not gate theme
+    # generation on hardcoded n_themes / merge passes. The Phase 52
+    # HAC + AI-judged divisive tree walk cuts the dendrogram wherever
+    # the AI articulates a coherent central organizing concept.
+    include_subthemes: true       # Walk one level deeper for subthemes
+    include_quotes: true          # Render representative quotes per theme
+    quotes_per_theme: 3
+    approach: "inductive"         # "inductive" (Mode 2) or "deductive" (Mode 3)
+    max_subtheme_depth: 3         # Phase 58 Tier 1 C-12: nested sub-subthemes
+    max_codes_per_subtheme: 25    # Phase 58 Tier 1 AF-8: triggers recursion
+    max_inline_themes: 30         # Phase 58 Tier 5 C-3: top-N inlining cap
+    max_inline_themes_temporal: 30  # Phase 58 Tier 5 AH-8: temporal plot
 
   human_verification:
     enabled: false                # Enable for inter-rater reliability
@@ -513,22 +592,17 @@ analysis:
   review_points:
     after_coding: false           # Pause for codebook review
     after_themes: false           # Pause for theme review
-
-  themes:
-    min_themes: 3
-    max_themes: 10
-    multi_label_assignment: true  # Allow entries in multiple themes
-    membership_threshold: 0.15   # Minimum confidence for theme membership
-    max_theme_proportion: 0.60   # Max fraction of entries in one theme
-    max_rebalance_iterations: 3
-    review_iterations: 2
+    format: "csv"                 # "csv" or "qdpx"
+    max_iterations: 3             # Cap on recursive review cycles
 
   correlations:
     method: "spearman"
     adjust_method: "bonferroni"
     min_observations: 30
-    min_theme_entries: 5
-    dynamic_method: true          # Auto-select method per variable pair
+    min_theme_entries: 5          # Phase 58 Tier 6 H-16: harmonized
+    use_multi_label: true
+    max_inline_vars: 30           # Phase 58 Tier 5 C-10: lollipop above
+    max_inline_themes_network: 30  # Phase 58 Tier 5 AH-9: network top-N
 
 output:
   results_dir: "outputs/results"
@@ -571,6 +645,7 @@ The package loads and combines them, adding a `source_table` column.
 You can override any config setting without editing the YAML file:
 
 ``` r
+
 results <- run_analysis("config.yaml", config_overrides = list(
   "ai.provider" = "anthropic",
   "analysis.test_mode.enabled" = TRUE,
@@ -586,6 +661,7 @@ After running the analysis multiple times (e.g., with different configs,
 different AI providers, or updated data), you can compare results:
 
 ``` r
+
 runs <- list_available_runs("outputs/results")
 comparison <- compare_runs("outputs/results/latest", "outputs/results")
 print(comparison)
@@ -623,6 +699,7 @@ each expensive step. You will not be charged again for already-completed
 work.
 
 ``` r
+
 results <- run_analysis("config.yaml", resume = TRUE)
 ```
 
@@ -634,8 +711,9 @@ If running R from the command line, install pandoc separately from
 
 ### “Column not found” errors
 
-Run [`explore_database()`](../reference/explore_database.md) to verify
-your column names match what the package expects. The package
+Run
+[`explore_database()`](https://abanoub-armanious.github.io/pakhom/reference/explore_database.md)
+to verify your column names match what the package expects. The package
 auto-detects common column patterns, but unusual naming may require the
 `source_type: "generic"` setting.
 
@@ -644,6 +722,7 @@ auto-detects common column patterns, but unusual naming may require the
 Before committing to a full run, validate your setup with test mode:
 
 ``` r
+
 results <- run_analysis("config.yaml", config_overrides = list(
   "analysis.test_mode.enabled" = TRUE,
   "analysis.test_mode.sample_size" = 20,
@@ -660,5 +739,5 @@ This runs the full pipeline on just 20 entries in a few minutes.
 If you use this package in published research, please cite:
 
 > [Armanious, A. J.](https://www.linkedin.com/in/abanoubarmanious/)
-> (2026). pakhom: AI-Integrated Thematic Analysis Following Braun
-> and Clarke \[R package\]. Version 1.0.0.
+> (2026). pakhom: AI-Assisted Reflexive Thematic Analysis with
+> Methodology-as-Architecture \[R package\]. Version 1.0.0.

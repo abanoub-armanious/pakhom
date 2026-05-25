@@ -1,7 +1,8 @@
 # Normalize raw AI theme output to canonical ThemeSet
 
 Call this immediately after fromJSON() on any AI response that produces
-themes. Handles both data.frame and list formats transparently.
+themes. Handles both data.frame and list formats transparently and the
+legacy (flat codes_included) wire format.
 
 ## Usage
 
@@ -17,4 +18,4 @@ normalize_theme_result(raw_result)
 
 ## Value
 
-ThemeSet S3 object (always list-based internally)
+ThemeSet S3 object

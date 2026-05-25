@@ -21,6 +21,9 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Getting Started</h6></li>
     <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started with pakhom</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Methodology Modes</h6></li>
+    <li><a class="dropdown-item" href="../articles/methodology-modes.html">Methodology Modes: Choosing Mode 1, 2, or 3</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
@@ -35,11 +38,454 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Changelog</h1>
-
+      <small>Source: <a href="https://github.com/abanoub-armanious/pakhom/blob/HEAD/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.0.0" id="pakhom-100">pakhom 1.0.0<a class="anchor" aria-label="anchor" href="#pakhom-100"></a></h2>
+<div class="section level3">
+<h3 id="phase-documentation-refresh--six-angle-verification-campaign-1-0-0">Phase 59: documentation refresh + six-angle verification campaign<a class="anchor" aria-label="anchor" href="#phase-documentation-refresh--six-angle-verification-campaign-1-0-0"></a></h3>
+<p>Closes the user-facing surface drift between Phase 58’s architectural rewrite and the public README / vignettes / NEWS.md / man pages, and adds five rounds of independent verification beyond the per-tier audits to surface remaining latent bugs. <strong>34 commits since <code>41cd73a</code>; 596 new test expectations; six independent review angles all closed.</strong></p>
+<div class="section level4">
+<h4 id="user-visible-polish-phase-stageb--stage-code-review-1-0-0">User-visible polish (Phase 59 Stage 1B + Stage 2 code-review)<a class="anchor" aria-label="anchor" href="#user-visible-polish-phase-stageb--stage-code-review-1-0-0"></a></h4>
+<ul><li>
+<strong>README.md “Key Features” + “Pipeline Overview”</strong>: rewrote the three pre-Phase-52 / pre-Phase-56 prose anchors that the Phase 58 cleanup invalidated. Saturation step now correctly describes the Phase 56 AI arbiter (<code>reached / not_yet / uncertain</code> with 30-char articulation floor) rather than the legacy “code creation rate + reuse stability” heuristic. Theme generation step describes Phase 52 HAC + AI-judged divisive tree walk rather than “sequential bottom-up merging across passes”. Test-suite size claim updated from a phase-36 stale figure (2,391) to “3,300+” matching reality.</li>
+<li>
+<strong>vignettes/getting-started.Rmd</strong>: removed nine dead config knobs (<code>merge_strategy</code>, <code>max_merge_passes</code>, <code>min_themes</code>, <code>max_themes</code>, <code>multi_label_assignment</code>, <code>membership_threshold</code>, <code>max_theme_proportion</code>, <code>max_rebalance_iterations</code>, <code>review_iterations</code>); added the six Phase 58 knobs the report scaling and statistical-hygiene tiers introduced (<code>max_subtheme_depth</code>, <code>max_codes_per_subtheme</code>, <code>max_inline_themes</code>, <code>max_inline_themes_temporal</code>, <code>max_inline_vars</code>, <code>max_inline_themes_network</code>). Pipeline-step narrative rewritten so the vignette text agrees with the config-section comment on what the algorithm actually does. Citation block updated from the retired “AI-Integrated Thematic Analysis Following Braun and Clarke” title to the current “AI-Assisted Reflexive Thematic Analysis with Methodology-as-Architecture” title (Phase 36 rename was never propagated into the citation block).</li>
+<li>
+<strong>DESCRIPTION</strong>: <code>stringi</code> promoted from <code>Suggests</code> to <code>Imports</code> so the Phase 58 Tier 7 M-24 NFC normalization in <code>.normalize_quote_text</code> and <code>preprocess_text</code> is universal rather than conditional. The pre-Phase-59 <code><a href="https://stringi.gagolewski.com/" class="external-link">requireNamespace("stringi")</a></code> guards silently degraded T0.1 verification fidelity if stringi was missing – which the documentation never disclosed. NFC is now a load-bearing dependency, matching the documentation.</li>
+<li>
+<strong>HTML report footer + run-ID + QDPX <code>creationDateTime</code></strong>: switched to UTC. Pre-Phase-59 these four sites emitted the runner’s local TZ, so two researchers in different timezones running identical code produced different run directory names and different report footer timestamps. The report footer now reads ” UTC” so the choice is visible; the QDPX <code>creationDateTime</code> uses ISO-8601 <code>Z</code> suffix so NVivo / MAXQDA import the value unambiguously.</li>
+<li>
+<strong>17_report.R + 16_report_helpers.R keyword rendering</strong>: removed a <code>seq_len(min(5, ...))</code> cap on both the main renderer and the legacy-checkpoint fallback. Phase 58 Tier 8 H-26/AF-31 ships eight frequency-ranked keywords per theme; the pre-Phase-59 renderer silently dropped three of them on every theme. The fallback now caps at 8L rather than 5 to match the modern contract.</li>
+<li>
+<strong>16_report_helpers.R <code>.truncate_quote_word_boundary</code></strong>: collapsed a dead duplicate branch; aligned the hard-cut fall-through path (long URLs / hashtags with no whitespace in budget) with the documented <code>" ..."</code> (4-char) marker rather than <code>"..."</code> (3-char, inconsistent with the normal path).</li>
+<li>
+<strong>01_config.R <code>.warn_deprecated_config_knobs</code></strong>: added the three Phase-50e-removed knobs (<code>membership_threshold</code>, <code>max_rebalance_iterations</code>, <code>review_iterations</code>) that the warner was silently missing. Closed a live foot-gun where users copying pre-Phase-58 configs received zero deprecation warnings.</li>
+<li>
+<strong>18_pipeline.R <code>.warn_pre_tier7_coding_resume</code></strong>: pre-Phase-59 probed only the first <code>QuoteProvenance</code> and returned. A mixed- vintage checkpoint with a modern QP first + legacy QPs later silently skipped the methodology-drift warning. Now walks every QP and reports “N of M cached QPs predate the V-6/L-3 fix” with explicit counts.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="six-angle-verification-campaign-all-closed-1-0-0">Six-angle verification campaign (all closed)<a class="anchor" aria-label="anchor" href="#six-angle-verification-campaign-all-closed-1-0-0"></a></h4>
+<ol style="list-style-type: decimal"><li>
+<strong>Stage 1B doc audit</strong> (subagent): caught three HIGH false-claim survivals (Pipeline Overview rows + vignette narrative still carried the prose the same commit removed from Key Features) + two MEDIUM stale references. Closed in <code>e12fe34</code>.</li>
+<li>
+<strong>Stage 1 cross-tier audit</strong> (subagent): re-verified the 16 Phase-57 do-not-regress invariants. Caught one HIGH (<code>mode1_orchestrator.R:363</code> <code>tz="UTC"</code> missing; Tier 9 commit message claimed the site was swept but the diff only touched line 1261) + one MEDIUM (test coverage hole for 13 of 14 enumerated UTC sites). Closed in <code>ed537e9</code> with a static-source regression test that walks every <code>format(Sys.time(),...)</code> in R/ and asserts UTC – catches the entire bug class for any future site.</li>
+<li>
+<strong>Stage 1 deep meta-audit</strong> (subagent): scoped to surfaces the first two audits did NOT examine (DESCRIPTION, CITATION, methodology-modes vignette, R source comments, NAMESPACE, strategic-audit docs, audit_*.R cruft). Found four MEDIUM (<code>stringi</code> promotion, four user-visible local-TZ leaks, static UTC test comment-blindness, tier-count “11 tiers” vs “ten tiers” inconsistency) + four LOW. Closed in <code>ad7a70b</code>.</li>
+<li>
+<strong>security-review</strong> (Claude Code skill): zero findings at confidence &gt;= 7 across HTML/XSS, XXE, path traversal, SQL injection, YAML deserialization, credential handling, JSON injection, code-execution sinks, command injection, and prompt fence escape. Positively verified <code>.html_esc</code> coverage of every user/AI string interpolation in <code>transparency_report.R</code>, <code><a href="https://dbi.r-dbi.org/reference/dbQuoteIdentifier.html" class="external-link">DBI::dbQuoteIdentifier</a></code> on dynamic table names, the closured <code>provider$key_env$key</code> storage pattern, and the <code>.escape_entry_text_fence</code> defusal of <code>&lt;/entry_text&gt;</code> sentinels.</li>
+<li>
+<strong>R CMD check –as-cran</strong>: zero ERROR / zero WARNING / one expected NOTE (<code>New submission</code>) in a <code>pandoc</code> + <code>pdflatex</code> - enabled environment. Local-toolchain artifacts (missing <code>pdflatex</code> produced one ERROR + one WARNING + a “non-standard things” NOTE; older <code>tidy</code> validator emitting <code>&lt;main&gt;</code> HTML5 tag warnings against an HTML 4.01 schema) confirmed environment-only and absent from the CRAN build farm.</li>
+<li>
+<strong>code-review (high effort, 3-angle + 1-vote verify)</strong>: 11 candidates surfaced; parallel verifiers confirmed five and refuted six. The five confirmed bugs were latent issues that pre-dated Phase 58 (the keyword-cap 5-vs-8 mismatch, the <code>.warn_deprecated_config_knobs</code> Phase-50e gaps, the <code>.truncate_quote_word_boundary</code> dead branch, the first-QP-only probe in <code>.warn_pre_tier7_coding_resume</code>) – Phase 58 didn’t introduce them, but Phase 59 finally fixed them. Closed in <code>4c24075</code> with 29 dedicated regression tests in <code>test-phase59-code-review.R</code>.</li>
+</ol></div>
+<div class="section level4">
+<h4 id="test-suite-growth-1-0-0">Test suite growth<a class="anchor" aria-label="anchor" href="#test-suite-growth-1-0-0"></a></h4>
+<ul><li>Phase 58 baseline (after Tier 9): 3,281 tests</li>
+<li>Phase 59 Stage 1A (OS.6 + audit followup): +61 transparency-report tests</li>
+<li>Phase 59 Stage 1 audit followups: +2 ProvocationCoverage UTC + static-source UTC walker</li>
+<li>Phase 59 meta-audit followup: +7 (stringi-universal, UTC sweep extension, hygienic test fixtures)</li>
+<li>Phase 59 Stage 2 code-review followup: +29 (keyword cap + fallback + Phase-50e knobs + ellipsis marker + mixed-vintage QP walk)</li>
+<li>
+<strong>Total at HEAD: 3,376 tests / 0 FAIL / 0 SKIP.</strong> Per-tier regression cadence: every commit must pass the full suite + smoke (22 cross-tier invariants) + R CMD check before push.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="static-source-guard-rails-added-in-phase-1-0-0">Static-source guard rails added in Phase 59<a class="anchor" aria-label="anchor" href="#static-source-guard-rails-added-in-phase-1-0-0"></a></h4>
+<ul><li>
+<code>test-phase58-tier9.R</code>: a static-source test that walks every <code>format(Sys.time(), ...)</code> call in <code>R/</code> and asserts every call declares <code>tz = "UTC"</code> – catches any future site that drifts back to local TZ. Also walks <code>tests/testthat/</code> to enforce the same hygiene rule on fixtures (so a maintainer copying a fixture line into <code>R/</code> source carries the invariant with it).</li>
+<li>
+<code>test-phase59-code-review.R</code>: static-source tests that assert the <code>17_report.R</code> keyword renderer uses <code>seq_along</code> (not <code>seq_len(min(5, ...))</code>) and the <code>16_report_helpers.R</code> fallback uses <code>min(8L, ...)</code> (not <code>min(5, ...)</code>) so any future drift back to the 5-cap regression is caught at test time.</li>
+</ul><hr></div>
+</div>
+<div class="section level3">
+<h3 id="phase--stagea-methodological-transparency-report-bundler-os6-1-0-0">Phase 58 / Stage 1A: methodological transparency report bundler (OS.6)<a class="anchor" aria-label="anchor" href="#phase--stagea-methodological-transparency-report-bundler-os6-1-0-0"></a></h3>
+<p><code>bundle_transparency_report(run_dir, output_path = NULL)</code> — new public function that closes the Sprint-4 OS.6 “anti-Jowsey compliance pack” commitment. Reads disk artifacts only (never re-runs the pipeline) and emits a single self-contained HTML methodological-transparency report plus a machine-readable JSON companion. The report bundles:</p>
+<ul><li>Run metadata + prompt template generation marker</li>
+<li>Lincoln &amp; Guba (1985) trustworthiness mapping (credibility / dependability / confirmability / transferability) with pakhom-mechanism citations and run-specific evidence</li>
+<li>Reflexivity scaffold completeness (Olmos-Vega AMEE Guide 149)</li>
+<li>T0.1 quote provenance summary</li>
+<li>T0.3 corpus coverage funnel</li>
+<li>AC9 audit log summary</li>
+<li>Theme set summary</li>
+</ul><p>Defensive against the AC4 stamping envelope; idempotent + safe to re-run. Phase 58 Stage 1A audit followup added an unwrap helper for methodology-stamped artifacts + regression tests for the stamped-coverage_card.json + stamped-themes.json paths + XSS-resistant HTML escaping + mode-fork (parent_run_id) rendering.</p>
+</div>
+<div class="section level3">
+<h3 id="phase-ten-tier-rewrite-cleanup-campaign-closes-phase-audit-findings-1-0-0">Phase 58: ten-tier rewrite-cleanup campaign (closes 113 Phase 57 audit findings)<a class="anchor" aria-label="anchor" href="#phase-ten-tier-rewrite-cleanup-campaign-closes-phase-audit-findings-1-0-0"></a></h3>
+<p>Phase 58 was a focused cleanup campaign that closed every CRITICAL + HIGH + MEDIUM finding from the Phase 57 three-round audit (113 findings collapsing to ~12 root-cause clusters). The package now passes R CMD check 0E/0W/1N with 3,300+ tests; the smoke script (<code>scripts/dev/tier5_visual_smoke.R</code>) exercises 22 cross-tier invariants spanning Tiers 5-9.</p>
+<div class="section level4">
+<h4 id="tier-foundation-upstream-root-cause-fixes-1-0-0">Tier 0 (foundation: upstream root-cause fixes)<a class="anchor" aria-label="anchor" href="#tier-foundation-upstream-root-cause-fixes-1-0-0"></a></h4>
+<ul><li>
+<strong>C-4</strong> (numbered-list prompt leak): coding prompt no longer emits <code>%d.</code> prefixes that the AI echoed into code names; + post-parse defensive strip of <code>^\d+\.\s*"?</code>.</li>
+<li>
+<strong>C-9</strong> (multi-table merge <code>intersect → union</code>): <code>num_comments</code>
+<ul><li>
+<code>upvote_ratio</code> survive the data-loading join instead of being silently dropped.</li>
+</ul></li>
+<li>
+<strong>C-6</strong> (codebook 80-code window → additive semantic retrieval): per-entry codebook summary now combines top-N most-frequent codes with per-entry top-K semantically similar codes (via embeddings cached at code-creation time). Replaces the 80-code window that silently capped what the AI saw past entry ~1000.</li>
+<li>
+<strong>C-1</strong> (articulation gate hardening): log-scaling minimum-chars (<code>30 + 30 * log10(n_codes)</code>); bucket-label opener rejection; tautological-restatement check.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="tier-hac-walker-description-refresh-research-focus-alignment-1-0-0">Tier 1-3 (HAC walker, description refresh, research-focus alignment)<a class="anchor" aria-label="anchor" href="#tier-hac-walker-description-refresh-research-focus-alignment-1-0-0"></a></h4>
+<ul><li>
+<strong>C-12</strong> recursive HAC walker (subthemes nest up to <code>max_subtheme_depth = 3</code>).</li>
+<li>
+<strong>C-5</strong> every-N-new-codes description refresh for high-frequency codes; <strong>D-7</strong> empty-description backfill.</li>
+<li>
+<strong>C-2</strong> Mode 2 drift documentation; <strong>AH-3</strong> round-robin learning-context; <strong>AH-4</strong> reflexivity config template warnings.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="tier-the-stop-lying-tier--report-integrity-1-0-0">Tier 4 (the “stop lying” tier — report integrity)<a class="anchor" aria-label="anchor" href="#tier-the-stop-lying-tier--report-integrity-1-0-0"></a></h4>
+<p>Eight credibility-damaging report-vs-reality mismatches closed: <strong>C-7</strong> Spearman/Pearson methodology label, <strong>V-5</strong> T0.1 “No fabrications” dashboard honesty, <strong>V-3</strong> stale merge-pass text, <strong>V-9</strong> processed-vs-coded count, <strong>V-10</strong> saturation citation, <strong>V-4</strong> Token Limits temperature, <strong>H-12</strong> mean sentiment on resume, <strong>C-11</strong> 71 missing theme detail HTMLs via <code><a href="https://rdrr.io/r/base/make.names.html" class="external-link">make.names()</a></code> round-trip.</p>
+</div>
+<div class="section level4">
+<h4 id="tier-report-scaling-1-0-0">Tier 5 (report scaling)<a class="anchor" aria-label="anchor" href="#tier-report-scaling-1-0-0"></a></h4>
+<ul><li>
+<strong>C-3</strong> <code>max_inline_themes = 30</code> top-N inlining with compact rows for the tail (closes &gt;400-theme pandoc OOM).</li>
+<li>
+<strong>C-10</strong> correlation_plot.png switches to top-N effect-size lollipop chart above <code>max_inline_vars = 30</code> (was 14k x 14k corrplot heatmap pre-Tier-5).</li>
+<li>
+<strong>V-7</strong> <code>.cluster_skip_reasons</code> skip-reason taxonomy clustering.</li>
+<li>
+<strong>AH-8/V-2</strong> <code>temporal_emergence.png</code> top-N filter; <strong>AH-9/V-1</strong> <code>theme_network.png</code> top-N + inline legend.</li>
+<li>
+<strong>H-23</strong> Phase 55 paper-style subtheme tables now render in per-theme detail HTMLs too.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="tier-statistical-layer-hygiene-1-0-0">Tier 6 (statistical layer hygiene)<a class="anchor" aria-label="anchor" href="#tier-statistical-layer-hygiene-1-0-0"></a></h4>
+<ul><li>
+<strong>H-13</strong> sentiment quantized at 21 levels: <code>detect_variable_types</code> ordinal_max raised from 7 to 21; binary x ordinal → Spearman.</li>
+<li>
+<strong>H-14</strong> “negligible” effect-size tier (|r| &lt; 0.10) on all 3 statistical layers.</li>
+<li>
+<strong>H-15</strong> headline reports <code>meaningful_effect ∩ significant</code> intersection.</li>
+<li>
+<strong>H-16</strong> <code>min_theme_entries = 5</code> applied consistently across correlation matrix + theme-group tests + co-occurrence.</li>
+<li>
+<strong>H-17</strong> <code>n_members</code> + <code>n_non_members</code> emitted.</li>
+<li>
+<strong>H-18</strong> Cramer’s V populated on Fisher dispatch path via direct phi formula.</li>
+<li>
+<strong>M-8/M-9/M-10</strong> rank-biserial effect_r (sign-aware, numerically stable); <code>min_observed_both</code> filter.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="tier-t01-verification-fidelity--the-fuzzy-finding-1-0-0">Tier 7 (T0.1 verification fidelity — the “99.89% fuzzy” finding)<a class="anchor" aria-label="anchor" href="#tier-t01-verification-fidelity--the-fuzzy-finding-1-0-0"></a></h4>
+<p>Phase 57 saturation run had 99.89% verified_fuzzy / 0.11% verified_exact. Root cause: per-entry coding prompt JSON-escaped the entry text — AI offsets referenced the ESCAPED form, but <code>verify_quote</code> checked against UN-escaped source. Fix:</p>
+<ul><li>
+<strong>V-6 + L-3</strong> prompt rewrites to pass entry text VERBATIM inside <code>&lt;entry_text&gt;...&lt;/entry_text&gt;</code> XML-style fences. Expected post-Tier-7 fresh runs: ~99% verified_exact.</li>
+<li>
+<strong>M-13/E-19</strong> new <code>verification_failure_reason</code> field on <code>QuoteProvenance</code>, populated at each ladder step’s failure. Threaded into <code>log_fabrication</code> CSV + <code>log_ai_decision</code> audit.</li>
+<li>
+<strong>AH-10</strong> QDPX <code>&lt;Description&gt;</code> honestly reports pre-rejection fabrication-caught counts.</li>
+<li>
+<strong>L-2 + M-24</strong> unicode NFC normalization + unicode-aware whitespace class <code>[\\s\\p{Z}]+</code> in <code>.normalize_quote_text</code>.</li>
+<li>
+<strong>M-25/AF-34</strong> structured <code>supporting_quote_records</code> carrying text + entry_id + source_table + std_author + sentiment_score
+<ul><li>position.</li>
+</ul></li>
+</ul></div>
+<div class="section level4">
+<h4 id="tier-phase-polish--phase-carry-forwards-1-0-0">Tier 8 (Phase 56 polish + Phase 51-54 carry-forwards)<a class="anchor" aria-label="anchor" href="#tier-phase-polish--phase-carry-forwards-1-0-0"></a></h4>
+<ul><li>
+<strong>H-6</strong> <code>.coverage-banner-saturated</code> CSS rule.</li>
+<li>
+<strong>H-9</strong> saturation arbiter dedupe via <code>state$saturation$last_arbiter_n_coded</code>.</li>
+<li>
+<strong>H-10</strong> <code><a href="../reference/write_corpus_coverage.html">write_corpus_coverage()</a></code> persists <code>coverage_card.json</code>.</li>
+<li>
+<strong>H-11</strong> audit log <code>schema_version</code> stamped on every record.</li>
+<li>
+<strong>H-26/AF-31</strong> keywords field caps to top-8 codes by codebook frequency in Mode 2.</li>
+<li>
+<strong>M-12/E-9</strong> <code>is_new_code</code> dedupe within an entry.</li>
+<li>
+<strong>M-21/AF-29</strong> <code>.derive_theme_description</code> fallback when AI omits a description.</li>
+<li>
+<strong>M-22/AF-30</strong> dead <code>narrative</code> field marked DEPRECATED.</li>
+<li>
+<strong>M-27/P54-(iv)</strong> Mode 3 deductive <code>live_snapshot_clusters</code>.</li>
+<li>
+<strong>M-28/P51-M3</strong> researcher review selective flatten — preserves Phase 51 Subtheme hierarchy across rename + description-only edits.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="tier-cleanup-1-0-0">Tier 9 (cleanup)<a class="anchor" aria-label="anchor" href="#tier-cleanup-1-0-0"></a></h4>
+<ul><li>
+<strong>V-8</strong> word-boundary quote truncation with visible ” …” ellipsis (<code>.truncate_quote_word_boundary</code>).</li>
+<li>
+<strong>L-15</strong> timestamps emitted in UTC across all 14 sites.</li>
+<li>
+<strong>L-21</strong> dead <code>code_style</code> config knob removed.</li>
+<li>
+<strong>L-1/F-6</strong> <code>code_assignment</code> provenance schema split documented.</li>
+<li>New <code>.PROMPT_TEMPLATE_VERSION = "phase58_tier7"</code> constant stamped into <code>run_metadata.json</code> (forward-compat for OS.5 replay).</li>
+<li>Audit log <code>schema_version</code> moved to first field in <code>base_fields</code> matching live tracker convention.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="architectural-commitments-verified-preserved-across-all-ten-tiers-1-0-0">Architectural commitments verified preserved across all ten tiers<a class="anchor" aria-label="anchor" href="#architectural-commitments-verified-preserved-across-all-ten-tiers-1-0-0"></a></h4>
+<p>AC1-AC10, T0.1, T0.2, T0.3, T1.1-T1.7 invariants confirmed via per-tier audit subagent + cross-tier audit subagent after each tier. Smoke script (<code>scripts/dev/tier5_visual_smoke.R</code>) doubles as the canonical cross-tier regression guard.</p>
+<hr></div>
+</div>
+<div class="section level3">
+<h3 id="sprint-phase-comprehensive-audit-pass-agents-findings-critical-bug-fixed-1-0-0">Sprint-4 phase 37: comprehensive audit pass (3 agents, 12+ findings, 1 CRITICAL bug fixed)<a class="anchor" aria-label="anchor" href="#sprint-phase-comprehensive-audit-pass-agents-findings-critical-bug-fixed-1-0-0"></a></h3>
+<p>Three parallel audit subagents (UX surface review / AC1-AC10 cross-mode compliance / dead code + technical debt) caught <strong>one CRITICAL bug</strong> that would have killed first-impression adoption, plus a HIGH AC3 violation, plus several AC4 gaps. The audit pattern continues to catch real issues that phase-by-phase audits hadn’t surfaced.</p>
+<div class="section level4">
+<h4 id="critical-fix-would-have-made-every-quick-start-fail-1-0-0">CRITICAL fix (would have made every Quick Start fail)<a class="anchor" aria-label="anchor" href="#critical-fix-would-have-made-every-quick-start-fail-1-0-0"></a></h4>
+<p>The README + methodology-modes vignette Quick Start examples called <code>create_config(methodology = "...", framework_spec_path = "...", database_path = "...", output_path = "...")</code> — but <strong>none of those kwargs existed</strong> in the actual function. The pre-Sprint-4 signature took <code>study_name</code>, <code>data_path</code>, <code>config_path</code>, etc. and produced a config without any methodology block. A first-time user copy-pasting the Quick Start hit <code>Configuration validation failed:</code> for every kwarg they passed and could not recover without reading source.</p>
+<p><code><a href="../reference/create_config.html">create_config()</a></code> rewritten to: - Accept <code>methodology</code> as the first arg (mandatory; per AC3) - Accept <code>framework_spec_path</code> (Mode 3) + validate it’s set when <code>methodology = "framework_applied"</code> - Accept <code>database_path</code> and <code>output_path</code> as the documented kwargs (matches the Quick Start examples + the methodology-modes vignette) - Write a properly-structured <code>methodology = list(mode = ...,   framework_spec_path = ...)</code> block into the YAML - Allow Mode 1 to skip <code>research_focus</code> (corpus + theme_set are passed at <code><a href="../reference/run_mode1.html">run_mode1()</a></code> time, not config time)</p>
+</div>
+<div class="section level4">
+<h4 id="high-fixes-1-0-0">HIGH fixes<a class="anchor" aria-label="anchor" href="#high-fixes-1-0-0"></a></h4>
+<ul><li>
+<strong><code><a href="../reference/default_config.html">default_config()</a></code> AC3 violation</strong> (caught by AC audit). The programmatic API was warn-and-defaulting to <code>codebook_collaborative</code> when methodology was NULL — exactly the silent-default failure mode AC3 (“no default mode; explicit declaration mandatory”) commits the package against. Now hard-stops with a message pointing to the three valid modes + the decision aid. Symmetric with <code>validate_config</code>’s YAML-load behavior. Test updated to assert the error.</li>
+<li>
+<strong>pkgdown reference index</strong> (caught by UX audit) listed ~14 unexported functions (<code>validate_class</code>, <code>find_latest_run</code>, <code>safe_progress_bar</code>, etc.) that pkgdown silently dropped or warned on every build. Trimmed to only-exported entries; collapsed the bloated “Internal Helpers” section into a focused “Pipeline Step Helpers” section + a “Package” section.</li>
+<li>
+<strong>README architectural commitments</strong> (caught by UX audit) was gatekeeping-shaped at line 80, before users had reason to care. Moved AC1-AC10 to a “For methodologists / reviewers” section near the bottom of the README. Quick Start now opens with a “Recommended: web-based config wizard” subsection (the wizards were previously buried).</li>
+</ul></div>
+<div class="section level4">
+<h4 id="medium-fixes-ac4-stamping-gaps-1-0-0">MEDIUM fixes (AC4 stamping gaps)<a class="anchor" aria-label="anchor" href="#medium-fixes-ac4-stamping-gaps-1-0-0"></a></h4>
+<ul><li>
+<strong>Mode 3 framework_applied.yaml/json archive AC4 stamp</strong> (caught by AC audit). <code><a href="../reference/archive_framework_spec.html">archive_framework_spec()</a></code> previously copied the source spec verbatim with no methodology stamp on the archived file. A reviewer auditing the file in isolation couldn’t tell it was a Mode 3 stamp. Fix: archive now carries a <code># methodology: M3 - Framework Applied | run: &lt;id&gt;</code> comment header (YAML) or a <code>_methodology_stamp</code> envelope (JSON). The replay-equivalence sha256 is anchored to the SOURCE bytes (computed pre-stamp), preserving the contract that <code>arch$hash == digest(source)</code>. The archived file remains parseable: yaml::yaml.load strips the comment header so the FrameworkSpec round-trip is identical.</li>
+<li>
+<strong>Memo <code>.md</code> YAML frontmatter AC4 stamp</strong> (caught by AC audit). <code><a href="../reference/memo_to_markdown.html">memo_to_markdown()</a></code> + <code><a href="../reference/persist_memos.html">persist_memos()</a></code> now emit <code>methodology_mode:</code> + <code>run_id:</code> fields in each memo’s frontmatter, defaulting to <code>"reflexive_scaffold"</code> (memos are a Mode 1 construct). A memo file lifted out of its run dir still self-identifies.</li>
+<li>
+<strong>Integrity sentinel string <code>framework_applied.{yaml|yml|json}</code></strong> (caught by AC audit) — the displayed sentinel string in <code>verify_run_integrity</code> only listed <code>yaml|json</code> while the accept-set actually covered <code>.yml</code> too. Fixed to match the accept-set + corresponding test refs updated.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="audit-findings-deferred-to-a-future-phase-acknowledged-but-not-1-0-0">Audit findings deferred to a future phase (acknowledged but not<a class="anchor" aria-label="anchor" href="#audit-findings-deferred-to-a-future-phase-acknowledged-but-not-1-0-0"></a></h4>
+<p>breaking)</p>
+<ul><li>
+<code><a href="../reference/compare_models.html">compare_models()</a></code> is exported + documented but has no callers in R or tests. Audit recommended deletion. Deferred because it’s user-facing public API per the README + vignette — deletion would be a breaking change at v1.0.0. Future phase: add a regression test that exercises it (gives it a meaningful caller) OR mark as superseded.</li>
+<li>Researcher-review CSVs (<code>codebook_review.csv</code>, <code>themes_review.csv</code>, IRR coding sheets) lack the methodology stamp. Same AC4 violation as the framework archive but in a different module (<code>R/19_researcher_review.R</code>, <code>R/11_human_verification.R</code>). Plumbing methodology_mode through these review functions touches multiple call sites. Deferred to a follow-up phase.</li>
+<li>Several dead-code findings (legacy <code>primary_emotion</code> fallback in sentiment; 8000-char text-truncation magic number; framework prompt block hot-loop hoist) are real but low-impact. Deferred.</li>
+<li>Vignette polish: <code>install_github("username/...")</code> placeholder, DBI/RSQLite prereq install line, Mode 1 README corpus shape note. Deferred.</li>
+</ul><p>Tests: 2396 pass / 0 fail (2391 -&gt; 2396 = 5 new tests pinning the phase 37 fixes including the framework-archive-stamp regression test). R CMD check stays at 0 errors / 0 warnings / 1 routine NOTE (only “unable to verify current time” remains).</p>
+</div>
+</div>
+<div class="section level3">
+<h3 id="sprint-phase-cran-basics--imports-trim-1-0-0">Sprint-4 phase 36: CRAN basics + Imports trim<a class="anchor" aria-label="anchor" href="#sprint-phase-cran-basics--imports-trim-1-0-0"></a></h3>
+<p>Bounded scope-cut between phase 35 (docs) and a future real-data validation phase. Aim: address CRAN-prep low-hanging fruit so the package metadata + imports + machine-readable citation are all in shape, without spending API credits before the package is in submission-ready form.</p>
+<ul><li>
+<p><strong>DESCRIPTION</strong>:</p>
+<ul><li>Title updated from “AI-Integrated Thematic Analysis Following Braun and Clarke” to “AI-Assisted Reflexive Thematic Analysis with Methodology-as-Architecture” – the new title surfaces the package’s load-bearing architectural commitment, not just the methodological tradition.</li>
+<li>Description blurb rewritten to describe the three modes, the universal Tier-0 transparency commitments, and the empirical motivations (Sarkar 2024, Jowsey et al. 2025, Braun and Clarke 2022).</li>
+<li>Added URL field (GitHub repo + pkgdown site) and BugReports field per CRAN best practice.</li>
+</ul></li>
+<li><p><strong>CITATION.cff</strong> (NEW): machine-readable CFF 1.2.0 citation file at the package root. Carries package metadata, repo links, abstract, keywords, and references to the three empirical citations. GitHub renders this as a “Cite this repository” widget on the repo home page; tools like Zotero / Zenodo / DataCite consume it automatically. .Rbuildignore’d so it doesn’t ship in the CRAN tarball.</p></li>
+<li>
+<p><strong>Imports -&gt; Suggests</strong> (clears the longstanding “Imports includes 21 non-default packages” CRAN NOTE):</p>
+<ul><li>
+<code>xml2</code> -&gt; Suggests. Used only by <code><a href="../reference/export_qdpx.html">export_qdpx()</a></code>. Now guards with <code><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace("xml2", ...)</a></code> and emits a friendly install.packages error if missing.</li>
+<li>
+<code>corrplot</code> -&gt; Suggests. Used only by <code><a href="../reference/create_correlation_plot.html">create_correlation_plot()</a></code>. Falls through with a log_warn if not installed.</li>
+<li>
+<code>progress</code> -&gt; Suggests. Used only by <code><a href="../reference/safe_progress_bar.html">safe_progress_bar()</a></code>. Falls through to a logger-based progress indicator if not installed. Net: 21 non-default Imports -&gt; 18, clearing the CRAN NOTE.</li>
+</ul></li>
+<li><p><strong>@examples on six main entry points</strong>: <code>run_analysis</code>, <code>run_mode1</code>, <code>load_framework_spec</code>, <code>add_memo</code>, <code>archive_framework_spec</code>, <code>compute_mode1_coverage</code>. Examples requiring API keys / on-disk data are <code>\dontrun{}</code>-wrapped; self-contained ones run live.</p></li>
+</ul><p>R CMD check now: <strong>0 errors / 0 warnings / 1 routine NOTE</strong> (the “unable to verify current time” environmental NOTE is the only one remaining; the long-standing “21 imports” NOTE is cleared by the trim above). 2391 tests still pass; both vignettes (getting-started + methodology-modes) build cleanly.</p>
+</div>
+<div class="section level3">
+<h3 id="sprint-phase-user-facing-documentation-pass-sprint-architecture-surfacing-1-0-0">Sprint-4 phase 35: user-facing documentation pass (Sprint-4 architecture surfacing)<a class="anchor" aria-label="anchor" href="#sprint-phase-user-facing-documentation-pass-sprint-architecture-surfacing-1-0-0"></a></h3>
+<p>The README, vignette, package help page, and pkgdown reference index all pre-dated Sprint-4 – the architectural story (three methodology modes + AC1-AC10 commitments + Tier-0 transparency + run_mode1 + framework specs + memos) was invisible to users reading the docs. Phase 35 brings the docs into alignment with the architecture.</p>
+<ul><li>
+<strong>R/00_package.R</strong>: expanded <code><a href="../reference/pakhom-package.html">?pakhom</a></code> with sections covering the three methodology modes, AC1-AC10 architectural commitments, Tier-0 universal transparency requirements (T0.1/T0.2/T0.3), main entry points (run_analysis, run_mode1, load_framework_spec, add_memo), and the Mode 3 + Anthropic Citations API bypass disclosure.</li>
+<li>
+<strong>README.md</strong>: added “Why pakhom?” opening with the methodology-as- architecture story (citing Sarkar 2024, Jowsey et al. 2025, Vikan et al. 2026), Three modes table, Architectural commitments list, Tier-0 transparency section, and Quick Start expanded from one Mode 2 example to one example per mode.</li>
+<li>**_pkgdown.yml**: 5 new reference sections (Methodology Modes / Tier-0 / Run State + Soft-Lock / Output Stamping / Methodology Rules) covering the Sprint-4 surface that previously had no pkgdown index entries.</li>
+<li>
+<strong>vignettes/methodology-modes.Rmd</strong> (NEW; ~330 lines): worked examples for each mode, decision rubric matrix, universal Tier-0 explanation, and replay-equivalence narrative.</li>
+<li>
+<strong>vignettes/getting-started.Rmd</strong>: added “Which mode is this vignette for?” callout cross-linking the new vignette.</li>
+</ul><p>R CMD check 0/0/2 environmental, 2391 tests pass, both vignettes build cleanly.</p>
+</div>
+<div class="section level3">
+<h3 id="sprint-phase-end-to-end-pipeline-integration-tests--production-bug-fix-1-0-0">Sprint-4 phase 34: end-to-end pipeline integration tests (+ 1 production bug fix)<a class="anchor" aria-label="anchor" href="#sprint-phase-end-to-end-pipeline-integration-tests--production-bug-fix-1-0-0"></a></h3>
+<p>Closes phase 30 audit MEDIUM <a href="https://github.com/abanoub-armanious/pakhom/issues/4" class="external-link">#4</a>: existing tests covered components in isolation but had no end-to-end coverage of <code><a href="../reference/run_analysis.html">run_analysis()</a></code> or <code><a href="../reference/run_mode1.html">run_mode1()</a></code> through to <code>finalize_run</code>. The phase 30 audit memo explicitly noted this as the gap that “would have caught” silent failures like the phase 29 <code>apply_framework_themes</code>-not-populating- merge_history bug. Phase 34 fills the gap with 9 e2e tests + a smart <code>ai_complete</code> mock, and – per the audit pattern – the new e2e tests immediately surfaced one real production bug that no component-level test had caught.</p>
+<ul><li>
+<p><strong><code>R/tests/testthat/test-pipeline-e2e.R</code></strong> (new). 9 e2e tests pinning AC4 / AC5 / AC7 / AC8 against silent regression:</p>
+<ul><li>Mode 2 e2e produces the full Mode 2 artifact set + finalize_run
+<ul><li>AC4 methodology stamp in <code>run_metadata.json</code>.</li>
+</ul></li>
+<li>Mode 3 e2e archives <code>framework_applied.yaml</code> + stamps framework name + sha256 hash in <code>run_metadata.json</code> + renders the Framework Declaration section in the HTML report + the Mode 3 + Anthropic Citations API bypass footnote fires.</li>
+<li>AC4 propagation: every CSV produced by <code>export_results</code> carries a methodology stamp comment header.</li>
+<li>AC5 (cross-mode): <code>run_analysis(resume=TRUE)</code> against a finalized Mode 2 run with a Mode 3 config errors with a “FINALIZED | mismatch | fork” message rather than silently overwriting.</li>
+<li>AC5 (same-mode): <code>run_analysis(resume=TRUE)</code> against a finalized Mode 2 run with a Mode 2 config errors rather than overwriting.</li>
+<li>AC8 (cross-mode artifacts): Mode 2 produces no <code>framework_applied.yaml</code>; Mode 3 does. Both have universal Tier-0/Tier-1 artifacts. Run-dir suffix carries mode short-code (<code>_M2</code> / <code>_M3</code>).</li>
+<li>AC8 (Mode 1 vs Mode 2/3): <code><a href="../reference/run_mode1.html">run_mode1()</a></code> produces Mode 1-specific artifacts (<code>reflection_log.json</code>, <code>provocations.csv</code>, <code>provocation_attempts.csv</code>, <code>coverage_mode1.json</code>) and NOT Mode 2/3 artifacts (<code>sentiment_scores.csv</code>, <code>correlations.csv</code>, <code>theme_entries</code>).</li>
+<li>AC9: <code>run_metadata.json</code> captures <code>config_hash</code> for replay- equivalence + the methodology rules markdown is written to <code>outputs/&lt;run&gt;/rules/methodology_rules.md</code>.</li>
+<li>Mode 2 with <code>generate_report=TRUE</code> exercises the full Rmd render path (the path that surfaced the bug below).</li>
+</ul></li>
+<li><p><strong>Smart <code>ai_complete</code> mock</strong> (<code>.smart_mock_ai_complete</code>): switches on the <code>task</code> argument to return shape-appropriate JSON for each pipeline call site (<code>coding</code>, <code>sentiment</code>, <code>theming</code>, <code>insight</code>, <code>synthesis</code>, <code>review</code>, <code>saturation_check</code>). Pragmatic minimal responses are enough to drive the pipeline through; production code’s <code>parse_json_safely</code> + <code>tryCatch</code> guards handle minor schema gaps gracefully – the e2e tests assert architectural invariants (artifact set + finalize_run + stamping), not AI output content.</p></li>
+<li><p><strong>Production bug fix</strong> (<code>R/16_report_helpers.R</code> <code>aggregate_overall_statistics</code>): when no <code>theme_membership_*</code> columns exist BUT an <code>emerged_themes</code> column does (and is all-NA), the function fell into a branch that built <code>themes_df</code> via <code>tibble(theme_name = names(theme_tbl), ...)</code>. Because <code>names(table(character(0)))</code> returns <code>NULL</code>, and <code>tibble(theme_name = NULL, ...)</code> silently drops the column entirely, the downstream <code>pull(theme_name)</code> in <code><a href="../reference/generate_report.html">generate_report()</a></code> then errored with <code>"object 'theme_name' not found"</code>. The bug fired in any Mode 3 run where the AI’s coded constructs didn’t match any framework construct (<code>apply_framework_themes</code> produced an empty theme_set, <code>cascade_theme_assignments</code> left <code>emerged_themes</code> all-NA). Fix: coerce <code><a href="https://rdrr.io/r/base/names.html" class="external-link">names()</a></code> to <code>character(0)</code> so the column always exists. Regression test added in <code>test-pipeline-e2e.R</code> against <code>aggregate_overall_statistics</code> directly.</p></li>
+<li>
+<p><strong>Audit-driven hardening (1 background subagent on the e2e tests + the production bug fix)</strong>:</p>
+<ul><li>
+<strong>H1</strong> (CRITICAL same-pattern leak) – the audit found the SAME NULL-vs-character(0) bug in the embedded Rmd plot code at <code>R/17_report.R:1051</code> (the <code>theme-distribution</code> chunk). Different location from the helper fix; same underlying R quirk (<code>names(table(character(0)))</code> returns <code>NULL</code>, <code>tibble(theme_name = NULL, ...)</code> drops the column). Would have crashed inside the rendered Rmd at knit time for any all-NA <code>emerged_themes</code> data. Fix: same <code>if (length(theme_tbl) &gt; 0L) names(theme_tbl) else character(0)</code> guard, embedded in the string-built chunk.</li>
+<li>
+<strong>H2</strong> – the original Mode 3 e2e exercised only the empty-theme- set branch of <code>apply_framework_themes</code> because the smart mock returned <code>code = "NEW: mock_code"</code> for every coding call (which never matches a TPB construct id). The phase 29 silent failure that motivated phase 34 lived in the OPPOSITE branch: non-empty theme_set -&gt; rebuild_code_to_theme_map -&gt; cascade. Fix: smart mock now extracts a verbatim slice from the prompt’s <code>Entry text: "..."</code> and accepts a <code>coding_code_name</code> parameter so a Mode 3 happy-path test can feed it <code>coding_code_name = "attitude"</code> to drive the construct-matching path. The mock now also includes both Mode 2 fields (<code>code</code> + <code>code_description</code>
+<ul><li>
+<code>code_type</code>) and Mode 3 fields (<code>construct_id</code> + <code>anomaly_reason</code>) so a single mock works across both modes. Added Mode 3 happy-path test that asserts non-empty <code>theme_set</code>, populated <code>merge_history$code_to_theme_map</code>, and at least one entry assigned to a theme via <code>theme_membership_*</code>.</li>
+</ul></li>
+<li>
+<strong>L3</strong> – <code>verify_run_integrity</code> listed <code>analysis_report.Rmd</code> as unconditional but the writer lives inside <code>generate_report</code>’s body (only fires when <code>output$generate_report = TRUE</code>). Spurious “1 file(s) missing – analysis_report.Rmd” warnings on every legitimate <code>generate_report = FALSE</code> run. Fix: moved the Rmd to the conditional block alongside the other report files.</li>
+<li>
+<strong>AC2 + AC3</strong> negative tests – two cheap regression pins: <code>run_analysis</code> rejects an unknown methodology mode (AC2: “no fourth mode”) AND rejects a config without an explicit <code>methodology$mode</code> (AC3: “no default; explicit declaration mandatory”).</li>
+<li>
+<strong>M1</strong> – AC4 propagation regex was too permissive (<code>methodology|M2|codebook_collaborative</code> could match unrelated content). Tightened to <code>^# methodology:</code> prefix anchor + inner <code>M2</code> short-code check.</li>
+<li>
+<strong>M3</strong> – the e2e config used <code>min_char</code> (wrong field name) when production reads <code>min_text_length</code>. The wrong name was silently ignored. Fix: use the correct production field name in the e2e config so the fixture reflects production reality (and to flush out any user copying this config as a starting point).</li>
+<li>
+<strong>L1</strong> – AC5 same-mode test asserted <code>coding_calls &gt; 0</code> only. Tightened to exact equality with <code>test_mode$sample_size = 3</code> so a regression that skips entries (or double-codes them) surfaces.</li>
+</ul></li>
+</ul><p>Phase 34 net adds 98 e2e tests + 2 production bug fixes (the original empty-emerged-themes bug + the same pattern in the embedded Rmd plot code) + the integrity-check fix for <code>analysis_report.Rmd</code> unconditional listing. Test count: 2293 -&gt; 2391 net. R CMD check stays at 0 errors / 0 warnings / 2 routine NOTEs.</p>
+<p>The audit pattern (“write the test, find a bug”) worked exactly as the user’s standing memo predicted: the e2e tests caught the first production bug, the audit subagent caught the same bug pattern in a different location plus an entire missing test path that hid the phase 29 silent failure mode.</p>
+</div>
+<div class="section level3">
+<h3 id="sprint-phase-m13-reflexive-memos-as-data-mode-ac6-parity-1-0-0">Sprint-4 phase 33: M1.3 reflexive memos as data (Mode 1 AC6 parity)<a class="anchor" aria-label="anchor" href="#sprint-phase-m13-reflexive-memos-as-data-mode-ac6-parity-1-0-0"></a></h3>
+<p>Closes phase 30 audit HIGH <a href="https://github.com/abanoub-armanious/pakhom/issues/2" class="external-link">#2</a> / H5: ResearcherReflectionLog has carried a <code>memos = list()</code> slot since phase 30 but had no CRUD API. Per AC6 (symmetric obligations across modes), Mode 1’s burden parity vs Modes 2/3 is delivered through reflexive memos at pause points – without a memo CRUD + persistence layer, Mode 1’s burden was aspirational rather than operational. Phase 33 implements the foundational layer per the SPRINT4_DESIGN.md M1.3 spec (line 277-298): typed memos with Markdown round-trip + YAML frontmatter + persistence under <code>memos/</code> + report section + integrity tracking. Future phases may layer AI-coding-of- memos (the “researcher voice” theme set, spec line 293) on top.</p>
+<ul><li>
+<p><strong><code>R/memos.R</code></strong> (new file). The full memo API:</p>
+<ul><li>
+<code>make_memo(body, type, ...)</code> constructor with the SPRINT4_DESIGN.md M1.3 schema (id, timestamp, author, type, linked_codes, linked_themes, linked_entries, linked_prior_memo, body) + 4 valid types (operational / coding / theoretical / positionality).</li>
+<li>
+<code>add_memo(log, body, ...)</code> appends a memo to a ResearcherReflectionLog. Pass-by-value: callers must capture the return. Memos are <em>immutable</em> once added – there is no <code>update_memo</code> or <code>delete_memo</code> (revisions add a NEW memo with <code>linked_prior_memo</code> pointing at the antecedent; memo evolution is data per Birks/Chapman/Francis 2025). When an <code>audit_log</code> is supplied, a <code>memo_added</code> decision is recorded.</li>
+<li>
+<code>read_memo(log, id)</code> returns the Memo or NULL.</li>
+<li>
+<code>list_memos(log, type/author/linked_theme)</code> returns a filterable tibble.</li>
+<li>
+<code>memo_to_markdown(memo)</code> / <code>markdown_to_memo(md_text)</code> – the Markdown + YAML frontmatter round-trip per spec line 280-291. Handles bodies with apostrophes, quotes, colons, multi-line content; YAML strings are single-quoted with embedded apostrophes doubled per the YAML spec.</li>
+<li>
+<code>persist_memos(log, run_dir)</code> writes one <code>outputs/&lt;run&gt;/memos/&lt;memo_id&gt;.md</code> per memo. Idempotent: re-calls produce byte-equivalent output (replay-equivalence).</li>
+<li>
+<code>load_memos(run_dir)</code> reads them back, sorted chronologically. Skips malformed <code>.md</code> files with a warning rather than crashing (resilient to manual edits / corruption).</li>
+<li>
+<code>Memo</code> S3 class + <code>print.Memo</code>.</li>
+</ul></li>
+<li><p><strong>ResearcherReflectionLog schema 1.1.0 -&gt; 1.2.0</strong>: the <code>memos</code> slot now holds typed <code>Memo</code> S3 objects rather than unstructured list entries. Backward-compatible: pre-1.2.0 logs whose memos slot contains untyped entries are preserved in place; downstream code paths (the report’s memo section, the coverage’s n_memos field) filter via <code>inherits(m, "Memo")</code> so only typed memos are surfaced.</p></li>
+<li>
+<p><strong><code><a href="../reference/run_mode1.html">run_mode1()</a></code> integration</strong>:</p>
+<ul><li>
+<strong>Resume</strong>: hydrates memos from on-disk Markdown files (<code>load_memos(output_dir)</code>) when resuming. Per AC4, the Markdown files are the canonical source of truth for memo content – the <code>reflection_log.json</code> carries an in-memory copy for replay convenience but the Markdown files survive a JSON-format change.</li>
+<li>
+<strong>Finalize</strong>: persists all memos before <code><a href="../reference/finalize_run.html">finalize_run()</a></code>. A memo write failure (e.g., disk full) is a soft warning, not an abort – unlike the framework_archive case (where AC4 mandates the archive), memos are researcher-authored and an empty memo set is a valid Mode 1 outcome.</li>
+</ul></li>
+<li><p><strong>Mode 1 report: Researcher Reflexive Memos section</strong> (new <code>.build_mode1_memo_section</code> helper in <code>R/mode1_report.R</code>). Renders after the per-theme provocations section so the reading order mirrors the research workflow (provocations -&gt; reflexive memos). Sorted chronologically (timestamp ascending) so the timeline reads earliest -&gt; latest. Each memo block carries: type badge, id, timestamp + author, links (themes + codes + entries + prior memo), and body in a <code>&lt;pre&gt;</code>-wrapped <code>white-space: pre-wrap</code> block so Markdown inside the body doesn’t restructure the surrounding document. <strong>Empty-memo state</strong> renders an explicit AC6-noting notice rather than silent omission.</p></li>
+<li><p><strong><code>ProvocationCoverage</code> schema 2.0.0 -&gt; 2.1.0</strong>: added <code>n_memos</code> (count of typed memos) and <code>memos_by_type</code> (named list, e.g., <code>list(operational = 2, theoretical = 5)</code>). Informational only – the headline <code>no_silent_skip</code> is unchanged. The fields exist so the methodology paper can compute researcher-side burden as a KPI alongside AI-side coverage.</p></li>
+<li><p><strong><code>verify_run_integrity_mode1</code></strong> now returns <code>n_memos_persisted</code> (count of <code>.md</code> files under <code>memos/</code>). Memos are conditionally expected – a Mode 1 run with zero memos is valid (the run may have been used for provocation generation only).</p></li>
+<li><p><strong>HTML escaping</strong>: every researcher-supplied interpolation in the memo report block (body, links, author, prior-memo id) is routed through <code>.html_esc</code>. A regression test pins XSS prevention with a crafted <code>&lt;script&gt;</code> body + author + theme.</p></li>
+<li>
+<p><strong>Audit-driven hardening (1 background subagent on the implementation surface)</strong>:</p>
+<ul><li>
+<strong>Audit C1 (CRITICAL)</strong> – <code>.read_reflection_log_json</code> was re-classing provocations + provenance on resume but not memos. Memos in a resumed JSON-only run were plain lists, and every consumer gating on <code>inherits(m, "Memo")</code> (the report’s memo section, persist_memos, the n_memos counter on the coverage object, the by-type print breakdown) silently treated the run as having zero memos – a researcher-work-loss bug. Fix: same re-class pattern the provocations + provenance use.</li>
+<li>
+<strong>Audit H1</strong> – the body round-trip was not byte-equivalent for bodies with trailing whitespace (<code>"test\n"</code> round-tripped to <code>"test"</code>, etc.). Fix: canonicalize body at <code>make_memo</code> construction time (strip trailing whitespace once, store the canonical form); <code>markdown_to_memo</code> no longer post-processes the parsed body. Now the round-trip is trivially identity.</li>
+<li>
+<strong>Audit H2</strong> – <code>print.Memo</code> crashed on a Memo with NULL <code>linked_prior_memo</code> because <code>is.na(NULL)</code> returns <code>logical(0)</code> and <code>if</code> errors on length zero. Fix: NULL-safe <code>if (!is.null(...) &amp;&amp; length(...) &gt; 0L &amp;&amp; !is.na(...))</code>.</li>
+<li>
+<strong>Audit H3</strong> – the unit tests in <code>test-memos.R</code> exercised <code>persist_memos</code> / <code>load_memos</code> / <code>add_memo</code> directly, but no test exercised them through the <code>run_mode1</code> orchestrator. A regression that removed the <code>persist_memos</code> call from the orchestrator would have surfaced only at manual inspection. Fix: added an end-to-end test that drives <code>run_mode1</code>, adds memos post-run, persists them, hydrates them via <code>load_memos</code>, and verifies the rendered Mode 1 report includes the bodies (no empty-state notice). Plus a focused regression test for the C1 JSON re-class fix.</li>
+<li>
+<strong>Audit M1</strong> – <code>load_memos</code> sort was non-deterministic on identical timestamps because <code><a href="https://rdrr.io/r/base/order.html" class="external-link">order()</a></code> falls back to position- in-input. Fix: secondary sort by id so the chronological view is deterministic regardless of filesystem return order.</li>
+<li>
+<strong>Audit M2 + Resume divergence</strong> – documented <code>persist_memos</code> overwrite policy explicitly; added a <code>log_warn</code> when <code>reflection_log.json</code> and on-disk memo counts differ on resume (the on-disk version always wins per AC4, but a count mismatch usually signals manual intervention worth flagging).</li>
+</ul></li>
+</ul><p>Phase 33 net adds ~120 memo tests across <code>test-memos.R</code> + the new e2e + JSON-re-class tests in <code>test-mode1-orchestrator.R</code>. Test count: 2168 -&gt; 2293 net (the audit-fix tests pin every issue listed above so the same bugs cannot regress). R CMD check stays at 0 errors / 0 warnings / 2 routine NOTEs.</p>
+</div>
+<div class="section level3">
+<h3 id="sprint-phase-mode-framework-applied-transparency-hardening-1-0-0">Sprint-4 phase 32: Mode 3 (Framework Applied) transparency hardening<a class="anchor" aria-label="anchor" href="#sprint-phase-mode-framework-applied-transparency-hardening-1-0-0"></a></h3>
+<p>Closes phase 30 audit findings H1 (framework_spec archive), H2 (Framework Declaration in report), and audit MEDIUM <a href="https://github.com/abanoub-armanious/pakhom/issues/5" class="external-link">#5</a> / C3 (Mode 3 + Anthropic Citations API silent bypass). Before phase 32, a Mode 3 reviewer reading a generated HTML report saw “M3 - Framework Applied” stamped at the top but could not tell WHICH theoretical framework was applied (TPB? COM-B? TDF? a custom YAML?), what its citations were, what the epistemic stance was, or what the anomaly handling policy said – AC4 (“methodology stamped on every output”) was honored at the mode level but not the framework level. Phase 32 closes the gap end-to-end.</p>
+<ul><li><p><strong><code><a href="../reference/archive_framework_spec.html">archive_framework_spec()</a></code></strong> (new in <code>R/framework_spec.R</code>). Writes a verbatim byte-equivalent copy of the loaded framework spec to <code>outputs/&lt;run&gt;/framework_applied.{yaml|json}</code> (extension preserved from source) and computes a deterministic SHA-256 over the file’s bytes. Returns a metadata list (<code>name</code>, <code>hash</code>, <code>epistemic_stance</code>, <code>anomaly_handling</code>, <code>n_constructs</code>, <code>construct_ids</code>, <code>relative_path</code>) suitable for splatting into <code>init_run_state(...)</code> and forwarding to the report renderer. Per AC4 the archive is mandatory for any Mode 3 run – the integrity check now flags a missing archive as an incomplete run.</p></li>
+<li><p><strong><code>run_metadata.json</code> framework stamping</strong>. <code>R/18_pipeline.R</code> now invokes <code><a href="../reference/archive_framework_spec.html">archive_framework_spec()</a></code> immediately after <code><a href="../reference/load_framework_spec.html">load_framework_spec()</a></code> (Mode 3 only) and splats the resulting metadata into <code>init_run_state</code> via <code>do.call</code>. Mode 3 runs now carry <code>framework_name</code>, <code>framework_hash</code>, <code>framework_relative_path</code>, <code>framework_epistemic_stance</code>, <code>framework_anomaly_handling</code>, <code>framework_n_constructs</code>, <code>framework_construct_ids</code>, and <code>framework_schema_version</code> in <code>run_metadata.json</code>. Mode 1 + Mode 2 metadata is unchanged (the splat is conditional on <code>framework_archive</code> being non-NULL).</p></li>
+<li>
+<p><strong>Framework Declaration section</strong> (new <code><a href="../reference/dot-build_framework_declaration.html">.build_framework_declaration()</a></code> helper in <code>R/17_report.R</code>). Renders only for Mode 3 runs, immediately after the Tier-0 dashboards. Includes:</p>
+<ul><li>Framework name + sha256 fingerprint (first 12 chars) + link to the archived spec file</li>
+<li>Citations (full reference list from the spec)</li>
+<li>Epistemic stance + plain-language explainer (“constructionist treats constructs as researcher-developed lenses; positivist treats constructs as universal categories; mixed applies constructs as primary but tolerates legitimate revision”)</li>
+<li>Anomaly handling policy + plain-language explainer (“extend = new constructs; revise = modify existing definitions; bracket = flag as out-of-scope”)</li>
+<li>Full constructs table with id, name, description, and first 3 example indicators (rest counted as “+N more” so the section stays readable on long frameworks like TDF’s 14)</li>
+<li>Citation paragraph confirming byte-equivalence with the loaded spec + sha256 fingerprint location in <code>run_metadata.json</code> Falls through to an explicit “transparency failure” notice when the archive is unavailable – absence is itself an AC4 signal.</li>
+</ul></li>
+<li><p><strong>Mode 3 + Anthropic Citations API bypass footnote</strong> (new <code><a href="../reference/dot-tier0_citations_api_bypass_footnote.html">.tier0_citations_api_bypass_footnote()</a></code> helper). When the run is Mode 3 + provider = <code>"anthropic"</code>, the Tier-0 source-breakdown card now appends an explicit footnote explaining that the Citations API prevention layer is structurally precluded (forced <code>tool_use</code> schema for framework-construct constraint is mutually exclusive with the Citations API output format on the same Anthropic response). The Mode 3 pipeline relies on the verification ladder’s DETECTION-only path; the footnote makes the architectural reason explicit rather than letting a reviewer infer a bug. Future phases may explore a hybrid schema (constrained constructs + paired citation offsets) as a research spike.</p></li>
+<li><p><strong><code><a href="../reference/verify_run_integrity.html">verify_run_integrity()</a></code> Mode 3 expectation</strong>. The integrity check for <code>mode = "framework_applied"</code> now expects <code>framework_applied.{yaml|json}</code> to exist under <code>run_dir</code> and reports it as missing if absent. The accept-either logic supports both YAML-source and JSON-source frameworks.</p></li>
+<li><p><strong>HTML escaping</strong>: every researcher-supplied interpolation in <code>.build_framework_declaration</code> (framework name, citations, construct id/name/description, example indicators) is routed through <code>.html_esc</code>. Tested with a synthetic spec containing <code>&lt;script&gt;</code> / <code>&amp;</code> / quote characters in framework name + construct fields; the rendered HTML neutralizes all HTML-active content.</p></li>
+<li>
+<p><strong>Audit-driven hardening (1 background subagent on the implementation surface)</strong>:</p>
+<ul><li>
+<strong>Audit H1</strong> (silent skip in e2e test) — the previous Mode 3 integration test wrapped <code><a href="../reference/generate_report.html">generate_report()</a></code> in a <code>tryCatch</code> that swallowed the error AND then <code>skip()</code>ped if no Rmd was written, making any future regression of the Mode 3 wiring invisible. The audit predicted this exact failure class (“silent Mode 3 end-to-end failure”) matched the user’s standing audit-pattern memo. Fix: build a sufficient input set (full <code>export_files</code> shape, sentiment scores per entry, multi-theme <code>theme_set</code>) so <code>generate_report</code> actually completes the Rmd, and remove the skip-fallback so any failure is a hard test failure. Added a Mode 2 negative test that pins the Framework Declaration is NOT rendered for non-Mode-3 runs.</li>
+<li>
+<strong>Audit M1 + M2</strong> (archive failure was a soft warn) — per AC4 a Mode 3 run cannot finalize without its framework archive; the previous <code>tryCatch</code> around <code>archive_framework_spec</code> absorbed errors into a warning, letting the run finalize with broken provenance. Fix: the call now propagates errors directly so any archive failure aborts <code><a href="../reference/run_analysis.html">run_analysis()</a></code> before any expensive coding work. Symmetric with the existing “Mode 3 requires a valid framework spec” hard-stop on spec load.</li>
+<li>
+<strong>Audit L2</strong> (single-construct <code>framework_construct_ids</code> would scalarize) — <code><a href="https://jeroen.r-universe.dev/jsonlite/reference/read_json.html" class="external-link">jsonlite::write_json</a></code> with <code>auto_unbox=TRUE</code> collapses length-1 character vectors into JSON scalars, so a 1-construct framework’s <code>construct_ids</code> would round-trip as <code>"only_one"</code> instead of <code>["only_one"]</code>. Fix: splat <code>as.list(construct_ids)</code> into <code>init_run_state</code>’s extras so the JSON array shape is preserved regardless of length. Added a regression test that round-trips <code>run_metadata.json</code> and asserts the array shape.</li>
+<li>
+<strong>Bypass footnote on empty-dashboard path</strong> — caught while fixing H1: the Citations API bypass footnote previously only fired when the source-breakdown sub-block ran, but the dashboard short-circuits to an empty card when zero verbatim claims exist (e.g., a Mode 3 + Anthropic run that produces only construct labels with no quote citations). Fix: footnote also renders on the empty-dashboard path so the architectural reason for the absence is surfaced.</li>
+</ul></li>
+</ul><p>Phase 32 net adds 18 tests (8 in <code>test-framework_spec.R</code> for the archive helper across all three built-in frameworks + the L2 single-construct round-trip; 10 in <code>test-mode3-framework.R</code> for the Framework Declaration render + HTML escaping + bypass footnote dispatch + integrity-check expectation + a working Mode 3 e2e report-render + a Mode 2 negative test). Test count: 2089 -&gt; 2168 net. R CMD check stays at 0 errors / 0 warnings / 2 routine NOTEs.</p>
+</div>
+<div class="section level3">
+<h3 id="sprint-phase-mode-reflexive-scaffold-full-orchestrator-1-0-0">Sprint-4 phase 31: Mode 1 (Reflexive Scaffold) full orchestrator<a class="anchor" aria-label="anchor" href="#sprint-phase-mode-reflexive-scaffold-full-orchestrator-1-0-0"></a></h3>
+<p>Closes the phase 30 audit’s CRITICAL findings C1 + C2: Mode 1 was operational at the provocateur-loop level (<code>run_provocateur_questioning</code>) but lacked the AC4 + AC7 scaffolding that Modes 2/3 have. A Mode 1 run emitted only a <code>ResearcherReflectionLog</code> – no <code>run_metadata.json</code>, no T0.2 spread, no T0.3 coverage, no rendered report, no <code><a href="../reference/finalize_run.html">finalize_run()</a></code> call. AC4 (“methodology stamped on every output”) and AC7 (“universal Tier-0 in all modes”) were aspirational for Mode 1; phase 31 makes them operational.</p>
+<ul><li>
+<p><strong><code><a href="../reference/run_mode1.html">run_mode1()</a></code> orchestrator</strong> (new <code>R/mode1_orchestrator.R</code>). Top-level Mode 1 entry point that mirrors <code><a href="../reference/run_analysis.html">run_analysis()</a></code>’s scaffolding (output dir + run metadata + methodology rules + audit log + fabrication log</p>
+<ul><li>finalize_run + integrity check) but routes through the provocateur loop instead of progressive coding. Produces a complete Mode 1 run directory under <code>outputs/&lt;run-id&gt;_M1/</code> with every Tier-0/Tier-1 artifact a reviewer would expect, plus Mode 1-specific canonical artifacts: <code>reflection_log.json</code>, <code>provocations.csv</code>, <code>provocation_attempts.csv</code>, <code>themes.json</code>, <code>coverage_mode1.json</code>.</li>
+</ul></li>
+<li><p><strong><code><a href="../reference/compute_mode1_coverage.html">compute_mode1_coverage()</a></code> + <code>ProvocationCoverage</code> S3</strong> (new in <code>R/mode1_orchestrator.R</code>). Mode 1’s analog of T0.3. Where Mode 2/3 assert “no silent truncation in the LLM call path” (every preprocessed entry reached the LLM), Mode 1 asserts <strong>“no silent skip across themes × provocation categories”</strong> + “the full corpus was provided to per- category prompts.” Distinguishes legitimate empty results (a category that returned zero provocations because no qualifying entries existed) from silent skips (a category that was never attempted) – the central semantic that lets the coverage card make a defensible claim. <code>ProvocationCoverage</code> shares a <code>Tier0Coverage</code> virtual parent class with <code>CorpusCoverage</code> so the report renderer dispatches uniformly via the new <code><a href="../reference/render_tier0_coverage_card.html">render_tier0_coverage_card()</a></code> S3 generic.</p></li>
+<li><p><strong><code><a href="../reference/generate_mode1_report.html">generate_mode1_report()</a></code></strong> (new <code>R/mode1_report.R</code>). Mode 1-specific HTML report renderer. The existing <code><a href="../reference/generate_report.html">generate_report()</a></code> is wired to coding_state + sentiment + correlations + AI synthesis – none of which exist in Mode 1, and stubbing them out would risk silent Mode 2/3 regressions. The Mode 1 report instead reuses atomic helpers (<code>stamp_methodology_html</code>, <code>.build_tier0_dashboard</code>, <code>.build_participant_spread_card</code>) and adds Mode 1-specific section builders for per-theme provocations grouped by category, the Mode 1 coverage card via <code><a href="../reference/render_tier0_coverage_card.html">render_tier0_coverage_card()</a></code> S3 dispatch, and a deterministic executive summary that surfaces top categories, themes attracting the most disconfirming evidence, and participant- concentration flags.</p></li>
+<li><p><strong><code><a href="../reference/compute_provocation_provenance_stats.html">compute_provocation_provenance_stats()</a></code></strong> (new). Mode 1’s analog of <code><a href="../reference/compute_quote_provenance_stats.html">compute_quote_provenance_stats()</a></code>. Walks <code>reflection_log$provocations</code>, extracts each provocation’s <code>QuoteProvenance</code> field (built and verified by the per-category function via <code>.citation_to_provocation</code>), and feeds them through <code><a href="../reference/quote_provenance_summary.html">quote_provenance_summary()</a></code>. Provocations from observational categories (absent_voice, parts of assumption_surfacing) carry NULL provenance and are excluded from the verification stats – the Tier-0 dashboard’s domain is verbatim claims.</p></li>
+<li><p><strong>ResearcherReflectionLog schema 1.1.0</strong>: adds <code>provocation_attempts</code> and <code>skipped_themes</code> data.frames. The attempt tracker records one row per (theme × category) attempt regardless of how many provocations the AI emitted – the row’s existence proves “not silently skipped” while the <code>n_emitted</code> column measures emission. The skipped_themes tracker records themes the orchestrator bypassed with a stated reason (e.g., zero supporting entries) so the coverage card distinguishes <em>explicit skip with stated reason</em> from <em>silent skip</em>. Backward- compatible: 1.0.0 logs loaded as <code>resume_log</code> have the new slots backfilled empty.</p></li>
+<li><p><strong><code><a href="../reference/render_tier0_coverage_card.html">render_tier0_coverage_card()</a></code> S3 generic</strong> (new in <code>R/corpus_coverage.R</code>). Single dispatch entry point for the report’s Tier-0 coverage card; methods on <code>CorpusCoverage</code> (Mode 2/3, in <code>R/17_report.R</code>) and <code>ProvocationCoverage</code> (Mode 1, in <code>R/mode1_orchestrator.R</code>) keep the call site in <code>.build_rmd_content</code> branch-free. The legacy <code><a href="../reference/dot-build_corpus_coverage_card.html">.build_corpus_coverage_card()</a></code> is preserved as a thin compat wrapper that routes through the generic so existing tests in <code>test-corpus_coverage.R</code> and <code>test-tier0-smoke.R</code> continue to pass.</p></li>
+<li><p><strong><code><a href="../reference/verify_run_integrity.html">verify_run_integrity()</a></code> mode dispatch</strong>. The integrity-check function now dispatches on <code>config$methodology$mode</code>. Mode 1 expects a different artifact set (no sentiment_scores.csv, no correlations.csv, no theme_entries directory; instead reflection_log.json, provocations.csv, provocation_attempts.csv, coverage_mode1.json). Mode 2/3 expectations unchanged.</p></li>
+<li><p><strong>Bug fix</strong>: <code><a href="../reference/find_latest_run.html">find_latest_run()</a></code> regex predated the T1.7 mode-suffixed run dirs (phase 25-27) and silently returned NULL for ANY mode- suffixed dir, breaking the resume path across all modes. Regex updated to allow the optional <code>_M[123]</code> tail. Caught while writing the AC5 resume-finalized refusal test for Mode 1; affects Mode 2 and Mode 3 resume too.</p></li>
+<li><p><strong>Pipeline friendly-error update</strong>: <code>R/18_pipeline.R</code>’s Mode 1 refusal message now points users at <code><a href="../reference/run_mode1.html">run_mode1()</a></code> (the scaffolded entry point) in addition to <code><a href="../reference/run_provocateur_questioning.html">run_provocateur_questioning()</a></code> (the bare loop).</p></li>
+<li>
+<p><strong>Audit-driven hardening (3 parallel general-purpose audit subagents)</strong>. The audit pattern caught real issues that unit-testing alone missed; fixes applied in the same commit:</p>
+<ul><li>
+<strong>C1</strong> <code>attempts_per_category</code> and <code>explicit_skip_reasons</code> now serialize as named JSON objects (previously <code>auto_unbox=TRUE</code> on named integer vectors produced anonymous arrays in <code>coverage_mode1.json</code>, defeating replay/audit). <code>ProvocationCoverage</code> schema bumped 1.0.0 -&gt; 2.0.0.</li>
+<li>
+<strong>H1</strong> <code>compute_mode1_coverage</code> now partitions attempts into in-scope vs out-of-scope WRT <code>requested_categories</code> (previously <code>factor(..., levels=requested)</code> silently dropped unexpected-category rows from <code>attempts_per_category</code> while still counting them via <code>nrow(attempts)</code>, producing contradictory <code>recorded &gt; expected</code>). New fields: <code>n_unexpected_category_attempts</code>, <code>unexpected_categories</code>, <code>no_unexpected_category_attempts</code>.</li>
+<li>
+<strong>H2 / H3</strong> <code>no_silent_skip</code> headline now requires <code>n_themes_input &gt; 0L</code> AND <code>n_themes_attempted &gt; 0L</code> so degenerate states (zero-themes input, all-themes-explicit-skipped) don’t grade as verified coverage. Coverage card banner branches accordingly with distinct messages for each degenerate case.</li>
+<li>
+<strong>M3</strong> Replaced the unconditional <code>no_silent_corpus_truncation = TRUE</code> boolean (which overclaimed – the per-category prompts in <code>R/provocateur.R</code> include only theme-supporting entries, not the full corpus text) with two honest fields: <code>corpus_provided_to_per_category_fns</code> (TRUE – <code>data</code> IS passed) and <code>llm_prompt_includes_full_corpus</code> (FALSE – prompts only embed supporting-entry text). Coverage card adds a “prompt context” note explaining the constraint and flagging corpus-search retrieval as a future phase. The verification ladder still catches any hallucinated entry_id the LLM might invent.</li>
+<li>
+<strong>A.H3</strong> <code>.read_reflection_log_json</code> now uses <code>simplifyVector=FALSE</code> and explicitly re-classes nested <code>Provocation</code> + <code>QuoteProvenance</code> objects after the JSON read (previously the round-trip stripped S3 classes and downstream resume-time consumers gating on <code>inherits(...)</code> would silently emit NA-cited rows).</li>
+<li>
+<strong>A.L4</strong> <code>init_run_state</code> is now called AFTER <code>create_ai_provider</code> so <code>model_primary</code> and <code>model_fast</code> get stamped into <code>run_metadata.json</code> (parity with run_analysis – previously Mode 1 metadata was missing those cross-mode-comparison fields).</li>
+<li>
+<strong>A.H1 / H2</strong> Wrong-mode + finalized-resume errors use single multi-line messages (parity with run_analysis’s friendly-error style); <code>find_latest_run</code> returning NULL on <code>resume=TRUE</code> now logs “No previous run found” instead of falling through silently.</li>
+<li>
+<strong>B (XSS)</strong> Theme names from researcher-supplied input are now HTML-escaped in the executive summary’s concentration-flags and disconfirming-evidence lines (previously a crafted theme name like <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> would interpolate raw into the rendered Rmd). The per-theme provocation section already escaped via <code>.html_esc</code>; this closes the remaining unescaped path.</li>
+<li>
+<strong>B (semantic)</strong> Executive summary now distinguishes “no fabrications detected” (verbatim claims existed AND none failed verification) from “no verbatim claims to verify” (e.g., a Mode 1 run that only used absent_voice or assumption_surfacing erased-terms produces NULL-provenance provocations – nothing to fabricate from).</li>
+</ul></li>
+</ul><p>Phase 31 net adds ~225 tests across <code>test-mode1-coverage.R</code>, <code>test-mode1-orchestrator.R</code>, <code>test-mode1-report.R</code>, plus extensions to <code>test-provocateur.R</code> (attempt-tracking + schema 1.1.0 assertion) and <code>test-mode3-framework.R</code> (run_mode1 reference in the friendly-error). Test count: 2032 -&gt; 2089 net (the audit-fix tests pin every issue listed above so the same bugs cannot regress). R CMD check stays at 0 errors / 0 warnings / 2 routine NOTEs (21 imports + future timestamps – both environmental and unchanged from prior phases).</p>
+</div>
+<div class="section level3">
+<h3 id="pre-publication-rename-thematicai---pakhom-1-0-0">Pre-publication rename: thematicai -&gt; pakhom<a class="anchor" aria-label="anchor" href="#pre-publication-rename-thematicai---pakhom-1-0-0"></a></h3>
+<p>Pre-publication rename so the package’s name matches its GitHub repo and methodology-paper identity. The new name <strong>pakhom</strong> (Coptic ⲡⲁϩⲱⲙ, “eagle”) honors Saint Pachomius the Great (c. 292–348 CE), the Coptic Egyptian abbot whose written <strong>Rule</strong> of communal discipline established the genre of methodology-as-written-document. The package extends that lineage to AI-assisted thematic analysis: methodology is codified at the <strong>architectural</strong> level, not at the configuration level. The Coptic form <em>pakhom</em> (rather than the Hellenized <em>Pachomius</em>) is used deliberately — naming a tradition in its own voice.</p>
+<p>The previous name <em>thematicai</em> had real conflicts that the multi-round investigation surfaced: namespace adjacency to the existing CRAN package <code>thematic</code> (Posit, ggplot2 theming), trademark adjacency to Thematic Analysis Inc. (the YC-backed customer-feedback SaaS company), and an SEO-impossible name (the descriptive phrase “thematic AI” is used by every commercial QDA vendor). pakhom solves all three: clean CRAN namespace, no commercial conflicts, distinctive search profile.</p>
+<p>Mechanical change only — all behavior unchanged. S3 class names like <code>ThematicConfig</code> and <code>ProgressiveCodingState</code> are preserved because they describe what the object <em>is conceptually</em> (a thematic analysis config, a progressive coding state), not the package brand.</p>
+</div>
+<div class="section level3">
+<h3 id="sprint-phase-b-tier-universal-requirements-in-progress-1-0-0">Sprint-4 Phase B: Tier-0 Universal Requirements (in progress)<a class="anchor" aria-label="anchor" href="#sprint-phase-b-tier-universal-requirements-in-progress-1-0-0"></a></h3>
+<p>Phase B addresses the most-cited empirical critiques of LLM-for-TA tools via three “Frankenstein-derived” universal requirements (mandatory in all modes). The naming references Jowsey, Braun, Clarke, Lupton &amp; Fine 2025 (PLOS One, <a href="doi:10.1371/journal.pone.0330217" class="uri">doi:10.1371/journal.pone.0330217</a>) which characterized Microsoft Copilot’s failures as Frankenstein-like assemblage from disconnected fragments.</p>
+<ul><li><p><strong>T0.1 part 1: Quote provenance + 4-step verification ladder</strong> — new <code>R/quote_provenance.R</code> module with <code><a href="../reference/make_quote.html">make_quote()</a></code> constructor (deterministic SHA-1 quote_id, source SHA-256 for drift detection), <code><a href="../reference/verify_quote.html">verify_quote()</a></code> four-step ladder (strict offline string match → normalized match (smart-quote/whitespace/case) → substring search → embedding cosine via provider) that downgrades verification_status accordingly, <code><a href="../reference/verify_quotes.html">verify_quotes()</a></code> batch wrapper, <code><a href="../reference/init_fabrication_log.html">init_fabrication_log()</a></code> / <code><a href="../reference/log_fabrication.html">log_fabrication()</a></code> for the methodology paper’s KPI CSV at <code>outputs/&lt;run&gt;/fabrication_log.csv</code>, and <code><a href="../reference/quote_provenance_summary.html">quote_provenance_summary()</a></code> for the upcoming report dashboard. Verification ladder distinguishes fabricated (text never in source) from drifted (source edited since attribution) via SHA-256 comparison. Render policy: fabricated quotes are never rendered; unverified get warning markers; drifted trigger corpus-integrity warnings. Module is foundation for the upcoming Anthropic Citations API integration (T0.1 part 3).</p></li>
+<li><p><strong>T0.1 part 3a: Tier-0 Data Integrity Dashboard in the report</strong> — every generated HTML report now renders a “Data Integrity Dashboard (T0.1)” card immediately after the Executive Summary, showing how many AI-attributed verbatim claims were checked, how many verified exactly vs fuzzy (with method breakdown by ladder step: string_match, normalized_match, substring_search, embedding_cosine), how many fabrications were dropped, and a relative-path link to <code>outputs/&lt;run&gt;/fabrication_log.csv</code> when fabrications occurred. The dashboard cites Jowsey et al. 2025 <a href="doi:10.1371/journal.pone.0330217" class="uri">doi:10.1371/journal.pone.0330217</a> in its body so reviewers immediately see what the package is doing about the field’s most-cited critique. New <code>compute_quote_provenance_stats(coding_state)</code> exported helper aggregates verification stats from any ProgressiveCodingState; pre-T0.1 states (no <code>$provenance</code> on segments) get an empty-summary dashboard explaining why. Singular/plural noun-verb agreement is correct for both 0, 1, and N+ fabrications.</p></li>
+<li><p><strong>T0.1 part 2: Verification ladder wired into per-entry coding</strong> — <code>.code_entry_progressive()</code> now constructs a <code>QuoteProvenance</code> for every AI-attributed coded segment and runs the 4-step ladder against the source entry text. Fabricated segments are dropped from the codebook AND the entry’s coded_segments AND written to <code>outputs/&lt;run&gt;/fabrication_log.csv</code> AND emit a <code>quote_fabricated</code> audit decision (T1.4 schema slot) for cross-run analysis. Verified segments (exact OR fuzzy) keep the QuoteProvenance attached as <code>seg$provenance</code> so downstream consumers can show verification status, attribute back to the AI call (<code>ai_call_id</code> joins to audit log <code>request_id</code>), and re-verify at report-load time. <code><a href="../reference/run_progressive_coding.html">run_progressive_coding()</a></code> and the pipeline orchestrator gain a <code>fabrication_log</code> parameter (NULL keeps verification active but skips the CSV; pipeline always passes a real log). The previous primitive substring-match validation (which would silently keep AI-fabricated text “as-is”) is removed.</p></li>
+</ul></div>
+<div class="section level3">
+<h3 id="sprint-phase-a-foundation-complete-1-0-0">Sprint-4 Phase A: Foundation (complete)<a class="anchor" aria-label="anchor" href="#sprint-phase-a-foundation-complete-1-0-0"></a></h3>
+<p>The Sprint-4 architectural rebuild transforms pakhom from “AI-assisted thematic analysis tool” into a multi-mode AI-qualitative platform with explicit per-methodology agency configuration, Frankenstein-derived universal requirements, and methodology-as-permission-structure architecture. Phase A lays the foundation; subsequent phases ship the mode clusters, Tier-0 universals, and open-science infrastructure.</p>
+<p>Phase A items shipped (all backward-compatible — existing v1.x configs and runs continue to work):</p>
+<ul><li><p><strong>OS.1: Saturation Signal 2 citation precision</strong> — <code>slope_ratio</code> is now documented as De Paoli &amp; Mathis (2024) Inductive Thematic Saturation ratio (<a href="doi:10.1007/s11135-024-01950-6" class="uri">doi:10.1007/s11135-024-01950-6</a>). The 0.05 stopping threshold is noted as stricter than De Paoli’s illustrative 0.28 single-timepoint observation because we use the ratio as a stopping criterion.</p></li>
+<li><p><strong>OS.2: Correlations reframed as exploratory associations</strong> — themes are inductively derived from the same data the correlations are computed on, so framing the results as significance-tested findings was misleading. Per Rothman (1990, <em>Epidemiology</em> 1(1):43-46), correlations now ship with raw + Benjamini-Hochberg + Bonferroni p-values side-by-side and meaningful-effect-size flags. Reports use “Exploratory Associations” framing with hypothesis-generating language. Legacy column names (<code>p_value</code>, <code>p_adjusted</code>, <code>significant</code>) preserved for back-compat.</p></li>
+<li><p><strong>T1.3: Multi-mode methodology declaration</strong> — three modes shipped: <code>reflexive_scaffold</code> (AI as provocateur, Mode 1), <code>codebook_collaborative</code> (AI proposes, researcher gates, Mode 2), <code>framework_applied</code> (AI applies researcher’s framework, Mode 3). Mode 4 (AI-heavy content analysis) intentionally not shipped per the Cochrane RevMan refusal pattern; content-analytic use case absorbed into Mode 3 via positivist framework choice. New <code><a href="../reference/methodology_decision_aid.html">methodology_decision_aid()</a></code> function provides a 3-question wizard or non-interactive recommendation engine. Configs missing the methodology block fail validation with a pointer to the decision aid. References: Lin (2025) Cognitio Emergens (arXiv:2505.03105), Prahl ARC (Qual Health Res 2026, <a href="doi:10.1177/10497323251401503" class="uri">doi:10.1177/10497323251401503</a>), Jowsey, Braun, Clarke, Lupton &amp; Fine (2025, <a href="doi:10.1177/10778004251401851" class="uri">doi:10.1177/10778004251401851</a>).</p></li>
+<li><p><strong>default_config() warning on silent methodology default</strong> — closes a subtle internal contradiction: phase 11 cited Spool 2011 (&gt;95% of users never change defaults) for “no silent default-mode trap” but <code><a href="../reference/default_config.html">default_config()</a></code> itself was a silent trap. Now warns when called without <code>methodology</code> and falls back to <code>codebook_collaborative</code>; explicit-mode <code>default_config("...")</code> is silent.</p></li>
+<li><p><strong>T1.1: <code><a href="../reference/ai_complete.html">ai_complete()</a></code> returns structured list with provenance</strong> — refactored from returning a bare string to returning <code>list(content, model, usage, finish_reason, raw_response, prompt_hash, request_id)</code>. The structured return unblocks the audit log expansion (T1.4), Structured Outputs migration (T1.2), and replay_run (OS.5) simultaneously. Token usage is normalized across providers (Anthropic’s <code>input_tokens</code>/<code>output_tokens</code> remap to OpenAI-style names); Anthropic’s <code>stop_reason</code> normalizes to canonical <code>stop</code>/<code>length</code>/<code>tool_use</code>. <code>prompt_hash</code> is a SHA-256 over the JSON serialization of the request (stable across R versions and platforms) and is used as the cache key for replay. <code><a href="../reference/ai_complete.html">ai_complete()</a></code> is internal so the change is contained to in-package callers (7 sites updated); no external callers affected.</p></li>
+<li><p><strong>T1.2: Native Structured Outputs migration (OpenAI strict json_schema + Anthropic forced tool-use)</strong> — six task schemas in <code>R/structured_schemas.R</code> (coding, saturation, sentiment, theming, insight, synthesis) replace the prompt-based JSON-mode coercion that previously relied on <code><a href="../reference/parse_json_safely.html">parse_json_safely()</a></code> defensive parsing. With the schema enforced server-side (<code>response_format = list(type = "json_schema", strict = TRUE, ...)</code> for OpenAI; a forced <code>record_analysis</code> tool-call for Anthropic), JSON parse failures are eliminated and schema-drift bugs become impossible: a model update can no longer silently change the response shape. Schemas are designed to satisfy OpenAI’s strict-mode constraints (the stricter of the two providers): every object has <code>additionalProperties = FALSE</code>, every property is in <code>required</code> (optional fields use nullable types like <code>list("integer", "null")</code> for theming’s merge_into), <code>required</code> and <code>enum</code> arrays use <code><a href="https://rdrr.io/r/base/list.html" class="external-link">list()</a></code> to survive jsonlite’s auto_unbox. The <code><a href="../reference/dot-validate_schema.html">.validate_schema()</a></code> helper catches mistakes at package-load and test time so a malformed schema fails fast in R rather than producing an opaque OpenAI 400. Reasoning models (o1/o3/o4) silently fall back to json_mode because they don’t support strict json_schema as of writing. <code>prompt_hash</code> (the OS.5 replay cache key) now includes <code>response_schema</code> so requests with different schemas don’t collide. All six in-package callers migrated (<code>.code_entry_progressive</code>, <code>.ai_saturation_check</code>, <code>analyze_sentiment</code>, <code>.run_merge_pass</code>, <code>generate_insights</code>, <code>generate_ai_synthesis</code>); <code><a href="../reference/parse_json_safely.html">parse_json_safely()</a></code> remains as a defensive parsing layer for one minor version per the Sprint-4 design plan, then will be removed.</p></li>
+<li><p><strong>T1.4: Audit log schema expansion + content-addressable response cache</strong> — <code><a href="../reference/init_audit_log.html">init_audit_log()</a></code> accepts <code>config</code> and auto-stamps <code>methodology_mode</code> on every JSONL record. New <code><a href="../reference/log_ai_request.html">log_ai_request()</a></code> helper records each <code><a href="../reference/ai_complete.html">ai_complete()</a></code> call as an <code>ai_request</code> audit decision with model, usage, finish_reason, prompt_hash, and request_id. Raw API responses are stored content-addressably in <code>api_responses/{prompt_hash}.json</code> via the new <code><a href="../reference/init_response_cache.html">init_response_cache()</a></code>/<code><a href="../reference/cache_response.html">cache_response()</a></code>/<code><a href="../reference/read_cached_response.html">read_cached_response()</a></code> module — JSONL stays light, identical requests dedupe on disk, and the layout is exactly what <code>replay_run()</code> (OS.5) needs. <code><a href="../reference/summarize_audit_log.html">summarize_audit_log()</a></code> surfaces new stats: <code>total_ai_requests</code>, <code>total_tokens_used</code>, <code>ai_requests_by_model</code>, <code>methodology_modes_observed</code>. New decision_types declared up-front so Phases B/C/D items don’t bounce off validation when they land: <code>provocation_emitted</code>, <code>memo_added</code>, <code>positionality_recorded</code>, <code>reflexivity_collapse_detected</code>, <code>mode_changed</code>, <code>quote_verified</code>, <code>quote_fabricated</code>. Schema version bumped 1.0 -&gt; 1.1 (minor: additive, pre-1.1 runs remain comparable to post-1.1 runs because the structural artifacts read by <code><a href="../reference/compare_runs.html">compare_runs()</a></code> are unchanged). Incidental fix: <code>n_written</code> counter in <code>AuditLog</code>/<code>ResponseCache</code> now uses environment-backed state so increments survive R’s pass-by-value semantics — <code><a href="../reference/close_audit_log.html">close_audit_log()</a></code>’s “N decisions recorded” log message now reflects the actual count instead of always reading 0.</p></li>
+</ul></div>
 <div class="section level3">
 <h3 id="pipeline-architecture-1-0-0">Pipeline Architecture<a class="anchor" aria-label="anchor" href="#pipeline-architecture-1-0-0"></a></h3>
 <p>pakhom uses a progressive sequential coding pipeline faithful to how manual reflexive thematic analysis works in NVivo and similar QDA platforms:</p>
@@ -60,7 +506,7 @@
 <h3 id="major-features-1-0-0">Major Features<a class="anchor" aria-label="anchor" href="#major-features-1-0-0"></a></h3>
 <ul><li>Multi-provider AI support (OpenAI GPT-4o, Anthropic Claude Sonnet 4)</li>
 <li>Progressive sequential coding: entries processed one at a time with a growing codebook, just like a human researcher in NVivo. No batch coding, no separate deduplication or consolidation steps</li>
-<li>Thematic saturation detection using triangulated signals: code creation rate monitoring (Guest et al., 2020), code reuse stability (De Paoli &amp; Mathis, 2024 adaptation), and AI self-assessment. Saturation curve saved for publication</li>
+<li>Thematic saturation detection using triangulated signals: code creation rate monitoring (Guest et al., 2020), Inductive Thematic Saturation ratio (De Paoli &amp; Mathis, 2024, <a href="doi:10.1007/s11135-024-01950-6" class="uri">doi:10.1007/s11135-024-01950-6</a>), and AI self-assessment. Saturation curve saved for publication</li>
 <li>Iterative bottom-up theme generation: codes are merged through multiple sequential passes until no more productive groupings exist. Themes and subthemes emerge organically from the data</li>
 <li>Deterministic code-path cascading: entry-to-theme mapping flows through the code hierarchy (no AI re-reading of raw text), faithful to the inductive process</li>
 <li>Code-aware sentiment analysis: sentiment scored after initial coding, using assigned codes as context for more accurate emotional valence detection</li>

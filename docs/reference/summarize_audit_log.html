@@ -23,6 +23,9 @@ recorded decisions. Useful for post-analysis review and reporting."></head><body
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Getting Started</h6></li>
     <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started with pakhom</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Methodology Modes</h6></li>
+    <li><a class="dropdown-item" href="../articles/methodology-modes.html">Methodology Modes: Choosing Mode 1, 2, or 3</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
@@ -37,7 +40,7 @@ recorded decisions. Useful for post-analysis review and reporting."></head><body
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Summarize the AI decision audit log</h1>
-
+      <small class="dont-index">Source: <a href="https://github.com/abanoub-armanious/pakhom/blob/HEAD/R/audit_log.R" class="external-link"><code>R/audit_log.R</code></a></small>
       <div class="d-none name"><code>summarize_audit_log.Rd</code></div>
     </div>
 
@@ -89,8 +92,34 @@ of new codes over time.</p></dd>
 <dd><p>Integer — merge decisions where
 <code>action == "standalone"</code>.</p></dd>
 
+<dt>total_ai_requests</dt>
+<dd><p>Integer (T1.4) — count of <code>ai_request</code>
+records (one per <code>ai_complete</code> call).</p></dd>
+
+<dt>total_tokens_used</dt>
+<dd><p>Integer (T1.4) — sum of <code>usage_total</code>
+across all <code>ai_request</code> records (NA values dropped from the sum).</p></dd>
+
+<dt>ai_requests_by_model</dt>
+<dd><p>Named integer vector (T1.4) — <code>ai_request</code>
+counts per model name.</p></dd>
+
+<dt>methodology_modes_observed</dt>
+<dd><p>Character vector (T1.4) — unique
+non-NA values of the <code>methodology_mode</code> field across all records.
+Should normally be length-1 or length-0; length &gt;1 indicates a run
+where the methodology was changed mid-pipeline (T1.5 mode_change flow).</p></dd>
+
 
 </dl></div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>Sprint-4 T1.4 additions to the returned list: <code>total_ai_requests</code>,
+<code>total_tokens_used</code>, <code>ai_requests_by_model</code>, and
+<code>methodology_modes_observed</code>. Older audit logs missing these fields
+return zero/empty values for the new keys; pre-T1.4 records still surface
+in <code>decisions_by_type</code>/<code>decisions_by_step</code> as before.</p>
+    </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

@@ -1,8 +1,9 @@
 # Extract multi-label emotions from AI response
 
-Handles both the new "emotions" array format and legacy
-"primary_emotion" single string. Returns a semicolon-separated
-all_emotions string.
+Handles the structured-outputs "emotions" array format (T1.2 schema
+lock: .sentiment_schema requires `emotions` and forbids extra
+properties, so a legacy `primary_emotion` field is architecturally
+unreachable here). Returns a semicolon-separated all_emotions string.
 
 ## Usage
 

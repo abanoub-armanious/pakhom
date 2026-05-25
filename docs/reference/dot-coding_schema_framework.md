@@ -1,0 +1,44 @@
+# Schema for the per-entry coding response in Mode 3 (Framework Applied)
+
+Mirrors
+[`.coding_schema()`](https://abanoub-armanious.github.io/pakhom/reference/dot-coding_schema.md)
+but constrains `construct_id` to the framework's allowed construct ids
+plus the literal "anomaly" – the model can label a segment with a
+construct from the framework OR flag it as resisting the framework, but
+cannot invent new constructs. Per AC2 and AC8, Mode 3 is a CONFIGURATION
+of the same schema-based coding architecture, not a separate code path:
+same shape, different enum + an `anomaly_reason` field for non-fitting
+segments.
+
+## Usage
+
+``` r
+.coding_schema_framework(construct_ids)
+```
+
+## Arguments
+
+- construct_ids:
+
+  Character vector of allowed construct ids from the loaded
+  `FrameworkSpec`. The schema enforces that `construct_id` is one of
+  these or the literal "anomaly".
+
+## Details
+
+Returned shape:
+
+
+      {
+        "skipped": boolean,
+        "skip_reason": string,
+        "coded_segments": [
+          {
+            "text": string,
+            "start_char": integer,
+            "end_char": integer,
+            "construct_id": string (one of framework constructs OR "anomaly"),
+            "anomaly_reason": string (non-empty when construct_id="anomaly"; "" otherwise)
+          }, ...
+        ]
+      }

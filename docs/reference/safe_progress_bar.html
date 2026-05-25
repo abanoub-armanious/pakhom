@@ -23,6 +23,9 @@ package can hang. This returns a no-op progress bar in that case."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Getting Started</h6></li>
     <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started with pakhom</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Methodology Modes</h6></li>
+    <li><a class="dropdown-item" href="../articles/methodology-modes.html">Methodology Modes: Choosing Mode 1, 2, or 3</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
@@ -37,7 +40,7 @@ package can hang. This returns a no-op progress bar in that case."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Create a progress bar that works in non-interactive/background mode</h1>
-
+      <small class="dont-index">Source: <a href="https://github.com/abanoub-armanious/pakhom/blob/HEAD/R/utils.R" class="external-link"><code>R/utils.R</code></a></small>
       <div class="d-none name"><code>safe_progress_bar.Rd</code></div>
     </div>
 
@@ -66,6 +69,13 @@ package can hang. This returns a no-op progress bar in that case.</p>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A progress_bar object or a no-op list with a $tick() method</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>Phase 36 (CRAN prep): the <code>progress</code> package is now Suggests
+rather than Imports. When it isn't installed (or the session is
+non-interactive), this falls through to a logger-based progress
+indicator – no functional regression, just no spinning bar.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

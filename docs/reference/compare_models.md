@@ -1,8 +1,10 @@
 # Compare runs that used different AI models for inter-model reliability
 
-A convenience wrapper around [`compare_runs`](compare_runs.md) that
-validates runs used different models and focuses output on agreement
-metrics suitable for reporting inter-model reliability in publications.
+A convenience wrapper around
+[`compare_runs`](https://abanoub-armanious.github.io/pakhom/reference/compare_runs.md)
+that validates runs used different models and focuses output on
+agreement metrics suitable for reporting inter-model reliability in
+publications.
 
 ## Usage
 

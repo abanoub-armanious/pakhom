@@ -23,6 +23,9 @@ from expected by chance."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Getting Started</h6></li>
     <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started with pakhom</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Methodology Modes</h6></li>
+    <li><a class="dropdown-item" href="../articles/methodology-modes.html">Methodology Modes: Choosing Mode 1, 2, or 3</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
@@ -37,7 +40,7 @@ from expected by chance."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Test theme co-occurrence patterns with chi-square tests of independence</h1>
-
+      <small class="dont-index">Source: <a href="https://github.com/abanoub-armanious/pakhom/blob/HEAD/R/14_correlations.R" class="external-link"><code>R/14_correlations.R</code></a></small>
       <div class="d-none name"><code>test_theme_cooccurrence.Rd</code></div>
     </div>
 
@@ -48,7 +51,13 @@ from expected by chance.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">test_theme_cooccurrence</span><span class="op">(</span><span class="va">data</span>, <span class="va">theme_set</span>, min_expected <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">test_theme_cooccurrence</span><span class="op">(</span></span>
+<span>  <span class="va">data</span>,</span>
+<span>  <span class="va">theme_set</span>,</span>
+<span>  min_expected <span class="op">=</span> <span class="fl">5</span>,</span>
+<span>  min_theme_entries <span class="op">=</span> <span class="fl">5L</span>,</span>
+<span>  min_observed_both <span class="op">=</span> <span class="fl">1L</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -66,10 +75,32 @@ from expected by chance.</p>
 <dt id="arg-min-expected">min_expected<a class="anchor" aria-label="anchor" href="#arg-min-expected"></a></dt>
 <dd><p>Minimum expected cell count for chi-square (default 5)</p></dd>
 
+
+<dt id="arg-min-theme-entries">min_theme_entries<a class="anchor" aria-label="anchor" href="#arg-min-theme-entries"></a></dt>
+<dd><p>Integer; themes with fewer than this many
+positive entries are excluded. Default 5L, matching the
+correlation matrix + theme-group test default.</p></dd>
+
+
+<dt id="arg-min-observed-both">min_observed_both<a class="anchor" aria-label="anchor" href="#arg-min-observed-both"></a></dt>
+<dd><p>Integer; M-10 polish. Pairs whose observed
+co-occurrence is below this count are skipped (Fisher tests on
+zero-co-occurrence pairs are uninterpretable). Default 1L.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>Tibble with co-occurrence test results</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>Phase 58 Tier 6 H-16: applies the same <code>min_theme_entries</code> filter
+that <code>prepare_correlation_data</code> and <code>compare_theme_groups</code>
+use, so the three statistical layers report counts over a consistent
+theme cohort. Pre-Phase-58 this function admitted every theme
+regardless of frequency, which produced thousands of degenerate
+Fisher tests on rare themes (the Phase 57 audit found 99.1% of
+Fisher pairs had <code>observed_both = 0</code>).</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

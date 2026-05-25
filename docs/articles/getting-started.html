@@ -36,6 +36,9 @@
 <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Getting Started</h6></li>
     <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started with pakhom</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Methodology Modes</h6></li>
+    <li><a class="dropdown-item" href="../articles/methodology-modes.html">Methodology Modes: Choosing Mode 1, 2, or 3</a></li>
   </ul>
 </li>
       </ul>
@@ -61,7 +64,7 @@
       <h1>Getting Started with pakhom</h1>
             
       
-
+      <small class="dont-index">Source: <a href="https://github.com/abanoub-armanious/pakhom/blob/HEAD/vignettes/getting-started.Rmd" class="external-link"><code>vignettes/getting-started.Rmd</code></a></small>
       <div class="d-none name"><code>getting-started.Rmd</code></div>
     </div>
 
@@ -76,6 +79,14 @@ dataset of text entries (e.g., forum posts, survey responses, interview
 transcripts) and produces a publication-quality HTML report containing
 themes, codes, sentiment analysis, correlation analysis, and supporting
 evidence.</p>
+<p>The package’s name is the Coptic word for <em>eagle</em> and honors
+Saint Pachomius the Great (c. 292–348 CE), whose written
+<strong>Rule</strong> of communal discipline established the genre of
+methodology-as-written-document. pakhom (the package) extends that
+lineage to AI-assisted qualitative analysis: methodology is codified at
+the architectural level, not left to user discipline at the
+configuration level. See <code><a href="../reference/pakhom-package.html">?pakhom</a></code> for the longer note on the
+name.</p>
 <p>You give it your data and your research question. It gives you back a
 complete thematic analysis – including the kinds of tables, figures, and
 statistical tests you would normally produce by hand over weeks of
@@ -118,9 +129,14 @@ codebook before theming</li>
 sentiment scores using the codes assigned to each entry as context for
 more accurate scoring</li>
 <li>
-<strong>Iterative bottom-up theme generation</strong> – Codes are
-merged in multiple passes until no more productive groupings exist.
-Themes and subthemes emerge organically from the merge depth</li>
+<strong>HAC + AI-judged theme generation</strong> (Phase 52) – code
+embeddings are clustered with hierarchical agglomerative clustering
+(ward.D2 linkage on cosine distance; Jaccard fallback). An AI judge
+walks the dendrogram top-down and decides <code>coherent_theme</code> /
+<code>split_required</code> / <code>atomic_outlier</code> at every
+internal node, articulating the central organizing concept before each
+decision. Subthemes recurse up to <code>max_subtheme_depth</code> when a
+subtheme exceeds <code>max_codes_per_subtheme</code> codes</li>
 <li>
 <strong>Deterministic theme cascading</strong> – Entry-to-theme
 assignment flows through the code hierarchy (pure R, no AI re-reading of
@@ -140,13 +156,48 @@ entries have been processed and continues from where it left off.</p>
 </div>
 </div>
 <div class="section level2">
+<h2 id="which-mode-is-this-vignette-for">Which mode is this vignette for?<a class="anchor" aria-label="anchor" href="#which-mode-is-this-vignette-for"></a>
+</h2>
+<p>pakhom has <strong>three methodology modes</strong> (Reflexive
+Scaffold, Codebook Collaborative, Framework Applied). The mode
+declaration is mandatory in every config; it shapes what the AI may
+produce, what the researcher must author, and which transparency
+artifacts are mandatory.</p>
+<p><strong>This getting-started vignette covers Mode 2 (Codebook
+Collaborative)</strong> — the auto-pipeline you’d recognize from manual
+codebook TA. The AI proposes codes + themes; you gate each at
+pause-points; the package produces a publication-quality HTML report
+with full audit trail.</p>
+<p>For a worked example of all three modes plus a decision rubric for
+choosing among them, see <code><a href="../articles/methodology-modes.html">vignette("methodology-modes")</a></code>. In
+short:</p>
+<ul>
+<li>
+<strong>Mode 1 (<code>reflexive_scaffold</code>)</strong> — AI as
+Socratic gadfly; researcher authors all themes + codes; pakhom
+contributes provocations only. Use <a href="../reference/run_mode1.html"><code>run_mode1()</code></a>. Best
+for reflexive TA + constructionist epistemology.</li>
+<li>
+<strong>Mode 2 (<code>codebook_collaborative</code>)</strong> — AI
+proposes codes + themes; researcher gates each. Use <a href="../reference/run_analysis.html"><code>run_analysis()</code></a>.
+This vignette.</li>
+<li>
+<strong>Mode 3 (<code>framework_applied</code>)</strong> — Apply a
+researcher-supplied theoretical framework (TPB, COM-B, TDF, or your own)
+verbatim; flag anomalies. Use <a href="../reference/run_analysis.html"><code>run_analysis()</code></a>
+with <code>methodology.framework_spec_path</code> set. Best for
+theory-driven / deductive analyses.</li>
+</ul>
+<hr>
+</div>
+<div class="section level2">
 <h2 id="prerequisites">Prerequisites<a class="anchor" aria-label="anchor" href="#prerequisites"></a>
 </h2>
 <div class="section level3">
 <h3 id="r-and-rstudio">R and RStudio<a class="anchor" aria-label="anchor" href="#r-and-rstudio"></a>
 </h3>
 <p>You need R (version 4.1 or higher) installed on your computer. We
-strongly recommend using <a href="https://posit.co/download/rstudio-desktop/" class="external-link">RStudio</a>, which
+strongly recommend using <a href="https://posit.co/download/rstudio-desktop" class="external-link">RStudio</a>, which
 provides a user-friendly interface for running R code.</p>
 <p>If you have never used R before: RStudio has a console pane (usually
 at the bottom left) where you type commands and press Enter to run them.
@@ -179,6 +230,7 @@ version control. The package reads it from an environment variable
 another format, you can convert it:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Convert a CSV to SQLite</span></span>
+<span><span class="co"># install.packages(c("DBI", "RSQLite"))   # if not already installed</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://dbi.r-dbi.org" class="external-link">DBI</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://rsqlite.r-dbi.org" class="external-link">RSQLite</a></span><span class="op">)</span></span>
 <span></span>
@@ -201,19 +253,21 @@ prepared.</strong> If you do want to use it, note that as of November
 2025 Reddit no longer offers self-service API key creation — you must
 first be approved through Reddit’s Responsible Builder Program:</p>
 <ul>
-<li>Review the policy: <a href="https://support.reddithelp.com/hc/en-us/articles/42728983564564-Responsible-Builder-Policy" class="external-link uri">https://support.reddithelp.com/hc/en-us/articles/42728983564564-Responsible-Builder-Policy</a>
+<li><p>Review the policy: <a href="https://support.reddithelp.com/hc/en-us/articles/42728983564564-Responsible-Builder-Policy" class="external-link uri">https://support.reddithelp.com/hc/en-us/articles/42728983564564-Responsible-Builder-Policy</a></p></li>
+<li><p>File a support ticket describing your use case (subreddits,
+expected request volume, whether commercial vs academic). Target
+turnaround is ~7 days for academic / non-commercial research.</p></li>
+<li><p>For sensitive-population subreddits (e.g. anything
+health-related), Reddit reviewers significantly favor applications that
+cite IRB approval or an exemption letter from your institution.</p></li>
+<li>
+<p>Once approved, store credentials in <code>.Renviron</code>:</p>
+<pre><code>REDDIT_CLIENT_ID=your_id_here
+REDDIT_CLIENT_SECRET=your_secret_here
+REDDIT_USER_AGENT=pakhom/1.0.0 (by u/YourRedditUsername)</code></pre>
 </li>
-<li>File a support ticket describing your use case (subreddits, expected
-request volume, whether commercial vs academic). Target turnaround is ~7
-days for academic / non-commercial research.</li>
-<li>For sensitive-population subreddits (e.g. anything health-related),
-Reddit reviewers significantly favor applications that cite IRB approval
-or an exemption letter from your institution.</li>
-<li>Once approved, store credentials in <code>.Renviron</code>:
-<code>REDDIT_CLIENT_ID=your_id_here     REDDIT_CLIENT_SECRET=your_secret_here     REDDIT_USER_AGENT=pakhom/1.0.0 (by u/YourRedditUsername)</code>
-</li>
-<li>In your config: <code>scraping.enabled: true</code> plus the list of
-subreddits.</li>
+<li><p>In your config: <code>scraping.enabled: true</code> plus the list
+of subreddits.</p></li>
 </ul>
 <p>If approval is pending or you’d rather skip the scraper, just leave
 <code>scraping.enabled: false</code> (the default) and load your own
@@ -225,14 +279,14 @@ prefer.</p>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Install from a local copy of the package:</span></span>
 <span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/install.html" class="external-link">install</a></span><span class="op">(</span><span class="st">"path/to/pakhom"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="co"># Or if hosted on GitHub:</span></span>
-<span><span class="co"># devtools::install_github("username/pakhom")</span></span></code></pre></div>
+<span><span class="co"># Or install directly from GitHub:</span></span>
+<span><span class="co"># devtools::install_github("abanoub-armanious/pakhom")</span></span></code></pre></div>
 <p>If you see errors about missing packages, install them first:</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"dplyr"</span>, <span class="st">"tibble"</span>, <span class="st">"stringr"</span>, <span class="st">"readr"</span>, <span class="st">"jsonlite"</span>,</span>
 <span>                    <span class="st">"yaml"</span>, <span class="st">"DBI"</span>, <span class="st">"RSQLite"</span>, <span class="st">"httr2"</span>, <span class="st">"stringdist"</span>,</span>
 <span>                    <span class="st">"corrplot"</span>, <span class="st">"ggplot2"</span>, <span class="st">"rmarkdown"</span>, <span class="st">"knitr"</span>,</span>
@@ -246,15 +300,15 @@ prefer.</p>
 file. This file lives in your home directory and is read automatically
 when R starts.</p>
 <p><strong>On Mac/Linux</strong>, open a terminal and run:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="bu">echo</span> <span class="st">'OPENAI_API_KEY=sk-proj-your-key-here'</span> <span class="op">&gt;&gt;</span> ~/.Renviron</span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="bu">echo</span> <span class="st">'OPENAI_API_KEY=sk-proj-your-key-here'</span> <span class="op">&gt;&gt;</span> ~/.Renviron</span></code></pre></div>
 <p><strong>On Windows</strong>, run this in R:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># This opens the file for editing</span></span>
 <span><span class="fu">usethis</span><span class="fu">::</span><span class="fu"><a href="https://usethis.r-lib.org/reference/edit.html" class="external-link">edit_r_environ</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co"># Add the line: OPENAI_API_KEY=sk-proj-your-key-here</span></span>
 <span><span class="co"># Save and restart R</span></span></code></pre></div>
 <p>Verify it works:</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Sys.getenv.html" class="external-link">Sys.getenv</a></span><span class="op">(</span><span class="st">"OPENAI_API_KEY"</span><span class="op">)</span></span>
 <span><span class="co"># Should print your key (not an empty string)</span></span></code></pre></div>
 <p>For Anthropic, use <code>ANTHROPIC_API_KEY</code> instead.</p>
@@ -269,7 +323,7 @@ options:</p>
 <div class="section level3">
 <h3 id="option-a-web-based-wizard-recommended">Option A: Web-Based Wizard (Recommended)<a class="anchor" aria-label="anchor" href="#option-a-web-based-wizard-recommended"></a>
 </h3>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">pakhom</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/config_wizard_app.html">config_wizard_app</a></span><span class="op">(</span><span class="st">"config.yaml"</span><span class="op">)</span></span></code></pre></div>
 <p>This opens a step-by-step web interface in your browser where you can
@@ -280,7 +334,7 @@ package (<code>install.packages("shiny")</code>).</p>
 <div class="section level3">
 <h3 id="option-b-cli-wizard">Option B: CLI Wizard<a class="anchor" aria-label="anchor" href="#option-b-cli-wizard"></a>
 </h3>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/config_wizard.html">config_wizard</a></span><span class="op">(</span><span class="st">"config.yaml"</span><span class="op">)</span></span></code></pre></div>
 <p>A simpler text-based wizard that runs in your R console.</p>
 </div>
@@ -289,28 +343,28 @@ package (<code>install.packages("shiny")</code>).</p>
 </h3>
 <p>Create a file called <code>config.yaml</code> in your project
 directory. Here is a minimal example:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">study</span><span class="kw">:</span></span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> </span><span class="st">"My Research Study"</span></span>
-<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="at">  </span><span class="fu">research_focus</span><span class="kw">:</span><span class="at"> </span><span class="st">"How does medication affect the interplay between sleep and binge eating?"</span></span>
-<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="at">  </span><span class="fu">research_context</span><span class="kw">:</span><span class="at"> </span><span class="st">"Online forum discussions from Reddit"</span></span>
-<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a><span class="at">  </span><span class="fu">concepts</span><span class="kw">:</span></span>
-<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="st">"medication"</span></span>
-<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="st">"sleep"</span></span>
-<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="st">"binge eating"</span></span>
-<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a></span>
-<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a><span class="fu">ai</span><span class="kw">:</span></span>
-<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a><span class="at">  </span><span class="fu">provider</span><span class="kw">:</span><span class="at"> </span><span class="st">"openai"</span></span>
-<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a><span class="at">  </span><span class="fu">openai</span><span class="kw">:</span></span>
-<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a><span class="at">    </span><span class="fu">api_key_env</span><span class="kw">:</span><span class="at"> </span><span class="st">"OPENAI_API_KEY"</span></span>
-<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a></span>
-<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
-<span id="cb9-16"><a href="#cb9-16" tabindex="-1"></a><span class="at">  </span><span class="fu">database</span><span class="kw">:</span><span class="at"> </span><span class="st">"my_data.db"</span></span>
-<span id="cb9-17"><a href="#cb9-17" tabindex="-1"></a><span class="at">  </span><span class="fu">tables</span><span class="kw">:</span><span class="at"> </span><span class="st">"posts"</span></span>
-<span id="cb9-18"><a href="#cb9-18" tabindex="-1"></a><span class="at">  </span><span class="fu">source_type</span><span class="kw">:</span><span class="at"> </span><span class="st">"reddit"</span></span>
-<span id="cb9-19"><a href="#cb9-19" tabindex="-1"></a></span>
-<span id="cb9-20"><a href="#cb9-20" tabindex="-1"></a><span class="fu">output</span><span class="kw">:</span></span>
-<span id="cb9-21"><a href="#cb9-21" tabindex="-1"></a><span class="at">  </span><span class="fu">results_dir</span><span class="kw">:</span><span class="at"> </span><span class="st">"outputs/results"</span></span>
-<span id="cb9-22"><a href="#cb9-22" tabindex="-1"></a><span class="at">  </span><span class="fu">generate_report</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">study</span><span class="kw">:</span></span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> </span><span class="st">"My Research Study"</span></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="at">  </span><span class="fu">research_focus</span><span class="kw">:</span><span class="at"> </span><span class="st">"How does medication affect the interplay between sleep and binge eating?"</span></span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a><span class="at">  </span><span class="fu">research_context</span><span class="kw">:</span><span class="at"> </span><span class="st">"Online forum discussions from Reddit"</span></span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a><span class="at">  </span><span class="fu">concepts</span><span class="kw">:</span></span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="st">"medication"</span></span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="st">"sleep"</span></span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="st">"binge eating"</span></span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a></span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a><span class="fu">ai</span><span class="kw">:</span></span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a><span class="at">  </span><span class="fu">provider</span><span class="kw">:</span><span class="at"> </span><span class="st">"openai"</span></span>
+<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a><span class="at">  </span><span class="fu">openai</span><span class="kw">:</span></span>
+<span id="cb10-13"><a href="#cb10-13" tabindex="-1"></a><span class="at">    </span><span class="fu">api_key_env</span><span class="kw">:</span><span class="at"> </span><span class="st">"OPENAI_API_KEY"</span></span>
+<span id="cb10-14"><a href="#cb10-14" tabindex="-1"></a></span>
+<span id="cb10-15"><a href="#cb10-15" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
+<span id="cb10-16"><a href="#cb10-16" tabindex="-1"></a><span class="at">  </span><span class="fu">database</span><span class="kw">:</span><span class="at"> </span><span class="st">"my_data.db"</span></span>
+<span id="cb10-17"><a href="#cb10-17" tabindex="-1"></a><span class="at">  </span><span class="fu">tables</span><span class="kw">:</span><span class="at"> </span><span class="st">"posts"</span></span>
+<span id="cb10-18"><a href="#cb10-18" tabindex="-1"></a><span class="at">  </span><span class="fu">source_type</span><span class="kw">:</span><span class="at"> </span><span class="st">"reddit"</span></span>
+<span id="cb10-19"><a href="#cb10-19" tabindex="-1"></a></span>
+<span id="cb10-20"><a href="#cb10-20" tabindex="-1"></a><span class="fu">output</span><span class="kw">:</span></span>
+<span id="cb10-21"><a href="#cb10-21" tabindex="-1"></a><span class="at">  </span><span class="fu">results_dir</span><span class="kw">:</span><span class="at"> </span><span class="st">"outputs/results"</span></span>
+<span id="cb10-22"><a href="#cb10-22" tabindex="-1"></a><span class="at">  </span><span class="fu">generate_report</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="understanding-the-key-settings">Understanding the Key Settings<a class="anchor" aria-label="anchor" href="#understanding-the-key-settings"></a>
@@ -336,7 +390,7 @@ If unsure, use <code>"generic"</code>.</p>
 <h2 id="step-3-explore-your-data">Step 3: Explore Your Data<a class="anchor" aria-label="anchor" href="#step-3-explore-your-data"></a>
 </h2>
 <p>Before running the analysis, preview what is in your database:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">pakhom</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">config</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/load_config.html">load_config</a></span><span class="op">(</span><span class="st">"config.yaml"</span><span class="op">)</span></span>
@@ -349,7 +403,7 @@ you expect.</p>
 <div class="section level2">
 <h2 id="step-4-run-the-analysis">Step 4: Run the Analysis<a class="anchor" aria-label="anchor" href="#step-4-run-the-analysis"></a>
 </h2>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_analysis.html">run_analysis</a></span><span class="op">(</span><span class="st">"config.yaml"</span><span class="op">)</span></span></code></pre></div>
 <p>This runs the full pipeline. Depending on your dataset size, it may
 take 10–30 minutes. You will see progress messages in the console
@@ -357,7 +411,7 @@ showing which step is currently running.</p>
 <p><strong>If something goes wrong mid-run</strong> (network error,
 computer crash, etc.), simply re-run with
 <code>resume = TRUE</code>:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_analysis.html">run_analysis</a></span><span class="op">(</span><span class="st">"config.yaml"</span>, resume <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
 <p>The package saves checkpoints after each expensive step. Resuming
 skips already-completed steps and continues from where it left off.</p>
@@ -421,7 +475,7 @@ it in your web browser. It contains:</p>
 <div class="section level3">
 <h3 id="working-with-results-in-r">Working with Results in R<a class="anchor" aria-label="anchor" href="#working-with-results-in-r"></a>
 </h3>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Access the theme set</span></span>
 <span><span class="va">ts</span> <span class="op">&lt;-</span> <span class="va">results</span><span class="op">$</span><span class="va">theme_set</span></span>
 <span><span class="fu"><a href="../reference/theme_names.html">theme_names</a></span><span class="op">(</span><span class="va">ts</span><span class="op">)</span>          <span class="co"># List theme names</span></span>
@@ -450,10 +504,10 @@ it in your web browser. It contains:</p>
 <p>By default, the pipeline runs end-to-end without stopping. But for
 rigorous research, you often want to review and curate the AI’s
 decisions at critical points. Enable review points in your config:</p>
-<div class="sourceCode" id="cb14"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="fu">analysis</span><span class="kw">:</span></span>
-<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a><span class="at">  </span><span class="fu">review_points</span><span class="kw">:</span></span>
-<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a><span class="at">    </span><span class="fu">after_coding</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">          # Review codebook after progressive coding</span></span>
-<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a><span class="at">    </span><span class="fu">after_themes</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">          # Review themes before assignment</span></span></code></pre></div>
+<div class="sourceCode" id="cb15"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="fu">analysis</span><span class="kw">:</span></span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a><span class="at">  </span><span class="fu">review_points</span><span class="kw">:</span></span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a><span class="at">    </span><span class="fu">after_coding</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">          # Review codebook after progressive coding</span></span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a><span class="at">    </span><span class="fu">after_themes</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">          # Review themes before assignment</span></span></code></pre></div>
 <div class="section level3">
 <h3 id="how-review-points-work">How Review Points Work<a class="anchor" aria-label="anchor" href="#how-review-points-work"></a>
 </h3>
@@ -517,9 +571,8 @@ to rename it)</li>
 <div class="section level2">
 <h2 id="learning-from-previous-studies">Learning from Previous Studies<a class="anchor" aria-label="anchor" href="#learning-from-previous-studies"></a>
 </h2>
-<p>If you have previously completed manual thematic analyses, pakhom
-can learn from them to produce more consistent and calibrated
-results.</p>
+<p>If you have previously completed manual thematic analyses, pakhom can
+learn from them to produce more consistent and calibrated results.</p>
 <div class="section level3">
 <h3 id="setting-up">Setting Up<a class="anchor" aria-label="anchor" href="#setting-up"></a>
 </h3>
@@ -538,9 +591,9 @@ study should have its own subfolder ending with the word “study”:</p>
 <div class="section level3">
 <h3 id="configuring">Configuring<a class="anchor" aria-label="anchor" href="#configuring"></a>
 </h3>
-<div class="sourceCode" id="cb16"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="fu">learning</span><span class="kw">:</span></span>
-<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a><span class="at">  </span><span class="fu">enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
-<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a><span class="at">  </span><span class="fu">base_dir</span><span class="kw">:</span><span class="at"> </span><span class="st">"manual analyses"</span></span></code></pre></div>
+<div class="sourceCode" id="cb17"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="fu">learning</span><span class="kw">:</span></span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a><span class="at">  </span><span class="fu">enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a><span class="at">  </span><span class="fu">base_dir</span><span class="kw">:</span><span class="at"> </span><span class="st">"manual analyses"</span></span></code></pre></div>
 <p>The AI reads the themes and results sections from your manuscripts
 and uses them as calibration data. This helps it understand what level
 of specificity and depth you expect in themes, and what kinds of codes
@@ -554,112 +607,118 @@ are relevant to your research area.</p>
 <div class="section level3">
 <h3 id="full-configuration-reference">Full Configuration Reference<a class="anchor" aria-label="anchor" href="#full-configuration-reference"></a>
 </h3>
-<div class="sourceCode" id="cb17"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="fu">study</span><span class="kw">:</span></span>
-<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> </span><span class="st">"Study Name"</span></span>
-<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a><span class="at">  </span><span class="fu">research_focus</span><span class="kw">:</span><span class="at"> </span><span class="st">"Your research question"</span></span>
-<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a><span class="at">  </span><span class="fu">research_context</span><span class="kw">:</span><span class="at"> </span><span class="st">"Context description"</span></span>
-<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a><span class="at">  </span><span class="fu">concepts</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">"concept1"</span><span class="kw">,</span><span class="at"> </span><span class="st">"concept2"</span><span class="kw">,</span><span class="at"> </span><span class="st">"concept3"</span><span class="kw">]</span></span>
-<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a><span class="at">  </span><span class="fu">researcher_positionality</span><span class="kw">:</span><span class="at"> </span><span class="st">"Optional: your perspective as researcher"</span></span>
-<span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a></span>
-<span id="cb17-8"><a href="#cb17-8" tabindex="-1"></a><span class="fu">ai</span><span class="kw">:</span></span>
-<span id="cb17-9"><a href="#cb17-9" tabindex="-1"></a><span class="at">  </span><span class="fu">provider</span><span class="kw">:</span><span class="at"> </span><span class="st">"openai"</span><span class="co">              # "openai" or "anthropic"</span></span>
-<span id="cb17-10"><a href="#cb17-10" tabindex="-1"></a><span class="at">  </span><span class="fu">openai</span><span class="kw">:</span></span>
-<span id="cb17-11"><a href="#cb17-11" tabindex="-1"></a><span class="at">    </span><span class="fu">api_key_env</span><span class="kw">:</span><span class="at"> </span><span class="st">"OPENAI_API_KEY"</span><span class="co"> # Environment variable name</span></span>
-<span id="cb17-12"><a href="#cb17-12" tabindex="-1"></a><span class="at">    </span><span class="fu">models</span><span class="kw">:</span></span>
-<span id="cb17-13"><a href="#cb17-13" tabindex="-1"></a><span class="at">      </span><span class="fu">primary</span><span class="kw">:</span><span class="at"> </span><span class="st">"gpt-4o"</span><span class="co">           # Main analysis model</span></span>
-<span id="cb17-14"><a href="#cb17-14" tabindex="-1"></a><span class="at">      </span><span class="fu">fast</span><span class="kw">:</span><span class="at"> </span><span class="st">"gpt-4o-mini"</span><span class="co">         # Used for batch operations</span></span>
-<span id="cb17-15"><a href="#cb17-15" tabindex="-1"></a><span class="at">    </span><span class="fu">rate_limits</span><span class="kw">:</span></span>
-<span id="cb17-16"><a href="#cb17-16" tabindex="-1"></a><span class="at">      </span><span class="fu">rpm</span><span class="kw">:</span><span class="at"> </span><span class="dv">500</span><span class="co">                    # Requests per minute</span></span>
-<span id="cb17-17"><a href="#cb17-17" tabindex="-1"></a><span class="at">      </span><span class="fu">tpm</span><span class="kw">:</span><span class="at"> </span><span class="dv">150000</span><span class="co">                 # Tokens per minute</span></span>
-<span id="cb17-18"><a href="#cb17-18" tabindex="-1"></a></span>
-<span id="cb17-19"><a href="#cb17-19" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
-<span id="cb17-20"><a href="#cb17-20" tabindex="-1"></a><span class="at">  </span><span class="fu">database</span><span class="kw">:</span><span class="at"> </span><span class="st">"data.db"</span></span>
-<span id="cb17-21"><a href="#cb17-21" tabindex="-1"></a><span class="at">  </span><span class="fu">tables</span><span class="kw">:</span><span class="at"> </span><span class="st">"posts"</span><span class="co">                 # Single table or list of tables</span></span>
-<span id="cb17-22"><a href="#cb17-22" tabindex="-1"></a><span class="at">  </span><span class="fu">source_type</span><span class="kw">:</span><span class="at"> </span><span class="st">"reddit"</span><span class="co">           # reddit, twitter, clinical, generic</span></span>
-<span id="cb17-23"><a href="#cb17-23" tabindex="-1"></a><span class="at">  </span><span class="fu">preprocessing</span><span class="kw">:</span></span>
-<span id="cb17-24"><a href="#cb17-24" tabindex="-1"></a><span class="at">    </span><span class="fu">min_char</span><span class="kw">:</span><span class="at"> </span><span class="dv">50</span><span class="co">                  # Minimum characters to keep an entry</span></span>
-<span id="cb17-25"><a href="#cb17-25" tabindex="-1"></a><span class="at">    </span><span class="fu">saturation_enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">       # Enable thematic saturation detection</span></span>
-<span id="cb17-26"><a href="#cb17-26" tabindex="-1"></a></span>
-<span id="cb17-27"><a href="#cb17-27" tabindex="-1"></a><span class="fu">learning</span><span class="kw">:</span></span>
-<span id="cb17-28"><a href="#cb17-28" tabindex="-1"></a><span class="at">  </span><span class="fu">enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span></span>
-<span id="cb17-29"><a href="#cb17-29" tabindex="-1"></a><span class="at">  </span><span class="fu">base_dir</span><span class="kw">:</span><span class="at"> </span><span class="st">"manual analyses"</span></span>
-<span id="cb17-30"><a href="#cb17-30" tabindex="-1"></a></span>
-<span id="cb17-31"><a href="#cb17-31" tabindex="-1"></a><span class="fu">analysis</span><span class="kw">:</span></span>
-<span id="cb17-32"><a href="#cb17-32" tabindex="-1"></a><span class="at">  </span><span class="fu">test_mode</span><span class="kw">:</span></span>
-<span id="cb17-33"><a href="#cb17-33" tabindex="-1"></a><span class="at">    </span><span class="fu">enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span><span class="co">                # Set true for quick validation runs</span></span>
-<span id="cb17-34"><a href="#cb17-34" tabindex="-1"></a><span class="at">    </span><span class="fu">sample_size</span><span class="kw">:</span><span class="at"> </span><span class="dv">100</span></span>
-<span id="cb17-35"><a href="#cb17-35" tabindex="-1"></a><span class="at">    </span><span class="fu">seed</span><span class="kw">:</span><span class="at"> </span><span class="dv">42</span></span>
-<span id="cb17-36"><a href="#cb17-36" tabindex="-1"></a></span>
-<span id="cb17-37"><a href="#cb17-37" tabindex="-1"></a><span class="at">  </span><span class="fu">coding</span><span class="kw">:</span></span>
-<span id="cb17-38"><a href="#cb17-38" tabindex="-1"></a><span class="at">    </span><span class="fu">progressive</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">             # One entry at a time (sequential coding)</span></span>
-<span id="cb17-39"><a href="#cb17-39" tabindex="-1"></a><span class="at">    </span><span class="fu">include_in_vivo</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
-<span id="cb17-40"><a href="#cb17-40" tabindex="-1"></a><span class="at">    </span><span class="fu">max_retries_per_entry</span><span class="kw">:</span><span class="at"> </span><span class="dv">1</span></span>
-<span id="cb17-41"><a href="#cb17-41" tabindex="-1"></a><span class="at">    </span><span class="fu">checkpoint_interval</span><span class="kw">:</span><span class="at"> </span><span class="dv">50</span><span class="co">       # Save progress every N entries</span></span>
-<span id="cb17-42"><a href="#cb17-42" tabindex="-1"></a></span>
-<span id="cb17-43"><a href="#cb17-43" tabindex="-1"></a><span class="at">  </span><span class="fu">sentiment</span><span class="kw">:</span></span>
-<span id="cb17-44"><a href="#cb17-44" tabindex="-1"></a><span class="at">    </span><span class="fu">code_aware</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">              # Use codes as context for sentiment</span></span>
-<span id="cb17-45"><a href="#cb17-45" tabindex="-1"></a><span class="at">    </span><span class="fu">batch_size</span><span class="kw">:</span><span class="at"> </span><span class="dv">20</span></span>
-<span id="cb17-46"><a href="#cb17-46" tabindex="-1"></a><span class="at">    </span><span class="fu">dynamic_batching</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
-<span id="cb17-47"><a href="#cb17-47" tabindex="-1"></a></span>
-<span id="cb17-48"><a href="#cb17-48" tabindex="-1"></a><span class="at">  </span><span class="fu">themes</span><span class="kw">:</span></span>
-<span id="cb17-49"><a href="#cb17-49" tabindex="-1"></a><span class="at">    </span><span class="fu">merge_strategy</span><span class="kw">:</span><span class="at"> </span><span class="st">"auto"</span><span class="co">        # "auto" or "manual" (pause each pass)</span></span>
-<span id="cb17-50"><a href="#cb17-50" tabindex="-1"></a><span class="at">    </span><span class="fu">max_merge_passes</span><span class="kw">:</span><span class="at"> </span><span class="dv">5</span></span>
-<span id="cb17-51"><a href="#cb17-51" tabindex="-1"></a><span class="at">    </span><span class="fu">min_merges_to_continue</span><span class="kw">:</span><span class="at"> </span><span class="dv">2</span></span>
-<span id="cb17-52"><a href="#cb17-52" tabindex="-1"></a></span>
-<span id="cb17-53"><a href="#cb17-53" tabindex="-1"></a><span class="at">  </span><span class="fu">human_verification</span><span class="kw">:</span></span>
-<span id="cb17-54"><a href="#cb17-54" tabindex="-1"></a><span class="at">    </span><span class="fu">enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span><span class="co">                # Enable for inter-rater reliability</span></span>
-<span id="cb17-55"><a href="#cb17-55" tabindex="-1"></a><span class="at">    </span><span class="fu">sample_size</span><span class="kw">:</span><span class="at"> </span><span class="dv">20</span></span>
-<span id="cb17-56"><a href="#cb17-56" tabindex="-1"></a><span class="at">    </span><span class="fu">seed</span><span class="kw">:</span><span class="at"> </span><span class="dv">42</span></span>
-<span id="cb17-57"><a href="#cb17-57" tabindex="-1"></a></span>
-<span id="cb17-58"><a href="#cb17-58" tabindex="-1"></a><span class="at">  </span><span class="fu">review_points</span><span class="kw">:</span></span>
-<span id="cb17-59"><a href="#cb17-59" tabindex="-1"></a><span class="at">    </span><span class="fu">after_coding</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span><span class="co">           # Pause for codebook review</span></span>
-<span id="cb17-60"><a href="#cb17-60" tabindex="-1"></a><span class="at">    </span><span class="fu">after_themes</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span><span class="co">           # Pause for theme review</span></span>
-<span id="cb17-61"><a href="#cb17-61" tabindex="-1"></a></span>
-<span id="cb17-62"><a href="#cb17-62" tabindex="-1"></a><span class="at">  </span><span class="fu">themes</span><span class="kw">:</span></span>
-<span id="cb17-63"><a href="#cb17-63" tabindex="-1"></a><span class="at">    </span><span class="fu">min_themes</span><span class="kw">:</span><span class="at"> </span><span class="dv">3</span></span>
-<span id="cb17-64"><a href="#cb17-64" tabindex="-1"></a><span class="at">    </span><span class="fu">max_themes</span><span class="kw">:</span><span class="at"> </span><span class="dv">10</span></span>
-<span id="cb17-65"><a href="#cb17-65" tabindex="-1"></a><span class="at">    </span><span class="fu">multi_label_assignment</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">  # Allow entries in multiple themes</span></span>
-<span id="cb17-66"><a href="#cb17-66" tabindex="-1"></a><span class="at">    </span><span class="fu">membership_threshold</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.15</span><span class="co">   # Minimum confidence for theme membership</span></span>
-<span id="cb17-67"><a href="#cb17-67" tabindex="-1"></a><span class="at">    </span><span class="fu">max_theme_proportion</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.60</span><span class="co">   # Max fraction of entries in one theme</span></span>
-<span id="cb17-68"><a href="#cb17-68" tabindex="-1"></a><span class="at">    </span><span class="fu">max_rebalance_iterations</span><span class="kw">:</span><span class="at"> </span><span class="dv">3</span></span>
-<span id="cb17-69"><a href="#cb17-69" tabindex="-1"></a><span class="at">    </span><span class="fu">review_iterations</span><span class="kw">:</span><span class="at"> </span><span class="dv">2</span></span>
-<span id="cb17-70"><a href="#cb17-70" tabindex="-1"></a></span>
-<span id="cb17-71"><a href="#cb17-71" tabindex="-1"></a><span class="at">  </span><span class="fu">correlations</span><span class="kw">:</span></span>
-<span id="cb17-72"><a href="#cb17-72" tabindex="-1"></a><span class="at">    </span><span class="fu">method</span><span class="kw">:</span><span class="at"> </span><span class="st">"spearman"</span></span>
-<span id="cb17-73"><a href="#cb17-73" tabindex="-1"></a><span class="at">    </span><span class="fu">adjust_method</span><span class="kw">:</span><span class="at"> </span><span class="st">"bonferroni"</span></span>
-<span id="cb17-74"><a href="#cb17-74" tabindex="-1"></a><span class="at">    </span><span class="fu">min_observations</span><span class="kw">:</span><span class="at"> </span><span class="dv">30</span></span>
-<span id="cb17-75"><a href="#cb17-75" tabindex="-1"></a><span class="at">    </span><span class="fu">min_theme_entries</span><span class="kw">:</span><span class="at"> </span><span class="dv">5</span></span>
-<span id="cb17-76"><a href="#cb17-76" tabindex="-1"></a><span class="at">    </span><span class="fu">dynamic_method</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">          # Auto-select method per variable pair</span></span>
-<span id="cb17-77"><a href="#cb17-77" tabindex="-1"></a></span>
-<span id="cb17-78"><a href="#cb17-78" tabindex="-1"></a><span class="fu">output</span><span class="kw">:</span></span>
-<span id="cb17-79"><a href="#cb17-79" tabindex="-1"></a><span class="at">  </span><span class="fu">results_dir</span><span class="kw">:</span><span class="at"> </span><span class="st">"outputs/results"</span></span>
-<span id="cb17-80"><a href="#cb17-80" tabindex="-1"></a><span class="at">  </span><span class="fu">generate_report</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
-<span id="cb17-81"><a href="#cb17-81" tabindex="-1"></a><span class="at">  </span><span class="fu">generate_correlation_plot</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
-<span id="cb17-82"><a href="#cb17-82" tabindex="-1"></a><span class="at">  </span><span class="fu">comparison_enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
-<span id="cb17-83"><a href="#cb17-83" tabindex="-1"></a></span>
-<span id="cb17-84"><a href="#cb17-84" tabindex="-1"></a><span class="fu">logging</span><span class="kw">:</span></span>
-<span id="cb17-85"><a href="#cb17-85" tabindex="-1"></a><span class="at">  </span><span class="fu">log_level</span><span class="kw">:</span><span class="at"> </span><span class="st">"INFO"</span><span class="co">               # DEBUG, INFO, WARN, or ERROR</span></span></code></pre></div>
+<div class="sourceCode" id="cb18"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a><span class="fu">study</span><span class="kw">:</span></span>
+<span id="cb18-2"><a href="#cb18-2" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> </span><span class="st">"Study Name"</span></span>
+<span id="cb18-3"><a href="#cb18-3" tabindex="-1"></a><span class="at">  </span><span class="fu">research_focus</span><span class="kw">:</span><span class="at"> </span><span class="st">"Your research question"</span></span>
+<span id="cb18-4"><a href="#cb18-4" tabindex="-1"></a><span class="at">  </span><span class="fu">research_context</span><span class="kw">:</span><span class="at"> </span><span class="st">"Context description"</span></span>
+<span id="cb18-5"><a href="#cb18-5" tabindex="-1"></a><span class="at">  </span><span class="fu">concepts</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">"concept1"</span><span class="kw">,</span><span class="at"> </span><span class="st">"concept2"</span><span class="kw">,</span><span class="at"> </span><span class="st">"concept3"</span><span class="kw">]</span></span>
+<span id="cb18-6"><a href="#cb18-6" tabindex="-1"></a><span class="at">  </span><span class="fu">researcher_positionality</span><span class="kw">:</span><span class="at"> </span><span class="st">"Optional: your perspective as researcher"</span></span>
+<span id="cb18-7"><a href="#cb18-7" tabindex="-1"></a></span>
+<span id="cb18-8"><a href="#cb18-8" tabindex="-1"></a><span class="fu">ai</span><span class="kw">:</span></span>
+<span id="cb18-9"><a href="#cb18-9" tabindex="-1"></a><span class="at">  </span><span class="fu">provider</span><span class="kw">:</span><span class="at"> </span><span class="st">"openai"</span><span class="co">              # "openai" or "anthropic"</span></span>
+<span id="cb18-10"><a href="#cb18-10" tabindex="-1"></a><span class="at">  </span><span class="fu">openai</span><span class="kw">:</span></span>
+<span id="cb18-11"><a href="#cb18-11" tabindex="-1"></a><span class="at">    </span><span class="fu">api_key_env</span><span class="kw">:</span><span class="at"> </span><span class="st">"OPENAI_API_KEY"</span><span class="co"> # Environment variable name</span></span>
+<span id="cb18-12"><a href="#cb18-12" tabindex="-1"></a><span class="at">    </span><span class="fu">models</span><span class="kw">:</span></span>
+<span id="cb18-13"><a href="#cb18-13" tabindex="-1"></a><span class="at">      </span><span class="fu">primary</span><span class="kw">:</span><span class="at"> </span><span class="st">"gpt-4o"</span><span class="co">           # Main analysis model</span></span>
+<span id="cb18-14"><a href="#cb18-14" tabindex="-1"></a><span class="at">      </span><span class="fu">fast</span><span class="kw">:</span><span class="at"> </span><span class="st">"gpt-4o-mini"</span><span class="co">         # Used for batch operations</span></span>
+<span id="cb18-15"><a href="#cb18-15" tabindex="-1"></a><span class="at">    </span><span class="fu">rate_limits</span><span class="kw">:</span></span>
+<span id="cb18-16"><a href="#cb18-16" tabindex="-1"></a><span class="at">      </span><span class="fu">rpm</span><span class="kw">:</span><span class="at"> </span><span class="dv">500</span><span class="co">                    # Requests per minute</span></span>
+<span id="cb18-17"><a href="#cb18-17" tabindex="-1"></a><span class="at">      </span><span class="fu">tpm</span><span class="kw">:</span><span class="at"> </span><span class="dv">150000</span><span class="co">                 # Tokens per minute</span></span>
+<span id="cb18-18"><a href="#cb18-18" tabindex="-1"></a></span>
+<span id="cb18-19"><a href="#cb18-19" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
+<span id="cb18-20"><a href="#cb18-20" tabindex="-1"></a><span class="at">  </span><span class="fu">database</span><span class="kw">:</span><span class="at"> </span><span class="st">"data.db"</span></span>
+<span id="cb18-21"><a href="#cb18-21" tabindex="-1"></a><span class="at">  </span><span class="fu">tables</span><span class="kw">:</span><span class="at"> </span><span class="st">"posts"</span><span class="co">                 # Single table or list of tables</span></span>
+<span id="cb18-22"><a href="#cb18-22" tabindex="-1"></a><span class="at">  </span><span class="fu">source_type</span><span class="kw">:</span><span class="at"> </span><span class="st">"reddit"</span><span class="co">           # reddit, twitter, clinical, generic</span></span>
+<span id="cb18-23"><a href="#cb18-23" tabindex="-1"></a><span class="at">  </span><span class="fu">preprocessing</span><span class="kw">:</span></span>
+<span id="cb18-24"><a href="#cb18-24" tabindex="-1"></a><span class="at">    </span><span class="fu">min_char</span><span class="kw">:</span><span class="at"> </span><span class="dv">50</span><span class="co">                  # Minimum characters to keep an entry</span></span>
+<span id="cb18-25"><a href="#cb18-25" tabindex="-1"></a><span class="co">    # Phase 56: thematic saturation is now AI-arbited; no user knobs.</span></span>
+<span id="cb18-26"><a href="#cb18-26" tabindex="-1"></a><span class="co">    # The AI judges saturation per max(20, ceiling(n_corpus / 50))</span></span>
+<span id="cb18-27"><a href="#cb18-27" tabindex="-1"></a><span class="co">    # coded entries -- see ?pakhom::run_progressive_coding.</span></span>
+<span id="cb18-28"><a href="#cb18-28" tabindex="-1"></a></span>
+<span id="cb18-29"><a href="#cb18-29" tabindex="-1"></a><span class="fu">learning</span><span class="kw">:</span></span>
+<span id="cb18-30"><a href="#cb18-30" tabindex="-1"></a><span class="at">  </span><span class="fu">enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span></span>
+<span id="cb18-31"><a href="#cb18-31" tabindex="-1"></a><span class="at">  </span><span class="fu">base_dir</span><span class="kw">:</span><span class="at"> </span><span class="st">"manual analyses"</span></span>
+<span id="cb18-32"><a href="#cb18-32" tabindex="-1"></a></span>
+<span id="cb18-33"><a href="#cb18-33" tabindex="-1"></a><span class="fu">analysis</span><span class="kw">:</span></span>
+<span id="cb18-34"><a href="#cb18-34" tabindex="-1"></a><span class="at">  </span><span class="fu">test_mode</span><span class="kw">:</span></span>
+<span id="cb18-35"><a href="#cb18-35" tabindex="-1"></a><span class="at">    </span><span class="fu">enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span><span class="co">                # Set true for quick validation runs</span></span>
+<span id="cb18-36"><a href="#cb18-36" tabindex="-1"></a><span class="at">    </span><span class="fu">sample_size</span><span class="kw">:</span><span class="at"> </span><span class="dv">100</span></span>
+<span id="cb18-37"><a href="#cb18-37" tabindex="-1"></a><span class="at">    </span><span class="fu">seed</span><span class="kw">:</span><span class="at"> </span><span class="dv">42</span></span>
+<span id="cb18-38"><a href="#cb18-38" tabindex="-1"></a></span>
+<span id="cb18-39"><a href="#cb18-39" tabindex="-1"></a><span class="at">  </span><span class="fu">coding</span><span class="kw">:</span></span>
+<span id="cb18-40"><a href="#cb18-40" tabindex="-1"></a><span class="at">    </span><span class="fu">progressive</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">             # One entry at a time (sequential coding)</span></span>
+<span id="cb18-41"><a href="#cb18-41" tabindex="-1"></a><span class="at">    </span><span class="fu">include_in_vivo</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb18-42"><a href="#cb18-42" tabindex="-1"></a><span class="at">    </span><span class="fu">max_retries_per_entry</span><span class="kw">:</span><span class="at"> </span><span class="dv">1</span></span>
+<span id="cb18-43"><a href="#cb18-43" tabindex="-1"></a><span class="at">    </span><span class="fu">checkpoint_interval</span><span class="kw">:</span><span class="at"> </span><span class="dv">50</span><span class="co">       # Save progress every N entries</span></span>
+<span id="cb18-44"><a href="#cb18-44" tabindex="-1"></a></span>
+<span id="cb18-45"><a href="#cb18-45" tabindex="-1"></a><span class="at">  </span><span class="fu">sentiment</span><span class="kw">:</span></span>
+<span id="cb18-46"><a href="#cb18-46" tabindex="-1"></a><span class="at">    </span><span class="fu">code_aware</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">              # Use codes as context for sentiment</span></span>
+<span id="cb18-47"><a href="#cb18-47" tabindex="-1"></a><span class="at">    </span><span class="fu">batch_size</span><span class="kw">:</span><span class="at"> </span><span class="dv">20</span></span>
+<span id="cb18-48"><a href="#cb18-48" tabindex="-1"></a><span class="at">    </span><span class="fu">dynamic_batching</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb18-49"><a href="#cb18-49" tabindex="-1"></a></span>
+<span id="cb18-50"><a href="#cb18-50" tabindex="-1"></a><span class="at">  </span><span class="fu">themes</span><span class="kw">:</span></span>
+<span id="cb18-51"><a href="#cb18-51" tabindex="-1"></a><span class="co">    # Per C1 ("AI decides when to stop"), pakhom does not gate theme</span></span>
+<span id="cb18-52"><a href="#cb18-52" tabindex="-1"></a><span class="co">    # generation on hardcoded n_themes / merge passes. The Phase 52</span></span>
+<span id="cb18-53"><a href="#cb18-53" tabindex="-1"></a><span class="co">    # HAC + AI-judged divisive tree walk cuts the dendrogram wherever</span></span>
+<span id="cb18-54"><a href="#cb18-54" tabindex="-1"></a><span class="co">    # the AI articulates a coherent central organizing concept.</span></span>
+<span id="cb18-55"><a href="#cb18-55" tabindex="-1"></a><span class="at">    </span><span class="fu">include_subthemes</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">       # Walk one level deeper for subthemes</span></span>
+<span id="cb18-56"><a href="#cb18-56" tabindex="-1"></a><span class="at">    </span><span class="fu">include_quotes</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span><span class="co">          # Render representative quotes per theme</span></span>
+<span id="cb18-57"><a href="#cb18-57" tabindex="-1"></a><span class="at">    </span><span class="fu">quotes_per_theme</span><span class="kw">:</span><span class="at"> </span><span class="dv">3</span></span>
+<span id="cb18-58"><a href="#cb18-58" tabindex="-1"></a><span class="at">    </span><span class="fu">approach</span><span class="kw">:</span><span class="at"> </span><span class="st">"inductive"</span><span class="co">         # "inductive" (Mode 2) or "deductive" (Mode 3)</span></span>
+<span id="cb18-59"><a href="#cb18-59" tabindex="-1"></a><span class="at">    </span><span class="fu">max_subtheme_depth</span><span class="kw">:</span><span class="at"> </span><span class="dv">3</span><span class="co">         # Phase 58 Tier 1 C-12: nested sub-subthemes</span></span>
+<span id="cb18-60"><a href="#cb18-60" tabindex="-1"></a><span class="at">    </span><span class="fu">max_codes_per_subtheme</span><span class="kw">:</span><span class="at"> </span><span class="dv">25</span><span class="co">    # Phase 58 Tier 1 AF-8: triggers recursion</span></span>
+<span id="cb18-61"><a href="#cb18-61" tabindex="-1"></a><span class="at">    </span><span class="fu">max_inline_themes</span><span class="kw">:</span><span class="at"> </span><span class="dv">30</span><span class="co">         # Phase 58 Tier 5 C-3: top-N inlining cap</span></span>
+<span id="cb18-62"><a href="#cb18-62" tabindex="-1"></a><span class="at">    </span><span class="fu">max_inline_themes_temporal</span><span class="kw">:</span><span class="at"> </span><span class="dv">30</span><span class="co">  # Phase 58 Tier 5 AH-8: temporal plot</span></span>
+<span id="cb18-63"><a href="#cb18-63" tabindex="-1"></a></span>
+<span id="cb18-64"><a href="#cb18-64" tabindex="-1"></a><span class="at">  </span><span class="fu">human_verification</span><span class="kw">:</span></span>
+<span id="cb18-65"><a href="#cb18-65" tabindex="-1"></a><span class="at">    </span><span class="fu">enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span><span class="co">                # Enable for inter-rater reliability</span></span>
+<span id="cb18-66"><a href="#cb18-66" tabindex="-1"></a><span class="at">    </span><span class="fu">sample_size</span><span class="kw">:</span><span class="at"> </span><span class="dv">20</span></span>
+<span id="cb18-67"><a href="#cb18-67" tabindex="-1"></a><span class="at">    </span><span class="fu">seed</span><span class="kw">:</span><span class="at"> </span><span class="dv">42</span></span>
+<span id="cb18-68"><a href="#cb18-68" tabindex="-1"></a></span>
+<span id="cb18-69"><a href="#cb18-69" tabindex="-1"></a><span class="at">  </span><span class="fu">review_points</span><span class="kw">:</span></span>
+<span id="cb18-70"><a href="#cb18-70" tabindex="-1"></a><span class="at">    </span><span class="fu">after_coding</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span><span class="co">           # Pause for codebook review</span></span>
+<span id="cb18-71"><a href="#cb18-71" tabindex="-1"></a><span class="at">    </span><span class="fu">after_themes</span><span class="kw">:</span><span class="at"> </span><span class="ch">false</span><span class="co">           # Pause for theme review</span></span>
+<span id="cb18-72"><a href="#cb18-72" tabindex="-1"></a><span class="at">    </span><span class="fu">format</span><span class="kw">:</span><span class="at"> </span><span class="st">"csv"</span><span class="co">                 # "csv" or "qdpx"</span></span>
+<span id="cb18-73"><a href="#cb18-73" tabindex="-1"></a><span class="at">    </span><span class="fu">max_iterations</span><span class="kw">:</span><span class="at"> </span><span class="dv">3</span><span class="co">             # Cap on recursive review cycles</span></span>
+<span id="cb18-74"><a href="#cb18-74" tabindex="-1"></a></span>
+<span id="cb18-75"><a href="#cb18-75" tabindex="-1"></a><span class="at">  </span><span class="fu">correlations</span><span class="kw">:</span></span>
+<span id="cb18-76"><a href="#cb18-76" tabindex="-1"></a><span class="at">    </span><span class="fu">method</span><span class="kw">:</span><span class="at"> </span><span class="st">"spearman"</span></span>
+<span id="cb18-77"><a href="#cb18-77" tabindex="-1"></a><span class="at">    </span><span class="fu">adjust_method</span><span class="kw">:</span><span class="at"> </span><span class="st">"bonferroni"</span></span>
+<span id="cb18-78"><a href="#cb18-78" tabindex="-1"></a><span class="at">    </span><span class="fu">min_observations</span><span class="kw">:</span><span class="at"> </span><span class="dv">30</span></span>
+<span id="cb18-79"><a href="#cb18-79" tabindex="-1"></a><span class="at">    </span><span class="fu">min_theme_entries</span><span class="kw">:</span><span class="at"> </span><span class="dv">5</span><span class="co">          # Phase 58 Tier 6 H-16: harmonized</span></span>
+<span id="cb18-80"><a href="#cb18-80" tabindex="-1"></a><span class="at">    </span><span class="fu">use_multi_label</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb18-81"><a href="#cb18-81" tabindex="-1"></a><span class="at">    </span><span class="fu">max_inline_vars</span><span class="kw">:</span><span class="at"> </span><span class="dv">30</span><span class="co">           # Phase 58 Tier 5 C-10: lollipop above</span></span>
+<span id="cb18-82"><a href="#cb18-82" tabindex="-1"></a><span class="at">    </span><span class="fu">max_inline_themes_network</span><span class="kw">:</span><span class="at"> </span><span class="dv">30</span><span class="co">  # Phase 58 Tier 5 AH-9: network top-N</span></span>
+<span id="cb18-83"><a href="#cb18-83" tabindex="-1"></a></span>
+<span id="cb18-84"><a href="#cb18-84" tabindex="-1"></a><span class="fu">output</span><span class="kw">:</span></span>
+<span id="cb18-85"><a href="#cb18-85" tabindex="-1"></a><span class="at">  </span><span class="fu">results_dir</span><span class="kw">:</span><span class="at"> </span><span class="st">"outputs/results"</span></span>
+<span id="cb18-86"><a href="#cb18-86" tabindex="-1"></a><span class="at">  </span><span class="fu">generate_report</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb18-87"><a href="#cb18-87" tabindex="-1"></a><span class="at">  </span><span class="fu">generate_correlation_plot</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb18-88"><a href="#cb18-88" tabindex="-1"></a><span class="at">  </span><span class="fu">comparison_enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb18-89"><a href="#cb18-89" tabindex="-1"></a></span>
+<span id="cb18-90"><a href="#cb18-90" tabindex="-1"></a><span class="fu">logging</span><span class="kw">:</span></span>
+<span id="cb18-91"><a href="#cb18-91" tabindex="-1"></a><span class="at">  </span><span class="fu">log_level</span><span class="kw">:</span><span class="at"> </span><span class="st">"INFO"</span><span class="co">               # DEBUG, INFO, WARN, or ERROR</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="using-anthropic-instead-of-openai">Using Anthropic Instead of OpenAI<a class="anchor" aria-label="anchor" href="#using-anthropic-instead-of-openai"></a>
 </h3>
-<div class="sourceCode" id="cb18"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a><span class="fu">ai</span><span class="kw">:</span></span>
-<span id="cb18-2"><a href="#cb18-2" tabindex="-1"></a><span class="at">  </span><span class="fu">provider</span><span class="kw">:</span><span class="at"> </span><span class="st">"anthropic"</span></span>
-<span id="cb18-3"><a href="#cb18-3" tabindex="-1"></a><span class="at">  </span><span class="fu">anthropic</span><span class="kw">:</span></span>
-<span id="cb18-4"><a href="#cb18-4" tabindex="-1"></a><span class="at">    </span><span class="fu">api_key_env</span><span class="kw">:</span><span class="at"> </span><span class="st">"ANTHROPIC_API_KEY"</span></span>
-<span id="cb18-5"><a href="#cb18-5" tabindex="-1"></a><span class="at">    </span><span class="fu">models</span><span class="kw">:</span></span>
-<span id="cb18-6"><a href="#cb18-6" tabindex="-1"></a><span class="at">      </span><span class="fu">primary</span><span class="kw">:</span><span class="at"> </span><span class="st">"claude-sonnet-4-20250514"</span></span>
-<span id="cb18-7"><a href="#cb18-7" tabindex="-1"></a><span class="at">      </span><span class="fu">fast</span><span class="kw">:</span><span class="at"> </span><span class="st">"claude-sonnet-4-20250514"</span></span></code></pre></div>
+<div class="sourceCode" id="cb19"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a><span class="fu">ai</span><span class="kw">:</span></span>
+<span id="cb19-2"><a href="#cb19-2" tabindex="-1"></a><span class="at">  </span><span class="fu">provider</span><span class="kw">:</span><span class="at"> </span><span class="st">"anthropic"</span></span>
+<span id="cb19-3"><a href="#cb19-3" tabindex="-1"></a><span class="at">  </span><span class="fu">anthropic</span><span class="kw">:</span></span>
+<span id="cb19-4"><a href="#cb19-4" tabindex="-1"></a><span class="at">    </span><span class="fu">api_key_env</span><span class="kw">:</span><span class="at"> </span><span class="st">"ANTHROPIC_API_KEY"</span></span>
+<span id="cb19-5"><a href="#cb19-5" tabindex="-1"></a><span class="at">    </span><span class="fu">models</span><span class="kw">:</span></span>
+<span id="cb19-6"><a href="#cb19-6" tabindex="-1"></a><span class="at">      </span><span class="fu">primary</span><span class="kw">:</span><span class="at"> </span><span class="st">"claude-sonnet-4-20250514"</span></span>
+<span id="cb19-7"><a href="#cb19-7" tabindex="-1"></a><span class="at">      </span><span class="fu">fast</span><span class="kw">:</span><span class="at"> </span><span class="st">"claude-sonnet-4-20250514"</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="multi-table-analysis">Multi-Table Analysis<a class="anchor" aria-label="anchor" href="#multi-table-analysis"></a>
 </h3>
 <p>If your data spans multiple tables (e.g., posts and comments):</p>
-<div class="sourceCode" id="cb19"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
-<span id="cb19-2"><a href="#cb19-2" tabindex="-1"></a><span class="at">  </span><span class="fu">database</span><span class="kw">:</span><span class="at"> </span><span class="st">"data.db"</span></span>
-<span id="cb19-3"><a href="#cb19-3" tabindex="-1"></a><span class="at">  </span><span class="fu">tables</span><span class="kw">:</span></span>
-<span id="cb19-4"><a href="#cb19-4" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="st">"posts"</span></span>
-<span id="cb19-5"><a href="#cb19-5" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="st">"comments"</span></span></code></pre></div>
+<div class="sourceCode" id="cb20"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb20-1"><a href="#cb20-1" tabindex="-1"></a><span class="fu">data</span><span class="kw">:</span></span>
+<span id="cb20-2"><a href="#cb20-2" tabindex="-1"></a><span class="at">  </span><span class="fu">database</span><span class="kw">:</span><span class="at"> </span><span class="st">"data.db"</span></span>
+<span id="cb20-3"><a href="#cb20-3" tabindex="-1"></a><span class="at">  </span><span class="fu">tables</span><span class="kw">:</span></span>
+<span id="cb20-4"><a href="#cb20-4" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="st">"posts"</span></span>
+<span id="cb20-5"><a href="#cb20-5" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="st">"comments"</span></span></code></pre></div>
 <p>The package loads and combines them, adding a
 <code>source_table</code> column.</p>
 </div>
@@ -668,7 +727,7 @@ are relevant to your research area.</p>
 </h3>
 <p>You can override any config setting without editing the YAML
 file:</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_analysis.html">run_analysis</a></span><span class="op">(</span><span class="st">"config.yaml"</span>, config_overrides <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  <span class="st">"ai.provider"</span> <span class="op">=</span> <span class="st">"anthropic"</span>,</span>
 <span>  <span class="st">"analysis.test_mode.enabled"</span> <span class="op">=</span> <span class="cn">TRUE</span>,</span>
@@ -683,7 +742,7 @@ file:</p>
 <p>After running the analysis multiple times (e.g., with different
 configs, different AI providers, or updated data), you can compare
 results:</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">runs</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/list_available_runs.html">list_available_runs</a></span><span class="op">(</span><span class="st">"outputs/results"</span><span class="op">)</span></span>
 <span><span class="va">comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/compare_runs.html">compare_runs</a></span><span class="op">(</span><span class="st">"outputs/results/latest"</span>, <span class="st">"outputs/results"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">comparison</span><span class="op">)</span></span></code></pre></div>
@@ -706,9 +765,9 @@ new)</li>
 <p>The package handles rate limits automatically with exponential
 backoff. If you consistently hit limits, reduce the sentiment batch
 size:</p>
-<div class="sourceCode" id="cb22"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb22-1"><a href="#cb22-1" tabindex="-1"></a><span class="fu">analysis</span><span class="kw">:</span></span>
-<span id="cb22-2"><a href="#cb22-2" tabindex="-1"></a><span class="at">  </span><span class="fu">sentiment</span><span class="kw">:</span></span>
-<span id="cb22-3"><a href="#cb22-3" tabindex="-1"></a><span class="at">    </span><span class="fu">batch_size</span><span class="kw">:</span><span class="at"> </span><span class="dv">10</span><span class="co">    # Default is 20</span></span></code></pre></div>
+<div class="sourceCode" id="cb23"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb23-1"><a href="#cb23-1" tabindex="-1"></a><span class="fu">analysis</span><span class="kw">:</span></span>
+<span id="cb23-2"><a href="#cb23-2" tabindex="-1"></a><span class="at">  </span><span class="fu">sentiment</span><span class="kw">:</span></span>
+<span id="cb23-3"><a href="#cb23-3" tabindex="-1"></a><span class="at">    </span><span class="fu">batch_size</span><span class="kw">:</span><span class="at"> </span><span class="dv">10</span><span class="co">    # Default is 20</span></span></code></pre></div>
 <p>Progressive coding processes one entry at a time, so batch size only
 applies to sentiment analysis.</p>
 </div>
@@ -718,7 +777,7 @@ applies to sentiment analysis.</p>
 <p>Re-run with <code>resume = TRUE</code>. The checkpoint system saves
 progress after each expensive step. You will not be charged again for
 already-completed work.</p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_analysis.html">run_analysis</a></span><span class="op">(</span><span class="st">"config.yaml"</span>, resume <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level3">
@@ -741,7 +800,7 @@ patterns, but unusual naming may require the
 </h3>
 <p>Before committing to a full run, validate your setup with test
 mode:</p>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_analysis.html">run_analysis</a></span><span class="op">(</span><span class="st">"config.yaml"</span>, config_overrides <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  <span class="st">"analysis.test_mode.enabled"</span> <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  <span class="st">"analysis.test_mode.sample_size"</span> <span class="op">=</span> <span class="fl">20</span>,</span>
@@ -757,8 +816,8 @@ mode:</p>
 <p>If you use this package in published research, please cite:</p>
 <blockquote>
 <p><a href="https://www.linkedin.com/in/abanoubarmanious/" class="external-link">Armanious, A.
-J.</a> (2026). pakhom: AI-Integrated Thematic Analysis Following
-Braun and Clarke [R package]. Version 1.0.0.</p>
+J.</a> (2026). pakhom: AI-Assisted Reflexive Thematic Analysis with
+Methodology-as-Architecture [R package]. Version 1.0.0.</p>
 </blockquote>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

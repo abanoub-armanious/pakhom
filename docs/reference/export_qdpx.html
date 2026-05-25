@@ -25,6 +25,9 @@ exchange standard."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Getting Started</h6></li>
     <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started with pakhom</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Methodology Modes</h6></li>
+    <li><a class="dropdown-item" href="../articles/methodology-modes.html">Methodology Modes: Choosing Mode 1, 2, or 3</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
@@ -39,7 +42,7 @@ exchange standard."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Export coding results to QDPX format</h1>
-
+      <small class="dont-index">Source: <a href="https://github.com/abanoub-armanious/pakhom/blob/HEAD/R/qdpx_export.R" class="external-link"><code>R/qdpx_export.R</code></a></small>
       <div class="d-none name"><code>export_qdpx.Rd</code></div>
     </div>
 
@@ -56,7 +59,8 @@ exchange standard.</p>
 <span>  <span class="va">data</span>,</span>
 <span>  <span class="va">output_path</span>,</span>
 <span>  theme_set <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  study_name <span class="op">=</span> <span class="st">"pakhom export"</span></span>
+<span>  study_name <span class="op">=</span> <span class="st">"pakhom export"</span>,</span>
+<span>  methodology_mode <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -85,6 +89,13 @@ If provided, builds a hierarchical code tree (Theme &gt; Subtheme &gt; Code).</p
 <dt id="arg-study-name">study_name<a class="anchor" aria-label="anchor" href="#arg-study-name"></a></dt>
 <dd><p>Character string used as the project name inside the
 QDPX file.  Defaults to <code>"pakhom export"</code>.</p></dd>
+
+
+<dt id="arg-methodology-mode">methodology_mode<a class="anchor" aria-label="anchor" href="#arg-methodology-mode"></a></dt>
+<dd><p>Optional character (T1.7 / AC4): when supplied,
+the QDPX project's Description is stamped with the methodology mode
+alongside the Tier-0 verification stats. NULL preserves legacy
+behavior (no methodology stamp).</p></dd>
 
 </dl></div>
     <div class="section level2">

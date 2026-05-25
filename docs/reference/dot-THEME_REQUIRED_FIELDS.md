@@ -10,4 +10,4 @@ Required fields for each theme within a ThemeSet
 
 ## Format
 
-An object of class `character` of length 4.
+An object of class `character` of length 3.

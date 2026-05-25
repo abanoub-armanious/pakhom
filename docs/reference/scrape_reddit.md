@@ -2,8 +2,8 @@
 
 Authenticates with the Reddit API and collects posts and comments from
 specified subreddits. Unlike keyword-based scrapers, this collects ALL
-content and lets the analysis pipeline's relevance filter determine
-what's useful for the research question.
+content and lets the progressive sequential coder downstream decide
+which entries match the research question (no keyword pre-filter).
 
 ## Usage
 

@@ -1,5 +1,157 @@
 # pakhom 1.0.0
 
+## Phase 59: documentation refresh + six-angle verification campaign
+
+Closes the user-facing surface drift between Phase 58's architectural
+rewrite and the public README / vignettes / NEWS.md / man pages, and
+adds five rounds of independent verification beyond the per-tier audits
+to surface remaining latent bugs. **34 commits since `41cd73a`; 596
+new test expectations; six independent review angles all closed.**
+
+### User-visible polish (Phase 59 Stage 1B + Stage 2 code-review)
+
+- **README.md "Key Features" + "Pipeline Overview"**: rewrote the
+  three pre-Phase-52 / pre-Phase-56 prose anchors that the Phase 58
+  cleanup invalidated. Saturation step now correctly describes the
+  Phase 56 AI arbiter (`reached / not_yet / uncertain` with 30-char
+  articulation floor) rather than the legacy "code creation rate +
+  reuse stability" heuristic. Theme generation step describes Phase 52
+  HAC + AI-judged divisive tree walk rather than "sequential
+  bottom-up merging across passes". Test-suite size claim updated
+  from a phase-36 stale figure (2,391) to "3,300+" matching reality.
+- **vignettes/getting-started.Rmd**: removed nine dead config knobs
+  (`merge_strategy`, `max_merge_passes`, `min_themes`, `max_themes`,
+  `multi_label_assignment`, `membership_threshold`,
+  `max_theme_proportion`, `max_rebalance_iterations`,
+  `review_iterations`); added the six Phase 58 knobs the report
+  scaling and statistical-hygiene tiers introduced
+  (`max_subtheme_depth`, `max_codes_per_subtheme`, `max_inline_themes`,
+  `max_inline_themes_temporal`, `max_inline_vars`,
+  `max_inline_themes_network`). Pipeline-step narrative rewritten so
+  the vignette text agrees with the config-section comment on what
+  the algorithm actually does. Citation block updated from the
+  retired "AI-Integrated Thematic Analysis Following Braun and Clarke"
+  title to the current "AI-Assisted Reflexive Thematic Analysis with
+  Methodology-as-Architecture" title (Phase 36 rename was never
+  propagated into the citation block).
+- **DESCRIPTION**: `stringi` promoted from `Suggests` to `Imports`
+  so the Phase 58 Tier 7 M-24 NFC normalization in
+  `.normalize_quote_text` and `preprocess_text` is universal rather
+  than conditional. The pre-Phase-59 `requireNamespace("stringi")`
+  guards silently degraded T0.1 verification fidelity if stringi was
+  missing -- which the documentation never disclosed. NFC is now a
+  load-bearing dependency, matching the documentation.
+- **HTML report footer + run-ID + QDPX `creationDateTime`**: switched
+  to UTC. Pre-Phase-59 these four sites emitted the runner's local
+  TZ, so two researchers in different timezones running identical
+  code produced different run directory names and different report
+  footer timestamps. The report footer now reads " UTC" so the
+  choice is visible; the QDPX `creationDateTime` uses ISO-8601 `Z`
+  suffix so NVivo / MAXQDA import the value unambiguously.
+- **17_report.R + 16_report_helpers.R keyword rendering**: removed
+  a `seq_len(min(5, ...))` cap on both the main renderer and the
+  legacy-checkpoint fallback. Phase 58 Tier 8 H-26/AF-31 ships eight
+  frequency-ranked keywords per theme; the pre-Phase-59 renderer
+  silently dropped three of them on every theme. The fallback now
+  caps at 8L rather than 5 to match the modern contract.
+- **16_report_helpers.R `.truncate_quote_word_boundary`**: collapsed
+  a dead duplicate branch; aligned the hard-cut fall-through path
+  (long URLs / hashtags with no whitespace in budget) with the
+  documented `" ..."` (4-char) marker rather than `"..."` (3-char,
+  inconsistent with the normal path).
+- **01_config.R `.warn_deprecated_config_knobs`**: added the three
+  Phase-50e-removed knobs (`membership_threshold`,
+  `max_rebalance_iterations`, `review_iterations`) that the warner
+  was silently missing. Closed a live foot-gun where users copying
+  pre-Phase-58 configs received zero deprecation warnings.
+- **18_pipeline.R `.warn_pre_tier7_coding_resume`**: pre-Phase-59
+  probed only the first `QuoteProvenance` and returned. A mixed-
+  vintage checkpoint with a modern QP first + legacy QPs later
+  silently skipped the methodology-drift warning. Now walks every
+  QP and reports "N of M cached QPs predate the V-6/L-3 fix" with
+  explicit counts.
+
+### Six-angle verification campaign (all closed)
+
+1. **Stage 1B doc audit** (subagent): caught three HIGH false-claim
+   survivals (Pipeline Overview rows + vignette narrative still
+   carried the prose the same commit removed from Key Features) +
+   two MEDIUM stale references. Closed in `e12fe34`.
+2. **Stage 1 cross-tier audit** (subagent): re-verified the 16
+   Phase-57 do-not-regress invariants. Caught one HIGH
+   (`mode1_orchestrator.R:363` `tz="UTC"` missing; Tier 9 commit
+   message claimed the site was swept but the diff only touched
+   line 1261) + one MEDIUM (test coverage hole for 13 of 14
+   enumerated UTC sites). Closed in `ed537e9` with a static-source
+   regression test that walks every `format(Sys.time(),...)` in R/
+   and asserts UTC -- catches the entire bug class for any future
+   site.
+3. **Stage 1 deep meta-audit** (subagent): scoped to surfaces the
+   first two audits did NOT examine (DESCRIPTION, CITATION,
+   methodology-modes vignette, R source comments, NAMESPACE,
+   strategic-audit docs, audit_*.R cruft). Found four MEDIUM
+   (`stringi` promotion, four user-visible local-TZ leaks, static
+   UTC test comment-blindness, tier-count "11 tiers" vs "ten tiers"
+   inconsistency) + four LOW. Closed in `ad7a70b`.
+4. **security-review** (Claude Code skill): zero findings at
+   confidence >= 7 across HTML/XSS, XXE, path traversal, SQL
+   injection, YAML deserialization, credential handling, JSON
+   injection, code-execution sinks, command injection, and prompt
+   fence escape. Positively verified `.html_esc` coverage of every
+   user/AI string interpolation in `transparency_report.R`,
+   `DBI::dbQuoteIdentifier` on dynamic table names, the closured
+   `provider$key_env$key` storage pattern, and the
+   `.escape_entry_text_fence` defusal of `</entry_text>` sentinels.
+5. **R CMD check --as-cran**: zero ERROR / zero WARNING / one
+   expected NOTE (`New submission`) in a `pandoc` + `pdflatex` -
+   enabled environment. Local-toolchain artifacts (missing
+   `pdflatex` produced one ERROR + one WARNING + a "non-standard
+   things" NOTE; older `tidy` validator emitting `<main>` HTML5
+   tag warnings against an HTML 4.01 schema) confirmed
+   environment-only and absent from the CRAN build farm.
+6. **code-review (high effort, 3-angle + 1-vote verify)**: 11
+   candidates surfaced; parallel verifiers confirmed five and
+   refuted six. The five confirmed bugs were latent issues that
+   pre-dated Phase 58 (the keyword-cap 5-vs-8 mismatch, the
+   `.warn_deprecated_config_knobs` Phase-50e gaps, the
+   `.truncate_quote_word_boundary` dead branch, the first-QP-only
+   probe in `.warn_pre_tier7_coding_resume`) -- Phase 58 didn't
+   introduce them, but Phase 59 finally fixed them. Closed in
+   `4c24075` with 29 dedicated regression tests in
+   `test-phase59-code-review.R`.
+
+### Test suite growth
+
+- Phase 58 baseline (after Tier 9): 3,281 tests
+- Phase 59 Stage 1A (OS.6 + audit followup): +61 transparency-report
+  tests
+- Phase 59 Stage 1 audit followups: +2 ProvocationCoverage UTC +
+  static-source UTC walker
+- Phase 59 meta-audit followup: +7 (stringi-universal, UTC sweep
+  extension, hygienic test fixtures)
+- Phase 59 Stage 2 code-review followup: +29 (keyword cap +
+  fallback + Phase-50e knobs + ellipsis marker + mixed-vintage QP
+  walk)
+- **Total at HEAD: 3,376 tests / 0 FAIL / 0 SKIP.** Per-tier
+  regression cadence: every commit must pass the full suite +
+  smoke (22 cross-tier invariants) + R CMD check before push.
+
+### Static-source guard rails added in Phase 59
+
+- `test-phase58-tier9.R`: a static-source test that walks every
+  `format(Sys.time(), ...)` call in `R/` and asserts every call
+  declares `tz = "UTC"` -- catches any future site that drifts
+  back to local TZ. Also walks `tests/testthat/` to enforce the
+  same hygiene rule on fixtures (so a maintainer copying a fixture
+  line into `R/` source carries the invariant with it).
+- `test-phase59-code-review.R`: static-source tests that assert the
+  `17_report.R` keyword renderer uses `seq_along` (not
+  `seq_len(min(5, ...))`) and the `16_report_helpers.R` fallback
+  uses `min(8L, ...)` (not `min(5, ...)`) so any future drift back
+  to the 5-cap regression is caught at test time.
+
+---
+
 ## Phase 58 / Stage 1A: methodological transparency report bundler (OS.6)
 
 `bundle_transparency_report(run_dir, output_path = NULL)` — new public

@@ -21,6 +21,9 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Getting Started</h6></li>
     <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started with pakhom</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Methodology Modes</h6></li>
+    <li><a class="dropdown-item" href="../articles/methodology-modes.html">Methodology Modes: Choosing Mode 1, 2, or 3</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
@@ -35,7 +38,7 @@
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Export all analysis results to files</h1>
-
+      <small class="dont-index">Source: <a href="https://github.com/abanoub-armanious/pakhom/blob/HEAD/R/17_report.R" class="external-link"><code>R/17_report.R</code></a></small>
       <div class="d-none name"><code>export_results.Rd</code></div>
     </div>
 
@@ -51,7 +54,8 @@
 <span>  <span class="va">correlations_df</span>,</span>
 <span>  <span class="va">insights</span>,</span>
 <span>  <span class="va">consolidated</span>,</span>
-<span>  <span class="va">output_dir</span></span>
+<span>  <span class="va">output_dir</span>,</span>
+<span>  methodology_mode <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -81,6 +85,13 @@
 
 <dt id="arg-output-dir">output_dir<a class="anchor" aria-label="anchor" href="#arg-output-dir"></a></dt>
 <dd><p>Output directory path</p></dd>
+
+
+<dt id="arg-methodology-mode">methodology_mode<a class="anchor" aria-label="anchor" href="#arg-methodology-mode"></a></dt>
+<dd><p>Optional methodology mode (T1.7). When
+non-NULL, every CSV produced is stamped with a comment header
+identifying the mode and run id (per AC4). NULL skips stamping –
+used by tests / legacy callers.</p></dd>
 
 </dl></div>
     <div class="section level2">

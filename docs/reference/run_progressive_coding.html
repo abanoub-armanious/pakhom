@@ -25,6 +25,9 @@ new ones. Entries with no applicable content are skipped."></head><body>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Getting Started</h6></li>
     <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started with pakhom</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Methodology Modes</h6></li>
+    <li><a class="dropdown-item" href="../articles/methodology-modes.html">Methodology Modes: Choosing Mode 1, 2, or 3</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
@@ -39,7 +42,7 @@ new ones. Entries with no applicable content are skipped."></head><body>
   <main id="main" class="col-md-9"><div class="page-header">
 
       <h1>Run progressive sequential coding on all entries</h1>
-
+      <small class="dont-index">Source: <a href="https://github.com/abanoub-armanious/pakhom/blob/HEAD/R/09_coding.R" class="external-link"><code>R/09_coding.R</code></a></small>
       <div class="d-none name"><code>run_progressive_coding.Rd</code></div>
     </div>
 
@@ -60,7 +63,11 @@ new ones. Entries with no applicable content are skipped.</p>
 <span>  checkpoint <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  concepts <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  resume_state <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  audit_log <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  audit_log <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  response_cache <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  fabrication_log <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  framework_spec <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  live_tracker <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -104,6 +111,44 @@ new ones. Entries with no applicable content are skipped.</p>
 <dd><p>An AuditLog object (from <code>init_audit_log</code>) for
 recording each coding decision (entry skipped, code assigned, new
 code created), or NULL to disable audit logging for this step.</p></dd>
+
+
+<dt id="arg-response-cache">response_cache<a class="anchor" aria-label="anchor" href="#arg-response-cache"></a></dt>
+<dd><p>An optional ResponseCache object (from
+<code><a href="init_response_cache.html">init_response_cache</a></code>). When provided, raw API responses
+for each per-entry coding ai_complete() call are written to the cache
+and a reference is recorded in the audit log (T1.4). Pass <code>NULL</code>
+to skip raw-response capture.</p></dd>
+
+
+<dt id="arg-fabrication-log">fabrication_log<a class="anchor" aria-label="anchor" href="#arg-fabrication-log"></a></dt>
+<dd><p>An optional FabricationLog object (from
+<code><a href="init_fabrication_log.html">init_fabrication_log</a></code>). T0.1 verification ALWAYS runs –
+each per-segment AI-attributed verbatim text is checked against the
+entry via the four-step ladder, and fabricated segments are dropped
+regardless of whether a log is supplied. When <code>fabrication_log</code>
+is non-NULL, fabrications are also written to
+<code>outputs/&lt;run&gt;/fabrication_log.csv</code> as a CSV audit artifact for
+the methodology paper's KPI. Pass <code>NULL</code> to skip the CSV (the
+default for tests + non-pipeline callers).</p></dd>
+
+
+<dt id="arg-framework-spec">framework_spec<a class="anchor" aria-label="anchor" href="#arg-framework-spec"></a></dt>
+<dd><p>Optional <code>FrameworkSpec</code> object (from
+<code><a href="load_framework_spec.html">load_framework_spec</a></code>). When supplied (Mode 3 / Framework
+Applied), the codebook is pre-populated with the framework's
+constructs and the AI is constrained to apply them verbatim
+(no NEW: prefix path). Anomaly segments go to a dedicated
+"anomaly" key. NULL preserves Mode 2 (free-form codebook) behavior.</p></dd>
+
+
+<dt id="arg-live-tracker">live_tracker<a class="anchor" aria-label="anchor" href="#arg-live-tracker"></a></dt>
+<dd><p>Optional <code>LiveTracker</code> (Phase 53; from
+<code><a href="init_live_tracker.html">init_live_tracker</a></code>). When provided, every coded
+segment streams to <code>outputs/&lt;run&gt;/live/code_assignments.jsonl</code>
+and <code>codebook_live.json</code> is rewritten after every entry so a
+researcher can <code>tail -F</code> or <code>cat</code> those files mid-run.
+Pass <code>NULL</code> (default) to disable.</p></dd>
 
 </dl></div>
     <div class="section level2">

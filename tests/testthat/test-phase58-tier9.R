@@ -104,6 +104,10 @@ test_that("audit log timestamps are emitted in UTC", {
 }
 
 test_that("every format(Sys.time(), ...) in R/ declares tz = \"UTC\" (L-15 invariant)", {
+  src_dir <- test_path("..", "..", "R")
+  if (!dir.exists(src_dir)) {
+    testthat::skip("R/ source directory not available (covr / install context)")
+  }
   # Strict hygiene: any `format(Sys.time(), ...)` call -- whether or not it
   # uses %z -- must declare tz = "UTC". Otherwise the runner's LOCAL TZ
   # leaks into user-visible artifacts (run IDs, report footers, QDPX
@@ -130,6 +134,10 @@ test_that("every format(Sys.time(), ...) in R/ declares tz = \"UTC\" (L-15 invar
 })
 
 test_that("test fixtures in tests/testthat/ also declare tz = \"UTC\" (hygiene)", {
+  test_dir <- test_path("..", "testthat")
+  if (!dir.exists(test_dir)) {
+    testthat::skip("tests/testthat/ directory not available (covr / install context)")
+  }
   # Phase 59 meta-audit L1: test fixtures should model the package's own
   # hygiene rule. If a maintainer copies a `format(Sys.time(), ...)` line
   # from a test fixture into R/ code, the UTC declaration should travel

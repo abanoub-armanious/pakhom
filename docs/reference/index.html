@@ -21,6 +21,9 @@
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Getting Started</h6></li>
     <li><a class="dropdown-item" href="../articles/getting-started.html">Getting Started with pakhom</a></li>
+    <li><hr class="dropdown-divider"></li>
+    <li><h6 class="dropdown-header" data-toc-skip>Methodology Modes</h6></li>
+    <li><a class="dropdown-item" href="../articles/methodology-modes.html">Methodology Modes: Choosing Mode 1, 2, or 3</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
@@ -40,7 +43,7 @@
     <div class="section level2">
       <h2 id="run-an-analysis">Run an Analysis<a class="anchor" aria-label="anchor" href="#run-an-analysis"></a></h2>
 
-      <div class="section-desc"><p>Core entry points for running the pipeline</p></div>
+      <div class="section-desc"><p>Top-level entry points. run_analysis() drives Modes 2 + 3 (data -&gt; coding -&gt; sentiment -&gt; themes -&gt; correlations -&gt; report -&gt; finalize_run). run_mode1() drives Mode 1 (Reflexive Scaffold) with the same Tier-0 / Tier-1 scaffolding but routes through the provocateur loop. Both produce a finalized run directory with full audit trail and HTML report.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -52,7 +55,14 @@
           <code><a href="run_analysis.html">run_analysis()</a></code>
 
         </dt>
-        <dd>Run the full thematic analysis pipeline</dd>
+        <dd>Run the full thematic analysis pipeline (Mode 2 + Mode 3)</dd>
+
+        <dt>
+
+          <code><a href="run_mode1.html">run_mode1()</a></code>
+
+        </dt>
+        <dd>Run a Mode 1 (Reflexive Scaffold) provocateur analysis</dd>
 
         <dt>
 
@@ -82,6 +92,731 @@
         </dt>
         <dd>Launch the interactive configuration wizard</dd>
       </dl></div><div class="section level2">
+      <h2 id="methodology-modes-sprint-">Methodology Modes (Sprint-4)<a class="anchor" aria-label="anchor" href="#methodology-modes-sprint-"></a></h2>
+
+      <div class="section-desc"><p>The three methodologically-distinct operating modes, the framework spec module (Mode 3), the provocateur loop (Mode 1), and the reflexive memo CRUD (Mode 1 burden parity per AC6).</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="run_provocateur_questioning.html">run_provocateur_questioning()</a></code>
+
+        </dt>
+        <dd>Run provocateur questioning across themes (Mode 1 entry point)</dd>
+
+        <dt>
+
+          <code><a href="load_framework_spec.html">load_framework_spec()</a></code>
+
+        </dt>
+        <dd>Load + validate a theoretical framework specification</dd>
+
+        <dt>
+
+          <code><a href="list_builtin_frameworks.html">list_builtin_frameworks()</a></code>
+
+        </dt>
+        <dd>List the built-in frameworks shipped with pakhom</dd>
+
+        <dt>
+
+          <code><a href="archive_framework_spec.html">archive_framework_spec()</a></code>
+
+        </dt>
+        <dd>Archive a Mode 3 framework spec into the run output directory</dd>
+
+        <dt>
+
+          <code><a href="framework_prompt_block.html">framework_prompt_block()</a></code>
+
+        </dt>
+        <dd>Build the prompt block describing the framework's constructs</dd>
+
+        <dt>
+
+          <code><a href="apply_framework_themes.html">apply_framework_themes()</a></code>
+
+        </dt>
+        <dd>Apply framework constructs as themes + handle anomalies (Mode 3)</dd>
+
+        <dt>
+
+          <code><a href="make_memo.html">make_memo()</a></code>
+
+        </dt>
+        <dd>Construct a Memo S3 object</dd>
+
+        <dt>
+
+          <code><a href="add_memo.html">add_memo()</a></code>
+
+        </dt>
+        <dd>Add a memo to a ResearcherReflectionLog</dd>
+
+        <dt>
+
+          <code><a href="read_memo.html">read_memo()</a></code>
+
+        </dt>
+        <dd>Read a memo from a ResearcherReflectionLog by id</dd>
+
+        <dt>
+
+          <code><a href="list_memos.html">list_memos()</a></code>
+
+        </dt>
+        <dd>List memos in a ResearcherReflectionLog as a tibble</dd>
+
+        <dt>
+
+          <code><a href="persist_memos.html">persist_memos()</a></code>
+
+        </dt>
+        <dd>Persist all memos in a ResearcherReflectionLog to disk</dd>
+
+        <dt>
+
+          <code><a href="load_memos.html">load_memos()</a></code>
+
+        </dt>
+        <dd>Load memos from a run output directory back into Memo objects</dd>
+
+        <dt>
+
+          <code><a href="memo_to_markdown.html">memo_to_markdown()</a></code>
+
+        </dt>
+        <dd>Serialize a Memo to a Markdown string with YAML frontmatter</dd>
+
+        <dt>
+
+          <code><a href="markdown_to_memo.html">markdown_to_memo()</a></code>
+
+        </dt>
+        <dd>Parse a Markdown-with-YAML-frontmatter string back into a Memo</dd>
+
+        <dt>
+
+          <code><a href="create_reflection_log.html">create_reflection_log()</a></code>
+
+        </dt>
+        <dd>Initialize a ResearcherReflectionLog</dd>
+
+        <dt>
+
+          <code><a href="make_provocation.html">make_provocation()</a></code>
+
+        </dt>
+        <dd>Construct a Provocation object</dd>
+
+        <dt>
+
+          <code><a href="provoke_counter_narrative.html">provoke_counter_narrative()</a></code>
+
+        </dt>
+        <dd>Counter-narrative provocation</dd>
+
+        <dt>
+
+          <code><a href="provoke_disconfirming_evidence.html">provoke_disconfirming_evidence()</a></code>
+
+        </dt>
+        <dd>Disconfirming-evidence provocation</dd>
+
+        <dt>
+
+          <code><a href="provoke_alternative_interpretation.html">provoke_alternative_interpretation()</a></code>
+
+        </dt>
+        <dd>Alternative-interpretation provocation</dd>
+
+        <dt>
+
+          <code><a href="provoke_absent_voice.html">provoke_absent_voice()</a></code>
+
+        </dt>
+        <dd>Absent-voice provocation</dd>
+
+        <dt>
+
+          <code><a href="provoke_assumption_surfacing.html">provoke_assumption_surfacing()</a></code>
+
+        </dt>
+        <dd>Assumption-surfacing provocation</dd>
+      </dl></div><div class="section level2">
+      <h2 id="tier-transparency-t-t-t-">Tier-0 Transparency (T0.1 / T0.2 / T0.3)<a class="anchor" aria-label="anchor" href="#tier-transparency-t-t-t-"></a></h2>
+
+      <div class="section-desc"><p>Quote provenance + verification ladder (T0.1), participant spread per theme (T0.2 – computed inside aggregate_theme_statistics), and corpus coverage / no-silent-skip (T0.3). The render_tier0_coverage_card generic dispatches on a virtual Tier0Coverage parent class shared by CorpusCoverage (Mode 2/3) and ProvocationCoverage (Mode 1).</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="make_quote.html">make_quote()</a></code>
+
+        </dt>
+        <dd>Construct a Quote provenance object</dd>
+
+        <dt>
+
+          <code><a href="verify_quote.html">verify_quote()</a></code>
+
+        </dt>
+        <dd>Verify a quote against its source text via the four-step ladder</dd>
+
+        <dt>
+
+          <code><a href="quote_provenance_summary.html">quote_provenance_summary()</a></code>
+
+        </dt>
+        <dd>Summarize quote provenance for the report's Tier-0 dashboard</dd>
+
+        <dt>
+
+          <code><a href="compute_quote_provenance_stats.html">compute_quote_provenance_stats()</a></code>
+
+        </dt>
+        <dd>Aggregate verification stats across all coded segments in a coding state</dd>
+
+        <dt>
+
+          <code><a href="compute_corpus_coverage.html">compute_corpus_coverage()</a></code>
+
+        </dt>
+        <dd>Compute corpus coverage from a completed coding run</dd>
+
+        <dt>
+
+          <code><a href="compute_mode1_coverage.html">compute_mode1_coverage()</a></code>
+
+        </dt>
+        <dd>Compute Mode 1 (Reflexive Scaffold) coverage from a finished provocateur run</dd>
+
+        <dt>
+
+          <code><a href="compute_mode1_theme_stats.html">compute_mode1_theme_stats()</a></code>
+
+        </dt>
+        <dd>Compute per-theme statistics for a Mode 1 run</dd>
+
+        <dt>
+
+          <code><a href="compute_provocation_provenance_stats.html">compute_provocation_provenance_stats()</a></code>
+
+        </dt>
+        <dd>Aggregate verification stats across all provocations in a reflection log</dd>
+
+        <dt>
+
+          <code><a href="render_tier0_coverage_card.html">render_tier0_coverage_card()</a></code>
+
+        </dt>
+        <dd>Render the Tier-0 coverage card for a coverage object</dd>
+
+        <dt>
+
+          <code><a href="init_fabrication_log.html">init_fabrication_log()</a></code>
+
+        </dt>
+        <dd>Initialize the fabrication log</dd>
+
+        <dt>
+
+          <code><a href="log_fabrication.html">log_fabrication()</a></code>
+
+        </dt>
+        <dd>Append a fabricated quote to the fabrication log</dd>
+
+        <dt>
+
+          <code><a href="make_quote_from_citation.html">make_quote_from_citation()</a></code>
+
+        </dt>
+        <dd>Construct a QuoteProvenance from a single Anthropic citation</dd>
+
+        <dt>
+
+          <code><a href="make_quotes_from_citations.html">make_quotes_from_citations()</a></code>
+
+        </dt>
+        <dd>Construct QuoteProvenance objects from a list of Anthropic citations</dd>
+
+        <dt>
+
+          <code><a href="verify_quotes.html">verify_quotes()</a></code>
+
+        </dt>
+        <dd>Verify a batch of quotes against a corpus</dd>
+
+        <dt>
+
+          <code><a href="write_corpus_coverage.html">write_corpus_coverage()</a></code>
+
+        </dt>
+        <dd>Persist a CorpusCoverage / ProvocationCoverage object to disk</dd>
+      </dl></div><div class="section level2">
+      <h2 id="methodological-transparency-report-os-">Methodological Transparency Report (OS.6)<a class="anchor" aria-label="anchor" href="#methodological-transparency-report-os-"></a></h2>
+
+      <div class="section-desc"><p>Phase 58 Stage 1A: self-contained HTML methodological transparency report bundling Lincoln &amp; Guba (1985) trustworthiness mapping, reflexivity completeness, T0.1 quote provenance summary, T0.3 corpus coverage funnel, AC9 audit log summary, and theme set summary. Reads disk artifacts only; never re-runs the pipeline.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="bundle_transparency_report.html">bundle_transparency_report()</a></code>
+
+        </dt>
+        <dd>Bundle a run's transparency artifacts into a single report</dd>
+      </dl></div><div class="section level2">
+      <h2 id="methodology-decision-aids">Methodology Decision Aids<a class="anchor" aria-label="anchor" href="#methodology-decision-aids"></a></h2>
+
+      <div class="section-desc"><p>User-facing helpers for choosing a methodology mode and for annotating plots / reports with the mode and provenance evidence.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="methodology_decision_aid.html">methodology_decision_aid()</a></code>
+
+        </dt>
+        <dd>Methodology decision aid</dd>
+
+        <dt>
+
+          <code><a href="methodology_plot_caption.html">methodology_plot_caption()</a></code>
+
+        </dt>
+        <dd>Build a caption string suitable for use as a ggplot watermark</dd>
+      </dl></div><div class="section level2">
+      <h2 id="run-state-soft-lock-t-">Run State + Soft-Lock (T1.5)<a class="anchor" aria-label="anchor" href="#run-state-soft-lock-t-"></a></h2>
+
+      <div class="section-desc"><p>The REDCap dev/production pattern: every run lives in active or finalized state; methodology cannot silently change between states. Fork a run via clone_run_with_new_mode().</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="init_run_state.html">init_run_state()</a></code>
+
+        </dt>
+        <dd>Initialize the run-metadata record for a new (or resumed) run</dd>
+
+        <dt>
+
+          <code><a href="read_run_metadata.html">read_run_metadata()</a></code>
+
+        </dt>
+        <dd>Read and parse run_metadata.json for a run directory</dd>
+
+        <dt>
+
+          <code><a href="is_run_finalized.html">is_run_finalized()</a></code>
+
+        </dt>
+        <dd>Check whether a run directory is finalized</dd>
+
+        <dt>
+
+          <code><a href="finalize_run.html">finalize_run()</a></code>
+
+        </dt>
+        <dd>Mark a run as finalized</dd>
+
+        <dt>
+
+          <code><a href="methodology_mismatch_status.html">methodology_mismatch_status()</a></code>
+
+        </dt>
+        <dd>Detect a methodology mismatch between a config and an existing run</dd>
+
+        <dt>
+
+          <code><a href="clone_run_with_new_mode.html">clone_run_with_new_mode()</a></code>
+
+        </dt>
+        <dd>Clone a run directory with a new methodology mode</dd>
+      </dl></div><div class="section level2">
+      <h2 id="output-stamping-t-ac-">Output Stamping (T1.7 / AC4)<a class="anchor" aria-label="anchor" href="#output-stamping-t-ac-"></a></h2>
+
+      <div class="section-desc"><p>Methodology stamping helpers. Every CSV / JSON / HTML / plot produced by a run carries the mode + run id stamp so a reviewer reading any artifact alone sees the methodology declaration.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="stamp_methodology_html.html">stamp_methodology_html()</a></code>
+
+        </dt>
+        <dd>Build an HTML methodology badge for the report header</dd>
+
+        <dt>
+
+          <code><a href="stamp_methodology_csv.html">stamp_methodology_csv()</a></code>
+
+        </dt>
+        <dd>Stamp a CSV file with a methodology comment header</dd>
+
+        <dt>
+
+          <code><a href="stamp_methodology_json.html">stamp_methodology_json()</a></code>
+
+        </dt>
+        <dd>Stamp a JSON file with a methodology envelope</dd>
+
+        <dt>
+
+          <code><a href="stamp_methodology_console.html">stamp_methodology_console()</a></code>
+
+        </dt>
+        <dd>Build a console banner string for the methodology mode</dd>
+
+        <dt>
+
+          <code><a href="methodology_label.html">methodology_label()</a></code>
+
+        </dt>
+        <dd>Human-readable label for a methodology mode</dd>
+
+        <dt>
+
+          <code><a href="methodology_short_code.html">methodology_short_code()</a></code>
+
+        </dt>
+        <dd>Map a methodology mode to its short-code (M1 / M2 / M3)</dd>
+
+        <dt>
+
+          <code><a href="methodology_description_short.html">methodology_description_short()</a></code>
+
+        </dt>
+        <dd>One-line description of what the mode commits the AI to</dd>
+
+        <dt>
+
+          <code><a href="run_id_with_mode.html">run_id_with_mode()</a></code>
+
+        </dt>
+        <dd>Build a Mode N run-directory suffix for a fresh run</dd>
+      </dl></div><div class="section level2">
+      <h2 id="methodology-rules-t-ac-">Methodology Rules (T1.6 / AC9)<a class="anchor" aria-label="anchor" href="#methodology-rules-t-ac-"></a></h2>
+
+      <div class="section-desc"><p>Lin &amp; Corley (2025) pattern: methodology rules generated from config and injected into the model context every turn.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="generate_methodology_rules.html">generate_methodology_rules()</a></code>
+
+        </dt>
+        <dd>Generate the methodology-rules text for a config</dd>
+
+        <dt>
+
+          <code><a href="write_methodology_rules.html">write_methodology_rules()</a></code>
+
+        </dt>
+        <dd>Write methodology rules to a markdown file under <code>run_dir</code></dd>
+      </dl></div><div class="section level2">
+      <h2 id="s-print-methods">S3 Print Methods<a class="anchor" aria-label="anchor" href="#s-print-methods"></a></h2>
+
+      <div class="section-desc"><p>print() dispatchers for the package’s S3 classes. Each is invoked automatically when you print(x) an object of the corresponding class; they are documented here for reference.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="print.AIProvider.html">print(<i>&lt;AIProvider&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for AIProvider</dd>
+
+        <dt>
+
+          <code><a href="print.CheckpointManager.html">print(<i>&lt;CheckpointManager&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for CheckpointManager</dd>
+
+        <dt>
+
+          <code><a href="print.Code.html">print(<i>&lt;Code&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for Code</dd>
+
+        <dt>
+
+          <code><a href="print.ComparisonResult.html">print(<i>&lt;ComparisonResult&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for ComparisonResult</dd>
+
+        <dt>
+
+          <code><a href="print.CorpusCoverage.html">print(<i>&lt;CorpusCoverage&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for CorpusCoverage</dd>
+
+        <dt>
+
+          <code><a href="print.FrameworkSpec.html">print(<i>&lt;FrameworkSpec&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for FrameworkSpec</dd>
+
+        <dt>
+
+          <code><a href="print.LiveTracker.html">print(<i>&lt;LiveTracker&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for LiveTracker</dd>
+
+        <dt>
+
+          <code><a href="print.Memo.html">print(<i>&lt;Memo&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for Memo</dd>
+
+        <dt>
+
+          <code><a href="print.Provocation.html">print(<i>&lt;Provocation&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for Provocation</dd>
+
+        <dt>
+
+          <code><a href="print.ProvocationCoverage.html">print(<i>&lt;ProvocationCoverage&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for ProvocationCoverage</dd>
+
+        <dt>
+
+          <code><a href="print.QuoteProvenance.html">print(<i>&lt;QuoteProvenance&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for QuoteProvenance</dd>
+
+        <dt>
+
+          <code><a href="print.ResearcherReflectionLog.html">print(<i>&lt;ResearcherReflectionLog&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for ResearcherReflectionLog</dd>
+
+        <dt>
+
+          <code><a href="print.ResponseCache.html">print(<i>&lt;ResponseCache&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for ResponseCache</dd>
+
+        <dt>
+
+          <code><a href="print.Subtheme.html">print(<i>&lt;Subtheme&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for Subtheme</dd>
+
+        <dt>
+
+          <code><a href="print.ThematicConfig.html">print(<i>&lt;ThematicConfig&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for ThematicConfig</dd>
+
+        <dt>
+
+          <code><a href="print.ThemeSet.html">print(<i>&lt;ThemeSet&gt;</i>)</a></code>
+
+        </dt>
+        <dd>Print method for ThemeSet</dd>
+      </dl></div><div class="section level2">
+      <h2 id="internal-helpers">Internal Helpers<a class="anchor" aria-label="anchor" href="#internal-helpers"></a></h2>
+
+      <div class="section-desc"><p>Documented internal helpers used by the pipeline. Listed for completeness; not part of the user-facing API and may change without notice.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="detect_columns.html">detect_columns()</a></code>
+
+        </dt>
+        <dd>Detect and map columns based on platform type</dd>
+
+        <dt>
+
+          <code><a href="export_theme_entry_csvs.html">export_theme_entry_csvs()</a></code>
+
+        </dt>
+        <dd>Export CSV files for each theme's entries</dd>
+
+        <dt>
+
+          <code><a href="generate_ai_synthesis.html">generate_ai_synthesis()</a></code>
+
+        </dt>
+        <dd>Generate AI-powered executive summary and conclusion</dd>
+
+        <dt>
+
+          <code><a href="generate_downloads_section.html">generate_downloads_section()</a></code>
+
+        </dt>
+        <dd>Generate downloads appendix section</dd>
+
+        <dt>
+
+          <code><a href="generate_insights.html">generate_insights()</a></code>
+
+        </dt>
+        <dd>Generate AI insights from correlation findings</dd>
+
+        <dt>
+
+          <code><a href="generate_run_id.html">generate_run_id()</a></code>
+
+        </dt>
+        <dd>Generate a unique run ID based on timestamp</dd>
+
+        <dt>
+
+          <code><a href="generate_theme_detail_section.html">generate_theme_detail_section()</a></code>
+
+        </dt>
+        <dd>Generate a theme detail section for appendix</dd>
+
+        <dt>
+
+          <code><a href="get_emotion_interpretation.html">get_emotion_interpretation()</a></code>
+
+        </dt>
+        <dd>Get interpretation text for an emotion</dd>
+
+        <dt>
+
+          <code><a href="hash_config.html">hash_config()</a></code>
+
+        </dt>
+        <dd>Compute a hash of a config file for change detection</dd>
+
+        <dt>
+
+          <code><a href="load_and_combine_tables.html">load_and_combine_tables()</a></code>
+
+        </dt>
+        <dd>Load and combine multiple tables from a SQLite database</dd>
+
+        <dt>
+
+          <code><a href="make_anchor_id.html">make_anchor_id()</a></code>
+
+        </dt>
+        <dd>Create an HTML anchor ID from a string</dd>
+
+        <dt>
+
+          <code><a href="make_safe_filename.html">make_safe_filename()</a></code>
+
+        </dt>
+        <dd>Create a safe filename from a string</dd>
+
+        <dt>
+
+          <code><a href="parse_json_safely.html">parse_json_safely()</a></code>
+
+        </dt>
+        <dd>Parse JSON safely with automatic repair for truncated/malformed responses</dd>
+
+        <dt>
+
+          <code><a href="parse_raw_data_files.html">parse_raw_data_files()</a></code>
+
+        </dt>
+        <dd>Parse raw data DOCX files and extract metadata from filenames</dd>
+
+        <dt>
+
+          <code><a href="preprocess_text.html">preprocess_text()</a></code>
+
+        </dt>
+        <dd>Preprocess text data for analysis</dd>
+
+        <dt>
+
+          <code><a href="standardize_data.html">standardize_data()</a></code>
+
+        </dt>
+        <dd>Standardize data to common schema</dd>
+
+        <dt>
+
+          <code><a href="truncate_text.html">truncate_text()</a></code>
+
+        </dt>
+        <dd>Truncate text to specified length with ellipsis</dd>
+
+        <dt>
+
+          <code><a href="validate_config.html">validate_config()</a></code>
+
+        </dt>
+        <dd>Validate configuration completeness and correctness</dd>
+
+        <dt>
+
+          <code><a href="dot-LIVE_CODEBOOK_SNAPSHOT_EVERY.html">.LIVE_CODEBOOK_SNAPSHOT_EVERY</a></code>
+
+        </dt>
+        <dd>Default codebook-snapshot rewrite cadence</dd>
+
+        <dt>
+
+          <code><a href="dot-THEME_DEFAULTS.html">.THEME_DEFAULTS</a></code>
+
+        </dt>
+        <dd>Default values for optional theme fields</dd>
+
+        <dt>
+
+          <code><a href="dot-THEME_REQUIRED_FIELDS.html">.THEME_REQUIRED_FIELDS</a></code>
+
+        </dt>
+        <dd>Required fields for each theme within a ThemeSet</dd>
+      </dl></div><div class="section level2">
       <h2 id="configuration">Configuration<a class="anchor" aria-label="anchor" href="#configuration"></a></h2>
 
       <div class="section-desc"><p>Configuration creation, validation, and defaults</p></div>
@@ -97,6 +832,13 @@
 
         </dt>
         <dd>Create a default configuration object</dd>
+
+        <dt>
+
+          <code><a href="validate_methodology_mode.html">validate_methodology_mode()</a></code>
+
+        </dt>
+        <dd>Validate a methodology mode declaration</dd>
       </dl></div><div class="section level2">
       <h2 id="data-loading-exploration">Data Loading &amp; Exploration<a class="anchor" aria-label="anchor" href="#data-loading-exploration"></a></h2>
 
@@ -143,6 +885,27 @@
 
         </dt>
         <dd>Create an AI provider client</dd>
+
+        <dt>
+
+          <code><a href="cache_response.html">cache_response()</a></code>
+
+        </dt>
+        <dd>Write a raw API response to the cache, indexed by prompt_hash</dd>
+
+        <dt>
+
+          <code><a href="init_response_cache.html">init_response_cache()</a></code>
+
+        </dt>
+        <dd>Initialize a content-addressable response cache</dd>
+
+        <dt>
+
+          <code><a href="read_cached_response.html">read_cached_response()</a></code>
+
+        </dt>
+        <dd>Read a cached raw response by prompt_hash</dd>
       </dl></div><div class="section level2">
       <h2 id="pipeline-steps">Pipeline Steps<a class="anchor" aria-label="anchor" href="#pipeline-steps"></a></h2>
 
@@ -186,7 +949,7 @@
           <code><a href="generate_themes_iterative.html">generate_themes_iterative()</a></code>
 
         </dt>
-        <dd>Generate themes through iterative bottom-up merging</dd>
+        <dd>Generate themes via HAC + AI-judged divisive tree walk</dd>
 
         <dt>
 
@@ -211,7 +974,7 @@
       </dl></div><div class="section level2">
       <h2 id="themes-theme-data">Themes &amp; Theme Data<a class="anchor" aria-label="anchor" href="#themes-theme-data"></a></h2>
 
-      <div class="section-desc"><p>Working with ThemeSet objects</p></div>
+      <div class="section-desc"><p>Working with ThemeSet objects and Code / Subtheme accessors</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -224,6 +987,20 @@
 
         </dt>
         <dd>Create a ThemeSet object (canonical internal representation)</dd>
+
+        <dt>
+
+          <code><a href="create_code_object.html">create_code_object()</a></code>
+
+        </dt>
+        <dd>Create a Code S3 object</dd>
+
+        <dt>
+
+          <code><a href="create_subtheme.html">create_subtheme()</a></code>
+
+        </dt>
+        <dd>Create a Subtheme S3 object</dd>
 
         <dt>
 
@@ -259,6 +1036,83 @@
 
         </dt>
         <dd>Remove themes with zero assigned entries after enrichment</dd>
+
+        <dt>
+
+          <code><a href="theme_codes.html">theme_codes()</a></code>
+
+        </dt>
+        <dd>Flatten code names across all subthemes of a theme (back-compat with codes_included)</dd>
+
+        <dt>
+
+          <code><a href="theme_code_keys.html">theme_code_keys()</a></code>
+
+        </dt>
+        <dd>Flatten code keys across all subthemes of a theme</dd>
+
+        <dt>
+
+          <code><a href="theme_code_objects.html">theme_code_objects()</a></code>
+
+        </dt>
+        <dd>Flatten Code S3 objects across all subthemes (and sub-subthemes) of a theme</dd>
+
+        <dt>
+
+          <code><a href="theme_segments.html">theme_segments()</a></code>
+
+        </dt>
+        <dd>Flatten coded_segments across all codes of a theme</dd>
+
+        <dt>
+
+          <code><a href="theme_n_subthemes.html">theme_n_subthemes()</a></code>
+
+        </dt>
+        <dd>Number of TOP-LEVEL real subthemes in a theme (excludes virtual wrappers)</dd>
+
+        <dt>
+
+          <code><a href="theme_n_subthemes_total.html">theme_n_subthemes_total()</a></code>
+
+        </dt>
+        <dd>Total real (named) subthemes across every depth of a theme</dd>
+
+        <dt>
+
+          <code><a href="subtheme_code_names.html">subtheme_code_names()</a></code>
+
+        </dt>
+        <dd>Code names (display) within a Subtheme</dd>
+
+        <dt>
+
+          <code><a href="subtheme_code_keys.html">subtheme_code_keys()</a></code>
+
+        </dt>
+        <dd>Code keys within a Subtheme</dd>
+
+        <dt>
+
+          <code><a href="subtheme_n_codes.html">subtheme_n_codes()</a></code>
+
+        </dt>
+        <dd>Number of DIRECT codes in a Subtheme (excludes nested sub-subthemes)</dd>
+
+        <dt>
+
+          <code><a href="subtheme_n_codes_total.html">subtheme_n_codes_total()</a></code>
+
+        </dt>
+        <dd>Number of codes in a Subtheme INCLUDING nested sub-subthemes</dd>
+
+        <dt>
+
+          <code><a href="subtheme_n_subthemes.html">subtheme_n_subthemes()</a></code>
+
+        </dt>
+        <dd>Number of nested subthemes within a Subtheme</dd>
       </dl></div><div class="section level2">
       <h2 id="checkpoint-resume">Checkpoint &amp; Resume<a class="anchor" aria-label="anchor" href="#checkpoint-resume"></a></h2>
 
@@ -275,6 +1129,48 @@
 
         </dt>
         <dd>Initialize checkpoint system for a pipeline run</dd>
+
+        <dt>
+
+          <code><a href="save_checkpoint.html">save_checkpoint()</a></code>
+
+        </dt>
+        <dd>Save checkpoint at a given pipeline step</dd>
+
+        <dt>
+
+          <code><a href="save_partial_checkpoint.html">save_partial_checkpoint()</a></code>
+
+        </dt>
+        <dd>Save partial checkpoint within a step (for long-running batch operations)</dd>
+
+        <dt>
+
+          <code><a href="load_checkpoint.html">load_checkpoint()</a></code>
+
+        </dt>
+        <dd>Load checkpoint for a step</dd>
+
+        <dt>
+
+          <code><a href="list_checkpoints.html">list_checkpoints()</a></code>
+
+        </dt>
+        <dd>List available checkpoints with metadata</dd>
+
+        <dt>
+
+          <code><a href="find_latest_run.html">find_latest_run()</a></code>
+
+        </dt>
+        <dd>Find the most recent run folder in the results directory</dd>
+
+        <dt>
+
+          <code><a href="find_resume_point.html">find_resume_point()</a></code>
+
+        </dt>
+        <dd>Determine the last completed step for resume</dd>
       </dl></div><div class="section level2">
       <h2 id="manuscript-learning">Manuscript Learning<a class="anchor" aria-label="anchor" href="#manuscript-learning"></a></h2>
 
@@ -305,6 +1201,27 @@
 
         </dt>
         <dd>Generate AI reflection on what was learned from previous studies</dd>
+
+        <dt>
+
+          <code><a href="discover_study_folders.html">discover_study_folders()</a></code>
+
+        </dt>
+        <dd>Discover study folders matching a pattern</dd>
+
+        <dt>
+
+          <code><a href="extract_manuscript_sections.html">extract_manuscript_sections()</a></code>
+
+        </dt>
+        <dd>Extract structured sections from manuscript text</dd>
+
+        <dt>
+
+          <code><a href="parse_manuscript.html">parse_manuscript()</a></code>
+
+        </dt>
+        <dd>Parse a finalized themes manuscript (DOCX or PDF)</dd>
       </dl></div><div class="section level2">
       <h2 id="human-verification">Human Verification<a class="anchor" aria-label="anchor" href="#human-verification"></a></h2>
 
@@ -347,6 +1264,13 @@
 
         <dt>
 
+          <code><a href="generate_mode1_report.html">generate_mode1_report()</a></code>
+
+        </dt>
+        <dd>Generate the Mode 1 (Reflexive Scaffold) HTML analysis report</dd>
+
+        <dt>
+
           <code><a href="export_results.html">export_results()</a></code>
 
         </dt>
@@ -358,6 +1282,13 @@
 
         </dt>
         <dd>Export coding results to QDPX format</dd>
+
+        <dt>
+
+          <code><a href="export_theme_subtheme_summary_csvs.html">export_theme_subtheme_summary_csvs()</a></code>
+
+        </dt>
+        <dd>Export per-theme paper-style subtheme-summary CSVs (Phase 55)</dd>
       </dl></div><div class="section level2">
       <h2 id="comparison">Comparison<a class="anchor" aria-label="anchor" href="#comparison"></a></h2>
 
@@ -441,6 +1372,64 @@
 
         </dt>
         <dd>Close the audit log file connection</dd>
+
+        <dt>
+
+          <code><a href="log_ai_decision.html">log_ai_decision()</a></code>
+
+        </dt>
+        <dd>Record a single AI decision in the audit log</dd>
+
+        <dt>
+
+          <code><a href="log_ai_request.html">log_ai_request()</a></code>
+
+        </dt>
+        <dd>Record an AI request with the structured response from <code>ai_complete</code></dd>
+
+        <dt>
+
+          <code><a href="summarize_audit_log.html">summarize_audit_log()</a></code>
+
+        </dt>
+        <dd>Summarize the AI decision audit log</dd>
+      </dl></div><div class="section level2">
+      <h2 id="mode-live-tracking">Mode 1 Live Tracking<a class="anchor" aria-label="anchor" href="#mode-live-tracking"></a></h2>
+
+      <div class="section-desc"><p>Live in-memory tracking of Mode 1 (reflexive scaffold) provocation progress so the orchestrator can monitor cluster coverage and code assignments mid-run.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="init_live_tracker.html">init_live_tracker()</a></code>
+
+        </dt>
+        <dd>Initialize the live tracker for a run</dd>
+
+        <dt>
+
+          <code><a href="live_record_assignment.html">live_record_assignment()</a></code>
+
+        </dt>
+        <dd>Record one (entry, code, segment) assignment to the live tracker</dd>
+
+        <dt>
+
+          <code><a href="live_snapshot_codebook.html">live_snapshot_codebook()</a></code>
+
+        </dt>
+        <dd>Snapshot the current codebook to <code>codebook_live.json</code></dd>
+
+        <dt>
+
+          <code><a href="live_snapshot_clusters.html">live_snapshot_clusters()</a></code>
+
+        </dt>
+        <dd>Snapshot the current theme/cluster hierarchy to <code>code_to_cluster.json</code></dd>
       </dl></div><div class="section level2">
       <h2 id="statistical-analysis">Statistical Analysis<a class="anchor" aria-label="anchor" href="#statistical-analysis"></a></h2>
 
@@ -478,6 +1467,34 @@
 
         </dt>
         <dd>Create theme co-occurrence network visualization</dd>
+
+        <dt>
+
+          <code><a href="create_correlation_plot.html">create_correlation_plot()</a></code>
+
+        </dt>
+        <dd>Create correlation plot</dd>
+
+        <dt>
+
+          <code><a href="interpret_correlations.html">interpret_correlations()</a></code>
+
+        </dt>
+        <dd>Interpret correlation results for reporting</dd>
+
+        <dt>
+
+          <code><a href="prepare_correlation_data.html">prepare_correlation_data()</a></code>
+
+        </dt>
+        <dd>Prepare data for correlation analysis</dd>
+
+        <dt>
+
+          <code><a href="extract_significant.html">extract_significant()</a></code>
+
+        </dt>
+        <dd>Extract significant correlations as tidy tibble</dd>
       </dl></div><div class="section level2">
       <h2 id="scraper">Scraper<a class="anchor" aria-label="anchor" href="#scraper"></a></h2>
 
@@ -511,9 +1528,9 @@
         </dt>
         <dd>Verify that a run directory contains all expected output files</dd>
       </dl></div><div class="section level2">
-      <h2 id="internal-helpers">Internal Helpers<a class="anchor" aria-label="anchor" href="#internal-helpers"></a></h2>
+      <h2 id="pipeline-step-helpers">Pipeline Step Helpers<a class="anchor" aria-label="anchor" href="#pipeline-step-helpers"></a></h2>
 
-      <div class="section-desc"><p>Internal functions used by the pipeline (not typically called directly)</p></div>
+      <div class="section-desc"><p>Exported functions called from inside the pipeline that researchers may also call directly for finer control (e.g., feeding external coding state through enrichment + cascade independently).</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -522,94 +1539,10 @@
 
       <dl><dt>
 
-          <code><a href="aggregate_overall_statistics.html">aggregate_overall_statistics()</a></code>
-
-        </dt>
-        <dd>Aggregate overall analysis statistics for report</dd>
-
-        <dt>
-
-          <code><a href="aggregate_theme_statistics.html">aggregate_theme_statistics()</a></code>
-
-        </dt>
-        <dd>Aggregate per-theme statistics for report</dd>
-
-        <dt>
-
-          <code><a href="ai_complete.html">ai_complete()</a></code>
-
-        </dt>
-        <dd>High-level AI completion with retry and error handling</dd>
-
-        <dt>
-
-          <code><a href="ai_complete_fast.html">ai_complete_fast()</a></code>
-
-        </dt>
-        <dd>Send a quick completion using the fast/cheap model</dd>
-
-        <dt>
-
-          <code><a href="analyze_sentiment.html">analyze_sentiment()</a></code>
-
-        </dt>
-        <dd>Run batch sentiment analysis on all entries</dd>
-
-        <dt>
-
-          <code><a href="analyze_temporal_patterns.html">analyze_temporal_patterns()</a></code>
-
-        </dt>
-        <dd>Analyse temporal patterns in theme prevalence within a single run</dd>
-
-        <dt>
-
           <code><a href="as_coding_results.html">as_coding_results()</a></code>
 
         </dt>
         <dd>Convert ProgressiveCodingState to legacy CodingResults format</dd>
-
-        <dt>
-
-          <code><a href="calculate_correlations.html">calculate_correlations()</a></code>
-
-        </dt>
-        <dd>Calculate correlation matrix with p-values</dd>
-
-        <dt>
-
-          <code><a href="cascade_theme_assignments.html">cascade_theme_assignments()</a></code>
-
-        </dt>
-        <dd>Cascade theme assignments from codes to entries deterministically</dd>
-
-        <dt>
-
-          <code><a href="close_audit_log.html">close_audit_log()</a></code>
-
-        </dt>
-        <dd>Close the audit log file connection</dd>
-
-        <dt>
-
-          <code><a href="compare_models.html">compare_models()</a></code>
-
-        </dt>
-        <dd>Compare runs that used different AI models for inter-model reliability</dd>
-
-        <dt>
-
-          <code><a href="compare_runs.html">compare_runs()</a></code>
-
-        </dt>
-        <dd>Compare the current run against all previous runs</dd>
-
-        <dt>
-
-          <code><a href="compare_theme_groups.html">compare_theme_groups()</a></code>
-
-        </dt>
-        <dd>Compare continuous variables across theme groups using Mann-Whitney U tests</dd>
 
         <dt>
 
@@ -620,104 +1553,6 @@
 
         <dt>
 
-          <code><a href="config_wizard.html">config_wizard()</a></code>
-
-        </dt>
-        <dd>Interactive configuration wizard</dd>
-
-        <dt>
-
-          <code><a href="config_wizard_app.html">config_wizard_app()</a></code>
-
-        </dt>
-        <dd>Launch the interactive configuration wizard</dd>
-
-        <dt>
-
-          <code><a href="create_ai_provider.html">create_ai_provider()</a></code>
-
-        </dt>
-        <dd>Create an AI provider client</dd>
-
-        <dt>
-
-          <code><a href="create_coding_state.html">create_coding_state()</a></code>
-
-        </dt>
-        <dd>Create a new progressive coding state</dd>
-
-        <dt>
-
-          <code><a href="create_config.html">create_config()</a></code>
-
-        </dt>
-        <dd>Create a minimal configuration file</dd>
-
-        <dt>
-
-          <code><a href="create_correlation_plot.html">create_correlation_plot()</a></code>
-
-        </dt>
-        <dd>Create correlation plot</dd>
-
-        <dt>
-
-          <code><a href="create_theme_network.html">create_theme_network()</a></code>
-
-        </dt>
-        <dd>Create theme co-occurrence network visualization</dd>
-
-        <dt>
-
-          <code><a href="create_theme_set.html">create_theme_set()</a></code>
-
-        </dt>
-        <dd>Create a ThemeSet object (canonical internal representation)</dd>
-
-        <dt>
-
-          <code><a href="default_config.html">default_config()</a></code>
-
-        </dt>
-        <dd>Create a default configuration object</dd>
-
-        <dt>
-
-          <code><a href="detect_columns.html">detect_columns()</a></code>
-
-        </dt>
-        <dd>Detect and map columns based on platform type</dd>
-
-        <dt>
-
-          <code><a href="detect_variable_types.html">detect_variable_types()</a></code>
-
-        </dt>
-        <dd>Detect variable types for dynamic correlation method selection</dd>
-
-        <dt>
-
-          <code><a href="discover_study_folders.html">discover_study_folders()</a></code>
-
-        </dt>
-        <dd>Discover study folders matching a pattern</dd>
-
-        <dt>
-
-          <code><a href="dot-THEME_DEFAULTS.html">.THEME_DEFAULTS</a></code>
-
-        </dt>
-        <dd>Default values for optional theme fields</dd>
-
-        <dt>
-
-          <code><a href="dot-THEME_REQUIRED_FIELDS.html">.THEME_REQUIRED_FIELDS</a></code>
-
-        </dt>
-        <dd>Required fields for each theme within a ThemeSet</dd>
-
-        <dt>
-
           <code><a href="enrich_themes.html">enrich_themes()</a></code>
 
         </dt>
@@ -725,528 +1560,26 @@
 
         <dt>
 
-          <code><a href="explore_database.html">explore_database()</a></code>
-
-        </dt>
-        <dd>Explore a SQLite database schema</dd>
-
-        <dt>
-
-          <code><a href="export_qdpx.html">export_qdpx()</a></code>
-
-        </dt>
-        <dd>Export coding results to QDPX format</dd>
-
-        <dt>
-
-          <code><a href="export_results.html">export_results()</a></code>
-
-        </dt>
-        <dd>Export all analysis results to files</dd>
-
-        <dt>
-
-          <code><a href="export_theme_entry_csvs.html">export_theme_entry_csvs()</a></code>
-
-        </dt>
-        <dd>Export CSV files for each theme's entries</dd>
-
-        <dt>
-
-          <code><a href="extract_manuscript_sections.html">extract_manuscript_sections()</a></code>
-
-        </dt>
-        <dd>Extract structured sections from manuscript text</dd>
-
-        <dt>
-
-          <code><a href="extract_significant.html">extract_significant()</a></code>
-
-        </dt>
-        <dd>Extract significant correlations as tidy tibble</dd>
-
-        <dt>
-
-          <code><a href="find_latest_run.html">find_latest_run()</a></code>
-
-        </dt>
-        <dd>Find the most recent run folder in the results directory</dd>
-
-        <dt>
-
-          <code><a href="find_resume_point.html">find_resume_point()</a></code>
-
-        </dt>
-        <dd>Determine the last completed step for resume</dd>
-
-        <dt>
-
-          <code><a href="generate_ai_synthesis.html">generate_ai_synthesis()</a></code>
-
-        </dt>
-        <dd>Generate AI-powered executive summary and conclusion</dd>
-
-        <dt>
-
-          <code><a href="generate_downloads_section.html">generate_downloads_section()</a></code>
-
-        </dt>
-        <dd>Generate downloads appendix section</dd>
-
-        <dt>
-
-          <code><a href="generate_insights.html">generate_insights()</a></code>
-
-        </dt>
-        <dd>Generate AI insights from correlation findings</dd>
-
-        <dt>
-
-          <code><a href="generate_learning_context.html">generate_learning_context()</a></code>
-
-        </dt>
-        <dd>Generate task-specific learning context from previous analyses</dd>
-
-        <dt>
-
-          <code><a href="generate_learning_reflection.html">generate_learning_reflection()</a></code>
-
-        </dt>
-        <dd>Generate AI reflection on what was learned from previous studies</dd>
-
-        <dt>
-
-          <code><a href="generate_report.html">generate_report()</a></code>
-
-        </dt>
-        <dd>Generate the full HTML analysis report</dd>
-
-        <dt>
-
-          <code><a href="generate_run_id.html">generate_run_id()</a></code>
-
-        </dt>
-        <dd>Generate a unique run ID based on timestamp</dd>
-
-        <dt>
-
-          <code><a href="generate_temporal_plots.html">generate_temporal_plots()</a></code>
-
-        </dt>
-        <dd>Generate PNG plots for temporal analysis results</dd>
-
-        <dt>
-
-          <code><a href="generate_theme_detail_section.html">generate_theme_detail_section()</a></code>
-
-        </dt>
-        <dd>Generate a theme detail section for appendix</dd>
-
-        <dt>
-
-          <code><a href="generate_themes_iterative.html">generate_themes_iterative()</a></code>
-
-        </dt>
-        <dd>Generate themes through iterative bottom-up merging</dd>
-
-        <dt>
-
-          <code><a href="get_analytic_sample.html">get_analytic_sample()</a></code>
-
-        </dt>
-        <dd>Get the analytic sample (entries that received at least one code)</dd>
-
-        <dt>
-
-          <code><a href="get_emotion_interpretation.html">get_emotion_interpretation()</a></code>
-
-        </dt>
-        <dd>Get interpretation text for an emotion</dd>
-
-        <dt>
-
-          <code><a href="hash_config.html">hash_config()</a></code>
-
-        </dt>
-        <dd>Compute a hash of a config file for change detection</dd>
-
-        <dt>
-
-          <code><a href="init_audit_log.html">init_audit_log()</a></code>
-
-        </dt>
-        <dd>Initialize the AI decision audit log</dd>
-
-        <dt>
-
-          <code><a href="init_checkpoints.html">init_checkpoints()</a></code>
-
-        </dt>
-        <dd>Initialize checkpoint system for a pipeline run</dd>
-
-        <dt>
-
-          <code><a href="interpret_correlations.html">interpret_correlations()</a></code>
-
-        </dt>
-        <dd>Interpret correlation results for reporting</dd>
-
-        <dt>
-
-          <code><a href="list_available_runs.html">list_available_runs()</a></code>
-
-        </dt>
-        <dd>List available analysis runs</dd>
-
-        <dt>
-
-          <code><a href="list_checkpoints.html">list_checkpoints()</a></code>
-
-        </dt>
-        <dd>List available checkpoints with metadata</dd>
-
-        <dt>
-
-          <code><a href="load_and_combine_tables.html">load_and_combine_tables()</a></code>
-
-        </dt>
-        <dd>Load and combine multiple tables from a SQLite database</dd>
-
-        <dt>
-
-          <code><a href="load_checkpoint.html">load_checkpoint()</a></code>
-
-        </dt>
-        <dd>Load checkpoint for a step</dd>
-
-        <dt>
-
-          <code><a href="load_config.html">load_config()</a></code>
-
-        </dt>
-        <dd>Load analysis configuration from YAML file</dd>
-
-        <dt>
-
-          <code><a href="load_data.html">load_data()</a></code>
-
-        </dt>
-        <dd>Load data from a SQLite database</dd>
-
-        <dt>
-
-          <code><a href="load_previous_studies.html">load_previous_studies()</a></code>
-
-        </dt>
-        <dd>Load all previous studies from a base directory</dd>
-
-        <dt>
-
-          <code><a href="log_ai_decision.html">log_ai_decision()</a></code>
-
-        </dt>
-        <dd>Record a single AI decision in the audit log</dd>
-
-        <dt>
-
-          <code><a href="make_anchor_id.html">make_anchor_id()</a></code>
-
-        </dt>
-        <dd>Create an HTML anchor ID from a string</dd>
-
-        <dt>
-
-          <code><a href="make_safe_filename.html">make_safe_filename()</a></code>
-
-        </dt>
-        <dd>Create a safe filename from a string</dd>
-
-        <dt>
-
-          <code><a href="n_themes.html">n_themes()</a></code>
-
-        </dt>
-        <dd>Get the number of themes</dd>
-
-        <dt>
-
-          <code><a href="normalize_theme_result.html">normalize_theme_result()</a></code>
-
-        </dt>
-        <dd>Normalize raw AI theme output to canonical ThemeSet</dd>
-
-        <dt>
-
           <code><a href="parse_codebook.html">parse_codebook()</a></code>
 
         </dt>
         <dd>Parse a QDA software codebook export (NVivo, ATLAS.ti, MAXQDA, or generic)</dd>
+      </dl></div><div class="section level2">
+      <h2 id="package">Package<a class="anchor" aria-label="anchor" href="#package"></a></h2>
 
-        <dt>
 
-          <code><a href="parse_json_safely.html">parse_json_safely()</a></code>
 
-        </dt>
-        <dd>Parse JSON safely with automatic repair for truncated/malformed responses</dd>
+      <dl></dl></div><div class="section level2">
 
-        <dt>
 
-          <code><a href="parse_manuscript.html">parse_manuscript()</a></code>
 
-        </dt>
-        <dd>Parse a finalized themes manuscript (DOCX or PDF)</dd>
 
-        <dt>
-
-          <code><a href="parse_raw_data_files.html">parse_raw_data_files()</a></code>
-
-        </dt>
-        <dd>Parse raw data DOCX files and extract metadata from filenames</dd>
-
-        <dt>
-
-          <code><a href="prepare_correlation_data.html">prepare_correlation_data()</a></code>
-
-        </dt>
-        <dd>Prepare data for correlation analysis</dd>
-
-        <dt>
-
-          <code><a href="preprocess_text.html">preprocess_text()</a></code>
-
-        </dt>
-        <dd>Preprocess text data for analysis</dd>
-
-        <dt>
-
-          <code><a href="print.AIProvider.html">print(<i>&lt;AIProvider&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Print method for AIProvider</dd>
-
-        <dt>
-
-          <code><a href="print.CheckpointManager.html">print(<i>&lt;CheckpointManager&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Print method for CheckpointManager</dd>
-
-        <dt>
-
-          <code><a href="print.ComparisonResult.html">print(<i>&lt;ComparisonResult&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Print method for ComparisonResult</dd>
-
-        <dt>
-
-          <code><a href="print.ThematicConfig.html">print(<i>&lt;ThematicConfig&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Print method for ThematicConfig</dd>
-
-        <dt>
-
-          <code><a href="print.ThemeSet.html">print(<i>&lt;ThemeSet&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Print method for ThemeSet</dd>
-
-        <dt>
-
-          <code><a href="prune_empty_themes.html">prune_empty_themes()</a></code>
-
-        </dt>
-        <dd>Remove themes with zero assigned entries after enrichment</dd>
-
-        <dt>
-
-          <code><a href="run_analysis.html">run_analysis()</a></code>
-
-        </dt>
-        <dd>Run the full thematic analysis pipeline</dd>
-
-        <dt>
-
-          <code><a href="run_human_verification.html">run_human_verification()</a></code>
-
-        </dt>
-        <dd>Run human verification / IRR process</dd>
-
-        <dt>
-
-          <code><a href="run_progressive_coding.html">run_progressive_coding()</a></code>
-
-        </dt>
-        <dd>Run progressive sequential coding on all entries</dd>
-
-        <dt>
-
-          <code><a href="save_checkpoint.html">save_checkpoint()</a></code>
-
-        </dt>
-        <dd>Save checkpoint at a given pipeline step</dd>
-
-        <dt>
-
-          <code><a href="save_partial_checkpoint.html">save_partial_checkpoint()</a></code>
-
-        </dt>
-        <dd>Save partial checkpoint within a step (for long-running batch operations)</dd>
-
-        <dt>
-
-          <code><a href="scrape_reddit.html">scrape_reddit()</a></code>
-
-        </dt>
-        <dd>Scrape Reddit subreddits into a SQLite database</dd>
-
-        <dt>
-
-          <code><a href="standardize_data.html">standardize_data()</a></code>
-
-        </dt>
-        <dd>Standardize data to common schema</dd>
-
-        <dt>
-
-          <code><a href="summarize_audit_log.html">summarize_audit_log()</a></code>
-
-        </dt>
-        <dd>Summarize the AI decision audit log</dd>
-
-        <dt>
-
-          <code><a href="test_theme_cooccurrence.html">test_theme_cooccurrence()</a></code>
-
-        </dt>
-        <dd>Test theme co-occurrence patterns with chi-square tests of independence</dd>
-
-        <dt>
+      <dl><dt>
 
           <code><a href="pakhom-package.html">pakhom-package</a></code> <code><a href="pakhom-package.html">pakhom</a></code>
 
         </dt>
         <dd>pakhom: AI-Assisted Reflexive Thematic Analysis</dd>
-
-        <dt>
-
-          <code><a href="theme_names.html">theme_names()</a></code>
-
-        </dt>
-        <dd>Extract theme names from ThemeSet</dd>
-
-        <dt>
-
-          <code><a href="theme_set_to_tibble.html">theme_set_to_tibble()</a></code>
-
-        </dt>
-        <dd>Convert ThemeSet to tibble for export/inspection</dd>
-
-        <dt>
-
-          <code><a href="truncate_text.html">truncate_text()</a></code>
-
-        </dt>
-        <dd>Truncate text to specified length with ellipsis</dd>
-
-        <dt>
-
-          <code><a href="validate_config.html">validate_config()</a></code>
-
-        </dt>
-        <dd>Validate configuration completeness and correctness</dd>
-
-        <dt>
-
-          <code><a href="verify_excerpts.html">verify_excerpts()</a></code>
-
-        </dt>
-        <dd>Verify coded excerpts against source text</dd>
-
-        <dt>
-
-          <code><a href="verify_run_integrity.html">verify_run_integrity()</a></code>
-
-        </dt>
-        <dd>Verify that a run directory contains all expected output files</dd>
-
-        <dt>
-
-          <code><a href="compute_dynamic_batches.html">compute_dynamic_batches()</a></code>
-
-        </dt>
-        <dd>Compute dynamic batch indices based on token budget</dd>
-
-        <dt>
-
-          <code><a href="compute_embeddings.html">compute_embeddings()</a></code>
-
-        </dt>
-        <dd>Compute text embeddings via AI provider</dd>
-
-        <dt>
-
-          <code><a href="estimate_tokens.html">estimate_tokens()</a></code>
-
-        </dt>
-        <dd>Estimate token count for text</dd>
-
-        <dt>
-
-          <code><a href="generate_saturation_plot.html">generate_saturation_plot()</a></code>
-
-        </dt>
-        <dd>Generate saturation curve plot</dd>
-
-        <dt>
-
-          <code><a href="null-coalesce.html">`%||%`</a></code>
-
-        </dt>
-        <dd>Null-coalescing operator (re-export from rlang)</dd>
-
-        <dt>
-
-          <code><a href="review_progressive_codebook.html">review_progressive_codebook()</a></code>
-
-        </dt>
-        <dd>Export progressive codebook for researcher review</dd>
-
-        <dt>
-
-          <code><a href="review_themes.html">review_themes()</a></code>
-
-        </dt>
-        <dd>Export theme review sheet and apply modifications on resume</dd>
-
-        <dt>
-
-          <code><a href="safe_progress_bar.html">safe_progress_bar()</a></code>
-
-        </dt>
-        <dd>Create a progress bar that works in non-interactive/background mode</dd>
-
-        <dt>
-
-          <code><a href="validate_class.html">validate_class()</a></code>
-
-        </dt>
-        <dd>Validate that an object inherits from a given class</dd>
-
-        <dt>
-
-          <code><a href="validate_data_columns.html">validate_data_columns()</a></code>
-
-        </dt>
-        <dd>Validate that a data frame has required columns</dd>
-
-        <dt>
-
-          <code><a href="validate_provider.html">validate_provider()</a></code>
-
-        </dt>
-        <dd>Validate that an AI provider is properly constructed</dd>
       </dl></div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside></div>

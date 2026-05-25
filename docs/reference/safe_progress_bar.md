@@ -22,3 +22,10 @@ safe_progress_bar(format, total)
 ## Value
 
 A progress_bar object or a no-op list with a \$tick() method
+
+## Details
+
+Phase 36 (CRAN prep): the `progress` package is now Suggests rather than
+Imports. When it isn't installed (or the session is non-interactive),
+this falls through to a logger-based progress indicator – no functional
+regression, just no spinning bar.

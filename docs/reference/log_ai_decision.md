@@ -13,7 +13,7 @@ log_ai_decision(audit, step, decision_type, ...)
 - audit:
 
   An `AuditLog` object returned by
-  [`init_audit_log`](init_audit_log.md).
+  [`init_audit_log`](https://abanoub-armanious.github.io/pakhom/reference/init_audit_log.md).
 
 - step:
 

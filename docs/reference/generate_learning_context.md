@@ -12,9 +12,9 @@ lacking.
 ``` r
 generate_learning_context(
   studies,
-  max_codebook_chars = 20000,
-  max_manuscript_chars = 8000,
-  max_raw_samples = 5
+  max_codebook_chars = 20000L,
+  max_manuscript_chars = 12000L,
+  max_raw_samples = 5L
 )
 ```
 

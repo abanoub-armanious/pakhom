@@ -1,6 +1,10 @@
-pandoc: 3.6.3
+pandoc: 3.8.3
 pkgdown: 2.2.0
 pkgdown_sha: ~
 articles:
   getting-started: getting-started.html
-last_built: 2026-04-25T22:33Z
+  methodology-modes: methodology-modes.html
+last_built: 2026-05-25T01:41Z
+urls:
+  reference: https://abanoub-armanious.github.io/pakhom/reference
+  article: https://abanoub-armanious.github.io/pakhom/articles

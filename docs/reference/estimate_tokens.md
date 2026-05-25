@@ -1,8 +1,9 @@
 # Estimate token count for text
 
-Tries the `tiktoken` R package for accurate BPE token counts. Falls back
-to a 4-characters-per-token heuristic if tiktoken is unavailable or
-errors.
+Uses a script-aware character-to-token heuristic (~4 chars/token for
+Latin/Cyrillic scripts, ~1.5 chars/token for CJK; mixed scripts use a
+weighted average). Sufficient for batch-size budgeting where a small
+over- or under-estimate is harmless.
 
 ## Usage
 
@@ -18,7 +19,7 @@ estimate_tokens(text, model = "gpt-4o")
 
 - model:
 
-  Model name for tiktoken encoding (default: "gpt-4o")
+  Reserved for future per-model tuning (currently unused).
 
 ## Value
 

@@ -10,4 +10,4 @@ Default values for optional theme fields
 
 ## Format
 
-An object of class `list` of length 8.
+An object of class `list` of length 7.

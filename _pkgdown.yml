@@ -1,4 +1,4 @@
-url: ~
+url: https://abanoub-armanious.github.io/pakhom/
 
 template:
   bootstrap: 5
@@ -100,6 +100,28 @@ reference:
       - render_tier0_coverage_card
       - init_fabrication_log
       - log_fabrication
+      - make_quote_from_citation
+      - make_quotes_from_citations
+      - verify_quotes
+      - write_corpus_coverage
+
+  - title: "Methodological Transparency Report (OS.6)"
+    desc: >
+      Phase 58 Stage 1A: self-contained HTML methodological transparency
+      report bundling Lincoln & Guba (1985) trustworthiness mapping,
+      reflexivity completeness, T0.1 quote provenance summary, T0.3
+      corpus coverage funnel, AC9 audit log summary, and theme set
+      summary. Reads disk artifacts only; never re-runs the pipeline.
+    contents:
+      - bundle_transparency_report
+
+  - title: "Methodology Decision Aids"
+    desc: >
+      User-facing helpers for choosing a methodology mode and for
+      annotating plots / reports with the mode and provenance evidence.
+    contents:
+      - methodology_decision_aid
+      - methodology_plot_caption
 
   - title: "Run State + Soft-Lock (T1.5)"
     desc: >
@@ -137,6 +159,57 @@ reference:
       - generate_methodology_rules
       - write_methodology_rules
 
+  - title: "S3 Print Methods"
+    desc: >
+      print() dispatchers for the package's S3 classes. Each is invoked
+      automatically when you print(x) an object of the corresponding class;
+      they are documented here for reference.
+    contents:
+      - print.AIProvider
+      - print.CheckpointManager
+      - print.Code
+      - print.ComparisonResult
+      - print.CorpusCoverage
+      - print.FrameworkSpec
+      - print.LiveTracker
+      - print.Memo
+      - print.Provocation
+      - print.ProvocationCoverage
+      - print.QuoteProvenance
+      - print.ResearcherReflectionLog
+      - print.ResponseCache
+      - print.Subtheme
+      - print.ThematicConfig
+      - print.ThemeSet
+
+  - title: "Internal Helpers"
+    desc: >
+      Documented internal helpers used by the pipeline. Listed for
+      completeness; not part of the user-facing API and may change without
+      notice.
+    contents:
+      - detect_columns
+      - export_theme_entry_csvs
+      - generate_ai_synthesis
+      - generate_downloads_section
+      - generate_insights
+      - generate_run_id
+      - generate_theme_detail_section
+      - get_emotion_interpretation
+      - hash_config
+      - load_and_combine_tables
+      - make_anchor_id
+      - make_safe_filename
+      - parse_json_safely
+      - parse_raw_data_files
+      - preprocess_text
+      - standardize_data
+      - truncate_text
+      - validate_config
+      - .LIVE_CODEBOOK_SNAPSHOT_EVERY
+      - .THEME_DEFAULTS
+      - .THEME_REQUIRED_FIELDS
+
   - title: "Configuration"
     desc: "Configuration creation, validation, and defaults"
     contents:
@@ -154,6 +227,9 @@ reference:
     desc: "AI provider abstraction for OpenAI and Anthropic"
     contents:
       - create_ai_provider
+      - cache_response
+      - init_response_cache
+      - read_cached_response
 
   - title: "Pipeline Steps"
     desc: "Individual analysis steps (called by run_analysis)"
@@ -168,19 +244,38 @@ reference:
       - calculate_correlations
 
   - title: "Themes & Theme Data"
-    desc: "Working with ThemeSet objects"
+    desc: "Working with ThemeSet objects and Code / Subtheme accessors"
     contents:
       - create_theme_set
+      - create_code_object
+      - create_subtheme
       - theme_names
       - n_themes
       - theme_set_to_tibble
       - normalize_theme_result
       - prune_empty_themes
+      - theme_codes
+      - theme_code_keys
+      - theme_code_objects
+      - theme_segments
+      - theme_n_subthemes
+      - theme_n_subthemes_total
+      - subtheme_code_names
+      - subtheme_code_keys
+      - subtheme_n_codes
+      - subtheme_n_codes_total
+      - subtheme_n_subthemes
 
   - title: "Checkpoint & Resume"
     desc: "Save and restore pipeline progress"
     contents:
       - init_checkpoints
+      - save_checkpoint
+      - save_partial_checkpoint
+      - load_checkpoint
+      - list_checkpoints
+      - find_latest_run
+      - find_resume_point
 
   - title: "Manuscript Learning"
     desc: "Learn from prior manual thematic analyses"
@@ -188,6 +283,9 @@ reference:
       - load_previous_studies
       - generate_learning_context
       - generate_learning_reflection
+      - discover_study_folders
+      - extract_manuscript_sections
+      - parse_manuscript
 
   - title: "Human Verification"
     desc: "Inter-rater reliability and code verification"
@@ -199,8 +297,10 @@ reference:
     desc: "HTML report, CSV/JSON exports, and QDA-software interoperability"
     contents:
       - generate_report
+      - generate_mode1_report
       - export_results
       - export_qdpx
+      - export_theme_subtheme_summary_csvs
 
   - title: "Comparison"
     desc: "Compare results across pipeline runs and across AI models"
@@ -221,6 +321,20 @@ reference:
     contents:
       - init_audit_log
       - close_audit_log
+      - log_ai_decision
+      - log_ai_request
+      - summarize_audit_log
+
+  - title: "Mode 1 Live Tracking"
+    desc: >
+      Live in-memory tracking of Mode 1 (reflexive scaffold) provocation
+      progress so the orchestrator can monitor cluster coverage and code
+      assignments mid-run.
+    contents:
+      - init_live_tracker
+      - live_record_assignment
+      - live_snapshot_codebook
+      - live_snapshot_clusters
 
   - title: "Statistical Analysis"
     desc: "Correlation and co-occurrence helpers"
@@ -229,6 +343,10 @@ reference:
       - aggregate_theme_statistics
       - test_theme_cooccurrence
       - create_theme_network
+      - create_correlation_plot
+      - interpret_correlations
+      - prepare_correlation_data
+      - extract_significant
 
   - title: "Scraper"
     desc: "Reddit data collection"

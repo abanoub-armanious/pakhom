@@ -12,7 +12,8 @@ analyze_sentiment(
   checkpoint = NULL,
   research_focus = "",
   coding_state = NULL,
-  audit_log = NULL
+  audit_log = NULL,
+  response_cache = NULL
 )
 ```
 
@@ -49,6 +50,14 @@ analyze_sentiment(
   An AuditLog object (from `init_audit_log`) for recording each
   sentiment-assignment decision, or NULL to disable audit logging for
   this step.
+
+- response_cache:
+
+  An optional ResponseCache object (from
+  [`init_response_cache`](https://abanoub-armanious.github.io/pakhom/reference/init_response_cache.md)).
+  When provided, raw API responses for each per-batch sentiment
+  ai_complete_fast() call are written to the cache and referenced from
+  the audit log (T1.4). Pass `NULL` to skip raw-response capture.
 
 ## Value
 

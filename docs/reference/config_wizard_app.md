@@ -25,5 +25,5 @@ user closes the app without saving.
 ## Details
 
 This is the web-based companion to the CLI-based
-[`config_wizard()`](config_wizard.md). Both produce identical YAML
-output.
+[`config_wizard()`](https://abanoub-armanious.github.io/pakhom/reference/config_wizard.md).
+Both produce identical YAML output.

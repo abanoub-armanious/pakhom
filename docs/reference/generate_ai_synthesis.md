@@ -12,7 +12,9 @@ generate_ai_synthesis(
   insights,
   theme_set,
   provider = NULL,
-  config = NULL
+  config = NULL,
+  audit_log = NULL,
+  response_cache = NULL
 )
 ```
 
@@ -47,6 +49,17 @@ generate_ai_synthesis(
   ThematicConfig (or NULL). The reflexivity_block is read from
   `config$study` and injected into the synthesis system prompt; pass
   NULL to omit reflexivity framing.
+
+- audit_log:
+
+  An optional AuditLog object (T1.4). When provided, the
+  executive-summary synthesis AI call is recorded as an `ai_request`
+  audit decision with full provenance.
+
+- response_cache:
+
+  An optional ResponseCache object (T1.4). When provided, the raw API
+  response is written to the cache and referenced from the audit log.
 
 ## Value
 
