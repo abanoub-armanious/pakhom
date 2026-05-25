@@ -603,7 +603,21 @@ run_progressive_coding <- function(data, provider, config = list(),
     # when it advances. NULL on fresh runs (first arbiter call
     # naturally falls through).
     last_arbiter_n <- state$saturation$last_arbiter_n_coded %||% -1L
-    if (n_coded > 0 && n_coded %% saturation_cadence == 0 &&
+    # Phase 59 Stage 2 audit: gate the saturation arbiter on
+    # is.null(framework_spec). In Mode 3 the codebook is pre-populated
+    # with framework constructs (R/09_coding.R:285-319 above) and the
+    # AI saturation arbiter's prompt (R/saturation_arbiter.R:215) is
+    # framed for INDUCTIVE coding -- it asks the AI to judge whether
+    # the codebook has stopped growing. In Mode 3 the codebook NEVER
+    # grows beyond the pre-populated constructs (assignments only
+    # increment existing-code frequencies), so the arbiter
+    # mechanically saturates at the first call (entry 23/250 in the
+    # Phase 59 Stage 2 Round 4/5 smoke runs -- 92% of corpus skipped).
+    # The right Mode 3 stop criterion is corpus exhaustion, not
+    # codebook stability. Skip the arbiter entirely when a framework
+    # spec is present. See PHASE_60_THEME_ALGORITHM_REWRITE.md Phase 60.4.
+    if (is.null(framework_spec) && n_coded > 0 &&
+        n_coded %% saturation_cadence == 0 &&
         n_coded != last_arbiter_n) {
       state$saturation$last_arbiter_n_coded <- n_coded
       judgment <- .ai_judge_saturation(

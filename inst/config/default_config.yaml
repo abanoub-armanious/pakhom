@@ -159,7 +159,7 @@ ai:
 # Where the pipeline reads input text from. SQLite database is required.
 # -----------------------------------------------------------------------------
 data:
-  source_type: "reddit"           # "reddit" / "twitter" / "clinical" / "generic"
+  source_type: "generic"          # "generic" / "reddit" / "twitter" / "clinical" -- default changed to "generic" Phase 59 (C4 dataset-agnostic)
   database: ~                     # REQUIRED. Path to a SQLite .db file.
   tables: ~                       # NULL = auto-detect; or list of table names.
   custom_query: ~                 # Optional: SQL query overriding tables.

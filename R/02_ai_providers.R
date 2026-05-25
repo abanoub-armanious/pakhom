@@ -348,6 +348,17 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
     body$max_tokens <- max_tokens
   }
 
+  # Phase 59 Stage 2 audit: pass OpenAI's `seed` field for best-effort
+  # determinism. OpenAI's docs say `seed` is best-effort given a stable
+  # `system_fingerprint`; we log the returned fingerprint in the audit
+  # row (see below) so a divergent fingerprint between runs is
+  # explicitly visible. Default 42 to match the R-side test_mode seed;
+  # users can override via config$ai$openai$seed.
+  openai_seed <- provider$openai_seed %||%
+                 (if (is.list(provider$config)) provider$config$ai$openai$seed) %||%
+                 42L
+  body$seed <- as.integer(openai_seed)
+
   # T1.2: structured outputs via json_schema (strict mode). Reasoning models
   # don't support strict json_schema as of writing; they fall back to
   # json_mode if the caller asked for either. The schema is validated at

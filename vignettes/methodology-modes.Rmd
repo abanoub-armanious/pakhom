@@ -134,6 +134,54 @@ behavior. Theme name should probably be 'Adherence Talk' or split.",
 persist_memos(result$reflection_log, result$output_dir)
 ```
 
+### Production recipe: loading a real corpus from config
+
+The toy corpus above is for illustration. In practice you load a
+standardized + preprocessed corpus from your SQLite database via
+`load_corpus_from_config()`, then attach the
+`theme_membership_*` columns from your external coding workflow
+(NVivo / ATLAS.ti / MAXQDA export) before calling `run_mode1()`. The
+loader runs the same path that `run_analysis()` uses internally, so
+the corpus you give Mode 1 is bit-identical to what Modes 2 and 3
+would see.
+
+```{r mode1-production}
+library(pakhom)
+
+# 1. Parse the YAML config. methodology.mode must be "reflexive_scaffold".
+cfg <- load_config("config.yaml")
+
+# 2. Load + standardize + preprocess the corpus (load_and_combine_tables
+#    multi-table path, column detection, std_id/std_text/std_author
+#    standardization, text cleaning, and optional test_mode sampling all
+#    happen here -- no pakhom::: required).
+corpus <- load_corpus_from_config(cfg)
+
+# 3. Attach theme_membership_* columns from your external coding tool.
+#    Each column is an integer 0/1 indicator: which entries support
+#    which researcher-authored theme. (You export these from NVivo /
+#    ATLAS.ti / MAXQDA; pakhom never authors theme membership in Mode 1.)
+ids_adherence  <- readLines("nvivo_exports/adherence_ids.txt")
+ids_resistance <- readLines("nvivo_exports/resistance_ids.txt")
+corpus$theme_membership_Adherence  <- as.integer(corpus$std_id %in% ids_adherence)
+corpus$theme_membership_Resistance <- as.integer(corpus$std_id %in% ids_resistance)
+
+# 4. Build the ThemeSet from your researcher-authored themes.
+my_themes <- create_theme_set(list(
+  list(id = 1, name = "Adherence",
+       description = "Researcher-authored: medication adherence behaviors",
+       codes_included = c("med_routine", "daily_pills")),
+  list(id = 2, name = "Resistance",
+       description = "Researcher-authored: resistance to the regimen",
+       codes_included = c("skip_doses", "side_effects"))
+))
+
+# 5. Run the provocateur loop. Pass `config = cfg` (the already-parsed
+#    object) so we don't re-parse the YAML, or pass `config_path =` if
+#    you'd rather hand off the path.
+result <- run_mode1(data = corpus, theme_set = my_themes, config = cfg)
+```
+
 ### What you get
 
 A finalized run directory at `outputs/<run-id>_M1/` containing:
@@ -431,6 +479,49 @@ This metadata is the contract that makes pakhom runs **replay-equivalent**:
 two runs against the same data + config + framework hash + provider should
 produce comparable artifacts. Cross-mode comparisons via `compare_runs()`
 or `compare_models()` route off these fields.
+
+## The two commitment families (AC1–AC10 + C1–C8)
+
+The package commits to two distinct families of architectural promises:
+
+- **AC1–AC10 (mode-design commitments)** govern *what modes are* and
+  *how methodology is enforced*. They are the answer to "why three
+  modes? why is there no default?" Documented in
+  `pakhom/notes/strategic_audit/SPRINT4_DESIGN.md` Part I and in the
+  README's "architectural commitments" section.
+- **C1–C8 (rewrite-direction commitments)** govern *how the coding,
+  clustering, and statistics algorithms think*. They are the answer to
+  "why doesn't the AI just stop wherever the prompt says?" Documented
+  in `pakhom/notes/strategic_audit/REWRITE_PLAN_PHASE_50_TO_59.md:498-528`
+  and surfaced in the README's "rewrite-direction commitments" section.
+
+The eighteen commitments together are the load-bearing contract.
+Every methodologist reading the package's claims should be able to
+verify both sets against the code; every contributor (human or AI)
+touching the algorithm layer should re-read both before changing
+behaviour. The two families are orthogonal — mode-design changes
+(adding a fourth mode, say — which AC2 forbids) and algorithm
+changes (replacing single-pass HAC with multi-pass clustering — Phase
+60) are independent.
+
+For algorithm authors specifically, the C-commitments to watch:
+
+| Commitment | Where it lives in code |
+|---|---|
+| C1 — AI decides when to stop | `R/saturation_arbiter.R`, `R/13_themes.R` |
+| C2 — Codes preserved through clustering | `R/12_theme_data.R` (Code S3), `R/13_themes.R` |
+| C3 — Live tracking artifacts | `R/live_tracking.R` |
+| C4 — Dataset-agnostic | `R/16_report_helpers.R::.detect_metric_columns`, `R/14_correlations.R` |
+| C5 — No catch-all buckets | `R/methodology_rules.R` (inductive coding rules) |
+| C6 — Arbitrary research-question complexity | `R/01_config.R` (no length validation on research_focus) |
+| C7 — Mode-aware behaviour | `R/18_pipeline.R`, `R/mode1_orchestrator.R`, framework-spec handling |
+| C8 — Publication-quality output shape | `R/16_report_helpers.R::.build_subtheme_summary_table`, `R/17_report.R` |
+
+If you contribute and aren't sure whether a change violates a
+commitment, the rule of thumb is: **does this change introduce a
+hardcoded number, a hardcoded column name, or a hardcoded mode
+assumption?** If yes, you're probably violating C1, C4, or C7. Open a
+PR with the commitment cited and discuss before merging.
 
 ## Further reading
 

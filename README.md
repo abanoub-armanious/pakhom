@@ -403,6 +403,74 @@ The methodology-modes vignette covers each commitment in narrative
 context. The full design document is at
 `pakhom/notes/strategic_audit/SPRINT4_DESIGN.md` Part I.
 
+## For methodologists: rewrite-direction commitments (C1–C8)
+
+Distinct from the mode-design commitments above, the package's
+**algorithm-level** behaviour is governed by eight commitments — C1
+through C8 — distilled from the rewrite-direction conversations that
+shaped Phases 50–60. These are *how the package thinks*, not *what modes
+it offers*. They are equally load-bearing and equally regression-tested,
+and any code change that touches coding, clustering, statistics, or
+output rendering must honour them:
+
+- **C1 — AI decides when to stop.** No hardcoded `n_themes`,
+  `max_themes`, `max_passes`, `min_codes_per_theme`, or saturation
+  thresholds. The AI judges saturation and clustering convergence;
+  pakhom records the AI's articulation but never overrides it with a
+  count gate. Enforced in `R/saturation_arbiter.R` and (post-Phase 60)
+  in `R/13_themes.R`.
+- **C2 — Codes preserved through clustering.** Codes are atomic
+  leaves; themes and subthemes are GROUPS of codes, not summaries that
+  replace them. Clustering never mutates code names, descriptions, or
+  segment assignments. This preserves entry → code → theme traceability
+  and protects code-level nuance. Enforced by the `Code` S3 class in
+  `R/12_theme_data.R`.
+- **C3 — Live tracking artifacts during processing.** Researchers can
+  `tail -F outputs/<run>/live/` mid-run and watch the codebook + theme
+  hierarchy grow in real time. Three streamed files
+  (`code_assignments.jsonl`, `codebook_live.json`,
+  `code_to_cluster.json`) capture entry → code → cluster mappings as
+  they happen. Enforced in `R/live_tracking.R`.
+- **C4 — Dataset-agnostic.** Works with any corpus shape and any
+  metric columns. No hardcoded column-name allowlists; auto-detect
+  column types; statistics adapt to whatever numeric columns the data
+  provides. A clinical-interview corpus with `age` + `medication_dose`
+  produces the same quality of output as a Reddit corpus with
+  `score` + `upvote_ratio`. Enforced by `.detect_metric_columns()` in
+  `R/16_report_helpers.R` and (post-Phase 60) by the dynamic
+  `compare_theme_groups()` in `R/14_correlations.R`.
+- **C5 — No catch-all / "Other" buckets.** In the inductive modes
+  (Mode 2), the AI is never given an "Other" or "Miscellaneous" code
+  to dump uncertain segments into. Every coded segment must articulate
+  what it represents. In Mode 3, the `anomaly` bucket is intentional
+  and methodologically required — it surfaces framework-resistant
+  data rather than hiding it.
+- **C6 — Arbitrary research-question length/complexity.** No
+  hardcoded character limits on the research focus; no assumption
+  that the question is a single sentence. Multi-paragraph research
+  briefs work the same as one-line questions.
+- **C7 — Mode-aware behaviour.** Architecture-level branches on
+  methodology mode where the modes genuinely require different
+  behaviour (e.g., Mode 1 has no codebook + invokes the provocateur
+  loop; Mode 3 pre-populates the codebook with framework constructs).
+  Surface-level decisions (sentiment cutoff, prevalence bins, etc.)
+  should NOT branch on mode — only deep architectural decisions do.
+- **C8 — Publication-quality output shape.** The output target
+  approximates the Eaton 2020 / dayvigo-paper per-theme subtheme
+  table: subtheme name, n, Median(MAD) + Mean(SD) on the most
+  interesting metrics, supporting quotes with metric tags. The
+  package picks summary statistics appropriately for each metric —
+  never hardcoded to particular column names. Enforced in
+  `R/16_report_helpers.R::.build_subtheme_summary_table`.
+
+The canonical definitions live in
+`pakhom/notes/strategic_audit/REWRITE_PLAN_PHASE_50_TO_59.md:498-528`.
+**Any future contributor (human or AI) should re-read both AC1–AC10
+and C1–C8 before changing the coding loop, the theme algorithm, the
+statistical layer, or the report renderer.** These eighteen
+commitments together are the contract the package promises peer
+reviewers.
+
 ## Author
 
 Developed by **[Abanoub J. Armanious, MS](https://www.linkedin.com/in/abanoubarmanious/)**.

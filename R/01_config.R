@@ -526,7 +526,14 @@ print.ThematicConfig <- function(x, ...) {
     ),
 
     data = list(
-      source_type = "reddit",
+      # Phase 59 Stage 2 audit: default source_type changed from "reddit"
+      # to "generic" per C4 (dataset-agnostic). Previously the runtime
+      # fallback assumed Reddit shape, which silently mis-detected column
+      # mappings on non-Reddit corpora when users forgot to set
+      # source_type. The shipped YAML template at
+      # inst/config/default_config.yaml mirrors this change; users with
+      # actual Reddit data should set source_type: "reddit" explicitly.
+      source_type = "generic",
       database = NULL,
       tables = NULL,
       custom_query = NULL,

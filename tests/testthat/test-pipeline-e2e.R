@@ -639,6 +639,160 @@ test_that("AC8: run_mode1 produces Mode 1 artifact set (different from run_analy
   expect_true(is_run_finalized(d))
 })
 
+# ---- Phase 59 Stage 2 Round 3: Mode 1 from public API only ----------------
+
+# A Mode 1 user must be able to take a YAML config, get a standardized +
+# preprocessed corpus, attach theme membership from their external coding
+# tool, and run the provocateur loop -- WITHOUT calling pakhom:::
+# internals (load_and_combine_tables, preprocess_text, detect_columns,
+# standardize_data). The Phase 59 Stage 2 Round 3 smoke test caught
+# that this required pakhom::: access before load_corpus_from_config()
+# was exported. This test pins that public-API contract so any future
+# helper de-export silently breaks the test.
+
+test_that("Mode 1 public-API contract: config_path -> load_corpus_from_config -> run_mode1, no ::: required", {
+  skip_if_not_installed("RSQLite")
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5")
+
+  tmp_dir <- withr::local_tempdir()
+  db_path <- file.path(tmp_dir, "test.db")
+  .e2e_create_test_db(db_path, n_posts = 5)
+  output_dir <- file.path(tmp_dir, "outputs")
+  dir.create(output_dir, recursive = TRUE)
+
+  cfg <- .e2e_config(db_path, output_dir,
+                       mode = "reflexive_scaffold",
+                       generate_report = FALSE)
+  # Disable test_mode sampling so we can attach theme_membership_*
+  # against the full 5-row corpus without depending on which 3 rows
+  # the sampler happened to pick.
+  cfg$analysis$test_mode$enabled <- FALSE
+  config_path <- .e2e_write_config(cfg, tmp_dir)
+
+  # ---- ACCEPTANCE 1: load_corpus_from_config is the only loader used. ----
+  # This is the entire user-side data-prep recipe; no pakhom::: anywhere.
+  corpus <- suppressWarnings(load_corpus_from_config(config_path))
+
+  # Standardized schema produced by the public helper:
+  expect_true(is.data.frame(corpus))
+  expect_true(all(c("std_id", "std_text") %in% names(corpus)))
+  expect_true("std_author" %in% names(corpus))
+  expect_true("source_table" %in% names(corpus))
+  expect_gt(nrow(corpus), 0L)
+
+  # ---- ACCEPTANCE 2: attach theme_membership_* using only the columns ----
+  # exposed by load_corpus_from_config. In a real workflow std_id values
+  # would come from the researcher's NVivo / ATLAS.ti / MAXQDA export;
+  # here we synthesize a half-and-half split for testing.
+  n_half <- ceiling(nrow(corpus) / 2)
+  corpus$theme_membership_Adherence  <- as.integer(
+    seq_len(nrow(corpus)) <= n_half
+  )
+  corpus$theme_membership_Resistance <- as.integer(
+    seq_len(nrow(corpus)) >  n_half
+  )
+
+  # ---- ACCEPTANCE 3: build the ThemeSet using only public API. ----
+  ts <- create_theme_set(list(
+    list(id = 1L, name = "Adherence",
+         description = "Researcher-authored: medication adherence",
+         codes_included = c("med_routine", "daily_pills")),
+    list(id = 2L, name = "Resistance",
+         description = "Researcher-authored: resistance",
+         codes_included = c("skip_doses", "side_effects"))
+  ))
+
+  # ---- ACCEPTANCE 4: run_mode1 accepts the public-API-built fixture. ----
+  local_mocked_bindings(
+    create_ai_provider = function(...) mock_provider("openai"),
+    ai_complete        = function(...) list(
+      content       = jsonlite::toJSON(list(provocations = list()),
+                                          auto_unbox = TRUE),
+      model         = "mock-model",
+      request_id    = "req-mock",
+      usage         = list(prompt_tokens = 1L, completion_tokens = 1L,
+                            total_tokens = 2L),
+      finish_reason = "stop",
+      raw_response  = list(),
+      prompt_hash   = "hash-mock",
+      citations     = list()
+    ),
+    .package = "pakhom"
+  )
+
+  result <- suppressWarnings(
+    run_mode1(data = corpus, theme_set = ts, config_path = config_path,
+                categories = "counter_narrative")
+  )
+
+  # ---- ACCEPTANCE 5: the run produced a Mode-1 artifact set. ----
+  d <- result$output_dir
+  expect_true(dir.exists(d))
+  expect_match(basename(d), "_M1$")
+  expect_true(file.exists(file.path(d, "reflection_log.json")))
+  expect_true(file.exists(file.path(d, "coverage_mode1.json")))
+  expect_true(file.exists(file.path(d, "run_metadata.json")))
+  expect_true(file.exists(file.path(d, "rules", "methodology_rules.md")))
+  expect_true(file.exists(file.path(d, "fabrication_log.csv")))
+  expect_true(is_run_finalized(d))
+})
+
+test_that("load_corpus_from_config: accepts both ThematicConfig and file path; preserves test_mode toggle", {
+  skip_if_not_installed("RSQLite")
+
+  tmp_dir <- withr::local_tempdir()
+  db_path <- file.path(tmp_dir, "test.db")
+  .e2e_create_test_db(db_path, n_posts = 5)
+  output_dir <- file.path(tmp_dir, "outputs")
+  dir.create(output_dir, recursive = TRUE)
+
+  cfg_list <- .e2e_config(db_path, output_dir,
+                             mode = "codebook_collaborative",
+                             generate_report = FALSE)
+  cfg_list$analysis$test_mode <- list(enabled = TRUE,
+                                         sample_size = 2L,
+                                         seed = 42L)
+  config_path <- .e2e_write_config(cfg_list, tmp_dir)
+
+  # Path form: parses YAML -> ThematicConfig internally.
+  corpus_via_path <- suppressWarnings(load_corpus_from_config(config_path))
+  # ThematicConfig form: skips the YAML parse step.
+  cfg_obj <- suppressWarnings(load_config(config_path))
+  corpus_via_obj  <- suppressWarnings(load_corpus_from_config(cfg_obj))
+  expect_equal(corpus_via_path, corpus_via_obj)
+
+  # test_mode default (TRUE) honors config: 5 rows -> sample_size 2.
+  expect_equal(nrow(corpus_via_path), 2L)
+
+  # apply_test_mode = FALSE returns the full preprocessed corpus.
+  corpus_full <- suppressWarnings(
+    load_corpus_from_config(cfg_obj, apply_test_mode = FALSE)
+  )
+  expect_gte(nrow(corpus_full), 3L)
+  expect_true(all(c("std_id", "std_text", "std_author") %in% names(corpus_full)))
+})
+
+test_that("load_corpus_from_config: rejects invalid inputs with actionable errors", {
+  # No database in config:
+  cfg_no_db <- list(
+    data = list(tables = "posts", source_type = "reddit")
+  )
+  expect_error(load_corpus_from_config(cfg_no_db),
+               "config\\$data\\$database is required")
+
+  # No tables in config:
+  cfg_no_tables <- list(
+    data = list(database = "x.db", source_type = "reddit")
+  )
+  expect_error(load_corpus_from_config(cfg_no_tables),
+               "config\\$data\\$tables must list at least one table")
+
+  # Not a ThematicConfig or path:
+  expect_error(load_corpus_from_config(42),
+               "must be a ThematicConfig")
+})
+
 # ---- AC5 same-mode finalized refusal --------------------------------------
 
 test_that("AC5 (same-mode): run_analysis refuses to resume a same-mode finalized run", {

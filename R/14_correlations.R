@@ -37,8 +37,19 @@ prepare_correlation_data <- function(data, theme_set, config = list()) {
   # artifact of prompt design, not a finding about the data. Confidence is
   # retained in the exported sentiment_scores.csv as a per-entry diagnostic
   # but is not a substantive variable for correlation analysis.
+  # Phase 59 Stage 2 audit (C4 dataset-agnostic): include EVERY numeric
+  # metric column from the corpus in the correlation matrix, not just
+  # the two pakhom-engineered sentiment columns. .detect_metric_columns()
+  # honors explicit config$data$column_mappings$metric_columns first,
+  # then falls back to auto-detect (any numeric column not in the
+  # internal exclusion list and not theme_membership_*). A clinical
+  # corpus with `age` + `medication_dose` now correlates those against
+  # every theme; a Reddit corpus with `score` + `num_comments`
+  # correlates those; etc. See pakhom/R/16_report_helpers.R::.detect_metric_columns.
+  metric_cols <- .detect_metric_columns(data, config = config)
+  base_cols <- intersect(c("sentiment_score", "emotion_intensity"), names(data))
   corr_data <- data |>
-    select(any_of(c("sentiment_score", "emotion_intensity")))
+    select(any_of(unique(c(base_cols, metric_cols))))
 
   # Add theme columns
   valid_names <- theme_names(theme_set)
@@ -1111,7 +1122,16 @@ compare_theme_groups <- function(data, theme_set, config = list()) {
   # it co-varies with emotion_intensity by design (same single AI sentiment
   # call), so any 'confidence differs across themes' result is contaminated
   # by the underlying emotion_intensity difference.
-  continuous_vars <- c("sentiment_score", "emotion_intensity")
+  #
+  # Phase 59 Stage 2 audit (C4 dataset-agnostic): test EVERY numeric
+  # metric column for theme-group differences via Mann-Whitney U, not
+  # just the two pakhom-engineered sentiment columns. A clinical
+  # researcher with a `medication_dose` column now sees "Theme X has
+  # significantly higher medication_dose than non-X"; pre-this-fix
+  # they never would. See pakhom/R/16_report_helpers.R::.detect_metric_columns.
+  base_continuous <- intersect(c("sentiment_score", "emotion_intensity"), names(data))
+  metric_cols <- .detect_metric_columns(data, config = config)
+  continuous_vars <- unique(c(base_continuous, metric_cols))
   continuous_vars <- continuous_vars[continuous_vars %in% names(data)]
 
   if (length(continuous_vars) == 0) {

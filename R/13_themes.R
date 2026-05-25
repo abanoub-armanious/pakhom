@@ -25,6 +25,35 @@
 # each entry is mapped to themes/subthemes via its assigned codes, with no
 # AI re-reading of raw text. Replay-equivalent given (provider, seed,
 # audit_log).
+#
+# REWRITE-DIRECTION COMMITMENTS HONORED IN THIS FILE:
+#   - C1 (AI decides when to stop): no hardcoded n_themes, max_themes,
+#     min_codes_per_theme, similarity gates. Saturation arbiter (Phase 56)
+#     and the AI tree walk (Phase 52) make all structural decisions.
+#   - C2 (codes preserved through clustering): the Code S3 (see
+#     R/12_theme_data.R) is the atomic leaf; themes/subthemes carry
+#     code_keys + code_indices (the original codebook keys), never
+#     mutated names/descriptions/assignments.
+#   - C5 (no catch-all buckets): the AI is never offered an "Other"
+#     verdict; the closed three-valued enum
+#     (coherent_theme | split_required | atomic_outlier) is the only
+#     option set.
+#   - C7 (mode-aware): Mode 3 framework-applied path pre-populates the
+#     codebook with constructs (see R/09_coding.R) so this file's HAC
+#     walk operates on a deductive codebook; Mode 1 doesn't use this
+#     file at all (run_mode1 invokes the provocateur loop).
+#
+# PHASE 60 REWRITE TARGETS (deferred to a separate phase per
+# notes/strategic_audit/PHASE_60_THEME_ALGORITHM_REWRITE.md):
+#   - Honor C1 more faithfully by removing the articulation gate that
+#     currently flips 79-87% of the AI's coherent_theme verdicts to
+#     split_required, and by removing the single-leaf auto-theme
+#     shortcut (current behaviour produces 87-92% single-code themes).
+#   - Implement multi-pass clustering with AI-declared convergence
+#     (per the user's mental model that this file departs from since
+#     Phase 52). The penultimate stable pass labels subthemes; the
+#     final stable pass labels themes; labeling happens AFTER all
+#     structural decisions.
 # ==============================================================================
 
 .SENTIMENT_TENDENCY_THRESHOLD <- 0.2
