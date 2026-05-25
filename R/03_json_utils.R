@@ -13,14 +13,23 @@
 #' @return Parsed R object (list/data.frame) or NULL on failure
 parse_json_safely <- function(response, expected_key = NULL,
                               max_repair_attempts = 3) {
-  if (is.null(response) || is.na(response) || nchar(trimws(response)) == 0) {
+  # Phase 59 coverage followup: handle vector inputs FIRST (the length-1
+  # collapse used to happen AFTER `is.na(response)`, which errored on
+  # length > 1 with "'length = 2' in coercion to 'logical(1)'" because
+  # `||` requires scalar operands. Caught by the new vector-input branch
+  # test; the function's docstring claims vector handling so the bug was
+  # purely on the early-return guard.)
+  if (is.null(response)) {
     log_warn("Empty JSON response received")
     return(NULL)
   }
-
-  if (length(response) != 1) {
+  if (length(response) != 1L) {
     log_warn("parse_json_safely received vector of length {length(response)}, using first element")
-    response <- response[1]
+    response <- response[1L]
+  }
+  if (is.na(response) || nchar(trimws(response)) == 0) {
+    log_warn("Empty JSON response received")
+    return(NULL)
   }
 
   # Clean common artifacts

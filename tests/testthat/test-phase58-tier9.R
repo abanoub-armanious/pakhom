@@ -105,8 +105,10 @@ test_that("audit log timestamps are emitted in UTC", {
 
 test_that("every format(Sys.time(), ...) in R/ declares tz = \"UTC\" (L-15 invariant)", {
   src_dir <- test_path("..", "..", "R")
-  if (!dir.exists(src_dir)) {
-    testthat::skip("R/ source directory not available (covr / install context)")
+  # Check for an actual source file (not just the directory) -- covr's
+  # test fixture sometimes has an empty R/ that exists but lacks sources.
+  if (!file.exists(file.path(src_dir, "utils.R"))) {
+    testthat::skip("R/ source files not on disk (covr / install context)")
   }
   # Strict hygiene: any `format(Sys.time(), ...)` call -- whether or not it
   # uses %z -- must declare tz = "UTC". Otherwise the runner's LOCAL TZ
@@ -135,8 +137,9 @@ test_that("every format(Sys.time(), ...) in R/ declares tz = \"UTC\" (L-15 invar
 
 test_that("test fixtures in tests/testthat/ also declare tz = \"UTC\" (hygiene)", {
   test_dir <- test_path("..", "testthat")
-  if (!dir.exists(test_dir)) {
-    testthat::skip("tests/testthat/ directory not available (covr / install context)")
+  # Check for a known fixture file (not just the directory).
+  if (!file.exists(file.path(test_dir, "test-phase58-tier9.R"))) {
+    testthat::skip("tests/testthat/ source files not on disk (covr / install context)")
   }
   # Phase 59 meta-audit L1: test fixtures should model the package's own
   # hygiene rule. If a maintainer copies a `format(Sys.time(), ...)` line

@@ -11,16 +11,18 @@
 
 # Static-source tests require access to R/*.R source files (devtools::test
 # context); skip under covr / installed-package contexts where sources are
-# not on disk.
-skip_if_no_r_source <- function() {
-  src_dir <- test_path("..", "..", "R")
-  if (!dir.exists(src_dir)) {
-    testthat::skip("R/ source directory not available (covr / install context)")
+# not on disk. Check the specific file each test reads rather than just
+# the directory, because covr's test fixture sometimes has an empty R/
+# directory that exists but is missing the source files.
+skip_if_no_r_source <- function(relpath = "17_report.R") {
+  src_file <- test_path("..", "..", "R", relpath)
+  if (!file.exists(src_file)) {
+    testthat::skip(paste0("R/", relpath, " source file not on disk (covr / install context)"))
   }
 }
 
 test_that("theme detail HTML renders all keywords (cap respected at source, not re-truncated)", {
-  skip_if_no_r_source()
+  skip_if_no_r_source("17_report.R")
   # Synthesize a theme_set summary with 8 keywords (Tier 8 cap).
   ts_summary <- list(
     name = "Synthetic",
@@ -61,7 +63,7 @@ test_that("theme detail HTML renders all keywords (cap respected at source, not 
 # ==========================================================================
 
 test_that("compute_theme_stats keyword fallback caps at 8 (matches Tier 8 contract)", {
-  skip_if_no_r_source()
+  skip_if_no_r_source("16_report_helpers.R")
   src <- readLines(
     test_path("..", "..", "R", "16_report_helpers.R"),
     warn = FALSE
