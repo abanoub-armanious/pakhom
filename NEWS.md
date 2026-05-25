@@ -76,15 +76,92 @@ only; new runs use the v2 algorithm by default.
 in `test-phase60-theme-rewrite.R` covering the 8-item test plan plus
 edge cases). R CMD check on R-tree: clean.
 
-### What's NOT in Phase 60
+### 60.8 empirical re-validation (Mode 2; ~$5 actual spend)
 
-- **60.8 empirical re-validation**: rerun of the Phase 59 Stage 2 smoke
-  campaign on the corrected algorithm (~$20-30 OpenAI API). Requires
-  user authorization.
-- **60.9 publication-quality deep dive + configuration selection
-  guide**: depends on 60.8.
-- **Removal of the v1 algorithm**: scheduled for after 60.8
-  validates v2 is stable.
+Three Mode 2 runs on the binge-eating + sleep corpus validate v2 across
+two research foci and two coding scales:
+
+| Run | Focus | Codes | v2 themes | Single-code | Passes | v1 baseline |
+|---|---|---:|---:|---:|---:|---:|
+| 1 | medication × sleep | 40 | 6 | 0% | 1 | 69 (87%) |
+| 2 | medication review-path | 47 | 10 | 0% | 1 | 117 |
+| 6 | emotional triggers | 157 | 7 | 0% | **3** | 154 (92%) |
+
+Round 6 demonstrates v2's true multi-pass nature: 157 codes →
+47 → 20 → 7 themes with AI-declared convergence at pass 4. Each of the
+7 themes has 2-3 substantive subthemes (e.g., "Recovery Strategies and
+Support Systems" subthemes: "Supportive Environments and Community
+Support" / "Structured Recovery Strategies and Educational Resources" /
+"Nutritional and Dietary Strategies for Managing Eating Behaviors").
+
+A pre-flight self-check during the validation caught a critical bug:
+the `clustering_proposal` + `label_pass` decision_types were missing
+from `R/audit_log.R::.valid_decision_types`. Without the fix, every
+production run with `audit_log != NULL` would have crashed on the first
+clustering AI call. The fix landed in `a87f65c`.
+
+Round 6's first attempt hit OpenAI quota exhaustion mid-run; the
+pre-fix v2 code silently coerced the failed pass-1 call to
+verdict='converged', producing 167 single-code themes (THE v1
+pathology). A hardening fix in `3fbb733` makes pass-1 AI failures
+abort loudly rather than degenerate; the retry after quota top-up
+produced the clean 7-theme result above.
+
+Rounds 3-5 (Mode 1 + Mode 3 regression) failed due to multi-round
+runner script bugs (Mode 1 needs `run_mode1()`; Mode 3 needs a
+`framework_file` path). Both paths are covered by the unit-test
+suite (`test-mode1-*.R`, `test-mode3-framework.R`); script fix
+deferred to a future patch.
+
+### 60.9 publication-quality deep dive
+
+Complete deep-dive at
+`pakhom/notes/strategic_audit/PHASE_60_9_DEEP_DIVE.md`. Per-run quality
+assessment + cross-run observations + configuration selection guide.
+All 23 themes across the three runs have substantive noun-phrase names;
+zero bucket-label openers; zero empty descriptions; zero fabricated
+quotes detected.
+
+### 60.10 configuration_selection_aid()
+
+New exported function (`R/methodology_decision_aid.R`) that codifies
+the Phase 60.8 empirical evidence into runnable code. Given a
+methodology mode + corpus size + focus shape, it returns:
+expected theme range, expected clustering passes, recommended
+researcher-review pause points, expected wall-time, and expected
+OpenAI API spend.
+
+Example usage:
+
+```r
+configuration_selection_aid(
+  mode = "codebook_collaborative",
+  corpus_size = 250,
+  focus_shape = "narrow_intersection"
+)
+# Returns: expected_themes = [5, 8]; expected_passes = 1;
+#          after_coding review = TRUE; ~11 min wall-time; ~$3 OpenAI.
+```
+
+Vignette section "The v2 theme algorithm (Phase 60)" added to
+`vignettes/methodology-modes.Rmd` documenting the multi-pass design,
+the empirical evidence table, and `configuration_selection_aid()`
+usage.
+
+### What's NOT in Phase 60 (deferred)
+
+- **Removal of the v1 algorithm**: scheduled for Phase 61. The v1 path
+  is ~1500 lines of `R/13_themes.R` (HAC walker + articulation gate +
+  detector functions + subtheme walker) kept for back-compat with
+  v1-pinned test fixtures only. Removing it tightens the maintenance
+  surface and lets pkgdown render the v2 algorithm as THE algorithm.
+- **Empirical regression for Mode 1 + Mode 3 deductive paths**: the
+  multi-round runner script bugs prevented these. Fix the script and
+  rerun for completeness.
+- **Anthropic provider validation**: deferred per the original Phase
+  60 brief. Phase 61.
+- **Multi-model consensus + very-large-corpus testing** (1000+
+  entries → 400+ codes). Phase 61/62.
 
 ## Phase 59: documentation refresh + six-angle verification campaign
 

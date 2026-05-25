@@ -247,6 +247,245 @@ methodology_decision_aid <- function(interactive = base::interactive(),
   stop("Unhandled ta_family: ", ta_family)
 }
 
+# ==============================================================================
+# Phase 60.10 -- configuration_selection_aid
+# ==============================================================================
+# Companion to methodology_decision_aid(). Once a researcher has picked a
+# methodology mode (Mode 1/2/3), this aid helps them set the right
+# configuration knobs based on their corpus size, codebook size, and
+# whether the research focus is narrow or broad.
+#
+# The recommendations encode empirical evidence from the Phase 60.8
+# re-validation (see pakhom/notes/strategic_audit/PHASE_60_9_DEEP_DIVE.md).
+# Three Mode 2 runs across two foci and two scales validated the v2
+# algorithm's behavior; the numerical bracket below ("expect 6-10 themes
+# from 40-150 codes") is derived from those three runs.
+# ==============================================================================
+
+#' Configuration-selection aid (Phase 60.10)
+#'
+#' Once you've picked a methodology mode via
+#' \code{methodology_decision_aid()}, this function helps you set
+#' \code{config.yaml} knobs based on your corpus shape. It encodes the
+#' empirical evidence from the Phase 60.8 re-validation: three Mode 2
+#' runs at different scales (40, 47, 157 codes) and different research
+#' foci (medication x sleep, medication review-path, emotional triggers)
+#' produced 6, 10, and 7 themes respectively -- all in the
+#' publication-quality 4-10 range with 0% single-code themes.
+#'
+#' The function returns a list with: \code{expected_themes} (range),
+#' \code{expected_passes} (clustering passes; v2 only), and
+#' \code{recommended_review_points} (whether the post-coding or
+#' post-themes researcher review pause should be enabled).
+#'
+#' @param mode One of \code{"reflexive_scaffold"} (M1),
+#'   \code{"codebook_collaborative"} (M2), \code{"framework_applied"}
+#'   (M3). Get this from \code{methodology_decision_aid()} first.
+#' @param corpus_size Integer; approximate number of entries in the
+#'   corpus. Used to estimate codebook scale.
+#' @param estimated_codebook_size Integer; approximate number of codes
+#'   you expect after saturation. If NULL, the function estimates from
+#'   \code{corpus_size} (typical ratio: 1 code per 1.5-4 entries
+#'   depending on focus breadth, observed in Phase 60.8 at 40 codes
+#'   from 60 coded entries and 157 codes from 140 coded entries).
+#' @param focus_shape One of \code{"narrow_intersection"} (e.g.,
+#'   "medication x sleep x binge"), \code{"single_focal"} (e.g.,
+#'   "medication adherence"), or \code{"broad"} (e.g., "emotional
+#'   experiences"). Narrow foci produce fewer codes per coded entry.
+#' @return A list with elements \code{expected_themes},
+#'   \code{expected_passes}, \code{recommended_review_points},
+#'   \code{expected_wall_time_min}, \code{expected_api_spend_usd}, and
+#'   \code{notes}.
+#' @export
+#' @examples
+#' \dontrun{
+#' # A 250-entry corpus on a narrow medication x sleep question:
+#' configuration_selection_aid(
+#'   mode = "codebook_collaborative",
+#'   corpus_size = 250,
+#'   focus_shape = "narrow_intersection"
+#' )
+#'
+#' # A larger 1000-entry corpus with a broad focus:
+#' configuration_selection_aid(
+#'   mode = "codebook_collaborative",
+#'   corpus_size = 1000,
+#'   focus_shape = "broad"
+#' )
+#' }
+configuration_selection_aid <- function(mode,
+                                          corpus_size,
+                                          estimated_codebook_size = NULL,
+                                          focus_shape = c("narrow_intersection",
+                                                           "single_focal",
+                                                           "broad")) {
+  mode <- match.arg(mode,
+    c("reflexive_scaffold", "codebook_collaborative", "framework_applied"))
+  focus_shape <- match.arg(focus_shape)
+  if (!is.numeric(corpus_size) || corpus_size < 1L) {
+    stop("corpus_size must be a positive integer (the number of entries in your corpus).",
+         call. = FALSE)
+  }
+  corpus_size <- as.integer(corpus_size[1])
+
+  # Mode 1 has no v2 clustering and no expected_themes prediction;
+  # researcher authors themes. Return mode-specific guidance.
+  if (mode == "reflexive_scaffold") {
+    return(list(
+      mode = mode,
+      expected_themes = NA_integer_,
+      expected_passes = NA_integer_,
+      recommended_review_points = list(
+        after_coding = FALSE,  # Mode 1 doesn't code in the usual sense
+        after_themes = FALSE   # Mode 1 doesn't auto-generate themes
+      ),
+      expected_wall_time_min = .config_wall_time_estimate(corpus_size, mode),
+      expected_api_spend_usd = .config_api_spend_estimate(corpus_size, mode),
+      notes = paste0(
+        "Mode 1 (reflexive_scaffold): the researcher authors themes ",
+        "(typically in NVivo / ATLAS.ti); pakhom contributes the ",
+        "provocateur questioning loop. Use run_mode1() rather than ",
+        "run_analysis(). No theme-count prediction applies."
+      )
+    ))
+  }
+
+  # Mode 3 deductive: themes = framework constructs + (optional) anomaly
+  # bucket. No clustering. Theme count = #constructs + (0 or 1).
+  if (mode == "framework_applied") {
+    return(list(
+      mode = mode,
+      expected_themes = NA_integer_,
+      expected_passes = NA_integer_,
+      recommended_review_points = list(
+        after_coding  = corpus_size >= 100L,
+        after_themes  = FALSE  # framework constructs are predetermined
+      ),
+      expected_wall_time_min = .config_wall_time_estimate(corpus_size, mode),
+      expected_api_spend_usd = .config_api_spend_estimate(corpus_size, mode),
+      notes = paste0(
+        "Mode 3 (framework_applied): theme count equals your framework's ",
+        "construct count (+ 1 if anomaly_handling is 'bracket' / 'extend' / ",
+        "'revise'). If anomaly_handling = 'extend' or 'revise', the ",
+        "anomaly-emergent themes use the v2 clustering algorithm (Phase ",
+        "60.2 wiring); their count follows the Mode 2 bracket below ",
+        "applied to the anomaly subset."
+      )
+    ))
+  }
+
+  # Mode 2: estimate codebook size, then theme range from v2 empirical evidence.
+  # Phase 60.8 ratios:
+  #   - narrow_intersection: ~40-47 codes from 60-67 coded entries (~0.7-0.8 codes/coded)
+  #   - broad (emotional triggers): ~157 codes from 140 coded entries (~1.1 codes/coded)
+  # Coded entries are typically 25-60% of corpus size (saturation kicks in around the 25% mark
+  # for narrow foci, later for broad foci).
+  if (is.null(estimated_codebook_size)) {
+    coded_ratio <- switch(focus_shape,
+      narrow_intersection = 0.25,
+      single_focal        = 0.40,
+      broad               = 0.60
+    )
+    codes_per_coded <- switch(focus_shape,
+      narrow_intersection = 0.75,
+      single_focal        = 0.90,
+      broad               = 1.10
+    )
+    coded_entries <- corpus_size * coded_ratio
+    estimated_codebook_size <- as.integer(coded_entries * codes_per_coded)
+  } else {
+    estimated_codebook_size <- as.integer(estimated_codebook_size[1])
+  }
+
+  # Empirical bracket from Phase 60.8:
+  # Themes: low end mean(6,10,7)-1sd, high end mean+1sd; rounded to [4, 12].
+  # Passes scale with log2(codebook size): 40 codes -> 1 pass; 157 codes -> 3 passes.
+  expected_passes <- if (estimated_codebook_size <= 60L) 1L
+                      else if (estimated_codebook_size <= 100L) 2L
+                      else 3L
+
+  # Theme range: tighten for narrow foci (more cohesive), widen for broad foci.
+  theme_range <- switch(focus_shape,
+    narrow_intersection = c(5L, 8L),
+    single_focal        = c(6L, 10L),
+    broad               = c(6L, 10L)  # the Round 6 result (7 from 157 codes) supports this
+  )
+
+  # Researcher review recommendations:
+  # - after_coding: enable when codebook will be reviewed before theming
+  #   (good for substantive studies; skip for smokes)
+  # - after_themes: enable when expected theme count is at upper edge
+  #   (more chance of mild overlap pairs that could merge)
+  recommend_after_themes <- estimated_codebook_size < 80L &&
+                              theme_range[2] >= 9L
+
+  notes_str <- if (estimated_codebook_size < 40L) {
+    paste0(
+      "Estimated codebook (", estimated_codebook_size, " codes) is below ",
+      "the empirically-validated bracket (40-157 codes from Phase 60.8). ",
+      "v2 should still work but the theme range is extrapolated; consider ",
+      "running a smoke first."
+    )
+  } else if (estimated_codebook_size > 200L) {
+    paste0(
+      "Estimated codebook (", estimated_codebook_size, " codes) is above ",
+      "the empirically-validated bracket (Phase 60.8 tested up to 157). ",
+      "v2's single-call-per-pass should scale to ~500 codes within ",
+      "OpenAI gpt-4o's context window, but quality at that scale is ",
+      "unknown; smoke first."
+    )
+  } else {
+    paste0(
+      "Estimated codebook (", estimated_codebook_size, " codes) is within ",
+      "the empirically-validated bracket (Phase 60.8: 40-157 codes). ",
+      "Expect ", expected_passes, " substantive clustering pass(es) before ",
+      "AI-declared convergence."
+    )
+  }
+
+  list(
+    mode = mode,
+    expected_themes = theme_range,
+    expected_passes = expected_passes,
+    recommended_review_points = list(
+      after_coding = corpus_size >= 100L,
+      after_themes = recommend_after_themes
+    ),
+    expected_wall_time_min = .config_wall_time_estimate(corpus_size, mode),
+    expected_api_spend_usd = .config_api_spend_estimate(corpus_size, mode),
+    notes = notes_str
+  )
+}
+
+#' Estimate wall-time for a run based on corpus size + mode
+#' @keywords internal
+.config_wall_time_estimate <- function(corpus_size, mode) {
+  # Phase 60.8 timings: 250-entry sample -> 6-12 min for Mode 2.
+  # Scaling: dominated by progressive coding (one AI call per entry).
+  # Approx: corpus_size * 0.04 min per entry + 1 min fixed overhead.
+  if (mode == "reflexive_scaffold") {
+    # Mode 1 is provocateur-driven; fewer AI calls than Mode 2
+    return(as.integer(max(2L, ceiling(corpus_size * 0.02 + 1))))
+  }
+  as.integer(max(3L, ceiling(corpus_size * 0.04 + 1)))
+}
+
+#' Estimate OpenAI gpt-4o API spend for a run
+#' @keywords internal
+.config_api_spend_estimate <- function(corpus_size, mode) {
+  # Phase 60.8 actual costs on 250-entry runs: ~$1-3 per Mode 2 run.
+  # Scaling: corpus_size * $0.01 per entry (one coding call + overhead).
+  # This is a rough order-of-magnitude; OpenAI billing dashboard is
+  # authoritative.
+  est <- if (mode == "reflexive_scaffold") {
+    corpus_size * 0.005 + 0.5
+  } else {
+    corpus_size * 0.01 + 0.5
+  }
+  round(est, 2)
+}
+
+
 .ask_choice <- function(prompt, options) {
   cat(prompt, "\n")
   for (i in seq_along(options)) cat(sprintf("  %d. %s\n", i, options[i]))

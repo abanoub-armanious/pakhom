@@ -275,6 +275,66 @@ A finalized run directory at `outputs/<run-id>_M2/` with:
 - You are willing to gate the AI's output at pause-points rather than accept it wholesale.
 - You want IRR + saturation diagnostics and the audit trail as your defensibility argument.
 
+### The v2 theme algorithm (Phase 60)
+
+Mode 2's theme-generation step uses the **v2 multi-pass clustering with
+label-after-clustering** algorithm
+(`R/theme_algorithm_v2.R::generate_themes_phase60`). The AI sees the
+entire codebook at once, proposes a partition into clusters, and either
+continues with another pass (merging clusters further) or declares
+convergence. After convergence, a dedicated labeling pass with the
+whole tree visible assigns researcher-facing names + descriptions.
+
+The algorithm honors C-tenets 1 (AI decides when to stop -- no hardcoded
+pass count), 2 (codes preserved as atomic leaves), 3 (live tracking per
+pass: `outputs/<run>/live/clustering_pass_<N>.json`), and 5 (label after
+clustering, never during).
+
+**Empirical evidence from Phase 60.8 validation** (Mode 2 on a 250-entry
+binge-eating + sleep corpus):
+
+| Run | Research focus | Codes | Substantive passes | **v2 themes** | Single-code | **v1 baseline** |
+|-----|---|---:|---:|---:|---:|---:|
+| 1 | medication × sleep × binge | 40 | 1 | **6** | 0% | 69 (87% single-code) |
+| 2 | medication / review-path | 47 | 1 | **10** | 0% | 117 |
+| 6 | emotional triggers | 157 | **3** | **7** | 0% | 154 (92% single-code) |
+
+All three runs landed in the 4-10 publication-quality target range with
+zero single-code themes. The Round 6 case (157 codes → 3 substantive
+passes → 7 themes with 2-3 subthemes each) is the empirical
+demonstration that v2 produces a clean theme/subtheme hierarchy at
+realistic codebook scale.
+
+For details on per-theme quality assessment, see
+`pakhom/notes/strategic_audit/PHASE_60_9_DEEP_DIVE.md`.
+
+### Choosing the right configuration
+
+Once you've picked Mode 2 via `methodology_decision_aid()`, the
+`configuration_selection_aid()` function helps you set expected outcomes
++ recommended review points based on your corpus shape:
+
+```{r mode2-config-aid, eval=FALSE}
+library(pakhom)
+
+# Narrow intersection focus, 250-entry corpus:
+configuration_selection_aid(
+  mode = "codebook_collaborative",
+  corpus_size = 250,
+  focus_shape = "narrow_intersection"
+)
+#> $expected_themes:    [5, 8]
+#> $expected_passes:    1
+#> $recommended_review_points$after_coding: TRUE
+#> $expected_wall_time_min: 11
+#> $expected_api_spend_usd: 3
+```
+
+The bracket is empirical -- it's derived from the three Phase 60.8 runs
+above. A narrow research focus tends to produce fewer codes per coded
+entry (more cohesive); a broad focus produces more codes and may
+require more clustering passes.
+
 ## Mode 3: Framework Applied (apply a theoretical framework verbatim)
 
 In Mode 3 you supply a theoretical framework (e.g., the Theory of
