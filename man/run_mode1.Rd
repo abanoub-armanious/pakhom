@@ -40,7 +40,14 @@ resume the provocateur loop from its reflection_log.json. Memos
 are also rehydrated from \code{outputs/<run>/memos/<id>.md} (the
 canonical persistence layer per AC4).}
 
-\item{config_overrides}{Named list of dot-path config overrides.}
+\item{config_overrides}{Named list of overrides applied after the
+YAML config is loaded. Two equivalent styles are supported and
+may be mixed: dot-path keys
+(\code{list("study.research_focus" = "x")}) and nested named
+lists (\code{list(study = list(research_focus = "x"))}). Both
+deep-merge into the loaded config; sibling fields under the same
+parent key are preserved. See \code{\link{load_config}} for the
+full leaf-vs-recurse rule.}
 }
 \value{
 Invisibly: a list with \code{output_dir}, \code{reflection_log},
@@ -75,14 +82,24 @@ my_themes <- create_theme_set(list(
        codes_included = c("med_routine", "daily_pills"))
 ))
 
-# 2. Run the provocateur loop with full Tier-0/Tier-1 scaffolding
-result <- run_mode1(
-  data        = my_corpus,        # tibble with std_id + std_text
-  theme_set   = my_themes,
-  config_path = "config.yaml"     # methodology.mode = "reflexive_scaffold"
+# 2. Load + standardize + preprocess the corpus from your config,
+#    then attach theme_membership_* columns that came out of your
+#    external coding tool (NVivo / ATLAS.ti / MAXQDA). pakhom does
+#    not author theme membership in Mode 1 -- you do.
+cfg <- load_config("config.yaml")  # methodology.mode = "reflexive_scaffold"
+my_corpus <- load_corpus_from_config(cfg)
+my_corpus$theme_membership_Adherence <- as.integer(
+  my_corpus$std_id \%in\% adherence_ids  # ids from your NVivo export
 )
 
-# 3. Add reflexive memos (Mode 1's AC6 burden parity vs Modes 2/3)
+# 3. Run the provocateur loop with full Tier-0/Tier-1 scaffolding
+result <- run_mode1(
+  data      = my_corpus,
+  theme_set = my_themes,
+  config    = cfg
+)
+
+# 4. Add reflexive memos (Mode 1's AC6 burden parity vs Modes 2/3)
 result$reflection_log <- add_memo(
   result$reflection_log,
   body = "The 'Adherence' theme rests heavily on contributors 1-3.",
@@ -94,6 +111,10 @@ persist_memos(result$reflection_log, result$output_dir)
 }
 \seealso{
 \code{\link{run_analysis}} (Mode 2/3 entry point);
+\code{\link{load_corpus_from_config}} (canonical public-API loader
+for the \code{data} argument; produces a standardized +
+preprocessed tibble from a config so users do not need to call
+internal helpers via \code{pakhom:::});
 \code{\link{run_provocateur_questioning}} (the bare provocateur
 loop without scaffolding); \code{\link{add_memo}} (Mode 1
 reflexive memo CRUD); \code{\link{compute_mode1_coverage}}

@@ -92,6 +92,132 @@ load_data <- function(db_path, table_name = NULL, query = NULL) {
   data
 }
 
+#' Load and preprocess a corpus from a pakhom configuration
+#'
+#' One-call corpus preparation: reads the database, applies the
+#' configured column mapping, standardizes column names, runs
+#' preprocessing, and (optionally) applies test_mode sampling. Returns
+#' a tibble with the canonical \code{std_id}, \code{std_text},
+#' \code{std_author}, \code{std_timestamp}, \code{original_text} columns
+#' (plus any configured metric columns and \code{source_table}).
+#'
+#' This is the canonical public entry point for users who need the
+#' standardized + preprocessed corpus as a stand-alone object,
+#' particularly for Mode 1 (\code{\link{run_mode1}}), which requires
+#' the researcher to attach \code{theme_membership_*} columns from
+#' their external coding workflow (NVivo, ATLAS.ti, MAXQDA, etc.)
+#' before invoking the provocateur loop. \code{\link{run_analysis}}
+#' (Modes 2/3) calls this same function internally during its Step 2,
+#' so the loading code path is canonically identical whether the
+#' corpus is consumed by \code{run_analysis} or by \code{run_mode1}.
+#'
+#' Pre-Phase-59 users had to call the internal trio
+#' (\code{pakhom:::load_and_combine_tables} +
+#' \code{pakhom:::detect_columns} + \code{pakhom:::preprocess_text})
+#' to construct a Mode 1 \code{data} argument from a YAML config,
+#' which broke the package's no-\code{:::} contract for replicable
+#' workflows. This helper closes that gap.
+#'
+#' @param config Either a \code{ThematicConfig} object (e.g., from
+#'   \code{\link{load_config}}) or a length-1 character path to a YAML
+#'   config file. If a path, \code{load_config()} is called with no
+#'   overrides.
+#' @param apply_test_mode Logical; if \code{TRUE} (the default) and
+#'   the config's \code{analysis$test_mode$enabled} is set, sample the
+#'   corpus down to \code{analysis$test_mode$sample_size} rows using
+#'   \code{analysis$test_mode$seed}. Pass \code{FALSE} to skip
+#'   sampling and return the full preprocessed corpus regardless of
+#'   the test_mode config -- useful when the same config drives both
+#'   a test_mode dry-run and a full Mode 1 ingestion.
+#' @return A tibble of standardized + preprocessed entries with
+#'   \code{std_id}, \code{std_text}, \code{std_author},
+#'   \code{std_timestamp}, \code{original_text}, plus any metric
+#'   columns identified by the column mapping, plus \code{source_table}.
+#' @seealso \code{\link{load_config}} (parse a YAML config to
+#'   ThematicConfig); \code{\link{run_mode1}} (Mode 1 entry point that
+#'   consumes the returned tibble after the researcher attaches
+#'   \code{theme_membership_*} columns); \code{\link{run_analysis}}
+#'   (Modes 2/3 entry point that loads the corpus internally via this
+#'   function); \code{vignette("methodology-modes")} for a Mode 1
+#'   worked example.
+#' @examples
+#' \dontrun{
+#'   # Mode 1 (Reflexive Scaffold) workflow: load the standardized
+#'   # corpus from config, attach researcher-authored theme
+#'   # memberships, then run the provocateur loop.
+#'   cfg    <- load_config("config.yaml")   # methodology = reflexive_scaffold
+#'   corpus <- load_corpus_from_config(cfg)
+#'
+#'   # Attach theme_membership_* columns from your external coding
+#'   # tool (NVivo / ATLAS.ti / MAXQDA export). In Mode 1 pakhom
+#'   # never authors themes -- you do, in your own workflow.
+#'   corpus$theme_membership_Adherence  <- as.integer(corpus$std_id %in% ids_a)
+#'   corpus$theme_membership_Resistance <- as.integer(corpus$std_id %in% ids_r)
+#'
+#'   themes <- create_theme_set(list(
+#'     list(id = 1, name = "Adherence",
+#'          description = "Researcher-authored: medication adherence",
+#'          codes_included = c("med_routine", "daily_pills"))
+#'   ))
+#'
+#'   result <- run_mode1(data = corpus, theme_set = themes, config = cfg)
+#' }
+#' @export
+load_corpus_from_config <- function(config, apply_test_mode = TRUE) {
+  if (is.character(config) && length(config) == 1L) {
+    config <- load_config(config)
+  }
+  if (!inherits(config, "ThematicConfig") && !is.list(config)) {
+    stop("load_corpus_from_config: `config` must be a ThematicConfig ",
+         "object (from load_config()) or a character path to a YAML ",
+         "config file", call. = FALSE)
+  }
+  if (is.null(config$data) || is.null(config$data$database)) {
+    stop("load_corpus_from_config: config$data$database is required",
+         call. = FALSE)
+  }
+  if (is.null(config$data$tables) || length(config$data$tables) == 0L) {
+    stop("load_corpus_from_config: config$data$tables must list at ",
+         "least one table", call. = FALSE)
+  }
+
+  db_path <- config$data$database
+  tables  <- config$data$tables
+
+  # Match run_analysis Step 2 exactly so the loading path stays
+  # canonical. Multi-table loads use load_and_combine_tables;
+  # single-table loads need an explicit source_table column for
+  # downstream consumers (export_theme_entry_csvs,
+  # aggregate_overall_statistics) which silently degrade without it.
+  if (length(tables) > 1L) {
+    data <- load_and_combine_tables(db_path, tables,
+                                     source_type = config$data$source_type,
+                                     config = config$data)
+  } else {
+    raw <- load_data(db_path, tables[1])
+    col_map <- detect_columns(raw, config$data$source_type, config$data)
+    data <- standardize_data(raw, col_map)
+    data$source_table <- tables[1]
+  }
+
+  preprocess_config <- config$data$preprocessing
+  preprocess_config$source_type <- config$data$source_type
+  data <- preprocess_text(data, preprocess_config)
+  log_info("Corpus loaded: {nrow(data)} entries")
+
+  if (isTRUE(apply_test_mode) && isTRUE(config$analysis$test_mode$enabled)) {
+    test_n <- config$analysis$test_mode$sample_size %||% 100
+    test_seed <- config$analysis$test_mode$seed %||% 42
+    if (test_n < nrow(data)) {
+      set.seed(test_seed)
+      data <- data[sample(nrow(data), test_n), ]
+      log_info("TEST MODE: sampled {test_n} entries (seed={test_seed})")
+    }
+  }
+
+  data
+}
+
 #' Load and combine multiple tables from a SQLite database
 #'
 #' Each table is independently column-mapped and standardized, then combined.

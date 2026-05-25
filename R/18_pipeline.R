@@ -26,8 +26,14 @@
 #'   in place -- doing so would overwrite the canonical outputs without
 #'   a fork record. Use \code{\link{clone_run_with_new_mode}} to fork
 #'   into a new run dir.
-#' @param config_overrides Named list of dot-path overrides applied
-#'   after config load. Useful for batch runs.
+#' @param config_overrides Named list of overrides applied after the
+#'   YAML config is loaded. Two equivalent styles are supported and
+#'   may be mixed: dot-path keys
+#'   (\code{list("study.research_focus" = "x")}) and nested named
+#'   lists (\code{list(study = list(research_focus = "x"))}). Both
+#'   deep-merge into the loaded config; sibling fields under the same
+#'   parent key are preserved. See \code{\link{load_config}} for the
+#'   full leaf-vs-recurse rule.
 #' @return Invisible list with \code{data}, \code{analytic_data},
 #'   \code{coding_state}, \code{theme_set}, \code{correlations},
 #'   \code{insights}, \code{learning_context}, \code{comparison_result},
@@ -435,41 +441,14 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     data <- load_checkpoint(checkpoint, "data_loaded")
   } else {
     log_info("\n[STEP 2] Loading and preparing data...")
-
-    db_path <- config$data$database
-    tables <- config$data$tables
-
-    if (length(tables) > 1) {
-      data <- load_and_combine_tables(db_path, tables,
-                                       source_type = config$data$source_type,
-                                       config = config$data)
-    } else {
-      raw <- load_data(db_path, tables[1])
-      col_map <- detect_columns(raw, config$data$source_type, config$data)
-      data <- standardize_data(raw, col_map)
-      # Multi-table loads add source_table via load_and_combine_tables;
-      # single-table runs need the same column or downstream consumers
-      # (export_theme_entry_csvs, aggregate_overall_statistics) silently
-      # render reports without source breakdown.
-      data$source_table <- tables[1]
-    }
-
-    preprocess_config <- config$data$preprocessing
-    preprocess_config$source_type <- config$data$source_type
-    data <- preprocess_text(data, preprocess_config)
-    log_info("Data loaded: {nrow(data)} entries")
-
-    # Apply test mode sampling if enabled
-    if (isTRUE(config$analysis$test_mode$enabled)) {
-      test_n <- config$analysis$test_mode$sample_size %||% 100
-      test_seed <- config$analysis$test_mode$seed %||% 42
-      if (test_n < nrow(data)) {
-        set.seed(test_seed)
-        data <- data[sample(nrow(data), test_n), ]
-        log_info("TEST MODE: sampled {test_n} entries (seed={test_seed})")
-      }
-    }
-
+    # Phase 59 Stage 2 Round 3 (Mode 1 ergonomics): the load + standardize
+    # + preprocess + test_mode-sampling sequence is now the exported
+    # load_corpus_from_config() so Mode 1 users have a single public-API
+    # entry point matching the path run_analysis uses internally. Keeping
+    # one canonical code path prevents the silent divergence that bit
+    # phase 38 (min_text_length vs min_char field-name drift) and phase 58
+    # Tier 0 C-9 (intersect-vs-union NA-fill across tables).
+    data <- load_corpus_from_config(config)
     save_checkpoint(checkpoint, "data_loaded", data)
   }
 

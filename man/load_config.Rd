@@ -7,10 +7,31 @@
 load_config(config_path, overrides = list())
 }
 \arguments{
-\item{config_path}{Path to YAML config file}
+\item{config_path}{Path to YAML config file.}
 
-\item{overrides}{Named list of overrides (dot-separated keys,
-e.g., list("ai.provider" = "anthropic"))}
+\item{overrides}{Named list of overrides applied after the YAML
+is parsed. Two equivalent styles are supported and may be mixed:
+\itemize{
+\item \strong{Dot-path keys} --
+\code{list("ai.provider" = "anthropic",
+      "study.research_focus" = "x")}
+\item \strong{Nested named lists} --
+\code{list(ai = list(provider = "anthropic"),
+      study = list(research_focus = "x"))}
+}
+Both styles deep-merge: sibling fields under the same parent key
+are preserved, not clobbered. (Pre-Phase-59 the nested style
+silently replaced the entire parent block -- e.g., passing
+\code{list(study = list(researcher_positionality = "..."))} would
+drop \code{study$research_focus} and surface as the misleading
+"study.research_focus is required" validation error.)
+
+Leaves are everything that is not a non-empty named list:
+atomic vectors (\code{c("a", "b")}), NULL, empty \code{list()},
+unnamed/positional lists (e.g.,
+\code{custom_cleaning_rules = list(list(pattern = ...))}), and
+data.frames. Use a positional list deliberately when you mean
+"replace this whole block".}
 }
 \value{
 A validated ThematicConfig S3 object

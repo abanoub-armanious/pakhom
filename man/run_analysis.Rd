@@ -21,8 +21,14 @@ in place -- doing so would overwrite the canonical outputs without
 a fork record. Use \code{\link{clone_run_with_new_mode}} to fork
 into a new run dir.}
 
-\item{config_overrides}{Named list of dot-path overrides applied
-after config load. Useful for batch runs.}
+\item{config_overrides}{Named list of overrides applied after the
+YAML config is loaded. Two equivalent styles are supported and
+may be mixed: dot-path keys
+(\code{list("study.research_focus" = "x")}) and nested named
+lists (\code{list(study = list(research_focus = "x"))}). Both
+deep-merge into the loaded config; sibling fields under the same
+parent key are preserved. See \code{\link{load_config}} for the
+full leaf-vs-recurse rule.}
 }
 \value{
 Invisible list with \code{data}, \code{analytic_data},

@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{generate_run_id}
 \alias{generate_run_id}
-\title{Generate a unique run ID based on timestamp}
+\title{Generate a unique run ID based on timestamp (UTC).}
 \usage{
 generate_run_id()
 }
@@ -10,5 +10,7 @@ generate_run_id()
 Character string like "run_2026-02-23_143052"
 }
 \description{
-Generate a unique run ID based on timestamp
+Always emitted in UTC so two researchers in different timezones running the
+same analysis at the same wall-clock moment produce comparable run IDs
+(Phase 59 meta-audit M4 / Tier 9 L-15).
 }

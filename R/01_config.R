@@ -4,9 +4,30 @@
 
 #' Load analysis configuration from YAML file
 #'
-#' @param config_path Path to YAML config file
-#' @param overrides Named list of overrides (dot-separated keys,
-#'   e.g., list("ai.provider" = "anthropic"))
+#' @param config_path Path to YAML config file.
+#' @param overrides Named list of overrides applied after the YAML
+#'   is parsed. Two equivalent styles are supported and may be mixed:
+#'   \itemize{
+#'     \item \strong{Dot-path keys} --
+#'       \code{list("ai.provider" = "anthropic",
+#'       "study.research_focus" = "x")}
+#'     \item \strong{Nested named lists} --
+#'       \code{list(ai = list(provider = "anthropic"),
+#'       study = list(research_focus = "x"))}
+#'   }
+#'   Both styles deep-merge: sibling fields under the same parent key
+#'   are preserved, not clobbered. (Pre-Phase-59 the nested style
+#'   silently replaced the entire parent block -- e.g., passing
+#'   \code{list(study = list(researcher_positionality = "..."))} would
+#'   drop \code{study$research_focus} and surface as the misleading
+#'   "study.research_focus is required" validation error.)
+#'
+#'   Leaves are everything that is not a non-empty named list:
+#'   atomic vectors (\code{c("a", "b")}), NULL, empty \code{list()},
+#'   unnamed/positional lists (e.g.,
+#'   \code{custom_cleaning_rules = list(list(pattern = ...))}), and
+#'   data.frames. Use a positional list deliberately when you mean
+#'   "replace this whole block".
 #' @return A validated ThematicConfig S3 object
 #' @export
 load_config <- function(config_path, overrides = list()) {
@@ -16,10 +37,17 @@ load_config <- function(config_path, overrides = list()) {
 
   config <- yaml::read_yaml(config_path)
 
-  # Apply overrides
-  for (key in names(overrides)) {
+  # Apply overrides. Accept both dot-path keys
+  # (list("study.research_focus" = "x")) AND nested named lists
+  # (list(study = list(research_focus = "x"))) -- the nested style was
+  # a silent foot-gun pre-Phase-59-Stage-2-Round-3 because the loop
+  # walked names() and used .set_nested at the top key, which
+  # clobbered the entire study block. .flatten_overrides() recurses
+  # into named lists and emits dot-paths so both styles deep-merge.
+  flat_overrides <- .flatten_overrides(overrides)
+  for (key in names(flat_overrides)) {
     parts <- strsplit(key, "\\.")[[1]]
-    config <- .set_nested(config, parts, overrides[[key]])
+    config <- .set_nested(config, parts, flat_overrides[[key]])
   }
 
   # Merge with defaults for any missing fields
@@ -783,6 +811,108 @@ print.ThematicConfig <- function(x, ...) {
   lst
 }
 
+#' Flatten a (possibly nested) overrides list into dot-path key/value pairs
+#'
+#' Both styles of override are supported:
+#' \itemize{
+#'   \item Dot-path keys: \code{list("study.research_focus" = "x")}
+#'   \item Nested named lists: \code{list(study = list(research_focus = "x"))}
+#' }
+#'
+#' Without this helper, the override loop in \code{\link{load_config}}
+#' treated a nested list as an atomic leaf, so passing
+#' \code{list(study = list(researcher_positionality = "..."))} silently
+#' clobbered the entire \code{study} block -- dropping
+#' \code{research_focus} (and every other field) and surfacing as the
+#' misleading error "study.research_focus is required". Caught Phase 59
+#' Stage 2 Round 3 during the Mode 1 smoke test.
+#'
+#' Recursion rule: a value is recursed into when it is a non-empty
+#' named list (\code{is.list} TRUE, \code{length > 0}, has
+#' \code{names()}, and not a data.frame). Atomic vectors, NULL, empty
+#' lists, unnamed/positional lists (e.g.,
+#' \code{custom_cleaning_rules = list(list(pattern = ...))}), and
+#' data.frames are treated as leaves so a config value that legitimately
+#' is a list (e.g., \code{ai$multi_model$models}) is not mis-walked.
+#' Mixed-named lists (some entries with empty names) are recursed into
+#' so the recursive top-of-function name check can fire an error with
+#' the full dot-path prefix for localization.
+#'
+#' Duplicate flattened keys can arise when a user targets the same
+#' dot-path via both styles in a single call (e.g.,
+#' \code{list("ai.provider" = "openai", ai = list(provider = "anthropic"))}
+#' would emit two \code{ai.provider} entries). The helper deduplicates
+#' before returning, keeping the LAST occurrence -- this matches the
+#' intuitive "what I wrote later overrides what I wrote earlier"
+#' semantic. (Plain \code{list[[key]]} access in R returns the FIRST
+#' match for duplicate names, which would produce the opposite -- and
+#' surprising -- behavior if dedup were skipped.)
+#'
+#' @param overrides A named list of overrides (possibly nested).
+#' @param prefix Internal recursion accumulator -- the dot-path built
+#'   so far. Leave as \code{NULL} at top level.
+#' @return A flat named list whose names are dot-paths and whose values
+#'   are leaves.
+#' @keywords internal
+.flatten_overrides <- function(overrides, prefix = NULL) {
+  if (length(overrides) == 0L) return(list())
+
+  nms <- names(overrides)
+  # NA names sneak through nzchar() (treated as TRUE under the default
+  # keepNA setting), and `list[[NA]]` returns NULL -- which would
+  # silently drop the user's value. Reject NA names explicitly.
+  if (is.null(nms) || any(is.na(nms)) || any(!nzchar(nms))) {
+    stop(
+      ".flatten_overrides: every override entry must be named. ",
+      "Got entries with empty, missing, or NA names at ",
+      if (is.null(prefix)) "top level" else sprintf("prefix '%s'", prefix),
+      ".",
+      call. = FALSE
+    )
+  }
+
+  flat <- list()
+  for (key in nms) {
+    value <- overrides[[key]]
+    full_key <- if (is.null(prefix)) key else paste0(prefix, ".", key)
+
+    # Recurse only into non-empty named lists (data.frames excluded
+    # because they have names() = column names and is.list() TRUE but
+    # walking them as a config tree would be wrong). Lists with
+    # any names get recursed -- if the names are mixed (some empty),
+    # the recursive call's top-of-function check fires the error with
+    # the full prefix so the user can localize the typo.
+    is_recurseable_block <-
+      is.list(value) &&
+      length(value) > 0L &&
+      !is.data.frame(value) &&
+      !is.null(names(value))
+
+    if (is_recurseable_block) {
+      flat <- c(flat, .flatten_overrides(value, prefix = full_key))
+    } else {
+      # Bracket-single + list(.) idiom preserves NULL leaves, which
+      # the [[<-]] idiom would silently drop. Atomic vectors, empty
+      # lists, positional (unnamed) lists, and data.frames also flow
+      # through here as leaves.
+      flat[full_key] <- list(value)
+    }
+  }
+
+  # Deduplicate: when a user mixes both override styles for the same
+  # dot-path (e.g., "ai.provider" = "x" AND ai = list(provider = "y")),
+  # both entries land in `flat` with identical names. The downstream
+  # loops in load_config / create_config read values with [[key]],
+  # which returns the FIRST match for duplicate names -- the opposite
+  # of the "last write wins" semantic users expect when overriding.
+  # Keep the last occurrence so later writes dominate.
+  if (length(flat) > 0L) {
+    flat <- flat[!duplicated(names(flat), fromLast = TRUE)]
+  }
+
+  flat
+}
+
 # ==============================================================================
 # Config Generation Helpers
 # ==============================================================================
@@ -929,11 +1059,13 @@ create_config <- function(methodology = "codebook_collaborative",
     )
   )
 
-  # Apply ... overrides
+  # Apply ... overrides. Accepts both dot-path and nested-list styles
+  # (see .flatten_overrides + load_config notes).
   overrides <- list(...)
-  for (key in names(overrides)) {
+  flat_overrides <- .flatten_overrides(overrides)
+  for (key in names(flat_overrides)) {
     parts <- strsplit(key, "\\.")[[1]]
-    config <- .set_nested(config, parts, overrides[[key]])
+    config <- .set_nested(config, parts, flat_overrides[[key]])
   }
 
   header <- paste0(

@@ -457,3 +457,324 @@ test_that("AH-5 integration: validate_config calls deprecated-knob warn helper",
   # Should not error; should emit a deprecated-knob warn.
   expect_no_error(validate_config(cfg))
 })
+
+# ============================================================================
+# Phase 59 Stage 2 Round 3: overrides accept BOTH dot-path AND nested-list
+# styles (load_config / create_config / run_analysis / run_mode1)
+# ============================================================================
+#
+# Pre-fix bug: load_config()'s override loop walked names() and called
+# .set_nested on the top key. Passing a nested override such as
+#   list(study = list(researcher_positionality = "..."))
+# clobbered the entire `study` block (dropping research_focus, name,
+# everything) and surfaced as the misleading validation error
+# "study.research_focus is required" -- making the user think the
+# override had silently failed when it had in fact silently overshot.
+# Caught Phase 59 Stage 2 Round 3 during the Mode 1 smoke test.
+# ----------------------------------------------------------------------------
+
+test_that(".flatten_overrides: empty input returns empty list", {
+  expect_equal(pakhom:::.flatten_overrides(list()), list())
+})
+
+test_that(".flatten_overrides: single dot-path key passes through unchanged", {
+  result <- pakhom:::.flatten_overrides(list("study.research_focus" = "x"))
+  expect_equal(result, list("study.research_focus" = "x"))
+})
+
+test_that(".flatten_overrides: nested single-level list becomes dot-path", {
+  result <- pakhom:::.flatten_overrides(
+    list(study = list(research_focus = "x"))
+  )
+  expect_equal(result, list("study.research_focus" = "x"))
+})
+
+test_that(".flatten_overrides: deeply nested list (3 levels) flattens correctly", {
+  result <- pakhom:::.flatten_overrides(
+    list(ai = list(openai = list(models = list(primary = "gpt-4"))))
+  )
+  expect_equal(result, list("ai.openai.models.primary" = "gpt-4"))
+})
+
+test_that(".flatten_overrides: mixed dot-path AND nested in same call", {
+  result <- pakhom:::.flatten_overrides(list(
+    "study.research_focus" = "x",
+    ai = list(provider = "anthropic")
+  ))
+  expect_equal(result, list(
+    "study.research_focus" = "x",
+    "ai.provider" = "anthropic"
+  ))
+})
+
+test_that(".flatten_overrides: duplicate dot-paths dedupe to LAST value", {
+  # Real concern uncovered during triple-check: when both styles target
+  # the same path, the unflattened helper produced two entries with
+  # identical names and the downstream loop's `[[key]]` indexing
+  # returned the FIRST -- so the user's later (presumably more
+  # intentional) write was silently dropped. Dedup-from-last fixes
+  # this and matches docstring contract.
+  result <- pakhom:::.flatten_overrides(list(
+    "study.researcher_positionality" = "FIRST",
+    study = list(researcher_positionality = "SECOND")
+  ))
+  expect_length(result, 1L)
+  expect_equal(result[["study.researcher_positionality"]], "SECOND")
+})
+
+test_that(".flatten_overrides: duplicate dot-paths -- nested first, then dot-path wins", {
+  # Symmetric to the above: regardless of which style appears first,
+  # the entry that appears LATER in scan order wins.
+  result <- pakhom:::.flatten_overrides(list(
+    study = list(researcher_positionality = "FIRST"),
+    "study.researcher_positionality" = "SECOND"
+  ))
+  expect_length(result, 1L)
+  expect_equal(result[["study.researcher_positionality"]], "SECOND")
+})
+
+test_that(".flatten_overrides: dedup is per-path; siblings untouched", {
+  # Make sure dedup only collapses duplicates and does NOT drop
+  # other sibling entries that happen to share a parent block.
+  result <- pakhom:::.flatten_overrides(list(
+    ai = list(provider = "openai", openai = list(api_key_env = "X")),
+    "ai.provider" = "anthropic"  # only this one dupes
+  ))
+  expect_equal(result[["ai.provider"]], "anthropic")
+  expect_equal(result[["ai.openai.api_key_env"]], "X")
+  expect_setequal(names(result), c("ai.provider", "ai.openai.api_key_env"))
+})
+
+test_that(".flatten_overrides: multiple siblings under nested parent", {
+  result <- pakhom:::.flatten_overrides(list(
+    study = list(
+      research_focus = "x",
+      researcher_positionality = "y",
+      research_paradigm = "z"
+    )
+  ))
+  expect_setequal(names(result), c(
+    "study.research_focus",
+    "study.researcher_positionality",
+    "study.research_paradigm"
+  ))
+  expect_equal(result[["study.research_focus"]], "x")
+  expect_equal(result[["study.researcher_positionality"]], "y")
+  expect_equal(result[["study.research_paradigm"]], "z")
+})
+
+test_that(".flatten_overrides: character vector is a leaf (not recursed)", {
+  # study$concepts is c("med", "sleep") -- a character vector, not a
+  # list. Must NOT recurse on it (would fail since names() is NULL).
+  result <- pakhom:::.flatten_overrides(
+    list(study = list(concepts = c("med", "sleep", "binge")))
+  )
+  expect_equal(result, list("study.concepts" = c("med", "sleep", "binge")))
+})
+
+test_that(".flatten_overrides: NULL value is a leaf (preserved)", {
+  # Some config knobs are explicitly NULL-as-disabled (e.g.,
+  # ai$max_entry_chars = NULL means "auto"). Must pass NULL through.
+  result <- pakhom:::.flatten_overrides(list(ai = list(max_entry_chars = NULL)))
+  expect_true("ai.max_entry_chars" %in% names(result))
+  expect_null(result[["ai.max_entry_chars"]])
+})
+
+test_that(".flatten_overrides: empty list value is a leaf (clear-the-block)", {
+  # Setting custom_cleaning_rules = list() means "wipe out the rules
+  # block". The recursion guard (length > 0) catches this and treats
+  # it as a leaf so .set_nested writes the empty list.
+  result <- pakhom:::.flatten_overrides(
+    list(data = list(preprocessing = list(custom_cleaning_rules = list())))
+  )
+  expect_true("data.preprocessing.custom_cleaning_rules" %in% names(result))
+  expect_equal(result[["data.preprocessing.custom_cleaning_rules"]], list())
+})
+
+test_that(".flatten_overrides: unnamed (positional) list value is a leaf", {
+  # custom_cleaning_rules is a list of unnamed entries:
+  #   list(list(pattern = "x", replacement = "", description = "..."))
+  # The outer list has no names, so .flatten_overrides must NOT recurse
+  # on it -- otherwise it would try to use "1", "2" as path components.
+  rules <- list(
+    list(pattern = "foo", replacement = "", description = "strip foo"),
+    list(pattern = "bar", replacement = "", description = "strip bar")
+  )
+  result <- pakhom:::.flatten_overrides(
+    list(data = list(preprocessing = list(custom_cleaning_rules = rules)))
+  )
+  expect_true("data.preprocessing.custom_cleaning_rules" %in% names(result))
+  expect_identical(
+    result[["data.preprocessing.custom_cleaning_rules"]],
+    rules
+  )
+})
+
+test_that(".flatten_overrides: data.frame value is a leaf (not recursed)", {
+  # data.frames satisfy is.list() AND have names() (= columns), but
+  # walking them as a config tree is wrong. Guard explicitly.
+  df <- data.frame(a = 1:3, b = letters[1:3])
+  result <- pakhom:::.flatten_overrides(list(some_block = list(df_field = df)))
+  expect_true("some_block.df_field" %in% names(result))
+  expect_identical(result[["some_block.df_field"]], df)
+})
+
+test_that(".flatten_overrides: empty-named entries error with clear message", {
+  # Catches users that build overrides programmatically and end up with
+  # an empty-string name. R doesn't allow `"" = 2` as a literal so the
+  # case is only reachable via setNames() / names<- on a constructed
+  # list -- still worth guarding because the silent-leaf fallback
+  # would otherwise produce an empty dot-path key.
+  bad <- stats::setNames(list(list(a = 1), 2), c("study", ""))
+  expect_error(pakhom:::.flatten_overrides(bad), "must be named")
+})
+
+test_that(".flatten_overrides: empty-named entries inside a nested list error", {
+  # The error message includes the prefix so the user can localize the
+  # typo without trial-and-error.
+  nested <- stats::setNames(list(1, 2), c("a", ""))
+  expect_error(
+    pakhom:::.flatten_overrides(list(study = nested)),
+    "prefix 'study'"
+  )
+})
+
+test_that(".flatten_overrides: NA names are rejected (would silently lose value)", {
+  # nzchar() treats NA character as TRUE under the default keepNA
+  # setting, so without an explicit is.na() guard NA names slip
+  # through and the loop tries lst[[NA]] which returns NULL -- the
+  # user's value vanishes silently. Triple-check caught this; lock
+  # the explicit error.
+  bad <- structure(list(1, 2), names = c("a", NA_character_))
+  expect_error(pakhom:::.flatten_overrides(bad), "NA")
+})
+
+# ----------------------------------------------------------------------------
+# Integration through load_config(): both styles deep-merge; siblings preserved
+# ----------------------------------------------------------------------------
+
+# Helper: write a minimal-but-valid YAML config + accompanying SQLite DB
+# into `td` and return the paths. Pattern mirrors the AH-5 integration test.
+.write_minimal_config_for_override_tests <- function(td) {
+  db_path <- file.path(td, "test.db")
+  con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
+  DBI::dbWriteTable(con, "posts", data.frame(
+    post_id = "a", text = "x", stringsAsFactors = FALSE
+  ))
+  DBI::dbDisconnect(con)
+  cfg_path <- file.path(td, "config.yaml")
+  cfg <- list(
+    study = list(
+      name = "Original Study Name",
+      research_focus = "real research focus from YAML",
+      research_context = "real context from YAML"
+    ),
+    methodology = list(mode = "codebook_collaborative"),
+    ai = list(
+      provider = "openai",
+      openai = list(api_key_env = "OPENAI_API_KEY")
+    ),
+    data = list(database = db_path),
+    output = list(results_dir = td)
+  )
+  yaml::write_yaml(cfg, cfg_path)
+  list(cfg_path = cfg_path, db_path = db_path)
+}
+
+test_that("load_config: dot-path override preserves siblings (regression)", {
+  td <- withr::local_tempdir()
+  ctx <- .write_minimal_config_for_override_tests(td)
+  withr::local_envvar(OPENAI_API_KEY = "sk-test-fake-key")
+
+  cfg <- load_config(ctx$cfg_path, overrides = list(
+    "study.researcher_positionality" = "Test positionality"
+  ))
+  expect_equal(cfg$study$research_focus, "real research focus from YAML")
+  expect_equal(cfg$study$name, "Original Study Name")
+  expect_equal(cfg$study$researcher_positionality, "Test positionality")
+})
+
+test_that("load_config: NESTED-list override preserves siblings (Phase 59 bug)", {
+  # THE BUG: pre-fix, passing a nested list silently clobbered the
+  # entire study block. validate_config then failed with
+  # "study.research_focus is required" even though the YAML had it set
+  # -- making the user chase a phantom missing field. This test would
+  # have caught the foot-gun.
+  td <- withr::local_tempdir()
+  ctx <- .write_minimal_config_for_override_tests(td)
+  withr::local_envvar(OPENAI_API_KEY = "sk-test-fake-key")
+
+  cfg <- load_config(ctx$cfg_path, overrides = list(
+    study = list(researcher_positionality = "Test positionality")
+  ))
+  expect_equal(cfg$study$research_focus, "real research focus from YAML")
+  expect_equal(cfg$study$name, "Original Study Name")
+  expect_equal(cfg$study$researcher_positionality, "Test positionality")
+})
+
+test_that("load_config: mixed dot-path AND nested-list overrides both apply", {
+  td <- withr::local_tempdir()
+  ctx <- .write_minimal_config_for_override_tests(td)
+  withr::local_envvar(OPENAI_API_KEY = "sk-test-fake-key")
+
+  cfg <- load_config(ctx$cfg_path, overrides = list(
+    "study.researcher_positionality" = "Dot-path positionality",
+    study = list(research_paradigm = "Nested paradigm")
+  ))
+  # Both applied; YAML focus + name preserved.
+  expect_equal(cfg$study$researcher_positionality, "Dot-path positionality")
+  expect_equal(cfg$study$research_paradigm, "Nested paradigm")
+  expect_equal(cfg$study$research_focus, "real research focus from YAML")
+  expect_equal(cfg$study$name, "Original Study Name")
+})
+
+test_that("load_config: deeply nested override (3 levels) deep-merges", {
+  td <- withr::local_tempdir()
+  ctx <- .write_minimal_config_for_override_tests(td)
+  withr::local_envvar(OPENAI_API_KEY = "sk-test-fake-key")
+
+  cfg <- load_config(ctx$cfg_path, overrides = list(
+    ai = list(openai = list(models = list(primary = "gpt-4-turbo")))
+  ))
+  expect_equal(cfg$ai$openai$models$primary, "gpt-4-turbo")
+  # Default `fast` model is preserved (sibling under models).
+  expect_true(!is.null(cfg$ai$openai$models$fast))
+  # YAML's api_key_env survives (sibling under openai).
+  expect_equal(cfg$ai$openai$api_key_env, "OPENAI_API_KEY")
+})
+
+test_that("load_config: duplicate dot-path via two styles -- LAST wins end-to-end", {
+  # Lock in the dedup-from-last semantic at the integration layer so a
+  # future refactor that re-introduces the [[key]]-returns-first-match
+  # foot-gun gets caught immediately.
+  td <- withr::local_tempdir()
+  ctx <- .write_minimal_config_for_override_tests(td)
+  withr::local_envvar(OPENAI_API_KEY = "sk-test-fake-key")
+
+  cfg <- load_config(ctx$cfg_path, overrides = list(
+    "study.researcher_positionality" = "FIRST_WRITE",
+    study = list(researcher_positionality = "SECOND_WRITE")
+  ))
+  expect_equal(cfg$study$researcher_positionality, "SECOND_WRITE")
+  # YAML focus + name still preserved (siblings untouched by dedup).
+  expect_equal(cfg$study$research_focus, "real research focus from YAML")
+  expect_equal(cfg$study$name, "Original Study Name")
+})
+
+test_that("load_config: unnamed-list override is a leaf (custom_cleaning_rules)", {
+  td <- withr::local_tempdir()
+  ctx <- .write_minimal_config_for_override_tests(td)
+  withr::local_envvar(OPENAI_API_KEY = "sk-test-fake-key")
+
+  rules <- list(
+    list(pattern = "\\bfoo\\b", replacement = "", description = "strip foo")
+  )
+  cfg <- load_config(ctx$cfg_path, overrides = list(
+    data = list(preprocessing = list(custom_cleaning_rules = rules))
+  ))
+  expect_identical(cfg$data$preprocessing$custom_cleaning_rules, rules)
+  # Sibling preprocessing knobs from defaults survive (the recursion
+  # walked through `data` and `preprocessing` because they are named,
+  # then stopped at the unnamed list of rules).
+  expect_true(cfg$data$preprocessing$remove_urls)
+})
