@@ -908,10 +908,10 @@ apply_partition <- function(leaves, cluster_assignments, pass_n) {
 #' Phase 60.1 audit M8: \code{.partition_is_identity} only catches
 #' literal-identity partitions (each cluster has one source leaf). An
 #' AI that proposes the SAME multi-leaf partition on consecutive passes
-#' (e.g., {A,B}+{C,D} then {A,B}+{C,D} again) is also signalling that
-#' no further useful grouping is possible -- but the second pass's
-#' partition isn't an identity over its input (which is already
-#' \{A,B\}, \{C,D\}), so the identity check misses it.
+#' (e.g. \code{\{A,B\}+\{C,D\}} then \code{\{A,B\}+\{C,D\}} again) is
+#' also signalling that no further useful grouping is possible -- but
+#' the second pass's partition isn't an identity over its input (which
+#' is already \code{\{A,B\}, \{C,D\}}), so the identity check misses it.
 #'
 #' This helper compares two sets of leaves by the SETS of their
 #' \code{member_code_keys}. If the two leaf-lists carry the same
