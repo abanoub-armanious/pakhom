@@ -19,9 +19,19 @@ zero-arg primitives.}
 }
 \value{
 A list with \code{primitive}, \code{available} (logical),
-\code{family}, \code{shape}, \code{value} (scalar numeric or named numeric
-vector; NA / empty on degenerate input), \code{n_observed} (count of
-non-missing inputs), and -- when \code{available} is FALSE -- \code{reason}.
+\code{family}, \code{shape}, \code{value}, \code{n_observed}, and
+\code{reason} (always present for a uniform record shape: \code{NA} when
+available, a gap explanation when not). \code{value} is a length-1 numeric
+for scalar primitives or a NAMED numeric vector for distribution
+primitives, and is \code{NA} / an empty named numeric on degenerate input.
+\code{n_observed} is the count of values the primitive actually used (after
+dropping NA/NaN/Inf and coercion failures), not the raw input length.
+
+Serialization note for Phase 61.4: a distribution \code{value} is a named
+numeric vector, and \code{jsonlite::toJSON(..., auto_unbox = TRUE)} drops
+the names (turning \code{c("09" = 2)} into \code{[2]}). Wrap distribution
+values in \code{as.list()} before JSON encoding to preserve the labels (the
+same treatment \code{write_corpus_coverage()} already uses).
 }
 \description{
 Looks the requested \code{primitive} up in the registry and computes it over

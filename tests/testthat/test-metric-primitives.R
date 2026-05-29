@@ -287,6 +287,54 @@ test_that("scalar numeric primitives return NA (counts return 0) on all-NA input
   }
 })
 
+# ---- non-finite handling + audit regressions (H1/H2/M1/M3/M4/T2) -------------
+
+test_that("non-finite values (Inf/-Inf/NaN) are dropped and never error (H1/M3)", {
+  # H1: shape primitives used to ERROR on Inf (Inf - Inf -> NaN hit the m2 guard).
+  expect_equal(prim_mean(c(1, 2, 3, Inf)), 2)
+  expect_equal(prim_skewness(c(1, 2, 3, Inf)), 0)             # Inf dropped -> symmetric
+  expect_equal(prim_kurtosis_excess(c(-1, -1, 1, 1, Inf)), -2)
+  expect_equal(prim_max(c(1, 2, NaN, Inf, -Inf)), 2)          # only finite survive
+  expect_equal(prim_sd(c(1, 2, 3, Inf)), stats::sd(c(1, 2, 3)))
+  # M3: heavy-tail family is now consistent (no Inf leak).
+  expect_equal(prim_log_mean(c(1, 2, Inf)), mean(log1p(c(1, 2))))
+  expect_equal(prim_cv(c(2, 4, 6, 8, Inf)), prim_cv(c(2, 4, 6, 8)))
+  # all-non-finite collapses to "no observations".
+  expect_true(is.na(prim_mean(c(Inf, -Inf, NaN))))
+})
+
+test_that("n_observed counts only the values the primitive used, not raw length (H2)", {
+  expect_equal(compute_metric_stat("prim_mean", c(1, 2, Inf))$n_observed, 2L)
+  expect_equal(compute_metric_stat("prim_mean", c("1", "2", "oops"))$n_observed, 2L)
+  expect_equal(compute_metric_stat("prim_mean", c(1, 2, NA, 4))$n_observed, 3L)
+  # temporal n_observed routes through the time cleaner (POSIXct carrying an NA)
+  ts <- as.POSIXct(c("2024-01-01", NA, "2024-01-03"), tz = "UTC")
+  expect_equal(compute_metric_stat("prim_time_span_days", ts)$n_observed, 2L)
+})
+
+test_that("peak hour stays in [0, 24) at the midnight wrap point (M1)", {
+  ts <- as.POSIXct(c("2024-01-01 23:30:00", "2024-01-02 00:30:00"), tz = "UTC")
+  ph <- prim_peak_hour_circular(ts)
+  expect_gte(ph, 0)
+  expect_lt(ph, 24)
+})
+
+test_that("entries_over_time guards non-finite / non-positive bin width (M4)", {
+  ts <- as.POSIXct(c("2024-01-01", "2024-02-01"), tz = "UTC")
+  expect_length(prim_entries_over_time(ts, Inf), 0L)
+  expect_length(prim_entries_over_time(ts, NaN), 0L)
+  expect_length(prim_entries_over_time(ts, 0), 0L)
+  expect_length(prim_entries_over_time(ts, -5), 0L)
+})
+
+test_that("dispatcher record shape is uniform across both branches (T2)", {
+  ok  <- compute_metric_stat("prim_median", c(1, 2, 3))
+  bad <- compute_metric_stat("prim_nope", c(1, 2, 3))
+  expect_setequal(names(ok), names(bad))      # same fields whether available or not
+  expect_true(is.na(ok$reason))
+  expect_false(is.na(bad$reason))
+})
+
 # ---- dispatcher: fail-honest + security allowlist ----------------------------
 
 test_that("dispatcher fails honestly on an unknown primitive (R4)", {

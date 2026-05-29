@@ -46,12 +46,15 @@
 
 # ---- internal cleaning helpers ----------------------------------------------
 
-# Coerce to numeric and drop NA/NaN. Non-numeric coercion failures become NA and
-# are then dropped, so e.g. a character column the AI mis-identifies as numeric
-# degrades to "no observations" rather than erroring.
+# Coerce to numeric and drop every non-finite value (NA, NaN, +/-Inf) plus
+# coercion failures (a character column the AI mis-identifies as numeric becomes
+# NA and is dropped). is.finite() is the single gate: it excludes NA/NaN/Inf in
+# one pass, so a primitive never sees Inf and therefore never errors on it
+# (e.g. mean((v-m)^2) staying finite for the shape primitives) -- honoring the
+# "never error, return NA" contract uniformly across the whole family.
 .prim_clean <- function(x) {
   v <- suppressWarnings(as.numeric(x))
-  v[!is.na(v)]
+  v[is.finite(v)]
 }
 
 # Coerce a timestamp vector to POSIXct (UTC) and drop NA. Accepts either a
@@ -60,10 +63,10 @@
 # machine locales (consistent with the package's UTC-everywhere convention).
 .prim_clean_time <- function(t) {
   if (inherits(t, "POSIXct")) {
-    return(t[!is.na(t)])
+    return(t[is.finite(as.numeric(t))])     # drops NA and any non-finite instant
   }
   n <- suppressWarnings(as.numeric(t))
-  n <- n[!is.na(n)]
+  n <- n[is.finite(n)]
   as.POSIXct(n, origin = "1970-01-01", tz = "UTC")
 }
 
@@ -450,7 +453,7 @@ prim_entries_by_month <- function(t) {
 prim_entries_over_time <- function(t, bin_width_days) {
   tt <- .prim_clean_time(t)
   if (length(tt) == 0L || is.null(bin_width_days) || length(bin_width_days) != 1L ||
-      is.na(bin_width_days) || bin_width_days <= 0) {
+      !is.finite(bin_width_days) || bin_width_days <= 0) {  # !is.finite covers NA/NaN/Inf
     return(stats::setNames(numeric(0), character(0)))
   }
   origin <- min(tt)
@@ -497,7 +500,10 @@ prim_peak_hour_circular <- function(t) {
   ang <- frac_hour / 24 * 2 * pi
   m <- atan2(mean(sin(ang)), mean(cos(ang)))
   if (m < 0) m <- m + 2 * pi
-  m / (2 * pi) * 24
+  # %% 24 keeps the result in [0, 24): when the mean direction lands exactly on
+  # the wrap point (e.g. times symmetric about midnight), m can round to 2*pi
+  # and the conversion would otherwise yield exactly 24.0.
+  (m / (2 * pi) * 24) %% 24
 }
 
 # ---- distribution-shape test -------------------------------------------------
@@ -750,9 +756,19 @@ format_metric_catalog <- function(catalog = metric_catalog()) {
 #'   (e.g. \code{list(q = 0.9)}, \code{list(threshold = 0)}). Ignored by
 #'   zero-arg primitives.
 #' @return A list with \code{primitive}, \code{available} (logical),
-#'   \code{family}, \code{shape}, \code{value} (scalar numeric or named numeric
-#'   vector; NA / empty on degenerate input), \code{n_observed} (count of
-#'   non-missing inputs), and -- when \code{available} is FALSE -- \code{reason}.
+#'   \code{family}, \code{shape}, \code{value}, \code{n_observed}, and
+#'   \code{reason} (always present for a uniform record shape: \code{NA} when
+#'   available, a gap explanation when not). \code{value} is a length-1 numeric
+#'   for scalar primitives or a NAMED numeric vector for distribution
+#'   primitives, and is \code{NA} / an empty named numeric on degenerate input.
+#'   \code{n_observed} is the count of values the primitive actually used (after
+#'   dropping NA/NaN/Inf and coercion failures), not the raw input length.
+#'
+#'   Serialization note for Phase 61.4: a distribution \code{value} is a named
+#'   numeric vector, and \code{jsonlite::toJSON(..., auto_unbox = TRUE)} drops
+#'   the names (turning \code{c("09" = 2)} into \code{[2]}). Wrap distribution
+#'   values in \code{as.list()} before JSON encoding to preserve the labels (the
+#'   same treatment \code{write_corpus_coverage()} already uses).
 #' @keywords internal
 compute_metric_stat <- function(primitive, x, args = list()) {
   reg <- .metric_primitive_registry()
@@ -776,7 +792,16 @@ compute_metric_stat <- function(primitive, x, args = list()) {
 
   entry <- reg[[nm]]
   if (is.null(args) || !is.list(args)) args <- list()
-  n_obs <- sum(!is.na(x))
+  # n_observed must reflect the values the primitive actually USES, not the raw
+  # input length: the cleaners drop NA/NaN/Inf and coercion failures, so counting
+  # via the matching cleaner keeps n_observed honest (it is a load-bearing
+  # transparency field the rest of Phase 61 reports). "circular" inputs are
+  # numeric radians, so they clean as numeric like everything except "temporal".
+  n_obs <- if (identical(entry$input_kind, "temporal")) {
+    length(.prim_clean_time(x))
+  } else {
+    length(.prim_clean(x))
+  }
 
   value <- tryCatch(
     entry$fn(x, args),
@@ -796,6 +821,7 @@ compute_metric_stat <- function(primitive, x, args = list()) {
     family     = entry$family,
     shape      = entry$shape,
     value      = value,
-    n_observed = as.integer(n_obs)
+    n_observed = as.integer(n_obs),
+    reason     = NA_character_          # present in both branches for a uniform record shape
   )
 }
