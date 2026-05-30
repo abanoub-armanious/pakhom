@@ -57,17 +57,31 @@
   v[is.finite(v)]
 }
 
-# Coerce a timestamp vector to POSIXct (UTC) and drop NA. Accepts either a
-# POSIXct vector or epoch-seconds (numeric) -- the AI does not have to tell us
-# which; we accept both shapes. UTC is fixed so reports are reproducible across
-# machine locales (consistent with the package's UTC-everywhere convention).
+# Coerce a timestamp vector to POSIXct (UTC) and drop NA. Accepts a POSIXct
+# vector, epoch-seconds (numeric), OR a formatted datetime STRING -- the last is
+# what the package's std_timestamp column actually holds (R/07_data_loading.R),
+# so temporal primitives must handle it or they silently compute on nothing. The
+# AI does not have to tell us which shape; we accept all three. UTC is fixed so
+# reports are reproducible across machine locales.
 .prim_clean_time <- function(t) {
   if (inherits(t, "POSIXct")) {
     return(t[is.finite(as.numeric(t))])     # drops NA and any non-finite instant
   }
-  n <- suppressWarnings(as.numeric(t))
-  n <- n[is.finite(n)]
-  as.POSIXct(n, origin = "1970-01-01", tz = "UTC")
+  if (is.numeric(t)) {                       # epoch seconds
+    return(as.POSIXct(t[is.finite(t)], origin = "1970-01-01", tz = "UTC"))
+  }
+  # Character: epoch-seconds-as-strings only when EVERY value is numeric;
+  # otherwise treat as datetime strings and parse with the package's robust,
+  # non-throwing, multi-format parser (so "2024-01-01 18:00:00" works and one
+  # garbage cell yields NA rather than an error).
+  ch      <- as.character(t)
+  present <- ch[!is.na(ch) & nzchar(ch)]
+  num     <- suppressWarnings(as.numeric(present))
+  if (length(present) > 0L && all(is.finite(num))) {
+    return(as.POSIXct(num, origin = "1970-01-01", tz = "UTC"))
+  }
+  parsed <- .parse_timestamps(ch)
+  parsed[is.finite(as.numeric(parsed))]
 }
 
 # ==============================================================================

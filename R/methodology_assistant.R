@@ -61,10 +61,22 @@
   if (length(x) == 0L || is.na(x[1])) default else x[1]
 }
 
+# Normalize a parsed field to a list-of-records. Under simplifyVector = FALSE a
+# JSON array of objects is already a list, but a single JSON object (which a
+# reasoning model bypassing strict schema may emit instead of a 1-element array)
+# is a named list -- detect that via its distinguishing key and wrap it, so the
+# caller's lapply iterates records, not the single object's fields. NULL/empty
+# -> list(); a genuinely empty/unparseable response is still caught upstream.
+.as_record_list <- function(x, key) {
+  if (is.null(x) || !is.list(x)) return(list())
+  if (!is.null(x[[key]])) return(list(x))   # single record -> wrap
+  x
+}
+
 # Coerce one parsed column record (metric or temporal) into the canonical shape.
 .coerce_column_record <- function(rec) {
-  if (is.null(rec)) return(NULL)
-  prims <- lapply(rec$requested_primitives %||% list(), function(p) {
+  if (is.null(rec) || !is.list(rec) || is.null(rec$column_name)) return(NULL)
+  prims <- lapply(.as_record_list(rec$requested_primitives, "primitive"), function(p) {
     list(primitive = as.character(p$primitive %||% NA_character_)[1],
          rationale = as.character(p$rationale %||% "")[1])
   })
@@ -75,6 +87,13 @@
     requested_primitives = prims,
     interpretation_note = as.character(rec$interpretation_note %||% "")[1]
   )
+}
+
+# lapply .coerce_column_record over a (possibly single-object) field, dropping
+# any records that failed to coerce (e.g. missing column_name).
+.coerce_records <- function(x) {
+  Filter(Negate(is.null),
+         lapply(.as_record_list(x, "column_name"), .coerce_column_record))
 }
 
 # ---- S3 constructors ---------------------------------------------------------
@@ -132,7 +151,10 @@ new_methodology_articulations <- function(relevance,
 #' @keywords internal
 .detect_temporal_columns <- function(data) {
   if (is.null(data) || !"std_timestamp" %in% names(data)) return(character(0))
-  ts <- suppressWarnings(as.POSIXct(as.character(data$std_timestamp), tz = "UTC"))
+  # .parse_timestamps is robust + non-throwing (multi-format, NA on failure);
+  # the bare as.POSIXct(character) ERRORS on an ambiguous/garbage cell, and
+  # suppressWarnings does not catch errors -- one bad row would crash Step 2.5.
+  ts <- .parse_timestamps(as.character(data$std_timestamp))
   if (all(is.na(ts))) return(character(0))
   "std_timestamp"
 }
@@ -338,9 +360,14 @@ interpret_metrics <- function(data, research_focus, metric_cols = NULL,
     "column_description, requested_primitives [primitive + rationale], ",
     "interpretation_note). Request only honest summaries."
   )
+  # The RESPONSE carries one record (description + N primitives + rationales +
+  # note) per column, so the token budget must scale with column count or a
+  # wide dataset truncates and (correctly) aborts. ~300 tokens/column + headroom.
+  n_cols <- length(metric_cols) + length(temporal_cols)
+  metric_max_tokens <- min(16000L, 1500L + 300L * as.integer(n_cols))
   ai_result <- ai_complete(
     provider, user_prompt, system_prompt,
-    task = "coding", temperature = 0, max_tokens = 4000,
+    task = "coding", temperature = 0, max_tokens = metric_max_tokens,
     response_schema = .metric_intelligence_schema(),
     methodology_override = methodology_override
   )
@@ -354,8 +381,8 @@ interpret_metrics <- function(data, research_focus, metric_cols = NULL,
          call. = FALSE)
   }
   mi <- new_metric_interpretation(
-    metrics          = lapply(parsed$metrics %||% list(), .coerce_column_record),
-    temporal_columns = lapply(parsed$temporal_columns %||% list(), .coerce_column_record),
+    metrics          = .coerce_records(parsed$metrics),
+    temporal_columns = .coerce_records(parsed$temporal_columns),
     source           = "ai"
   )
   .warn_unknown_primitives(mi, context = "discovery")
@@ -451,8 +478,8 @@ load_pinned_methodology <- function(inferred_block, research_focus = NULL) {
     source                    = "pinned"
   )
   mi <- new_metric_interpretation(
-    metrics          = lapply(inferred_block$metrics %||% list(), .coerce_column_record),
-    temporal_columns = lapply(inferred_block$temporal_columns %||% list(), .coerce_column_record),
+    metrics          = .coerce_records(inferred_block$metrics),
+    temporal_columns = .coerce_records(inferred_block$temporal_columns),
     source           = "pinned"
   )
   .warn_unknown_primitives(mi, context = "pinned replay")
@@ -516,8 +543,8 @@ methodology_articulations_from_list <- function(lst, default_source = "pinned") 
     source                    = src
   )
   mi <- new_metric_interpretation(
-    metrics          = lapply(lst$metrics %||% list(), .coerce_column_record),
-    temporal_columns = lapply(lst$temporal_columns %||% list(), .coerce_column_record),
+    metrics          = .coerce_records(lst$metrics),
+    temporal_columns = .coerce_records(lst$temporal_columns),
     source           = src
   )
   new_methodology_articulations(

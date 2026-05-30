@@ -320,3 +320,52 @@ test_that("relevance_criterion_prompt_block emits an injectable block", {
   expect_equal(relevance_criterion_prompt_block(NULL), "")
   expect_equal(relevance_criterion_prompt_block(new_relevance_criterion()), "")
 })
+
+# ---- audit followup regressions (C1 / H1 / M1) -------------------------------
+
+test_that("the methodology_assistant audit STEP is in the allowlist (C1)", {
+  # log_ai_decision validates BOTH step and decision_type; the prior phase's
+  # landmine recurred on the step axis. Without this the audited path crashes.
+  expect_true("methodology_assistant" %in% pakhom:::.valid_audit_steps)
+})
+
+test_that("run_methodology_assistant does not crash WITH a real audit log (C1)", {
+  .skip_if_no_mock()
+  d <- .methodology_test_data()
+  cfg <- list(study = list(research_focus = "meds and sleep", inferred_methodology = NULL))
+  audit_dir <- withr::local_tempdir()
+  audit <- init_audit_log(audit_dir)
+  local_mocked_bindings(ai_complete = .mock_ai(), .package = "pakhom")
+  expect_no_error(art <- run_methodology_assistant(d, cfg, mock_provider(), audit_log = audit))
+  expect_s3_class(art, "MethodologyArticulations")
+  jsonl <- file.path(audit_dir, "ai_decisions.jsonl")
+  expect_true(file.exists(jsonl))
+  expect_gt(length(readLines(jsonl)), 0L)         # records written, no crash
+})
+
+test_that(".detect_temporal_columns is non-throwing on unparseable cells (H1)", {
+  # one garbage cell in an otherwise-valid column used to THROW (crashing Step 2.5)
+  d <- tibble::tibble(std_timestamp = c("2024-01-01 18:00:00", "garbage", "2024-01-02 09:00:00"))
+  expect_no_error(res <- .detect_temporal_columns(d))
+  expect_equal(res, "std_timestamp")              # majority parses -> still temporal
+  expect_equal(.detect_temporal_columns(tibble::tibble(std_timestamp = c("x", "y"))),
+               character(0))                       # all-unparseable -> not temporal, no throw
+})
+
+test_that("interpret_metrics recovers a single-object metrics response (M1)", {
+  .skip_if_no_mock()
+  single_obj <- jsonlite::toJSON(list(
+    metrics = list(column_name = "score", column_description = "d",
+                   requested_primitives = list(list(primitive = "prim_median", rationale = "r")),
+                   interpretation_note = "n"),     # a JSON OBJECT, not a 1-element array
+    temporal_columns = list()
+  ), auto_unbox = TRUE)
+  local_mocked_bindings(
+    ai_complete = function(...) list(content = single_obj, model = "m", request_id = "r",
+                                     usage = list(), finish_reason = "stop"),
+    .package = "pakhom")
+  mi <- interpret_metrics(.methodology_test_data(), "focus", c("score"), character(0),
+                          mock_provider())
+  expect_equal(length(mi$metrics), 1L)            # wrapped, not mis-iterated into an opaque error
+  expect_equal(mi$metrics[[1]]$column_name, "score")
+})

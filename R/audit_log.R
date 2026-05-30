@@ -41,7 +41,8 @@
   "reflexivity",           # M1.5  : reflexivity-collapse detection
   "mode_change",           # T1.5  : methodology re-declaration with parent_run_id
   "quote_verification",    # T0.1  : Tier-0 quote provenance verification ladder
-  "coverage"               # T0.3  : Tier-0 corpus-coverage computation
+  "coverage",              # T0.3  : Tier-0 corpus-coverage computation
+  "methodology_assistant"  # Phase 61: Step 2.5 relevance + metric articulation
 )
 
 .valid_decision_types <- c(

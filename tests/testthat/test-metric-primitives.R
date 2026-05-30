@@ -363,3 +363,24 @@ test_that("dispatcher tolerates a non-scalar / non-character / NA name", {
   expect_false(compute_metric_stat(42, c(1, 2, 3))$available)
   expect_false(compute_metric_stat(NULL, c(1, 2, 3))$available)
 })
+
+# ---- temporal cleaner accepts datetime STRINGS (H2 audit regression) ---------
+
+test_that("temporal primitives accept datetime-STRING columns, not only POSIXct/epoch (H2)", {
+  # The package's std_timestamp is stored as a formatted datetime STRING; the
+  # cleaner previously did as.numeric() -> NA -> a silently-empty distribution.
+  # Literal UTC strings (exactly the loader's format) -- not as.character() of a
+  # POSIXct, which loses the tzone attribute under arithmetic and renders local.
+  ts_str <- c("2024-01-01 00:00:00", "2024-01-01 01:00:00", "2024-01-01 02:00:00")
+  r <- compute_metric_stat("prim_hour_of_day_distribution", ts_str)
+  expect_true(r$available)
+  expect_equal(r$n_observed, 3L)
+  expect_equal(sum(r$value), 3)
+  expect_equal(unname(r$value["00"]), 1)
+  expect_equal(unname(r$value["01"]), 1)
+  # scalar temporal primitive on a datetime-string column
+  span_str <- c("2024-01-01 00:00:00", "2024-01-06 00:00:00")   # 5 days apart
+  expect_equal(prim_time_span_days(span_str), 5)
+  # epoch-seconds-as-strings still routes through the epoch path
+  expect_equal(prim_time_span_days(as.character(c(0, 86400 * 3))), 3)
+})
