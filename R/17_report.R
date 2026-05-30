@@ -1999,12 +1999,27 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 
     for (mc in metric_cols) {
       if (identical(plan[[mc]]$mode, "ai")) {
-        # One cell per chosen primitive, aligned by index with the header.
-        # Defensive: pull from this subtheme's own requested list (uniform per
-        # column by construction, but guard against a short/absent list).
+        # One cell per chosen primitive, matched by primitive NAME (in the
+        # header plan's order) against THIS subtheme's computed results. In the
+        # production path every subtheme of a theme shares one interpretation
+        # record per column (.compute_subtheme_statistics applies the same
+        # .metric_interpretation_record to each), so the lists are already
+        # identical in length + order and only the values differ. Matching by
+        # name -- rather than by raw position -- additionally hardens the table
+        # against any future caller whose subthemes differ in primitive order:
+        # a value can never land under the wrong header (three independent
+        # Phase-61.4 audits flagged the positional version as a latent
+        # transposition risk; this closes it). Duplicate primitive names (e.g. a
+        # pinned prim_quantile at two q's) are consumed left-to-right; a plan
+        # primitive absent from this subtheme renders "n/a". The cell count
+        # always equals length(plan primitives), so rows stay header-aligned.
         reqs <- s$ai_metric_stats[[mc]]$requested %||% list()
-        for (i in seq_along(plan[[mc]]$primitives)) {
-          prec <- if (i <= length(reqs)) reqs[[i]] else NULL
+        used <- rep(FALSE, length(reqs))
+        for (pn in plan[[mc]]$primitives) {
+          hit <- which(!used & vapply(reqs, function(r)
+            identical(as.character(r$primitive %||% NA_character_)[1], pn),
+            logical(1)))
+          prec <- if (length(hit) > 0L) { used[hit[1]] <- TRUE; reqs[[hit[1]]] } else NULL
           cells <- c(cells, .format_primitive_result(prec))
         }
       } else {

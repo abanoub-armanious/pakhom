@@ -354,10 +354,18 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
 # reading. Fail-safe: returns the value unchanged if the grid can't be rebuilt.
 .densify_temporal_distribution <- function(primitive, value, args = list()) {
   if (is.null(value) || length(value) == 0L || is.null(names(value))) return(value)
+  # SAFETY INVARIANT (both branches): densifying must never DROP an observed
+  # bin. If the reconstructed continuous grid fails to contain every observed
+  # label -- which can happen if the grid arithmetic ever diverges from the
+  # primitive's own bin arithmetic (a fractional bin_width_days, a Date-space vs
+  # POSIXct-space rounding edge, a locale surprise) -- we abandon the zero-fill
+  # and return the primitive's value verbatim. Better an un-densified but
+  # complete panel than a continuous-looking one that silently lost a real bin.
   tryCatch({
     if (identical(primitive, "prim_entries_by_month")) {
       full <- .enumerate_year_months(names(value)[1], names(value)[length(value)])
       if (length(full) == 0L) return(value)
+      if (!all(names(value) %in% full)) return(value)          # never drop a bin
       out <- stats::setNames(rep(0, length(full)), full)
       out[names(value)] <- as.numeric(value)
       out
@@ -368,9 +376,9 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
       if (any(is.na(ds))) return(value)
       grid <- seq(min(ds), max(ds), by = sprintf("%d days", as.integer(round(bw))))
       labs <- format(grid, "%Y-%m-%d")
+      if (!all(names(value) %in% labs)) return(value)          # never drop a bin
       out <- stats::setNames(rep(0, length(labs)), labs)
-      keep <- names(value) %in% labs
-      out[names(value)[keep]] <- as.numeric(value)[keep]
+      out[names(value)] <- as.numeric(value)
       out
     } else {
       value
