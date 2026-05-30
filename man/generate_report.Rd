@@ -28,7 +28,8 @@ generate_report(
   coverage = NULL,
   framework_spec = NULL,
   framework_archive = NULL,
-  metric_interpretation = NULL
+  metric_interpretation = NULL,
+  methodology_articulations = NULL
 )
 }
 \arguments{
@@ -113,6 +114,15 @@ includes the sha256 fingerprint and a link to the archived spec.}
 Methodology Assistant). Threaded to \code{aggregate_theme_statistics} so
 per-subtheme stats are computed via the AI's chosen primitives (per-column,
 matched by name) with the legacy battery as fallback. NULL -> legacy only.}
+
+\item{methodology_articulations}{Optional \code{MethodologyArticulations}
+bundle (Phase 61.4). Drives the report's "Methodology Setup" section
+(relevance criterion + per-metric interpretations + per-theme temporal
+panel). When NULL, the renderer falls back to reading the archived
+\code{rules/methodology_articulations.json} under the output dir if present;
+when neither is available the section is omitted. When supplied and
+\code{metric_interpretation} is NULL, the metric interpretation is derived
+from this bundle.}
 }
 \value{
 Path to generated HTML report

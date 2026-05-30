@@ -562,6 +562,14 @@ export_theme_subtheme_summary_csvs <- function(theme_stats, output_dir,
 #'   Methodology Assistant). Threaded to \code{aggregate_theme_statistics} so
 #'   per-subtheme stats are computed via the AI's chosen primitives (per-column,
 #'   matched by name) with the legacy battery as fallback. NULL -> legacy only.
+#' @param methodology_articulations Optional \code{MethodologyArticulations}
+#'   bundle (Phase 61.4). Drives the report's "Methodology Setup" section
+#'   (relevance criterion + per-metric interpretations + per-theme temporal
+#'   panel). When NULL, the renderer falls back to reading the archived
+#'   \code{rules/methodology_articulations.json} under the output dir if present;
+#'   when neither is available the section is omitted. When supplied and
+#'   \code{metric_interpretation} is NULL, the metric interpretation is derived
+#'   from this bundle.
 #' @return Path to generated HTML report
 #' @export
 generate_report <- function(data, theme_set, correlations_df, insights,
@@ -579,8 +587,19 @@ generate_report <- function(data, theme_set, correlations_df, insights,
                              coverage = NULL,
                              framework_spec = NULL,
                              framework_archive = NULL,
-                             metric_interpretation = NULL) {
+                             metric_interpretation = NULL,
+                             methodology_articulations = NULL) {
   validate_class(theme_set, "ThemeSet")
+
+  # Phase 61.4: when the full articulations bundle is supplied but the
+  # metric_interpretation wasn't passed separately, derive it from the bundle
+  # so the per-subtheme stats path (61.3b) and the Methodology Setup section
+  # (61.4) share one source. Passing metric_interpretation explicitly (the
+  # current pipeline wiring) still wins -- this only fills a NULL.
+  if (is.null(metric_interpretation) &&
+      inherits(methodology_articulations, "MethodologyArticulations")) {
+    metric_interpretation <- methodology_articulations$metric_interpretation
+  }
 
   # Validate inputs
   stopifnot(
@@ -658,6 +677,9 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     run_id = basename(output_dir),
     framework_spec = framework_spec,
     framework_archive = framework_archive,
+    # Phase 61.4: the methodology articulations bundle drives the
+    # "Methodology Setup" section + per-theme temporal panel.
+    methodology_articulations = methodology_articulations,
     # Phase 58 Tier 4 V-5: pass output_dir so the T0.1 dashboard can
     # find fabrication_log.csv to count pre-rejection fabrications.
     output_dir = output_dir
@@ -751,6 +773,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
                                 run_id = NULL,
                                 framework_spec = NULL,
                                 framework_archive = NULL,
+                                methodology_articulations = NULL,
                                 output_dir = NULL) {
 
   theme_count <- length(theme_stats)
@@ -864,6 +887,25 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     content <- paste0(content,
       .build_framework_declaration(framework_spec, framework_archive)
     )
+  }
+
+  # Phase 61.4: Methodology Setup section. The AI analyst's run-start
+  # articulations -- the relevance criterion that operationalized "on-focus"
+  # for this study, plus the per-metric interpretations (which primitives are
+  # honest for each column + how to read them). This is the peer-review
+  # transparency artifact for the "AI as analyst with calculator" architecture:
+  # a reviewer sees the AI's interpretive framework before the findings. Sits
+  # alongside the Framework Declaration as a "declaration of method" section.
+  # Source resolution: prefer the in-memory bundle; else fall back to the
+  # archived rules/methodology_articulations.json under the run dir (so a
+  # resume / direct generate_report() call still surfaces it). Omitted when
+  # neither is available (legacy / Mode 1 / pre-Phase-61 runs).
+  ms_art <- methodology_articulations
+  if (is.null(ms_art) && !is.null(output_dir)) {
+    ms_art <- .load_methodology_articulations_from_run_dir(output_dir)
+  }
+  if (!is.null(ms_art)) {
+    content <- paste0(content, .build_methodology_setup_section(ms_art))
   }
 
   # Inline data overview context into executive summary (Issue 4)
@@ -1576,6 +1618,14 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     content <- paste0(content,
       .build_subtheme_summary_table(ts))
 
+    # Phase 61.4: per-theme temporal panel (posting-time rhythms + the AI's
+    # temporal interpretation note). Emitted in the non-compact branch, so it
+    # inherits the Tier-5 max_inline_themes gating automatically -- overflow
+    # themes still get the panel on their detail page. Returns "" when this
+    # theme carries no temporal panel (Mode 1 / legacy / no temporal column).
+    content <- paste0(content,
+      .build_temporal_panel(ts))
+
     # T0.2 participant distribution: count, Gini, top contributor share, with
     # a concentration warning when one author dominates. Renders an
     # "unavailable" variant when std_author isn't present (preserves the
@@ -1634,6 +1684,205 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 }
 
 # ==============================================================================
+# Phase 61.4: Methodology Setup section (AI analyst's run-start articulations)
+# ==============================================================================
+
+#' Load archived methodology articulations from a run directory (Phase 61.4)
+#'
+#' Reads \code{<run_dir>/rules/methodology_articulations.json} (written by
+#' \code{archive_methodology_articulations()} at Step 2.5) and reconstructs the
+#' \code{MethodologyArticulations} bundle. Best-effort: returns NULL when the
+#' file is absent or unreadable (so the report simply omits the section rather
+#' than failing). This is the fallback that lets a resume run -- or a direct
+#' \code{generate_report()} call that didn't thread the in-memory bundle -- still
+#' surface the AI analyst's articulations for peer review.
+#'
+#' @param run_dir The report output directory (the run dir).
+#' @return A \code{MethodologyArticulations}, or NULL.
+#' @keywords internal
+.load_methodology_articulations_from_run_dir <- function(run_dir) {
+  if (is.null(run_dir)) return(NULL)
+  json_path <- file.path(run_dir, "rules", "methodology_articulations.json")
+  if (!file.exists(json_path)) return(NULL)
+  tryCatch({
+    lst <- jsonlite::fromJSON(json_path, simplifyVector = FALSE)
+    methodology_articulations_from_list(lst,
+      default_source = lst$source %||% "ai")
+  }, error = function(e) {
+    log_warn("Could not load archived methodology articulations: {e$message}")
+    NULL
+  })
+}
+
+#' Render one interpreted-column record as an HTML table row (Phase 61.4)
+#'
+#' Shared by the metric + temporal interpretation tables in the Methodology
+#' Setup section. Shows the column name, the AI's free-form description, the
+#' exact primitives it requested (as catalog identifiers + rationales -- the
+#' replay-auditable artifact), and the interpretation note.
+#'
+#' @keywords internal
+.methodology_column_row <- function(rec) {
+  prims <- rec$requested_primitives %||% list()
+  prim_html <- if (length(prims) == 0L) {
+    "<em>(none requested)</em>"
+  } else {
+    paste(vapply(prims, function(p) {
+      pn <- as.character(p$primitive %||% "")[1]
+      rat <- as.character(p$rationale %||% "")[1]
+      sprintf("<code>%s</code>%s", .html_esc(pn),
+              if (nzchar(rat)) paste0(" &mdash; ", .html_esc(rat)) else "")
+    }, character(1)), collapse = "<br>")
+  }
+  sprintf("<tr><td><strong>%s</strong></td><td>%s</td><td>%s</td><td>%s</td></tr>",
+          .html_esc(rec$column_name %||% ""),
+          .html_esc(rec$column_description %||% ""),
+          prim_html,
+          .html_esc(rec$interpretation_note %||% ""))
+}
+
+#' Render the Methodology Setup section (Phase 61.4)
+#'
+#' The "AI as analyst" transparency artifact: the relevance criterion that
+#' operationalized on-focus coding for this study, the on/off-focus examples and
+#' discrimination principle, and the per-metric + per-temporal interpretations
+#' (which primitives the AI judged honest for each column, and how to read them).
+#' A source badge marks AI-articulated vs pinned-replay provenance.
+#'
+#' Returns "" when the bundle carries no usable relevance criterion AND no
+#' interpreted columns (nothing meaningful to show).
+#'
+#' @param art A \code{MethodologyArticulations} bundle.
+#' @return Character HTML string for the section.
+#' @keywords internal
+.build_methodology_setup_section <- function(art) {
+  if (is.null(art) || !inherits(art, "MethodologyArticulations")) return("")
+  rel <- art$relevance
+  mi  <- art$metric_interpretation
+  metrics  <- mi$metrics %||% list()
+  temporal <- mi$temporal_columns %||% list()
+
+  has_criterion <- !is.null(rel) && nzchar(rel$relevance_criterion %||% "")
+  if (!has_criterion && length(metrics) == 0L && length(temporal) == 0L) {
+    return("")
+  }
+
+  src <- art$source %||% "ai"
+  badge <- if (identical(src, "pinned")) "pinned replay" else "AI-articulated"
+
+  parts <- c(
+    '<div class="methodology-setup-section">',
+    sprintf('<h2>Methodology Setup <span class="ms-source-badge">%s</span></h2>',
+            .html_esc(badge)),
+    paste0('<p>Before coding, the AI analyst articulated how to focus this ',
+           'study and how to honestly summarize each measured column. These ',
+           'decisions are recorded here for peer review and can be pinned for a ',
+           'replay-equivalent confirmatory run.</p>')
+  )
+
+  if (has_criterion) {
+    parts <- c(parts, "<h3>Relevance criterion</h3>")
+    if (nzchar(rel$research_focus_paraphrase %||% "")) {
+      parts <- c(parts, sprintf('<p><strong>Focus (AI paraphrase):</strong> %s</p>',
+                                .html_esc(rel$research_focus_paraphrase)))
+    }
+    parts <- c(parts, sprintf('<p class="ms-criterion">%s</p>',
+                              .html_esc(rel$relevance_criterion)))
+
+    on_ex  <- rel$on_focus_examples  %||% character(0)
+    off_ex <- rel$off_focus_examples %||% character(0)
+    if (length(on_ex) > 0L || length(off_ex) > 0L) {
+      ex_block <- function(title, xs) {
+        if (length(xs) == 0L) return("")
+        items <- paste(vapply(xs, function(x)
+          sprintf("<li>%s</li>", .html_esc(x)), character(1)), collapse = "")
+        sprintf("<div><strong>%s</strong><ul>%s</ul></div>", title, items)
+      }
+      parts <- c(parts, '<div class="ms-examples">',
+                 ex_block("On-focus examples", on_ex),
+                 ex_block("Off-focus (adjacent) examples", off_ex),
+                 '</div>')
+    }
+    if (nzchar(rel$discrimination_principle %||% "")) {
+      parts <- c(parts, sprintf('<p><strong>Discrimination principle:</strong> %s</p>',
+                                .html_esc(rel$discrimination_principle)))
+    }
+  }
+
+  col_table <- function(heading, recs) {
+    if (length(recs) == 0L) return(character(0))
+    rows <- paste(vapply(recs, .methodology_column_row, character(1)),
+                  collapse = "\n")
+    c(sprintf("<h3>%s</h3>", heading),
+      "<table>",
+      paste0("<thead><tr><th>Column</th><th>What it represents</th>",
+             "<th>Requested primitives</th><th>How to read</th></tr></thead>"),
+      paste0("<tbody>", rows, "</tbody>"),
+      "</table>")
+  }
+  parts <- c(parts, col_table("Metric interpretations", metrics))
+  parts <- c(parts, col_table("Temporal interpretations", temporal))
+
+  parts <- c(parts, "</div>", "")
+  paste(parts, collapse = "\n")
+}
+
+# ==============================================================================
+# Phase 61.4: per-theme temporal panel (posting-time rhythms)
+# ==============================================================================
+
+#' Render the per-theme temporal panel (Phase 61.4)
+#'
+#' Surfaces when a theme's entries were posted, using the temporal primitives the
+#' AI analyst requested (hour/day/month rhythms, span, cadence, volume timeline)
+#' computed over THIS theme's timestamps, plus the AI's interpretation note.
+#' Distribution results render in natural (chronological / clock) order; scalars
+#' render as a single value. A fail-honest em dash marks any requested primitive
+#' the catalog lacks. Returns "" when the theme carries no temporal panel
+#' (NULL on Mode 1 / legacy / no-temporal-interpretation runs).
+#'
+#' @param ts Per-theme stats object (carries \code{temporal_panel}, Phase 61.4).
+#' @return Character HTML string for the panel block.
+#' @keywords internal
+.build_temporal_panel <- function(ts) {
+  panels <- ts$temporal_panel %||% list()
+  if (length(panels) == 0L) return("")
+
+  parts <- c('<div class="temporal-panel">',
+             "<h3>Posting-time patterns</h3>")
+  for (pan in panels) {
+    reqs <- pan$requested %||% list()
+    if (length(reqs) == 0L) next
+    # One row per requested primitive: pretty name + result. Distributions keep
+    # natural order (chronological / clock); show more items than the metric
+    # table since the timeline IS the point (L1: still truncates with an honest
+    # "(+k more)" so a multi-year series can't blow up the cell).
+    rows <- vapply(reqs, function(prec) {
+      sprintf("<tr><td><strong>%s</strong></td><td>%s</td></tr>",
+              .html_esc(.pretty_primitive_name(prec$primitive %||% "")),
+              .format_primitive_result(prec, max_items = 24L, natural_order = TRUE))
+    }, character(1))
+
+    col_lab <- gsub("_+", " ", pan$column_name %||% "")
+    parts <- c(parts,
+      sprintf('<p class="tp-col"><strong>%s</strong>%s</p>',
+              .html_esc(col_lab),
+              if (nzchar(pan$column_description %||% ""))
+                paste0(" &mdash; ", .html_esc(pan$column_description)) else ""),
+      "<table>",
+      "<thead><tr><th>Pattern</th><th>Value</th></tr></thead>",
+      paste0("<tbody>", paste(rows, collapse = ""), "</tbody>"),
+      "</table>")
+    if (nzchar(pan$interpretation_note %||% "")) {
+      parts <- c(parts, sprintf('<p class="tp-note"><em>How to read:</em> %s</p>',
+                                .html_esc(pan$interpretation_note)))
+    }
+  }
+  parts <- c(parts, "</div>", "")
+  paste(parts, collapse = "\n")
+}
+
+# ==============================================================================
 # Phase 55: paper-style per-subtheme summary table
 # ==============================================================================
 
@@ -1673,16 +1922,62 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 
   metric_cols <- ts$metric_cols %||% character(0)
 
-  # Build header row. Pretty-print metric column names (underscores ->
-  # spaces) so e.g. a "drug_rating" column heads as "drug rating" in the
-  # rendered table while the underlying data column stays canonical.
-  # Paper-style table convention; dataset-agnostic (no hardcoded names).
+  # Pretty-print metric column names (underscores -> spaces) so e.g. a
+  # "drug_rating" column heads as "drug rating" while the underlying data
+  # column stays canonical. Paper-style convention; dataset-agnostic.
   .pretty_metric <- function(mc) gsub("_+", " ", mc)
+
+  # Phase 61.4: build a per-column rendering plan. A column the Methodology
+  # Assistant interpreted (carries ai_metric_stats with >= 1 requested
+  # primitive) renders one column PER chosen primitive plus an interpretation
+  # note beneath the table; a column with no AI record (or an empty request)
+  # falls back to the legacy Median(MAD)+Mean(SD) battery (per-column, audit
+  # notes N1/N2). The AI request list is global per column, so we read it from
+  # the first subtheme that carries it. When NO column has an AI plan the
+  # output is byte-identical to the pre-61.4 legacy table (back-compat).
+  plan <- list()
+  for (mc in metric_cols) {
+    rec <- NULL
+    for (snm in names(st_stats)) {
+      r <- st_stats[[snm]]$ai_metric_stats[[mc]]
+      if (!is.null(r)) { rec <- r; break }
+    }
+    if (!is.null(rec) && length(rec$requested %||% list()) > 0L) {
+      prim_names <- vapply(rec$requested,
+                           function(p) as.character(p$primitive %||% "")[1],
+                           character(1))
+      unavailable <- vapply(rec$requested, function(p)
+        if (!isTRUE(p$available)) as.character(p$primitive %||% "")[1] else NA_character_,
+        character(1))
+      unavailable <- unique(unavailable[!is.na(unavailable) & nzchar(unavailable)])
+      plan[[mc]] <- list(mode = "ai", primitives = prim_names,
+                         note = rec$interpretation_note %||% "",
+                         desc = rec$column_description %||% "",
+                         unavailable = unavailable)
+    } else {
+      plan[[mc]] <- list(mode = "legacy")
+    }
+  }
+  has_ai     <- any(vapply(plan, function(p) identical(p$mode, "ai"), logical(1)))
+  # has_legacy drives the caption's "Median(MAD)/Mean(SD)" clause. TRUE when any
+  # column uses the legacy battery, OR when there are no metric columns at all
+  # (preserves the exact pre-61.4 caption for the no-metric table).
+  has_legacy <- length(metric_cols) == 0L ||
+                any(vapply(plan, function(p) identical(p$mode, "legacy"), logical(1)))
+
+  # Header row
   header_cells <- c("Subtheme", "n")
   for (mc in metric_cols) {
-    header_cells <- c(header_cells,
-                       sprintf("Median(MAD) %s", .html_esc(.pretty_metric(mc))),
-                       sprintf("Mean(SD) %s",    .html_esc(.pretty_metric(mc))))
+    if (identical(plan[[mc]]$mode, "ai")) {
+      for (pn in plan[[mc]]$primitives) {
+        header_cells <- c(header_cells,
+          .html_esc(sprintf("%s %s", .pretty_primitive_name(pn), .pretty_metric(mc))))
+      }
+    } else {
+      header_cells <- c(header_cells,
+                         sprintf("Median(MAD) %s", .html_esc(.pretty_metric(mc))),
+                         sprintf("Mean(SD) %s",    .html_esc(.pretty_metric(mc))))
+    }
   }
   header_cells <- c(header_cells, "Examples of comments")
   header_row <- paste0("<tr><th>",
@@ -1703,12 +1998,23 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     )
 
     for (mc in metric_cols) {
-      mstats <- s$metric_stats[[mc]] %||% list()
-      cells <- c(cells,
-        .format_metric_summary(mstats$median %||% NA_real_,
-                                 mstats$mad %||% NA_real_),
-        .format_metric_summary(mstats$mean %||% NA_real_,
-                                 mstats$sd %||% NA_real_))
+      if (identical(plan[[mc]]$mode, "ai")) {
+        # One cell per chosen primitive, aligned by index with the header.
+        # Defensive: pull from this subtheme's own requested list (uniform per
+        # column by construction, but guard against a short/absent list).
+        reqs <- s$ai_metric_stats[[mc]]$requested %||% list()
+        for (i in seq_along(plan[[mc]]$primitives)) {
+          prec <- if (i <= length(reqs)) reqs[[i]] else NULL
+          cells <- c(cells, .format_primitive_result(prec))
+        }
+      } else {
+        mstats <- s$metric_stats[[mc]] %||% list()
+        cells <- c(cells,
+          .format_metric_summary(mstats$median %||% NA_real_,
+                                   mstats$mad %||% NA_real_),
+          .format_metric_summary(mstats$mean %||% NA_real_,
+                                   mstats$sd %||% NA_real_))
+      }
     }
 
     # Examples-of-comments: stack quotes vertically
@@ -1727,21 +2033,57 @@ generate_report <- function(data, theme_set, correlations_df, insights,
             "</td></tr>")
   }, character(1))
 
+  # Caption. The legacy clause is preserved verbatim so the no-AI table is
+  # byte-identical to the pre-61.4 output; the AI clause is added only when at
+  # least one column shows AI-chosen primitives.
+  caption <- paste0(
+    # Phase 55 audit MEDIUM-15: clarify that the bracketed metric tags after
+    # each example quote are the SOURCE ENTRY's metric values, NOT subtheme
+    # aggregates. Without this preface a reader could confuse a per-entry
+    # "[<metric>: 8]" with an aggregate cell.
+    "<p class=\"subtheme-table-caption\"><em>",
+    if (has_legacy) "Median(MAD) and Mean(SD) columns are subtheme aggregates; " else "",
+    if (has_ai) paste0("primitive-named columns are the AI analyst's chosen ",
+                       "summaries for that column (interpretation notes below); ") else "",
+    "the bracketed values after each example comment are that source ",
+    "entry's metric values.</em></p>\n\n"
+  )
+
+  # Per-column interpretation notes (Phase 61.4): the AI analyst's free-form
+  # reading of each interpreted column, shown beneath the table. Surfaces any
+  # fail-honest gap (a requested primitive the catalog lacks) by name.
+  notes_html <- ""
+  if (has_ai) {
+    note_items <- character(0)
+    for (mc in metric_cols) {
+      pl <- plan[[mc]]
+      if (!identical(pl$mode, "ai")) next
+      unavail_txt <- if (length(pl$unavailable) > 0L)
+        sprintf(" <span class=\"prim-gap\">Requested unavailable primitive(s): %s &mdash; no statistic computed (fail-honest; contribute the primitive or report the gap).</span>",
+                .html_esc(paste(pl$unavailable, collapse = ", "))) else ""
+      note_items <- c(note_items, sprintf(
+        "<li><strong>%s</strong>%s%s%s</li>",
+        .html_esc(.pretty_metric(mc)),
+        if (nzchar(pl$desc)) paste0(" &mdash; ", .html_esc(pl$desc)) else "",
+        if (nzchar(pl$note)) paste0(" <em>How to read:</em> ", .html_esc(pl$note)) else "",
+        unavail_txt))
+    }
+    if (length(note_items) > 0L)
+      notes_html <- paste0(
+        "<div class=\"metric-interpretation-notes\">\n",
+        "<p class=\"mi-caption\"><em>Metric interpretations (AI analyst):</em></p>\n",
+        "<ul>", paste(note_items, collapse = ""), "</ul>\n</div>\n")
+  }
+
   paste0(
     "<h3>Subthemes (per-subtheme summary)</h3>\n\n",
-    # Phase 55 audit MEDIUM-15: clarify that the bracketed metric tags
-    # after each example quote are the SOURCE ENTRY's metric values,
-    # NOT subtheme aggregates. Without this preface a reader could
-    # confuse a per-entry "[<metric>: 8]" with a Median(MAD) cell.
-    "<p class=\"subtheme-table-caption\"><em>",
-    "Median(MAD) and Mean(SD) columns are subtheme aggregates; the ",
-    "bracketed values after each example comment are that source ",
-    "entry's metric values.</em></p>\n\n",
+    caption,
     "<div class=\"subtheme-table-wrapper\">\n",
     "<table class=\"subtheme-summary-table\">\n",
     "<thead>", header_row, "</thead>\n",
     "<tbody>", paste(body_rows, collapse = "\n"), "</tbody>\n",
-    "</table>\n</div>\n\n"
+    "</table>\n</div>\n\n",
+    notes_html
   )
 }
 
@@ -3512,6 +3854,17 @@ sentiment_colors <- c(
       html <- paste0(html,
         '<div class="detail-subtheme-summary">\n',
         subtheme_table_html,
+        '</div>\n'
+      )
+    }
+
+    # Phase 61.4: per-theme temporal panel on the detail page too (so a reader
+    # who clicked through keeps the posting-time breakdown). "" when absent.
+    temporal_panel_html <- .build_temporal_panel(ts)
+    if (nzchar(temporal_panel_html)) {
+      html <- paste0(html,
+        '<div class="detail-temporal-panel">\n',
+        temporal_panel_html,
         '</div>\n'
       )
     }

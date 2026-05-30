@@ -74,11 +74,19 @@
 }
 
 # Coerce one parsed column record (metric or temporal) into the canonical shape.
+# Phase 61.4 (Step 3.5): a primitive record may carry `args` -- a named list of
+# parameters for a parameterized primitive (e.g. prim_quantile needs q;
+# prim_entries_over_time needs bin_width_days). The live discovery schema is
+# args-free by design (zero-arg variants only; honors strict-mode + no-menu), so
+# discovery responses never set args and `args` stays an empty list. The
+# pinned-replay block (config$study$inferred_methodology, NOT schema-constrained)
+# CAN set args, and they must survive coercion or replay silently loses them.
 .coerce_column_record <- function(rec) {
   if (is.null(rec) || !is.list(rec) || is.null(rec$column_name)) return(NULL)
   prims <- lapply(.as_record_list(rec$requested_primitives, "primitive"), function(p) {
     list(primitive = as.character(p$primitive %||% NA_character_)[1],
-         rationale = as.character(p$rationale %||% "")[1])
+         rationale = as.character(p$rationale %||% "")[1],
+         args      = if (is.list(p$args)) p$args else list())
   })
   prims <- Filter(function(p) !is.na(p$primitive) && nzchar(p$primitive), prims)
   list(
@@ -496,7 +504,13 @@ load_pinned_methodology <- function(inferred_block, research_focus = NULL) {
     column_name          = rec$column_name,
     column_description   = rec$column_description,
     requested_primitives = lapply(rec$requested_primitives, function(p) {
-      list(primitive = p$primitive, rationale = p$rationale)
+      pr <- list(primitive = p$primitive, rationale = p$rationale)
+      # Phase 61.4 (Step 3.5): only serialize args when non-empty, so a
+      # discovery archive (no args) is byte-identical to the pre-61.4 form and
+      # an existing pinned block round-trips its parameters. (Args are a named
+      # list, JSON-safe; jsonlite preserves the names with auto_unbox.)
+      if (length(p$args %||% list()) > 0L) pr$args <- p$args
+      pr
     }),
     interpretation_note  = rec$interpretation_note
   )

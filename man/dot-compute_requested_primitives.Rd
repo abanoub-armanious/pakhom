@@ -11,7 +11,10 @@ Phase 61.3b. Dispatches each requested primitive through the allowlist
 \code{compute_metric_stat()} (which fails honestly on an unknown name and
 parses datetime-string timestamps), returning the interpretation note
 alongside the per-primitive results for the report renderer (Phase 61.4).
-Args are empty: the live schema offers zero-arg primitives; parameterized
-primitives are a pinned-replay concern not yet threaded here.
+Phase 61.4 (Step 3.5): each primitive's \code{args} (a named list) is threaded
+to \code{compute_metric_stat()}. The live discovery schema is args-free, so
+discovery records carry no args (empty list -> unchanged behavior); a pinned
+record can carry e.g. \code{list(q = 0.9)} for \code{prim_quantile} or
+\code{list(bin_width_days = 30)} for \code{prim_entries_over_time}.
 }
 \keyword{internal}

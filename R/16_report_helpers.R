@@ -86,6 +86,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
         subthemes_structured = real_subtheme_objs,
         subtheme_stats = list(),
         metric_cols = metric_cols,
+        temporal_panel = NULL,   # Phase 61.4: no entries -> no temporal panel
         prevalence = t$prevalence %||% "unknown",
         theme_kind = theme_kind,
         quotes_with_context = list()
@@ -184,6 +185,10 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
       subthemes_structured = real_subtheme_objs,
       subtheme_stats = subtheme_stats,
       metric_cols = metric_cols,
+      # Phase 61.4: per-theme posting-time patterns over this theme's entry
+      # timestamps, driven by the AI's temporal interpretations (NULL when no
+      # temporal column was interpreted / Mode 1 / legacy).
+      temporal_panel = .compute_theme_temporal_panel(entries, metric_interpretation),
       prevalence = t$prevalence %||% "unknown",
       theme_kind = theme_kind,
       quotes_with_context = quotes
@@ -303,19 +308,119 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
 #' \code{compute_metric_stat()} (which fails honestly on an unknown name and
 #' parses datetime-string timestamps), returning the interpretation note
 #' alongside the per-primitive results for the report renderer (Phase 61.4).
-#' Args are empty: the live schema offers zero-arg primitives; parameterized
-#' primitives are a pinned-replay concern not yet threaded here.
+#' Phase 61.4 (Step 3.5): each primitive's \code{args} (a named list) is threaded
+#' to \code{compute_metric_stat()}. The live discovery schema is args-free, so
+#' discovery records carry no args (empty list -> unchanged behavior); a pinned
+#' record can carry e.g. \code{list(q = 0.9)} for \code{prim_quantile} or
+#' \code{list(bin_width_days = 30)} for \code{prim_entries_over_time}.
 #'
 #' @keywords internal
 .compute_requested_primitives <- function(rec, values) {
   stats_list <- lapply(rec$requested_primitives %||% list(), function(p) {
-    compute_metric_stat(p$primitive, values, args = list())
+    compute_metric_stat(p$primitive, values, args = p$args %||% list())
   })
   list(
     column_description  = rec$column_description %||% "",
     interpretation_note = rec$interpretation_note %||% "",
     requested           = stats_list
   )
+}
+
+# ---- Phase 61.4 (Step 3): per-theme temporal panel ---------------------------
+# The AI's temporal interpretations (metric_interpretation$temporal_columns) had
+# ZERO consumers before 61.4 -- recorded and archived, never computed. The panel
+# applies each requested temporal primitive to THIS theme's entry timestamps, so
+# a reviewer sees when a theme's entries were actually posted (e.g. evening
+# clustering of distress) alongside the AI's interpretation note.
+
+# Enumerate every "YYYY-MM" from first to last inclusive (base R, no lubridate).
+.enumerate_year_months <- function(first_ym, last_ym) {
+  f <- suppressWarnings(as.Date(paste0(first_ym, "-01")))
+  l <- suppressWarnings(as.Date(paste0(last_ym,  "-01")))
+  if (is.na(f) || is.na(l) || l < f) return(character(0))
+  out <- character(0); d <- f
+  while (d <= l) {
+    out <- c(out, format(d, "%Y-%m"))
+    d <- seq(d, by = "month", length.out = 2L)[2L]   # robust month step
+  }
+  out
+}
+
+# Zero-fill the open-ended timeline distributions (L2). The cyclic distributions
+# (hour/day/month-of-year) already cover all bins via factor levels, so only the
+# two open-ended timelines need densifying: an omitted middle bin would look
+# contiguous and overstate continuity. Display-only: the backend primitive stays
+# pure (it returns observed bins); the panel densifies for an honest, continuous
+# reading. Fail-safe: returns the value unchanged if the grid can't be rebuilt.
+.densify_temporal_distribution <- function(primitive, value, args = list()) {
+  if (is.null(value) || length(value) == 0L || is.null(names(value))) return(value)
+  tryCatch({
+    if (identical(primitive, "prim_entries_by_month")) {
+      full <- .enumerate_year_months(names(value)[1], names(value)[length(value)])
+      if (length(full) == 0L) return(value)
+      out <- stats::setNames(rep(0, length(full)), full)
+      out[names(value)] <- as.numeric(value)
+      out
+    } else if (identical(primitive, "prim_entries_over_time")) {
+      bw <- suppressWarnings(as.numeric(args$bin_width_days))
+      if (length(bw) != 1L || is.na(bw) || bw <= 0) return(value)
+      ds <- suppressWarnings(as.Date(names(value)))
+      if (any(is.na(ds))) return(value)
+      grid <- seq(min(ds), max(ds), by = sprintf("%d days", as.integer(round(bw))))
+      labs <- format(grid, "%Y-%m-%d")
+      out <- stats::setNames(rep(0, length(labs)), labs)
+      keep <- names(value) %in% labs
+      out[names(value)[keep]] <- as.numeric(value)[keep]
+      out
+    } else {
+      value
+    }
+  }, error = function(e) value)
+}
+
+#' Compute the per-theme temporal panel (Phase 61.4)
+#'
+#' For each timestamp column the Methodology Assistant interpreted, applies the
+#' AI's requested temporal primitives to \code{entries[[column_name]]} (this
+#' theme's rows). Continuous-timeline distributions are zero-filled (L2) so empty
+#' bins are visible rather than silently skipped. Returns NULL when there is no
+#' temporal interpretation, no entries, or the named column is absent (so the
+#' renderer simply omits the panel).
+#'
+#' @param entries Tibble of this theme's entries.
+#' @param metric_interpretation A \code{MetricInterpretation}, or NULL.
+#' @return A list of per-column panels (each: \code{column_name},
+#'   \code{column_description}, \code{interpretation_note}, \code{requested} =
+#'   per-primitive \code{compute_metric_stat()} records, densified), or NULL.
+#' @keywords internal
+.compute_theme_temporal_panel <- function(entries, metric_interpretation) {
+  if (is.null(metric_interpretation)) return(NULL)
+  tcols <- metric_interpretation$temporal_columns %||% list()
+  if (length(tcols) == 0L || is.null(entries) || nrow(entries) == 0L) return(NULL)
+
+  panels <- list()
+  for (rec in tcols) {
+    cn <- rec$column_name %||% NA_character_
+    if (is.na(cn) || !cn %in% names(entries)) next
+    raw <- entries[[cn]]
+    stats_list <- lapply(rec$requested_primitives %||% list(), function(p) {
+      r <- compute_metric_stat(p$primitive, raw, args = p$args %||% list())
+      if (isTRUE(r$available) && identical(r$shape, "distribution")) {
+        r$value <- .densify_temporal_distribution(p$primitive, r$value,
+                                                   args = p$args %||% list())
+      }
+      r
+    })
+    if (length(stats_list) == 0L) next
+    panels[[length(panels) + 1L]] <- list(
+      column_name         = cn,
+      column_description  = rec$column_description %||% "",
+      interpretation_note = rec$interpretation_note %||% "",
+      requested           = stats_list
+    )
+  }
+  if (length(panels) == 0L) return(NULL)
+  panels
 }
 
 #' Compute per-subtheme statistics for a theme (paper-style)
@@ -610,6 +715,80 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
   sprintf("%s (%s)",
           format(round(as.numeric(center), digits), nsmall = digits),
           format(round(as.numeric(spread), digits), nsmall = digits))
+}
+
+# ---- Phase 61.4: render the AI analyst's chosen primitives -------------------
+# These render a compute_metric_stat() record (the AI's chosen primitive +
+# result) into report cells. They are shared by the per-subtheme summary table
+# (.build_subtheme_summary_table) and the per-theme temporal panel. The catalog
+# the AI chose from is backend scaffolding; what these surface is the AI's OWN
+# recorded decision (the primitive it named + its free-form interpretation note),
+# never a fixed taxonomy imposed on the researcher.
+
+#' Pretty-print a primitive name for a report header (Phase 61.4)
+#'
+#' Strips the \code{prim_} prefix and turns underscores into spaces, so
+#' \code{prim_hour_of_day_distribution} reads as "hour of day distribution".
+#' Reflects the AI's chosen primitive name verbatim (dataset-agnostic; there is
+#' no hardcoded label lookup -- an AI-named primitive the catalog lacks still
+#' prints its requested name).
+#'
+#' @param p Character primitive name (e.g. \code{"prim_p90"}).
+#' @return A display string.
+#' @keywords internal
+.pretty_primitive_name <- function(p) {
+  gsub("_+", " ", sub("^prim_", "", as.character(p)[1] %||% ""))
+}
+
+#' Format one compute_metric_stat() record as an HTML table cell (Phase 61.4)
+#'
+#' Renders a single primitive result for the per-subtheme + temporal tables:
+#' \itemize{
+#'   \item available scalar -> the rounded value (via [.format_metric_value]);
+#'   \item available distribution -> up to \code{max_items} "label: count" pairs
+#'     (descending count) with an honest "(+k more)" suffix when truncated;
+#'   \item unavailable (fail-honest, design requirement R4) -> an em dash, with
+#'     the gap reason in the cell's \code{title} -- NEVER a substituted statistic;
+#'   \item NULL / NA / empty -> "n/a".
+#' }
+#' Distribution labels are HTML-escaped. The em-dash branch is how the report
+#' surfaces "the AI requested X but X is not in the catalog" without inventing a
+#' number (the whole point of fail-honest).
+#'
+#' @param prec One element of \code{ai_metric_stats[[col]]$requested} (a record
+#'   returned by [compute_metric_stat]); may be NULL.
+#' @param max_items Maximum distribution pairs to show before truncating.
+#' @param natural_order When TRUE, keep the distribution's existing name order
+#'   (used by the temporal panel so chronological/clock order is preserved);
+#'   when FALSE (default) sort by descending count (used by the per-subtheme
+#'   metric table, where "most common first" is the honest compact summary).
+#' @return A character HTML cell string.
+#' @keywords internal
+.format_primitive_result <- function(prec, max_items = 6L, natural_order = FALSE) {
+  if (is.null(prec)) return("n/a")
+  if (!isTRUE(prec$available)) {
+    return(sprintf('<span class="prim-unavailable" title="%s">&mdash;</span>',
+                   .html_esc(prec$reason %||% "requested primitive unavailable")))
+  }
+  val <- prec$value
+  if (identical(prec$shape, "distribution")) {
+    if (is.null(val) || length(val) == 0L) return("n/a")
+    nm <- names(val)
+    if (is.null(nm)) nm <- as.character(seq_along(val))
+    idx <- if (isTRUE(natural_order)) seq_along(val)
+           else order(as.numeric(val), decreasing = TRUE)
+    shown <- idx[seq_len(min(length(idx), max_items))]
+    pairs <- vapply(shown, function(i)
+      sprintf("%s: %s", .html_esc(nm[i]), .format_metric_value(val[[i]])),
+      character(1))
+    out <- paste(pairs, collapse = ", ")
+    extra <- length(val) - length(shown)
+    if (extra > 0L) out <- paste0(out, sprintf(" (+%d more)", extra))
+    out
+  } else {
+    if (length(val) == 0L || is.na(val[1])) return("n/a")
+    .format_metric_value(val[[1]])
+  }
 }
 
 # ==============================================================================

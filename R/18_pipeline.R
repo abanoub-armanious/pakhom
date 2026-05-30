@@ -1055,7 +1055,11 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
       # Phase 61.3b: the AI's per-metric interpretations drive per-subtheme
       # stats (NULL on the legacy-resume path -> legacy battery).
       metric_interpretation = if (is.null(methodology_articulations)) NULL
-                              else methodology_articulations$metric_interpretation
+                              else methodology_articulations$metric_interpretation,
+      # Phase 61.4: the full bundle drives the Methodology Setup section +
+      # per-theme temporal panel (NULL on the legacy-resume path -> the
+      # renderer falls back to the archived JSON, else omits the section).
+      methodology_articulations = methodology_articulations
     )
   }
 
