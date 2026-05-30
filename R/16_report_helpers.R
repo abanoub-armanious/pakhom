@@ -17,6 +17,10 @@
 #'   explicit metric allowlist for the per-subtheme paper-style tables
 #'   (Phase 55). When NULL or empty, metrics auto-detect from the data
 #'   via \code{\link{.detect_metric_columns}}.
+#' @param metric_interpretation Optional \code{MetricInterpretation} (Phase 61.2
+#'   Methodology Assistant), threaded to \code{.compute_subtheme_statistics} so
+#'   each interpreted column additionally gets the AI's requested primitives.
+#'   NULL (legacy / Mode 1) -> only the legacy Median(MAD)+Mean(SD) battery.
 #' @return Named list of theme stats (one per theme). Each theme entry
 #'   carries a \code{subtheme_stats} list (Phase 55) with one element
 #'   per real subtheme: n, per-metric Median(MAD) + Mean(SD), and
@@ -25,7 +29,8 @@
 #' @export
 aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
                                          quotes_per_theme = 3L,
-                                         config = NULL) {
+                                         config = NULL,
+                                         metric_interpretation = NULL) {
   validate_class(theme_set, "ThemeSet")
 
   theme_stats <- list()
@@ -152,7 +157,8 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
       theme         = t,
       data          = data,
       metric_cols   = metric_cols,
-      quotes_per_subtheme = quotes_per_theme
+      quotes_per_subtheme = quotes_per_theme,
+      metric_interpretation = metric_interpretation
     )
 
     theme_stats[[tn]] <- list(
@@ -270,6 +276,48 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
   names(data)[keep]
 }
 
+#' Find the Methodology Assistant's interpretation record for a metric column
+#'
+#' Phase 61.3b. Looks up the AI's per-metric interpretation (from
+#' \code{MetricInterpretation$metrics}) by exact \code{column_name}. Only numeric
+#' metric columns are matched here; timestamp columns are handled by the
+#' per-theme temporal panel (Phase 61.4). Returns NULL when no record exists --
+#' the per-column fallback to the legacy stats battery (audit notes N1/N2).
+#'
+#' @keywords internal
+.metric_interpretation_record <- function(metric_interpretation, column_name) {
+  if (is.null(metric_interpretation) ||
+      is.null(metric_interpretation$metrics) ||
+      length(metric_interpretation$metrics) == 0L) {
+    return(NULL)
+  }
+  for (rec in metric_interpretation$metrics) {
+    if (identical(rec$column_name, column_name)) return(rec)
+  }
+  NULL
+}
+
+#' Compute the AI's requested primitives for one column's values
+#'
+#' Phase 61.3b. Dispatches each requested primitive through the allowlist
+#' \code{compute_metric_stat()} (which fails honestly on an unknown name and
+#' parses datetime-string timestamps), returning the interpretation note
+#' alongside the per-primitive results for the report renderer (Phase 61.4).
+#' Args are empty: the live schema offers zero-arg primitives; parameterized
+#' primitives are a pinned-replay concern not yet threaded here.
+#'
+#' @keywords internal
+.compute_requested_primitives <- function(rec, values) {
+  stats_list <- lapply(rec$requested_primitives %||% list(), function(p) {
+    compute_metric_stat(p$primitive, values, args = list())
+  })
+  list(
+    column_description  = rec$column_description %||% "",
+    interpretation_note = rec$interpretation_note %||% "",
+    requested           = stats_list
+  )
+}
+
 #' Compute per-subtheme statistics for a theme (paper-style)
 #'
 #' For each REAL (non-virtual, named) subtheme of \code{theme}, returns
@@ -303,10 +351,20 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
 #' @param metric_cols Character vector of metric column names
 #'   (from \code{.detect_metric_columns})
 #' @param quotes_per_subtheme Integer; default 3
-#' @return Named list (one per real subtheme) of stat records
+#' @param metric_interpretation Optional \code{MetricInterpretation} (Phase 61.2
+#'   Methodology Assistant). When supplied, each interpreted column ALSO gets the
+#'   AI's requested primitives computed into \code{ai_metric_stats}; the legacy
+#'   \code{metric_stats} battery is always computed (renderer fallback). NULL
+#'   (legacy / Mode 1) -> only the legacy battery.
+#' @return Named list (one per real subtheme) of stat records. Each record adds
+#'   \code{ai_metric_stats} (Phase 61.3b): a list keyed by metric column name
+#'   (only for interpreted columns) of \code{column_description},
+#'   \code{interpretation_note}, and \code{requested} (per-primitive
+#'   \code{compute_metric_stat()} results).
 #' @keywords internal
 .compute_subtheme_statistics <- function(theme, data, metric_cols,
-                                            quotes_per_subtheme = 3L) {
+                                            quotes_per_subtheme = 3L,
+                                            metric_interpretation = NULL) {
   if (is.null(theme$subthemes) || length(theme$subthemes) == 0L) {
     return(list())
   }
@@ -353,8 +411,14 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
     }
     n_sub <- nrow(sub_entries)
 
-    # Per-metric Median(MAD) + Mean(SD)
-    metric_stats <- list()
+    # Per-metric stats. The legacy Median(MAD)+Mean(SD) battery is ALWAYS
+    # computed (the current renderer reads it; Phase 61.4 prefers the AI stats
+    # when present). Phase 61.3b ALSO computes the Methodology Assistant's
+    # requested primitives for any column it interpreted (matched by name);
+    # columns with no interpretation record keep ONLY the legacy battery
+    # (per-column fallback, audit notes N1/N2).
+    metric_stats    <- list()
+    ai_metric_stats <- list()
     for (mc in metric_cols) {
       if (!mc %in% names(sub_entries)) next
       vals <- suppressWarnings(as.numeric(sub_entries[[mc]]))
@@ -363,15 +427,21 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
         metric_stats[[mc]] <- list(median = NA_real_, mad = NA_real_,
                                      mean = NA_real_, sd = NA_real_,
                                      n_observed = 0L)
-        next
+      } else {
+        metric_stats[[mc]] <- list(
+          median     = round(stats::median(vals), 2),
+          mad        = round(stats::mad(vals), 2),
+          mean       = round(mean(vals), 2),
+          sd         = round(stats::sd(vals), 2),
+          n_observed = length(vals)
+        )
       }
-      metric_stats[[mc]] <- list(
-        median     = round(stats::median(vals), 2),
-        mad        = round(stats::mad(vals), 2),
-        mean       = round(mean(vals), 2),
-        sd         = round(stats::sd(vals), 2),
-        n_observed = length(vals)
-      )
+      rec <- .metric_interpretation_record(metric_interpretation, mc)
+      if (!is.null(rec)) {
+        # Pass the RAW column (compute_metric_stat cleans + parses datetime
+        # strings itself, the 61.2 H2 fix) rather than the NA-stripped vals.
+        ai_metric_stats[[mc]] <- .compute_requested_primitives(rec, sub_entries[[mc]])
+      }
     }
 
     # Example quotes tagged with metric values per entry
@@ -382,11 +452,12 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
     )
 
     out[[snm]] <- list(
-      name           = snm,
-      description    = s$description %||% "",
-      n              = n_sub,
-      metric_stats   = metric_stats,
-      example_quotes = example_quotes
+      name            = snm,
+      description     = s$description %||% "",
+      n               = n_sub,
+      metric_stats    = metric_stats,
+      ai_metric_stats = ai_metric_stats,
+      example_quotes  = example_quotes
     )
   }
   out

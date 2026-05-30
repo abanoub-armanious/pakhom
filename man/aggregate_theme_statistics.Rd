@@ -9,7 +9,8 @@ aggregate_theme_statistics(
   theme_set,
   consolidated = NULL,
   quotes_per_theme = 3L,
-  config = NULL
+  config = NULL,
+  metric_interpretation = NULL
 )
 }
 \arguments{
@@ -28,6 +29,11 @@ select per theme. Wired through from
 explicit metric allowlist for the per-subtheme paper-style tables
 (Phase 55). When NULL or empty, metrics auto-detect from the data
 via \code{\link{.detect_metric_columns}}.}
+
+\item{metric_interpretation}{Optional \code{MetricInterpretation} (Phase 61.2
+Methodology Assistant), threaded to \code{.compute_subtheme_statistics} so
+each interpreted column additionally gets the AI's requested primitives.
+NULL (legacy / Mode 1) -> only the legacy Median(MAD)+Mean(SD) battery.}
 }
 \value{
 Named list of theme stats (one per theme). Each theme entry

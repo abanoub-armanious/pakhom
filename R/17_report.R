@@ -558,6 +558,10 @@ export_theme_subtheme_summary_csvs <- function(theme_stats, output_dir,
 #'   framework's path + sha256 hash. When provided alongside
 #'   \code{framework_spec}, the Framework Declaration section
 #'   includes the sha256 fingerprint and a link to the archived spec.
+#' @param metric_interpretation Optional \code{MetricInterpretation} (Phase 61.2
+#'   Methodology Assistant). Threaded to \code{aggregate_theme_statistics} so
+#'   per-subtheme stats are computed via the AI's chosen primitives (per-column,
+#'   matched by name) with the legacy battery as fallback. NULL -> legacy only.
 #' @return Path to generated HTML report
 #' @export
 generate_report <- function(data, theme_set, correlations_df, insights,
@@ -574,7 +578,8 @@ generate_report <- function(data, theme_set, correlations_df, insights,
                              response_cache = NULL,
                              coverage = NULL,
                              framework_spec = NULL,
-                             framework_archive = NULL) {
+                             framework_archive = NULL,
+                             metric_interpretation = NULL) {
   validate_class(theme_set, "ThemeSet")
 
   # Validate inputs
@@ -592,7 +597,8 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   # user set a different value in config$analysis$themes$quotes_per_theme.
   theme_stats <- aggregate_theme_statistics(data, theme_set, consolidated,
                                               quotes_per_theme = config$analysis$themes$quotes_per_theme %||% 3L,
-                                              config = config)
+                                              config = config,
+                                              metric_interpretation = metric_interpretation)
   overall_stats <- aggregate_overall_statistics(data, theme_set, consolidated,
                                                  learning_context, config)
 

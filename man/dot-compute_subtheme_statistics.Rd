@@ -8,7 +8,8 @@
   theme,
   data,
   metric_cols,
-  quotes_per_subtheme = 3L
+  quotes_per_subtheme = 3L,
+  metric_interpretation = NULL
 )
 }
 \arguments{
@@ -21,9 +22,19 @@ subtheme_assignments columns}
 (from \code{.detect_metric_columns})}
 
 \item{quotes_per_subtheme}{Integer; default 3}
+
+\item{metric_interpretation}{Optional \code{MetricInterpretation} (Phase 61.2
+Methodology Assistant). When supplied, each interpreted column ALSO gets the
+AI's requested primitives computed into \code{ai_metric_stats}; the legacy
+\code{metric_stats} battery is always computed (renderer fallback). NULL
+(legacy / Mode 1) -> only the legacy battery.}
 }
 \value{
-Named list (one per real subtheme) of stat records
+Named list (one per real subtheme) of stat records. Each record adds
+\code{ai_metric_stats} (Phase 61.3b): a list keyed by metric column name
+(only for interpreted columns) of \code{column_description},
+\code{interpretation_note}, and \code{requested} (per-primitive
+\code{compute_metric_stat()} results).
 }
 \description{
 For each REAL (non-virtual, named) subtheme of \code{theme}, returns

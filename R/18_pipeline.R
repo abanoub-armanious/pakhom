@@ -1051,7 +1051,11 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
       # report renders the Framework Declaration section + the
       # Citations API silent-bypass footnote in the Tier-0 dashboard.
       framework_spec    = framework_spec,
-      framework_archive = framework_archive
+      framework_archive = framework_archive,
+      # Phase 61.3b: the AI's per-metric interpretations drive per-subtheme
+      # stats (NULL on the legacy-resume path -> legacy battery).
+      metric_interpretation = if (is.null(methodology_articulations)) NULL
+                              else methodology_articulations$metric_interpretation
     )
   }
 

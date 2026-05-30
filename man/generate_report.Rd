@@ -27,7 +27,8 @@ generate_report(
   response_cache = NULL,
   coverage = NULL,
   framework_spec = NULL,
-  framework_archive = NULL
+  framework_archive = NULL,
+  metric_interpretation = NULL
 )
 }
 \arguments{
@@ -107,6 +108,11 @@ list. NULL on Mode 1 / Mode 2 runs.}
 framework's path + sha256 hash. When provided alongside
 \code{framework_spec}, the Framework Declaration section
 includes the sha256 fingerprint and a link to the archived spec.}
+
+\item{metric_interpretation}{Optional \code{MetricInterpretation} (Phase 61.2
+Methodology Assistant). Threaded to \code{aggregate_theme_statistics} so
+per-subtheme stats are computed via the AI's chosen primitives (per-column,
+matched by name) with the legacy battery as fallback. NULL -> legacy only.}
 }
 \value{
 Path to generated HTML report
