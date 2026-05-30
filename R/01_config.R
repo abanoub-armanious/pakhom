@@ -505,7 +505,13 @@ print.ThematicConfig <- function(x, ...) {
       concepts = NULL,  # e.g., c("medication", "binge eating", "sleep")
       researcher_positionality = NULL,  # e.g., "Clinical psychologist with 10 years experience in eating disorders"
       research_paradigm = NULL,  # e.g., "critical realist", "social constructionist", "pragmatist"
-      reflexive_notes = NULL  # Free-text researcher reflections on their approach and assumptions
+      reflexive_notes = NULL,  # Free-text researcher reflections on their approach and assumptions
+      # Phase 61: replay-pin for the Methodology Assistant (Step 2.5). NULL =
+      # the AI articulates the relevance criterion + per-metric interpretations
+      # live; a non-NULL block (copied from a prior run's
+      # methodology_articulations.json) skips the AI calls and drives the run
+      # deterministically from the pinned articulations (replay equivalence, R7).
+      inferred_methodology = NULL
     ),
 
     ai = list(

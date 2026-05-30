@@ -759,6 +759,163 @@
 }
 
 # ==============================================================================
+# Phase 61: Methodology Assistant schemas
+# ==============================================================================
+
+#' Schema for the AI's articulated relevance criterion (Phase 61.2)
+#'
+#' Used by \code{articulate_relevance_criterion()} at the start of the
+#' pipeline (Step 2.5). The AI restates the research focus and articulates, in
+#' FREE FORM, what makes a segment on-focus -- replacing the coding prompt's
+#' loose "applicable" language with a study-specific criterion (the upstream
+#' fix for focus-drift). Every field is free text the AI generates; there is no
+#' taxonomy or menu here. Strict-mode clean: all fields required,
+#' additionalProperties = FALSE, no conditional subschemas.
+#'
+#' @keywords internal
+.relevance_criterion_schema <- function() {
+  list(
+    type                 = "object",
+    additionalProperties = FALSE,
+    required             = list("research_focus_paraphrase", "relevance_criterion",
+                                "on_focus_examples", "off_focus_examples",
+                                "discrimination_principle"),
+    properties = list(
+      research_focus_paraphrase = list(
+        type        = "string",
+        description = "Restate the research focus in your own words to confirm understanding."
+      ),
+      relevance_criterion = list(
+        type        = "string",
+        description = paste0(
+          "A free-form paragraph a coder applies to decide whether a text ",
+          "segment is ON-FOCUS for THIS study. Reason from this focus and this ",
+          "corpus; do NOT impose a generic taxonomy. This paragraph is injected ",
+          "verbatim into the coding instructions in place of loose 'applicable' ",
+          "language. 80-700 characters."
+        )
+      ),
+      on_focus_examples = list(
+        type        = "array",
+        items       = list(type = "string"),
+        description = paste0(
+          "2-4 short hypothetical fragments that ARE on-focus under your ",
+          "criterion (illustrative; not drawn verbatim from the corpus)."
+        )
+      ),
+      off_focus_examples = list(
+        type        = "array",
+        items       = list(type = "string"),
+        description = paste0(
+          "2-4 short hypothetical fragments that look ADJACENT to the focus but ",
+          "are NOT on-focus -- the discriminating cases a coder might wrongly include."
+        )
+      ),
+      discrimination_principle = list(
+        type        = "string",
+        description = "One sentence on what distinguishes on-focus from adjacent-off-focus content."
+      )
+    )
+  )
+}
+
+#' Schema for the AI's per-metric interpretation + primitive requests (Phase 61.2)
+#'
+#' Used by \code{interpret_metrics()} at Step 2.5. For each numeric metric
+#' column and each timestamp column, the AI reads the sampled values, describes
+#' (free form) what the column represents, REQUESTS the computational
+#' primitives that are honest for it, and writes an interpretation note.
+#'
+#' Design note (honors the no-menu principle the package is built on): the
+#' \code{primitive} field is a FREE STRING, NOT an enum of catalog names. The
+#' prompt shows the AI the available catalog, but the AI may name a computation
+#' the catalog does not contain -- the dispatcher then fails honestly (R4) and
+#' the report records the gap, rather than the AI being trapped inside a fixed
+#' menu. (An enum would foreclose R4's fail-honest path; it is also NOT required
+#' by OpenAI strict mode -- a plain string field is strict-valid, verified.)
+#' Args are intentionally omitted from the live schema: the catalog's zero-arg
+#' variants cover the common cases, and parameterized primitives are reserved
+#' for the pinned-replay config path (which is not schema-constrained).
+#'
+#' @keywords internal
+.metric_intelligence_schema <- function() {
+  prim_request <- list(
+    type                 = "object",
+    additionalProperties = FALSE,
+    required             = list("primitive", "rationale"),
+    properties = list(
+      primitive = list(
+        type        = "string",
+        description = paste0(
+          "The exact name of a primitive to compute for this column (e.g. ",
+          "prim_median, prim_p90, prim_hour_of_day_distribution), chosen from ",
+          "the catalog shown in the prompt. If you need a computation the ",
+          "catalog does NOT contain, name it descriptively anyway -- the ",
+          "pipeline records the gap honestly rather than substituting a ",
+          "different statistic. Do NOT request a misleading statistic just ",
+          "because it is available."
+        )
+      ),
+      rationale = list(
+        type        = "string",
+        description = "Why this primitive is an honest summary for THIS column given the focus."
+      )
+    )
+  )
+  column_record <- list(
+    type                 = "object",
+    additionalProperties = FALSE,
+    required             = list("column_name", "column_description",
+                                "requested_primitives", "interpretation_note"),
+    properties = list(
+      column_name = list(type = "string",
+                         description = "Exact column name as shown in the prompt."),
+      column_description = list(
+        type        = "string",
+        description = paste0(
+          "In your own words, what this column represents and how its sampled ",
+          "values behave (shape, scale, skew, bounds, zeros; cadence for ",
+          "timestamps). Reason from the ACTUAL values -- do not select from a ",
+          "fixed list of column 'kinds'."
+        )
+      ),
+      requested_primitives = list(
+        type        = "array",
+        items       = prim_request,
+        description = "The primitives to compute for this column, each with a rationale."
+      ),
+      interpretation_note = list(
+        type        = "string",
+        description = paste0(
+          "What a reader should take from these results given the research ",
+          "focus -- shown alongside the numbers in the report."
+        )
+      )
+    )
+  )
+  list(
+    type                 = "object",
+    additionalProperties = FALSE,
+    required             = list("metrics", "temporal_columns"),
+    properties = list(
+      metrics = list(
+        type        = "array",
+        items       = column_record,
+        description = "One record per numeric metric column shown (may be empty)."
+      ),
+      temporal_columns = list(
+        type        = "array",
+        items       = column_record,
+        description = paste0(
+          "One record per timestamp column shown (may be empty). Prefer ",
+          "temporal primitives (hour/day/month distributions, span, cadence)."
+        )
+      )
+    )
+  )
+}
+
+# ==============================================================================
 # Schema validation helper (lightweight; used in tests + sanity checks)
 # ==============================================================================
 

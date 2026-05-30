@@ -77,7 +77,9 @@
   "framework_revision_suggested",     # Phase 54: revise policy wrote framework_review.csv
   "saturation_judgment",              # Phase 56: AI arbiter verdict (reached/not_yet/uncertain)
   "clustering_proposal",              # Phase 60: v2 per-pass clustering proposal (continue|converged)
-  "label_pass"                        # Phase 60: v2 post-convergence labeling pass
+  "label_pass",                       # Phase 60: v2 post-convergence labeling pass
+  "relevance_criterion",              # Phase 61: methodology-assistant relevance articulation
+  "metric_interpretation"             # Phase 61: methodology-assistant per-metric interpretation
 )
 
 # -- Constructor ---------------------------------------------------------------
