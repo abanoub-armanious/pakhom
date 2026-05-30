@@ -467,6 +467,14 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   if ("methodology_setup" %in% completed) {
     log_info("\n[STEP 2.5] Loading methodology articulations from checkpoint...")
     methodology_articulations <- load_checkpoint(checkpoint, "methodology_setup")
+  } else if ("progressive_coding" %in% completed) {
+    # Legacy/edge resume: coding was completed before Step 2.5 existed (a
+    # pre-Phase-61.3 checkpoint). The relevance criterion cannot retroactively
+    # shape the already-cached codes, so do NOT spend AI calls re-articulating
+    # it. Metric interpretations are unavailable on this path -> the report
+    # falls back to the legacy per-column stats battery (Phase 61.3b).
+    log_info("\n[STEP 2.5] Coding already complete (pre-Phase-61 checkpoint); skipping Methodology Assistant.")
+    methodology_articulations <- NULL
   } else {
     log_info("\n[STEP 2.5] Methodology Assistant: articulating relevance criterion + metric interpretations...")
     methodology_articulations <- run_methodology_assistant(
@@ -479,10 +487,14 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   }
 
   # Inject the articulated relevance criterion into the coding system prompt,
-  # mirroring the reflexivity_block wiring above. Empty string when no usable
-  # criterion -> the coding prompt keeps its prior wording (no behavior change).
-  config$analysis$coding$relevance_block <-
+  # mirroring the reflexivity_block wiring above. Empty string when there is no
+  # usable criterion (no articulation / legacy resume) -> the coding prompt
+  # keeps its prior wording (byte-identical, no behavior change).
+  config$analysis$coding$relevance_block <- if (is.null(methodology_articulations)) {
+    ""
+  } else {
     relevance_criterion_prompt_block(methodology_articulations$relevance)
+  }
 
   # ========================================================================
   # STEP 3: Progressive sequential coding

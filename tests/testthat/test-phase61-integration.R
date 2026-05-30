@@ -40,3 +40,22 @@ test_that("the relevance-injection seam composes (prompt_block -> config -> codi
   expect_match(p, "RELEVANCE CRITERION above", fixed = TRUE)
   expect_match(p, "ON-FOCUS EXAMPLES", fixed = TRUE)
 })
+
+test_that("methodology_setup is in checkpoint step_order, upstream of coding (61.3a audit MEDIUM)", {
+  mgr <- init_checkpoints(withr::local_tempdir(), config_hash = "test")
+  expect_true("methodology_setup" %in% mgr$step_order)
+  # Upstream of coding: invalidating a full re-run (from data_loaded) clears the
+  # articulation; invalidating only coding (from progressive_coding) keeps it.
+  expect_gt(match("methodology_setup", mgr$step_order),
+            match("data_loaded", mgr$step_order))
+  expect_lt(match("methodology_setup", mgr$step_order),
+            match("progressive_coding", mgr$step_order))
+
+  save_checkpoint(mgr, "data_loaded", list(x = 1))
+  save_checkpoint(mgr, "methodology_setup", list(y = 2))
+  save_checkpoint(mgr, "progressive_coding", list(z = 3))
+  invalidate_checkpoints_from(mgr, "progressive_coding")
+  expect_true("methodology_setup" %in% list_checkpoints(mgr)$completed)   # kept (upstream)
+  invalidate_checkpoints_from(mgr, "data_loaded")
+  expect_false("methodology_setup" %in% list_checkpoints(mgr)$completed)  # now cleared
+})
