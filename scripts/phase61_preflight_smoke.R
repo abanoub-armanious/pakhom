@@ -158,17 +158,22 @@ n_themes <- if (!is.null(ts)) length(ts$themes) else NA_integer_
 ok("theme_set produced >= 1 theme", !is.na(n_themes) && n_themes >= 1L)
 cat(sprintf("    themes produced: %s\n", n_themes))
 
-# token tally from the audit log -> rough cost
+# token tally from the audit log. Each audited AI call records usage_prompt +
+# usage_completion (+ usage_total). gpt-4o pricing: $2.50/1M in, $10/1M out.
 adlog <- file.path(run_dir, "ai_decisions.jsonl")
 if (file.exists(adlog)) {
   ls <- readLines(adlog, warn = FALSE)
-  toks <- sum(vapply(ls, function(l) {
+  pt <- ct <- 0
+  for (l in ls) {
     o <- tryCatch(jsonlite::fromJSON(l), error = function(e) NULL)
-    tt <- tryCatch(o$total_tokens %||% o$usage$total_tokens, error = function(e) NULL)
-    if (is.null(tt)) 0 else sum(as.numeric(tt), na.rm = TRUE)
-  }, numeric(1)))
-  cat(sprintf("    audit-logged total_tokens: %.0f  (~$%.2f at ~$9/1M blended)\n",
-              toks, toks / 1e6 * 9))
+    if (is.null(o)) next
+    p <- suppressWarnings(as.numeric(o$usage_prompt))
+    cc <- suppressWarnings(as.numeric(o$usage_completion))
+    if (length(p) == 1L && !is.na(p)) pt <- pt + p
+    if (length(cc) == 1L && !is.na(cc)) ct <- ct + cc
+  }
+  cat(sprintf("    tokens: prompt=%.0f completion=%.0f  est cost $%.3f (gpt-4o $2.50/1M in + $10/1M out)\n",
+              pt, ct, pt / 1e6 * 2.5 + ct / 1e6 * 10))
 }
 
 cat("\n========================================\n")
