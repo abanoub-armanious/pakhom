@@ -57,7 +57,8 @@
   function(provider, prompt, system_prompt = NULL, task = "coding",
            model = NULL, temperature = NULL, max_tokens = NULL,
            json_mode = FALSE, max_retries = 3,
-           response_schema = NULL, documents = NULL) {
+           response_schema = NULL, documents = NULL,
+           methodology_override = NULL) {
     call_count$n <- call_count$n + 1L
 
     content <- switch(task,
@@ -159,6 +160,23 @@
         saturated = FALSE,
         reason = "Mock: not saturated"
       ), auto_unbox = TRUE),
+
+      # Phase 61: the Methodology Assistant (Step 2.5) makes two
+      # task="methodology" calls -- a relevance-criterion call (its prompt
+      # contains "CORPUS SAMPLE") and a metric-interpretation call. Return
+      # shape-valid JSON for each so Step 2.5 does not (correctly) abort.
+      "methodology" = if (grepl("CORPUS SAMPLE", prompt, fixed = TRUE)) {
+        jsonlite::toJSON(list(
+          research_focus_paraphrase = "Medication, sleep, and binge eating.",
+          relevance_criterion = "A segment is on-focus when it concerns the research focus directly.",
+          on_focus_examples  = list("medication affected my sleep"),
+          off_focus_examples = list("unrelated small talk"),
+          discrimination_principle = "On-focus segments tie to the focus; adjacent ones do not."
+        ), auto_unbox = TRUE)
+      } else {
+        jsonlite::toJSON(list(metrics = list(), temporal_columns = list()),
+                         auto_unbox = TRUE)
+      },
 
       # Default: empty object so any uncovered task degrades gracefully
       "{}"

@@ -287,7 +287,7 @@ articulate_relevance_criterion <- function(research_focus, corpus_sample, provid
   )
   ai_result <- ai_complete(
     provider, user_prompt, system_prompt,
-    task = "coding", temperature = 0, max_tokens = 2000,
+    task = "methodology", temperature = 0, max_tokens = 2000,
     response_schema = .relevance_criterion_schema(),
     methodology_override = methodology_override
   )
@@ -367,7 +367,7 @@ interpret_metrics <- function(data, research_focus, metric_cols = NULL,
   metric_max_tokens <- min(16000L, 1500L + 300L * as.integer(n_cols))
   ai_result <- ai_complete(
     provider, user_prompt, system_prompt,
-    task = "coding", temperature = 0, max_tokens = metric_max_tokens,
+    task = "methodology", temperature = 0, max_tokens = metric_max_tokens,
     response_schema = .metric_intelligence_schema(),
     methodology_override = methodology_override
   )

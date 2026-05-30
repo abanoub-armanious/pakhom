@@ -453,6 +453,38 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   }
 
   # ========================================================================
+  # STEP 2.5: Methodology Assistant (Phase 61)
+  # ========================================================================
+  # Before coding, the AI articulates (once) a relevance criterion + per-metric
+  # interpretations from the research focus + a corpus sample + the metric-
+  # primitive catalog. The relevance criterion is injected into the coding
+  # prompt below (replacing loose "applicable" framing -- the upstream fix for
+  # focus drift); the metric interpretations drive the report's per-subtheme
+  # statistics (Phase 61.3b). Skipped -- pinned articulations loaded, NO AI
+  # calls -- when config$study$inferred_methodology is set (replay
+  # equivalence, AC10/R7). Mode 1 (run_mode1) codes via the provocateur loop,
+  # not inductively, and never reaches this path.
+  if ("methodology_setup" %in% completed) {
+    log_info("\n[STEP 2.5] Loading methodology articulations from checkpoint...")
+    methodology_articulations <- load_checkpoint(checkpoint, "methodology_setup")
+  } else {
+    log_info("\n[STEP 2.5] Methodology Assistant: articulating relevance criterion + metric interpretations...")
+    methodology_articulations <- run_methodology_assistant(
+      data, config, provider,
+      audit_log      = audit_log,
+      response_cache = response_cache,
+      run_dir        = output_dir
+    )
+    save_checkpoint(checkpoint, "methodology_setup", methodology_articulations)
+  }
+
+  # Inject the articulated relevance criterion into the coding system prompt,
+  # mirroring the reflexivity_block wiring above. Empty string when no usable
+  # criterion -> the coding prompt keeps its prior wording (no behavior change).
+  config$analysis$coding$relevance_block <-
+    relevance_criterion_prompt_block(methodology_articulations$relevance)
+
+  # ========================================================================
   # STEP 3: Progressive sequential coding
   # ========================================================================
   coding_state <- NULL

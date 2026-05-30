@@ -1496,10 +1496,30 @@ run_progressive_coding <- function(data, provider, config = list(),
     prompt <- paste0(prompt, reflexivity)
   }
 
+  # Phase 61: inject the AI-articulated relevance criterion (Methodology
+  # Assistant, Step 2.5). It operationalizes what is on-focus for THIS study,
+  # replacing the loose "applicable to the research question" framing with a
+  # study-specific inclusion/exclusion criterion -- the upstream fix for focus
+  # drift. Empty when no criterion was articulated -> the task framing below
+  # falls back to the prior wording (byte-identical to pre-Phase-61 behavior).
+  relevance <- config$relevance_block %||% ""
+  if (nchar(relevance) > 0) {
+    prompt <- paste0(prompt, "\n", relevance, "\n")
+  }
+
+  task_intro <- if (nchar(relevance) > 0) {
+    paste0(
+      "As you read through the entry text, code the segments that meet the ",
+      "RELEVANCE CRITERION above. For each on-focus segment you encounter:\n")
+  } else {
+    paste0(
+      "As you read through the entry text, code any portions applicable to the ",
+      "research question above. For each applicable segment you encounter:\n")
+  }
+
   prompt <- paste0(prompt,
     "\n## YOUR TASK\n",
-    "As you read through the entry text, code any portions applicable to the ",
-    "research question above. For each applicable segment you encounter:\n",
+    task_intro,
     "1. Extract the EXACT text segment (verbatim substring)\n",
     "2. Either assign an EXISTING code from your codebook, OR create a NEW code\n",
     "If you reach the end of the entry having coded nothing, return skipped=true.\n\n",
