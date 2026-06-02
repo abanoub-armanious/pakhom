@@ -67,6 +67,15 @@
   any(grepl("more SPECIFIC INSTANCE", readLines(f, warn = FALSE), fixed = TRUE))
 }
 
+# Is the Phase-63 candidate "convergence check" present in the loaded v2 source?
+# (cluster-vs-cluster: before converging, verify no two clusters are sibling
+# sub-aspects of one higher-order theme). Signature phrase = "sibling sub-aspect".
+.p63_convcheck_present <- function(pkg_dir) {
+  f <- file.path(pkg_dir, "R", "theme_algorithm_v2.R")
+  if (!file.exists(f)) return(NA)
+  any(grepl("sibling sub-aspect", readLines(f, warn = FALSE), fixed = TRUE))
+}
+
 # Sum gpt-4o token cost from an ai_decisions.jsonl (the audit-log token fields
 # are usage_prompt / usage_completion -- the 61.5 lesson). gpt-4o: $2.50/1M in,
 # $10/1M out.

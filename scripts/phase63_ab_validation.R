@@ -63,18 +63,27 @@ for (a in commandArgs(trailingOnly = TRUE)) {
 }
 ARM <- kv$arm %||% "old"
 K   <- as.integer(kv$k %||% "5")
-stopifnot(ARM %in% c("old", "new"), K >= 1L)
+stopifnot(nzchar(ARM), K >= 1L)
 
 # --- arm / steer cross-check (never mislabel an arm) --------------------------
+# old  -> steer ABSENT;  new -> steer PRESENT (the #3 baseline arms).
+# Any other arm label (e.g. 'conv') is a CANDIDATE arm layered on top of the
+# shipped steer: it requires steer PRESENT and stamps whether the convergence-
+# check candidate text is also present, so the results file self-documents.
 steer <- .p63_steer_present(PKG_DIR)
-expected <- if (identical(ARM, "new")) TRUE else FALSE
-if (!identical(isTRUE(steer), expected)) {
-  stop(sprintf("ARM=%s expects steer_present=%s but source has steer_present=%s. ABORTING (wrong code loaded for this arm).",
-               ARM, expected, steer))
+convcheck <- .p63_convcheck_present(PKG_DIR)
+if (ARM %in% c("old", "new")) {
+  expected <- identical(ARM, "new")
+  if (!identical(isTRUE(steer), expected))
+    stop(sprintf("ARM=%s expects steer_present=%s but source has %s. ABORTING (wrong code for this arm).",
+                 ARM, expected, steer))
+} else {
+  if (!isTRUE(steer))
+    stop(sprintf("ARM=%s is a candidate arm and expects the shipped steer present, but steer_present=%s. ABORTING.", ARM, steer))
 }
 git_head <- tryCatch(trimws(system(sprintf("git -C '%s' rev-parse --short HEAD", PKG_DIR), intern = TRUE))[1],
                      error = function(e) NA_character_)
-cat(sprintf("[p63-ab] arm=%s  steer_present=%s  git=%s  k=%d\n", ARM, steer, git_head, K))
+cat(sprintf("[p63-ab] arm=%s  steer_present=%s  convcheck_present=%s  git=%s  k=%d\n", ARM, steer, convcheck, git_head, K))
 
 # --- load the codebook cells from the manifest --------------------------------
 P63_DIR <- file.path(getwd(), "outputs", "phase63")
@@ -167,7 +176,8 @@ cat(sprintf("\n[p63-ab] arm=%s re-theming cost: $%.3f (prompt=%.0f completion=%.
             ARM, cost$usd, cost$prompt, cost$completion, K, length(cells)))
 
 out <- file.path(P63_DIR, sprintf("abresults_%s.json", ARM))
-jsonlite::write_json(list(arm = ARM, steer_present = steer, git_head = git_head, k = K,
+jsonlite::write_json(list(arm = ARM, steer_present = steer, convcheck_present = convcheck,
+                          git_head = git_head, k = K,
                           cost_usd = cost$usd, rows = rows, agg = agg,
                           timestamp = format(Sys.time(), tz = "UTC")),
                      out, auto_unbox = TRUE, null = "null", pretty = TRUE)
