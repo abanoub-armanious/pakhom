@@ -1109,3 +1109,50 @@ test_that("Phase 60: apply_partition + derive preserves total leaf count through
   }))
   expect_setequal(all_subtheme_keys, paste0("c_", 1:8))
 })
+
+
+test_that("Phase 63: v2 clustering prompt carries the singleton-vs-specific-instance steer (#3)", {
+  # The #3 anti-bias steer: keep a genuinely-distinct CONCEPT as a singleton, but
+  # MERGE a lone code that is a narrower, specific INSTANCE of an existing
+  # cluster's organizing principle. It is a COUNTERWEIGHT to the "singletons are
+  # normal" latitude -- it must be ADDITIVE (both bullets present), never a
+  # directive to eliminate singletons, and must NOT introduce a hardcoded count
+  # threshold (C1: the AI judges convergence). Behavioural validation is the
+  # Phase 63 multi-run A/B; this is the ship-regression guard that the guidance
+  # text is actually emitted into the clustering system prompt.
+  captured <- new.env(parent = emptyenv())
+  testthat::local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt, task,
+                           temperature = 0, response_schema = NULL, ...) {
+      captured$system_prompt <- system_prompt
+      list(content = jsonlite::toJSON(.v2_converged(), auto_unbox = TRUE, null = "null"),
+           usage = list())
+    }
+  )
+  codes <- list(
+    list(key = "c1", name = "Trigger food",
+         description = "A specific food that triggers a binge."),
+    list(key = "c2", name = "Emotional trigger",
+         description = "An emotion that precedes a binge.")
+  )
+  leaves <- lapply(seq_along(codes), function(i) list(
+    leaf_id = sprintf("leaf_p0_%d", i), leaf_type = "code",
+    member_code_keys = codes[[i]]$key, n_codes = 1L, pass_created = 0L,
+    cluster_rationale = "", lineage = list()))
+
+  ai_propose_clustering(leaves, pass_index = 1L, prior_history = list(),
+                        codes = codes, provider = .v2_provider(),
+                        research_focus = "binge eating triggers")
+
+  sp <- captured$system_prompt
+  expect_true(is.character(sp) && nzchar(sp))
+  # The steer is present (specific-instance -> merge into its conceptual home).
+  expect_match(sp, "more SPECIFIC INSTANCE", fixed = TRUE)
+  expect_match(sp, "not a standalone single-code theme", fixed = TRUE)
+  expect_match(sp, "Reserve singletons for concepts with no conceptual home", fixed = TRUE)
+  # The original singleton-latitude bullet is PRESERVED (steer is additive).
+  expect_match(sp, "NORMAL for some clusters to be singletons", fixed = TRUE)
+  # No hardcoded count threshold introduced (load-bearing principle: AI judges,
+  # the package never gates on a code count).
+  expect_false(grepl("at least [0-9]+ code|minimum of [0-9]+|must have [0-9]+|fewer than [0-9]+ code", sp))
+})
