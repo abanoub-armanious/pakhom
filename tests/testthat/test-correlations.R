@@ -113,6 +113,30 @@ test_that("extract_significant drops the within-sentiment-instrument pair (same-
               has_pair(sig, "emotion_intensity", "score"))
 })
 
+test_that("extract_significant drops affect x theme-membership pairs (analyst-internal coupling, not a corpus association)", {
+  # Both sentiment_score and theme_membership_* are the AI analyst's OWN codings of
+  # the same text; their correlation is internal coding consistency, fully circular
+  # when the theme is affect-defined. It must NOT headline as a Key Finding, while a
+  # SUBSTANTIVE engagement-metadata x theme pair (independent measures) must survive.
+  set.seed(11)
+  n <- 90
+  cd <- tibble::tibble(sentiment_score = rnorm(n))
+  # affect-defined theme: membership tracks sentiment -> circular by construction
+  cd$theme_membership_Emotional_Consequences <- as.integer(cd$sentiment_score < 0)
+  # external platform-metadata signal that genuinely tracks the theme -> substantive
+  cd$score <- cd$theme_membership_Emotional_Consequences * 3 + rnorm(n, 0, 0.6)
+  # binary membership -> Spearman ties -> expected cor.test ties warning (a
+  # statistical artifact of the fixture, irrelevant to the exclusion logic under test)
+  res <- suppressWarnings(calculate_correlations(cd, method = "spearman"))
+  sig <- extract_significant(res, p_threshold = 0.05)
+  has_pair <- function(df, a, b) any(
+    (df$var1 == a & df$var2 == b) | (df$var1 == b & df$var2 == a))
+  # the circular affect x affect-defined-theme pair is EXCLUDED...
+  expect_false(has_pair(sig, "sentiment_score", "theme_membership_Emotional_Consequences"))
+  # ...while a substantive engagement-metadata x theme pair (independent measures) SURVIVES
+  expect_true(has_pair(sig, "score", "theme_membership_Emotional_Consequences"))
+})
+
 # --- Dynamic method selection tests ---
 
 test_that("detect_variable_types identifies binary/ordinal/continuous", {

@@ -580,6 +580,32 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
       df <- df[!within_family, , drop = FALSE]
     }
   }
+
+  # Phase 63: also drop affect-instrument x theme-membership pairs. sentiment_score
+  # and emotion_intensity are the AI analyst's OWN per-entry affect codings;
+  # theme_membership_* are the AI analyst's OWN thematic codings of the SAME text.
+  # A correlation between the analyst's two coding outputs measures internal coding
+  # consistency, NOT an empirical association in the corpus -- and it is fully
+  # CIRCULAR when the theme is itself affect-defined (e.g. sentiment_score x
+  # membership in an "Emotional Consequences" theme, which surfaced as the #1 "Key
+  # Finding" on a real run while every association between INDEPENDENT measures was
+  # non-significant). The per-theme sentiment_tendency already reports affect by
+  # theme descriptively, so this is non-lossy; substantive pairs (engagement
+  # metadata x theme, metric x metric, theme co-occurrence, affect x metadata) are
+  # untouched. Same artifact class as the within-instrument exclusion above.
+  if (nrow(df) > 0L) {
+    affect <- c("sentiment_score", "emotion_intensity", "confidence")
+    .is_tm <- function(v) grepl("^theme_membership_", v)
+    affect_x_theme <- (df$var1 %in% affect & .is_tm(df$var2)) |
+                      (df$var2 %in% affect & .is_tm(df$var1))
+    if (any(affect_x_theme)) {
+      log_info(sprintf(
+        "Excluding %d affect-instrument x theme-membership pair(s) (analyst-internal coupling, not an empirical corpus association; affect-by-theme is reported per-theme): %s",
+        sum(affect_x_theme),
+        paste(sprintf("%s~%s", df$var1[affect_x_theme], df$var2[affect_x_theme]), collapse = ", ")))
+      df <- df[!affect_x_theme, , drop = FALSE]
+    }
+  }
   n_sig <- sum(df$significant)
   n_meaningful <- sum(df$meaningful_effect, na.rm = TRUE)
   log_info("Extracted {nrow(df)} associations: {n_meaningful} with |r| >= 0.10, ",
