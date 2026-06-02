@@ -280,6 +280,49 @@ test_that("run_methodology_assistant errors when research_focus is missing", {
     "research_focus is required")
 })
 
+# ---- 62.5: research_context grounds the provenance judgment -------------------
+# Surfaced by the 62.5 smoke: without the dataset's source/provenance, the AI
+# read a column literally named "score" (Reddit upvotes) as a substantive rating
+# scale -- the exact platform-vs-phenomenon conflation 62.1 exists to prevent.
+# The fix threads config$study$research_context into the metric prompt + adds the
+# design's fail-honest "lean to the cautious reading when unclear" instruction.
+
+.capturing_ai <- function(cap) function(provider, user_prompt, system_prompt, ...) {
+  resp <- function(content) list(
+    content = content, model = "m", request_id = "r",
+    usage = list(prompt_tokens = 1L, completion_tokens = 1L, total_tokens = 2L),
+    finish_reason = "stop", raw_response = list(), prompt_hash = "h", citations = list())
+  if (grepl("CORPUS SAMPLE", user_prompt, fixed = TRUE)) return(resp(.relevance_json()))
+  cap$metric_user   <- user_prompt
+  cap$metric_system <- system_prompt
+  resp(.metrics_json())
+}
+
+test_that("research_context is threaded into the metric-intelligence prompt (62.5)", {
+  .skip_if_no_mock()
+  cap <- new.env()
+  local_mocked_bindings(ai_complete = .capturing_ai(cap), .package = "pakhom")
+  run_methodology_assistant(.methodology_test_data(), list(study = list(
+    research_focus = "meds & sleep",
+    research_context = "Reddit posts and comments from binge-eating subreddits",
+    inferred_methodology = NULL)), mock_provider())
+  expect_match(cap$metric_user, "RESEARCH CONTEXT", fixed = TRUE)
+  expect_match(cap$metric_user, "Reddit posts and comments from binge-eating subreddits", fixed = TRUE)
+  # the design's fail-honest lean-to-metadata instruction lives in the system prompt
+  expect_match(cap$metric_system, "lean toward the cautious reading", fixed = TRUE)
+  # 62.5b: the small-n spread reliability caution is elicited for interpretation_note
+  expect_match(cap$metric_system, "indicative, not precise, at small n", fixed = TRUE)
+})
+
+test_that("metric prompt omits the RESEARCH CONTEXT block when none configured (back-compat, 62.5)", {
+  .skip_if_no_mock()
+  cap <- new.env()
+  local_mocked_bindings(ai_complete = .capturing_ai(cap), .package = "pakhom")
+  run_methodology_assistant(.methodology_test_data(), list(study = list(
+    research_focus = "meds & sleep", inferred_methodology = NULL)), mock_provider())
+  expect_false(grepl("RESEARCH CONTEXT", cap$metric_user, fixed = TRUE))
+})
+
 # ---- replay loader -----------------------------------------------------------
 
 test_that("load_pinned_methodology errors on a block missing the relevance criterion", {

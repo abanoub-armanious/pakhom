@@ -12,7 +12,8 @@ interpret_metrics(
   provider,
   audit_log = NULL,
   response_cache = NULL,
-  methodology_override = NULL
+  methodology_override = NULL,
+  research_context = ""
 )
 }
 \value{

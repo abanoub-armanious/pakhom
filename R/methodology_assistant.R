@@ -337,7 +337,7 @@ articulate_relevance_criterion <- function(research_focus, corpus_sample, provid
 interpret_metrics <- function(data, research_focus, metric_cols = NULL,
                               temporal_cols = NULL, provider,
                               audit_log = NULL, response_cache = NULL,
-                              methodology_override = NULL) {
+                              methodology_override = NULL, research_context = "") {
   if (is.null(metric_cols))   metric_cols   <- .detect_metric_columns(data)
   if (is.null(temporal_cols)) temporal_cols <- .detect_temporal_columns(data)
 
@@ -358,7 +358,11 @@ interpret_metrics <- function(data, research_focus, metric_cols = NULL,
     "primitives are honest for it (a right-skewed count must not be summarized ",
     "by a mean; a bounded ratio is not an unbounded count) -- request only what ",
     "is defensible; (3) what a reader should take from the results given the ",
-    "focus; (4) the column's PROVENANCE/RELEVANCE -- what it actually measures ",
+    "focus, and -- in interpretation_note -- how to read the spread / ",
+    "variability statistics (MAD, IQR, SD) honestly when a per-theme subtheme ",
+    "has FEW observations: state plainly that such spread is indicative, not ",
+    "precise, at small n (the n is always shown beside each statistic and is ",
+    "never suppressed); (4) the column's PROVENANCE/RELEVANCE -- what it actually measures ",
     "and whether it is a SUBSTANTIVE MEASURE OF THE PHENOMENON under study or ",
     "INCIDENTAL SOURCE/PLATFORM METADATA (e.g. upvotes, view/comment counts, IDs) ",
     "that reflects how the data was collected or received rather than the ",
@@ -366,19 +370,37 @@ interpret_metrics <- function(data, research_focus, metric_cols = NULL,
     "per-theme statistics should be read with caution (platform reception is not ",
     "prevalence; few observations in small subthemes make spread statistics ",
     "indicative not precise).\n\n",
+    "When a column's substantive-vs-metadata status is genuinely unclear from ",
+    "its name, its sampled values, and the research context, SAY SO explicitly ",
+    "and lean toward the cautious reading -- treat it as source/platform ",
+    "metadata to interpret with care rather than asserting it measures the ",
+    "phenomenon. A confidently wrong 'substantive' label is worse than a flagged ",
+    "uncertainty (fail honest).\n\n",
     "You are the analyst -- do not pick from a menu, reason about each real ",
     "column. If a column needs a computation this catalog lacks, name it ",
     "anyway: the pipeline records the gap honestly rather than substituting a ",
     "misleading statistic."
   )
+  # Phase 62.5: pass the researcher's OWN research_context (e.g. "Reddit posts
+  # and comments from ...") so the AI can ground each column's provenance
+  # judgment in the dataset's source. Without it, a column literally named
+  # "score" with small sampled values reads as a rating scale (substantive)
+  # rather than Reddit upvotes (platform metadata) -- the exact conflation 62.1
+  # exists to prevent. This is MORE researcher context to the analyst, never the
+  # package classifying the column; empty -> identical prompt as before.
+  context_block <- if (nzchar(research_context))
+    paste0("RESEARCH CONTEXT (the dataset's source/provenance, in the ",
+           "researcher's words):\n", research_context, "\n\n") else ""
   user_prompt <- paste0(
     "RESEARCH FOCUS:\n", research_focus, "\n\n",
+    context_block,
     format_metric_catalog(), "\n\n",
     "COLUMNS:\n", .build_metric_columns_block(data, metric_cols, temporal_cols),
     "\n\nReturn one record per numeric metric column in `metrics`, and one per ",
     "timestamp column in `temporal_columns` (each: column_name, ",
     "column_description, requested_primitives [primitive + rationale], ",
-    "interpretation_note, metric_provenance). Request only honest summaries."
+    "interpretation_note [include the small-n spread reliability caution], ",
+    "metric_provenance). Request only honest summaries."
   )
   # The RESPONSE carries one record (description + N primitives + rationales +
   # note) per column, so the token budget must scale with column count or a
@@ -451,11 +473,13 @@ run_methodology_assistant <- function(data, config, provider,
                     n_off_focus = length(relevance$off_focus_examples))
   }
 
+  research_context <- config$study$research_context %||% ""
   metric_cols   <- .detect_metric_columns(data, config)
   temporal_cols <- .detect_temporal_columns(data)
   metric_interp <- interpret_metrics(
     data, research_focus, metric_cols, temporal_cols, provider,
-    audit_log, response_cache, methodology_override)
+    audit_log, response_cache, methodology_override,
+    research_context = research_context)
   if (!is.null(audit_log)) {
     log_ai_decision(audit_log, "methodology_assistant", "metric_interpretation",
                     n_metrics = length(metric_interp$metrics),
