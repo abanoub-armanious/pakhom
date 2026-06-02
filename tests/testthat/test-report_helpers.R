@@ -382,6 +382,35 @@ test_that(".select_representative_quotes works without std_author column (legacy
   expect_equal(round(quotes$most_positive$sentiment, 1),  0.8)
 })
 
+test_that(".select_representative_quotes prefers theme-characteristic entries over diffuse multi-theme posts (#8)", {
+  # e1 is the GLOBALLY most-negative entry but is coded into 4 themes (a diffuse
+  # post); e5-e8 are specific to ThisTheme. Pre-#8, sentiment-extremity made e1 the
+  # lead for every theme it touched. Post-#8, the lead is drawn from the
+  # theme-characteristic (low-breadth) entries so the exemplar actually fits.
+  entries <- tibble::tibble(
+    std_id          = paste0("e", 1:8),
+    std_text        = paste("On-theme entry text long enough to pass the fifty-character filter, item", 1:8),
+    std_author      = paste0("auth", 1:8),
+    sentiment_score = c(-0.9, -0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3),
+    all_emotions    = rep("sadness", 8),
+    theme_membership_ThisTheme = rep(1L, 8),
+    theme_membership_OtherA    = c(1L, 1L, 1L, 1L, 0L, 0L, 0L, 0L),  # e1-e4 diffuse
+    theme_membership_OtherB    = c(1L, 1L, 0L, 0L, 0L, 0L, 0L, 0L),
+    theme_membership_OtherC    = c(1L, 0L, 0L, 0L, 0L, 0L, 0L, 0L)   # e1 in 4 themes
+  )
+  # breadth = c(4,3,2,2,1,1,1,1); median 1.5 -> specific pool = e5..e8 (breadth 1)
+  quotes <- pakhom:::.select_representative_quotes(entries, n_quotes = 3)
+  expect_length(quotes, 3L)
+  expect_false(quotes$most_negative$entry_id == "e1")                 # diffuse extreme NOT the lead
+  expect_true(quotes$most_negative$entry_id %in% c("e5", "e6", "e7", "e8"))  # lead is theme-specific
+  # CONTROL: with no theme_membership_* columns the filter is skipped and the old
+  # sentiment-extremity behavior is preserved (e1 leads) -- graceful fallback.
+  q0 <- pakhom:::.select_representative_quotes(
+    entries[, c("std_id", "std_text", "std_author", "sentiment_score", "all_emotions")],
+    n_quotes = 3)
+  expect_equal(q0$most_negative$entry_id, "e1")
+})
+
 test_that(".pick_quote_with_spread expands outward correctly", {
   valid_df <- tibble::tibble(
     std_text = letters[1:7],

@@ -490,7 +490,10 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
       # in sync so downstream consumers don't hit column-mismatch.
       effect_size = character(),
       significant = logical(), meaningful_effect = logical(),
-      method = character(), ci_lower = numeric(), ci_upper = numeric()
+      method = character(), ci_lower = numeric(), ci_upper = numeric(),
+      # Phase 63 (#2b): flag + reason for analyst-internal/circular pairs, kept in
+      # the exported matrix but removed from findings (schema-consistent empty case).
+      excluded_from_findings = logical(), exclusion_reason = character()
     ))
   }
 
@@ -559,52 +562,47 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
 
   df <- bind_rows(pairs) |> arrange(desc(abs(.data$correlation)))
 
-  # Phase 63: drop within-AI-sentiment-instrument pairs. sentiment_score,
-  # emotion_intensity (and confidence, already excluded upstream in
-  # prepare_correlation_data + compare_theme_groups) are all elicited in ONE AI
-  # sentiment call (R/10_sentiment.R), so their MUTUAL correlation is a
-  # prompt-coupling artifact, not a finding about the corpus. Pre-fix,
-  # sentiment_score x emotion_intensity (r ~= -0.85) surfaced as the #1 "large
-  # effect" Key Finding in every report -- the same artifact class the confidence
-  # exclusion already guards, here on the pair axis. Each variable is still
-  # correlated against EXTERNAL variables (themes, metadata); only the
-  # intra-instrument pair is removed.
+  # Phase 63 (#2b): FLAG analyst-internal / circular correlation pairs as
+  # `excluded_from_findings` rather than DROPPING them. Two artifact classes:
+  #  (1) within-AI-sentiment-instrument -- sentiment_score / emotion_intensity /
+  #      confidence are elicited in ONE AI sentiment call (R/10_sentiment.R), so
+  #      their MUTUAL correlation is a prompt-coupling artifact (was 045cde4).
+  #  (2) affect-instrument x theme_membership_* -- both are the AI analyst's OWN
+  #      codings of the SAME text, so the correlation measures internal coding
+  #      consistency, fully circular when the theme is affect-defined (this was
+  #      the #1 "Key Finding" on a real run while every INDEPENDENT-measure pair
+  #      was non-significant; the per-theme sentiment_tendency already reports
+  #      affect-by-theme descriptively, so nothing substantive is hidden).
+  # We KEEP these rows (with their real correlation + p-values + an
+  # exclusion_reason) so the exported correlations.csv is a COMPLETE, auditable
+  # matrix a reviewer can inspect -- and we zero BOTH finding-flags (significant,
+  # meaningful_effect) for them so every downstream findings/insights/section
+  # consumer (which all key off those flags) excludes them with NO consumer
+  # changes and no leak. Substantive pairs (engagement-metadata x theme,
+  # metric x metric, theme co-occurrence, affect x metadata) are untouched.
   if (nrow(df) > 0L) {
     fam <- c("sentiment_score", "emotion_intensity", "confidence")
-    within_family <- df$var1 %in% fam & df$var2 %in% fam
-    if (any(within_family)) {
-      log_info(sprintf(
-        "Excluding %d within-sentiment-instrument correlation pair(s) (same-call artifact, not a finding): %s",
-        sum(within_family),
-        paste(sprintf("%s~%s", df$var1[within_family], df$var2[within_family]), collapse = ", ")))
-      df <- df[!within_family, , drop = FALSE]
-    }
-  }
-
-  # Phase 63: also drop affect-instrument x theme-membership pairs. sentiment_score
-  # and emotion_intensity are the AI analyst's OWN per-entry affect codings;
-  # theme_membership_* are the AI analyst's OWN thematic codings of the SAME text.
-  # A correlation between the analyst's two coding outputs measures internal coding
-  # consistency, NOT an empirical association in the corpus -- and it is fully
-  # CIRCULAR when the theme is itself affect-defined (e.g. sentiment_score x
-  # membership in an "Emotional Consequences" theme, which surfaced as the #1 "Key
-  # Finding" on a real run while every association between INDEPENDENT measures was
-  # non-significant). The per-theme sentiment_tendency already reports affect by
-  # theme descriptively, so this is non-lossy; substantive pairs (engagement
-  # metadata x theme, metric x metric, theme co-occurrence, affect x metadata) are
-  # untouched. Same artifact class as the within-instrument exclusion above.
-  if (nrow(df) > 0L) {
-    affect <- c("sentiment_score", "emotion_intensity", "confidence")
     .is_tm <- function(v) grepl("^theme_membership_", v)
-    affect_x_theme <- (df$var1 %in% affect & .is_tm(df$var2)) |
-                      (df$var2 %in% affect & .is_tm(df$var1))
-    if (any(affect_x_theme)) {
+    within_family  <- df$var1 %in% fam & df$var2 %in% fam
+    affect_x_theme <- (df$var1 %in% fam & .is_tm(df$var2)) |
+                      (df$var2 %in% fam & .is_tm(df$var1))
+    df$exclusion_reason <- ifelse(within_family,  "within_affect_instrument",
+                            ifelse(affect_x_theme, "affect_x_theme_membership",
+                                   NA_character_))
+    df$excluded_from_findings <- !is.na(df$exclusion_reason)
+    if (any(df$excluded_from_findings)) {
+      df$significant[df$excluded_from_findings]       <- FALSE
+      df$meaningful_effect[df$excluded_from_findings] <- FALSE
       log_info(sprintf(
-        "Excluding %d affect-instrument x theme-membership pair(s) (analyst-internal coupling, not an empirical corpus association; affect-by-theme is reported per-theme): %s",
-        sum(affect_x_theme),
-        paste(sprintf("%s~%s", df$var1[affect_x_theme], df$var2[affect_x_theme]), collapse = ", ")))
-      df <- df[!affect_x_theme, , drop = FALSE]
+        "Flagged %d analyst-internal/circular correlation pair(s) excluded_from_findings (KEPT in the exported matrix with their p-values; removed from significant findings): %s",
+        sum(df$excluded_from_findings),
+        paste(sprintf("%s~%s[%s]", df$var1[df$excluded_from_findings],
+                      df$var2[df$excluded_from_findings],
+                      df$exclusion_reason[df$excluded_from_findings]), collapse = ", ")))
     }
+  } else {
+    df$exclusion_reason       <- character(0)
+    df$excluded_from_findings <- logical(0)
   }
   n_sig <- sum(df$significant)
   n_meaningful <- sum(df$meaningful_effect, na.rm = TRUE)

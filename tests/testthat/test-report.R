@@ -288,3 +288,33 @@ test_that("verify_run_integrity checks conditional files from config", {
   expect_true("analysis_report.html" %in% result$missing)
   expect_true("correlation_plot.png" %in% result$missing)
 })
+
+test_that(".build_saturation_section labels coded / examined / sampled distinctly (#7a)", {
+  # The coverage banner reports the EXAMINED position ("examined 126 of 450
+  # sampled") while this section reports the CODED count -- pre-#7a the latter
+  # said "coding 40 of 450 total entries", which read as a contradiction with
+  # the banner's 126. Now each of the three distinct counts is labeled.
+  cs <- list(
+    saturation = list(
+      reached = TRUE, reached_at_coded = 40L, reached_at_entry = 126L,
+      total_entries_at_saturation = 450L,
+      curve = data.frame(entries_coded = c(20L, 40L), n_codes = c(31L, 33L),
+                         new_codes_in_window = c(31L, 2L), reuse_density = c(0.49, 0.73)),
+      ai_articulation = "Sharp decline in new codes per window.",
+      ai_rationale = "31 to 2 with reuse density 0.73.", saturation_ratio = 0.825
+    ),
+    codebook = stats::setNames(replicate(33, list(name = "x"), simplify = FALSE),
+                               paste0("c", 1:33))
+  )
+  sec <- pakhom:::.build_saturation_section(cs)
+  expect_match(sec, "coding **40** of the **126** entries examined (450 sampled)", fixed = TRUE)
+  # the suggested methods-section paragraph must ALSO be reconciled: NOWHERE in the
+  # section should the bare coded-vs-sampled conflation "40 of 450 entries" appear
+  # (it survived in the methods text in the first #7a pass -- this pins both sites).
+  expect_no_match(sec, "40 of 450 entries", fixed = TRUE)
+  expect_match(sec, "coding 40 of the 126 entries examined (450 sampled), at which point",
+               fixed = TRUE)  # the methods-section paragraph specifically
+  # back-compat: a pre-#7a state file without reached_at_entry -> graceful fallback
+  cs2 <- cs; cs2$saturation$reached_at_entry <- NA_integer_
+  expect_match(pakhom:::.build_saturation_section(cs2), "of the 450 entries sampled", fixed = TRUE)
+})

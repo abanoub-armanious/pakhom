@@ -2441,9 +2441,9 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
                   else                         "coverage-banner-warn"
   banner_msg <- if (ok && saturation_stop) {
     paste0(
-      "AI saturation arbiter judged the codebook saturated at entry ",
-      format(coverage$reached_at_entry, big.mark = ","), " of ",
-      format(coverage$n_input_to_coding, big.mark = ","),
+      "AI saturation arbiter judged the codebook saturated after examining ",
+      format(coverage$reached_at_entry, big.mark = ","), " of the ",
+      format(coverage$n_input_to_coding, big.mark = ","), " sampled entries",
       ". Coding stopped intentionally; the unprocessed tail (",
       format(coverage$n_unprocessed, big.mark = ","),
       " entries) was excluded by design, NOT by silent truncation. ",
@@ -3037,9 +3037,20 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
 
   if (isTRUE(sat$reached)) {
     content <- paste0(content,
+      # #7a: label the three distinct counts (coded / examined / sampled) so the
+      # banner's "examined N of M sampled" and this line do not read as a
+      # contradiction. reached_at_coded = entries that received >=1 code;
+      # reached_at_entry = entries examined before the arbiter stopped;
+      # total_entries_at_saturation = the sampled total fed to coding.
       "Thematic saturation was **reached** after coding **",
-      sat$reached_at_coded, "** of ", sat$total_entries_at_saturation,
-      " total entries. At that point, the codebook contained **",
+      sat$reached_at_coded, "** of the ",
+      if (!is.null(sat$reached_at_entry) && !is.na(sat$reached_at_entry)) {
+        paste0("**", sat$reached_at_entry, "** entries examined (",
+               sat$total_entries_at_saturation, " sampled)")
+      } else {
+        paste0(sat$total_entries_at_saturation, " entries sampled")
+      },
+      ". At that point, the codebook contained **",
       length(coding_state$codebook), "** unique codes.\n\n"
     )
 
@@ -3204,8 +3215,16 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
       "commitment, no hardcoded thresholds gate the verdict; the AI ",
       "is the sole judge.", art_str, " Saturation was reached after ",
       "coding ", sat$reached_at_coded, " of ",
-      sat$total_entries_at_saturation,
-      " entries, at which point ", length(coding_state$codebook),
+      # #7a: same coded/examined/sampled labeling as the section opening, so the
+      # suggested methods paragraph the researcher copies into their paper does not
+      # imply only `reached_at_coded` of the SAMPLE were examined.
+      if (!is.null(sat$reached_at_entry) && !is.na(sat$reached_at_entry)) {
+        paste0("the ", sat$reached_at_entry, " entries examined (",
+               sat$total_entries_at_saturation, " sampled)")
+      } else {
+        paste0(sat$total_entries_at_saturation, " entries sampled")
+      },
+      ", at which point ", length(coding_state$codebook),
       " unique codes had been identified.\n\n"
     )
   } else {

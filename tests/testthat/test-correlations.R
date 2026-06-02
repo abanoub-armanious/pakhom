@@ -93,7 +93,7 @@ test_that("extract_significant computes CIs when corr_data provided", {
   expect_true(any(!is.na(df$ci_lower)))
 })
 
-test_that("extract_significant drops the within-sentiment-instrument pair (same-call artifact)", {
+test_that("extract_significant flags within-sentiment-instrument pairs excluded_from_findings (kept, not dropped)", {
   set.seed(7)
   n <- 80
   cd <- tibble::tibble(
@@ -104,37 +104,47 @@ test_that("extract_significant drops the within-sentiment-instrument pair (same-
   cd$emotion_intensity <- -cd$sentiment_score + rnorm(n, 0, 0.3)  # the artifact pair (strongest)
   res <- calculate_correlations(cd, method = "spearman")
   sig <- extract_significant(res, p_threshold = 0.05)
-  has_pair <- function(df, a, b) any(
-    (df$var1 == a & df$var2 == b) | (df$var1 == b & df$var2 == a))
-  # the intra-instrument sentiment pair is excluded even though it is the strongest
-  expect_false(has_pair(sig, "sentiment_score", "emotion_intensity"))
-  # pairs with an EXTERNAL variable survive (each sentiment var still correlates outward)
-  expect_true(has_pair(sig, "sentiment_score", "score") ||
-              has_pair(sig, "emotion_intensity", "score"))
+  get_pair <- function(df, a, b) df[(df$var1 == a & df$var2 == b) |
+                                    (df$var1 == b & df$var2 == a), , drop = FALSE]
+  # The intra-instrument pair is KEPT in the matrix (auditable) but flagged and
+  # zeroed out of the findings flags -- even though it is the strongest correlation.
+  wf <- get_pair(sig, "sentiment_score", "emotion_intensity")
+  expect_equal(nrow(wf), 1L)
+  expect_true(wf$excluded_from_findings)
+  expect_false(wf$significant)
+  expect_false(wf$meaningful_effect)
+  expect_identical(wf$exclusion_reason, "within_affect_instrument")
+  # pairs with an EXTERNAL variable are retained AND not excluded (real-findings path)
+  ext <- get_pair(sig, "sentiment_score", "score")
+  if (nrow(ext) == 0L) ext <- get_pair(sig, "emotion_intensity", "score")
+  expect_equal(nrow(ext), 1L)
+  expect_false(ext$excluded_from_findings)
 })
 
-test_that("extract_significant drops affect x theme-membership pairs (analyst-internal coupling, not a corpus association)", {
+test_that("extract_significant flags affect x theme-membership pairs excluded_from_findings (kept, not dropped)", {
   # Both sentiment_score and theme_membership_* are the AI analyst's OWN codings of
   # the same text; their correlation is internal coding consistency, fully circular
-  # when the theme is affect-defined. It must NOT headline as a Key Finding, while a
-  # SUBSTANTIVE engagement-metadata x theme pair (independent measures) must survive.
+  # when the theme is affect-defined. It must be KEPT in the matrix for audit but
+  # flagged + removed from findings, while a SUBSTANTIVE engagement-metadata x theme
+  # pair (independent measures) stays a real finding.
   set.seed(11)
   n <- 90
   cd <- tibble::tibble(sentiment_score = rnorm(n))
-  # affect-defined theme: membership tracks sentiment -> circular by construction
   cd$theme_membership_Emotional_Consequences <- as.integer(cd$sentiment_score < 0)
-  # external platform-metadata signal that genuinely tracks the theme -> substantive
   cd$score <- cd$theme_membership_Emotional_Consequences * 3 + rnorm(n, 0, 0.6)
-  # binary membership -> Spearman ties -> expected cor.test ties warning (a
-  # statistical artifact of the fixture, irrelevant to the exclusion logic under test)
+  # binary membership -> Spearman ties -> expected cor.test ties warning (fixture artifact)
   res <- suppressWarnings(calculate_correlations(cd, method = "spearman"))
   sig <- extract_significant(res, p_threshold = 0.05)
-  has_pair <- function(df, a, b) any(
-    (df$var1 == a & df$var2 == b) | (df$var1 == b & df$var2 == a))
-  # the circular affect x affect-defined-theme pair is EXCLUDED...
-  expect_false(has_pair(sig, "sentiment_score", "theme_membership_Emotional_Consequences"))
-  # ...while a substantive engagement-metadata x theme pair (independent measures) SURVIVES
-  expect_true(has_pair(sig, "score", "theme_membership_Emotional_Consequences"))
+  get_pair <- function(df, a, b) df[(df$var1 == a & df$var2 == b) |
+                                    (df$var1 == b & df$var2 == a), , drop = FALSE]
+  circ <- get_pair(sig, "sentiment_score", "theme_membership_Emotional_Consequences")
+  expect_equal(nrow(circ), 1L)
+  expect_true(circ$excluded_from_findings)
+  expect_false(circ$significant)
+  expect_identical(circ$exclusion_reason, "affect_x_theme_membership")
+  subst <- get_pair(sig, "score", "theme_membership_Emotional_Consequences")
+  expect_equal(nrow(subst), 1L)
+  expect_false(subst$excluded_from_findings)
 })
 
 # --- Dynamic method selection tests ---

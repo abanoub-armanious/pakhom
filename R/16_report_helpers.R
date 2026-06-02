@@ -133,15 +133,33 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
       } else {
         meta_indices <- seq_len(min(length(enriched_quotes), n_sorted))
       }
+      # #8 follow-up: resolve EACH representative quote's true sentiment + emotion
+      # from its SOURCE ENTRY via the entry_id-linked supporting_quote_records
+      # (built in the same order as supporting_quotes), rather than re-deriving by
+      # sentiment-sort index. Index re-derivation could attach the wrong displayed
+      # number to a quote once #8's theme-specificity selection picks an entry that
+      # is not at position 1/median/n of the full sort. Falls back to the index
+      # position for legacy state files that lack records or an entry_id.
+      enriched_recs <- t$supporting_quote_records
       quotes <- list()
       for (qi in seq_along(enriched_quotes)) {
-        idx <- if (qi <= length(meta_indices)) meta_indices[qi] else 1
-        idx <- min(idx, n_sorted)
-        matching_row <- sent_sorted[idx, ]
-        quotes[[quote_labels[qi]]] <- list(
+        rec <- if (!is.null(enriched_recs) && qi <= length(enriched_recs)) enriched_recs[[qi]] else NULL
+        eid <- if (!is.null(rec)) rec$entry_id else NULL
+        erow <- NULL
+        if (!is.null(eid) && !is.na(eid) && "std_id" %in% names(entries)) {
+          hit <- entries[!is.na(entries$std_id) & entries$std_id == eid, , drop = FALSE]
+          if (nrow(hit) >= 1L) erow <- hit[1, ]
+        }
+        if (is.null(erow)) {
+          idx <- if (qi <= length(meta_indices)) meta_indices[qi] else 1
+          erow <- sent_sorted[min(idx, n_sorted), ]
+        }
+        lbl <- (if (!is.null(rec)) rec$position else NULL) %||% quote_labels[qi]
+        emo <- if ("all_emotions" %in% names(erow)) erow$all_emotions %||% NA_character_ else NA_character_
+        quotes[[lbl]] <- list(
           text = enriched_quotes[qi],
-          sentiment = round(matching_row$sentiment_score, 2),
-          emotion = matching_row$all_emotions %||% NA_character_
+          sentiment = round(erow$sentiment_score, 2),
+          emotion = emo
         )
       }
     } else {
@@ -1402,7 +1420,7 @@ generate_downloads_section <- function(export_files, theme_stats) {
   if (!is.null(export_files$correlations_file)) {
     content <- paste0(content,
       "| [Correlations](", basename(export_files$correlations_file),
-      ") | All correlation pairs with p-values |\n"
+      ") | All correlation pairs with p-values (circular/analyst-internal pairs retained but flagged `excluded_from_findings`) |\n"
     )
   }
 
@@ -1442,6 +1460,31 @@ generate_downloads_section <- function(export_files, theme_stats) {
     filter(!is.na(.data[[text_col]]), nchar(.data[[text_col]]) > 50)
 
   if (nrow(valid) == 0) return(list())
+
+  # Phase 63 (#8) analytic fit: representative quotes should be drawn from entries
+  # CHARACTERISTIC of this theme, not from diffuse posts coded into many themes. A
+  # heavily multi-coded extreme-sentiment post is the "most negative" (or "most
+  # positive") member of MANY themes at once, so pure sentiment-extremity selection
+  # makes the SAME diffuse post the lead quote for several themes -- where it
+  # illustrates none of them well (verified: one "I feel like giving up" post led 5
+  # of 9 themes, including a Recovery theme). When theme-membership breadth is
+  # available, restrict the candidate pool to the more theme-specific entries (at or
+  # below median breadth) BEFORE sentiment-positioning -- but only when that still
+  # leaves >= 3 rows to span the sentiment range. Multi-coding is fully preserved in
+  # the theme's membership + counts; this changes only which entries become the
+  # representative QUOTES. Sentiment labels stay honest (relative to the theme's
+  # characteristic entries, which is what the quotes are meant to illustrate),
+  # author-spread (T0.2) and provenance (T0.1) are untouched, and it falls back to
+  # all entries when breadth is unavailable or too few specific entries exist.
+  tm_cols <- grep("^theme_membership_", names(valid), value = TRUE)
+  if (length(tm_cols) >= 2L) {
+    breadth <- rowSums(as.matrix(valid[, tm_cols, drop = FALSE]) == 1L, na.rm = TRUE)
+    if (any(breadth > 0L)) {
+      thresh <- stats::median(breadth[breadth > 0L])
+      specific <- valid[breadth > 0L & breadth <= thresh, , drop = FALSE]
+      if (nrow(specific) >= 3L) valid <- specific
+    }
+  }
 
   valid <- valid |> arrange(sentiment_score)
   has_authors <- "std_author" %in% names(valid)
