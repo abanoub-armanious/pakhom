@@ -558,6 +558,28 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
   }
 
   df <- bind_rows(pairs) |> arrange(desc(abs(.data$correlation)))
+
+  # Phase 63: drop within-AI-sentiment-instrument pairs. sentiment_score,
+  # emotion_intensity (and confidence, already excluded upstream in
+  # prepare_correlation_data + compare_theme_groups) are all elicited in ONE AI
+  # sentiment call (R/10_sentiment.R), so their MUTUAL correlation is a
+  # prompt-coupling artifact, not a finding about the corpus. Pre-fix,
+  # sentiment_score x emotion_intensity (r ~= -0.85) surfaced as the #1 "large
+  # effect" Key Finding in every report -- the same artifact class the confidence
+  # exclusion already guards, here on the pair axis. Each variable is still
+  # correlated against EXTERNAL variables (themes, metadata); only the
+  # intra-instrument pair is removed.
+  if (nrow(df) > 0L) {
+    fam <- c("sentiment_score", "emotion_intensity", "confidence")
+    within_family <- df$var1 %in% fam & df$var2 %in% fam
+    if (any(within_family)) {
+      log_info(sprintf(
+        "Excluding %d within-sentiment-instrument correlation pair(s) (same-call artifact, not a finding): %s",
+        sum(within_family),
+        paste(sprintf("%s~%s", df$var1[within_family], df$var2[within_family]), collapse = ", ")))
+      df <- df[!within_family, , drop = FALSE]
+    }
+  }
   n_sig <- sum(df$significant)
   n_meaningful <- sum(df$meaningful_effect, na.rm = TRUE)
   log_info("Extracted {nrow(df)} associations: {n_meaningful} with |r| >= 0.10, ",

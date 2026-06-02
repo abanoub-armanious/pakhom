@@ -1257,7 +1257,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     "# Emotional Landscape\n\n",
     "## Sentiment Distribution\n\n",
     "```{r sentiment-histogram}\n",
-    "data <- read_csv('", basename(export_files$sentiment_file), "', show_col_types = FALSE)\n\n",
+    "data <- read_csv('", basename(export_files$sentiment_file), "', show_col_types = FALSE, comment = '#')\n\n",
     "ggplot(data, aes(x = sentiment_score)) +\n",
     "  geom_histogram(bins = 35, fill = '#3498DB', color = 'white', alpha = 0.85) +\n",
     "  geom_vline(xintercept = mean(data$sentiment_score, na.rm = TRUE),\n",
@@ -2795,9 +2795,18 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "Benjamini-Hochberg FDR, Bonferroni FWER) for transparency. Treat these as ",
     "hypothesis-generating; themes were inductively derived from this corpus._\n\n",
     "```{r correlation-table}\n",
-    "correlations <- read_csv('", basename(export_files$correlations_file), "', show_col_types = FALSE)\n\n",
+    "correlations <- read_csv('", basename(export_files$correlations_file), "', show_col_types = FALSE, comment = '#')\n\n",
     "# Filter by meaningful effect (|r| >= 0.10) when available, else legacy 'significant'\n",
     "flag_col <- if ('meaningful_effect' %in% names(correlations)) 'meaningful_effect' else 'significant'\n",
+    "# Robustness: a focused corpus can yield ZERO correlation pairs -> header-only\n",
+    "# correlations.csv -> readr types every column as empty CHARACTER, so\n",
+    "# filter()/arrange(abs())/mutate() error and (with error=TRUE) cascade\n",
+    "# ('sig_corrs not found') through the rest of the chunk. Guard: render a\n",
+    "# graceful note instead of a stack of R error tracebacks when there is\n",
+    "# nothing to report.\n",
+    "if (nrow(correlations) == 0 || !flag_col %in% names(correlations)) {\n",
+    "  cat('\\n_No exploratory associations met the reporting threshold for this corpus (too few variables or correlation pairs to test)._\\n')\n",
+    "} else {\n",
     "sig_corrs <- correlations |>\n",
     "  filter(.data[[flag_col]]) |>\n",
     "  arrange(desc(abs(correlation))) |>\n",
@@ -2842,6 +2851,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "    DT::formatRound(columns = numeric_cols, digits = 3)\n",
     "} else {\n",
     "  knitr::kable(sig_corrs, digits = 3)\n",
+    "}\n",
     "}\n",
     "```\n\n"
   )
@@ -3215,11 +3225,22 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
 
 .build_methodology_appendix <- function(stats, export_files, config,
                                          excerpt_verification = NULL) {
+  # Phase 62 (#6): describe the ACTUAL methodology mode -- pakhom is three-mode by
+  # architecture (AC2: M1 reflexive scaffold / M2 codebook collaborative / M3
+  # framework applied), so the appendix must NOT hardcode "reflexive thematic
+  # analysis" for every run. A Mode-2 run is codebook TA, for which an evolving
+  # codebook + AI-judged saturation + run-to-run stability ARE appropriate (Braun &
+  # Clarke reserve the no-codebook / no-saturation stance for REFLEXIVE TA). This
+  # makes the methodology label internally consistent with the features reported.
+  meth_phrase <- switch(config$methodology$mode %||% "",
+    "reflexive_scaffold"     = "AI-assisted **reflexive** thematic analysis (Braun & Clarke's reflexive TA)",
+    "codebook_collaborative" = "AI-assisted **codebook** thematic analysis (Braun & Clarke's codebook orientation -- an evolving, AI-collaborative codebook with a full provenance/audit trail)",
+    "framework_applied"      = "AI-assisted **framework-applied** (deductive) thematic analysis (a pre-specified framework mapped onto the corpus, with an abductive pass for non-fitting data)",
+    "AI-assisted thematic analysis")
   content <- paste0(
     "# Appendix A: Methodology\n\n",
     "## Analysis Process\n\n",
-    "This analysis employed AI-assisted reflexive thematic analysis following Braun and Clarke's ",
-    "approach, using a progressive sequential coding pipeline:\n\n",
+    "This analysis employed ", meth_phrase, ", using a progressive sequential coding pipeline:\n\n",
     "1. **Learning from prior studies** -- codebook structures and coding conventions from previous manual analyses\n",
     "2. **Progressive sequential coding** -- each entry read individually; applicable text coded with existing or novel codes\n",
     "3. **AI-judged saturation arbitration** -- Phase 56: an AI arbiter reviews codebook trajectory metrics at an auto-scaled cadence and returns a 3-valued verdict; no hardcoded thresholds\n",
@@ -3229,7 +3250,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "7. **Correlation analysis** -- statistical associations between themes, sentiment, and metadata\n\n",
     "## Top Codes\n\n",
     "```{r code-table}\n",
-    "codes <- read_csv('", basename(export_files$codes_file), "', show_col_types = FALSE)\n\n",
+    "codes <- read_csv('", basename(export_files$codes_file), "', show_col_types = FALSE, comment = '#')\n\n",
     "codes_display <- codes |>\n",
     "  arrange(desc(frequency)) |>\n",
     "  head(30) |>\n",

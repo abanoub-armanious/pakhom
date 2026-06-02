@@ -16,6 +16,60 @@ test_that(".html_esc handles numeric input", {
   expect_equal(pakhom:::.html_esc(42), "42")
 })
 
+# Regression guard: the report's knit-time chunks read the AC4-stamped output
+# CSVs (sentiment/correlations/codes). If a generated read_csv omits comment='#',
+# the stamp's "# methodology:" line is parsed as the header, every real column
+# vanishes, and the rendered report fills 5 sections with R error tracebacks
+# (23 were shipping in every run before this fix). The direct reads already pass
+# comment='#'; the generated chunks must too. (End-to-end guard: the preflight
+# smoke now also asserts no "## Error" survives in the rendered HTML.)
+test_that("generated report chunks read stamped CSVs with comment='#' (no error cascade)", {
+  data <- sample_data(10)
+  data$emerged_themes <- c(rep("Sleep Disruption", 6), rep("Treatment Efficacy", 4))
+  data$theme_membership_Sleep.Disruption <- c(rep(1L, 6), rep(0L, 4))
+  data$theme_membership_Treatment.Efficacy <- c(rep(0L, 6), rep(1L, 4))
+  stats <- aggregate_overall_statistics(data, mock_theme_set(), consolidated = NULL,
+                                        learning_context = NULL, config = mock_config())
+  ef <- list(sentiment_file = "sentiment_scores.csv",
+             correlations_file = "correlations.csv", codes_file = "codes.csv")
+  el <- pakhom:::.build_emotional_landscape(stats, ef)
+  expect_match(el, "read_csv('sentiment_scores.csv', show_col_types = FALSE, comment = '#')",
+               fixed = TRUE)
+  # every generated read_csv in this chunk must skip the methodology stamp
+  reads <- regmatches(el, gregexpr("read_csv\\([^)]*\\)", el))[[1]]
+  expect_true(length(reads) >= 1L)
+  expect_true(all(grepl("comment = '#'", reads, fixed = TRUE)))
+})
+
+test_that("correlation section guards the no-correlations case (no error cascade)", {
+  # A focused corpus can yield ZERO correlation pairs -> header-only correlations.csv
+  # -> readr types every column character -> filter/arrange/mutate cascade into 6 R
+  # error tracebacks. The chunk must short-circuit to a graceful note.
+  cs <- pakhom:::.build_correlation_section(
+    corr_interpretation = NULL,
+    export_files = list(correlations_file = "correlations.csv",
+                        plot_file = "correlation_plot.png"))
+  expect_match(cs, "if (nrow(correlations) == 0", fixed = TRUE)
+  expect_match(cs, "No exploratory associations met the reporting threshold", fixed = TRUE)
+})
+
+test_that("methodology appendix describes the ACTUAL mode, not hardcoded reflexive (#6)", {
+  data <- sample_data(10)
+  data$emerged_themes <- c(rep("Sleep Disruption", 6), rep("Treatment Efficacy", 4))
+  data$theme_membership_Sleep.Disruption <- c(rep(1L, 6), rep(0L, 4))
+  data$theme_membership_Treatment.Efficacy <- c(rep(0L, 6), rep(1L, 4))
+  stats <- aggregate_overall_statistics(data, mock_theme_set(), consolidated = NULL,
+                                        learning_context = NULL, config = mock_config())
+  ef <- list(codes_file = "codes.csv", sentiment_file = "sentiment_scores.csv",
+             correlations_file = "correlations.csv")
+  cfg <- mock_config(); cfg$methodology$mode <- "codebook_collaborative"
+  ap <- pakhom:::.build_methodology_appendix(stats, ef, cfg)
+  expect_match(ap, "codebook", fixed = TRUE)               # M2 = codebook TA
+  expect_false(grepl("reflexive thematic analysis", ap, fixed = TRUE))
+  cfg$methodology$mode <- "reflexive_scaffold"
+  expect_match(pakhom:::.build_methodology_appendix(stats, ef, cfg), "reflexive", fixed = TRUE)
+})
+
 test_that("aggregate_overall_statistics returns expected structure", {
   data <- sample_data(10)
   data$emerged_themes <- c(rep("Sleep Disruption", 6), rep("Treatment Efficacy", 4))

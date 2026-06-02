@@ -144,6 +144,9 @@ html_path <- file.path(run_dir, "analysis_report.html")
 ok("analysis_report.html rendered", file.exists(html_path))
 if (file.exists(html_path)) {
   html <- paste(readLines(html_path, warn = FALSE), collapse = "\n")
+  # The report embeds knit-time R chunks; if any errors, rmarkdown renders the
+  # traceback INTO the HTML instead of failing. file.exists() never caught that.
+  ok("report renders with NO R error tracebacks (## Error)", !grepl("## Error", html, fixed = TRUE))
   ok("report has Methodology Setup section", grepl("Methodology Setup", html, fixed = TRUE))
   ok("report shows the AI relevance criterion", grepl("Relevance criterion", html, fixed = TRUE))
   ok("report has a per-subtheme summary table", grepl("subtheme-summary-table", html, fixed = TRUE))

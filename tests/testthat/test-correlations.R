@@ -93,6 +93,26 @@ test_that("extract_significant computes CIs when corr_data provided", {
   expect_true(any(!is.na(df$ci_lower)))
 })
 
+test_that("extract_significant drops the within-sentiment-instrument pair (same-call artifact)", {
+  set.seed(7)
+  n <- 80
+  cd <- tibble::tibble(
+    sentiment_score   = rnorm(n),
+    emotion_intensity = rnorm(n),
+    score             = rnorm(n)            # an EXTERNAL metadata variable
+  )
+  cd$emotion_intensity <- -cd$sentiment_score + rnorm(n, 0, 0.3)  # the artifact pair (strongest)
+  res <- calculate_correlations(cd, method = "spearman")
+  sig <- extract_significant(res, p_threshold = 0.05)
+  has_pair <- function(df, a, b) any(
+    (df$var1 == a & df$var2 == b) | (df$var1 == b & df$var2 == a))
+  # the intra-instrument sentiment pair is excluded even though it is the strongest
+  expect_false(has_pair(sig, "sentiment_score", "emotion_intensity"))
+  # pairs with an EXTERNAL variable survive (each sentiment var still correlates outward)
+  expect_true(has_pair(sig, "sentiment_score", "score") ||
+              has_pair(sig, "emotion_intensity", "score"))
+})
+
 # --- Dynamic method selection tests ---
 
 test_that("detect_variable_types identifies binary/ordinal/continuous", {
