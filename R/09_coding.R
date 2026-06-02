@@ -1307,20 +1307,30 @@ run_progressive_coding <- function(data, provider, config = list(),
     # codes with NA descriptions. The fallback uses the first segment's
     # text as a "first observed" snippet so reviewers have at least
     # one anchor for what the code captured. A subsequent Phase 58
-    # Tier 2 C-5 refresh pass replaces this placeholder once the code
-    # accumulates enough segments to support a real description.
+    # Tier 2 C-5 refresh pass (.maybe_refresh_high_freq_descriptions,
+    # selects by frequency >= min_freq, NOT by matching this text)
+    # replaces it once the code accumulates enough segments to support
+    # a real description.
     # Phase 58 Tier 2 audit LOW F2: also guard against NA. jsonlite
     # parses JSON `null` to NA_character_ which would crash the
     # subsequent if-condition ("missing value where TRUE/FALSE needed").
+    # Phase 62.2: dropped the "[D-7 placeholder; awaiting refresh]"
+    # engineering marker -- it shipped verbatim into themes.json (an
+    # internal artifact masquerading as a code description) AND, because
+    # the description feeds the clustering embedding input
+    # (paste(name, description) in R/13_themes.R), the marker text biased
+    # clustering. The honest human default below keeps the informative
+    # first-segment snippet (the real reviewer anchor) without the marker.
     admit_desc <- if (is.null(seg_desc) || is.na(seg_desc) ||
                       !nzchar(trimws(seg_desc %||% ""))) {
       snippet <- substr(as.character(seg_text)[1], 1, 150)
       log_warn(paste0(
         "Entry ", entry_id, ": new code '", code_name,
         "' admitted with empty description; using first-segment ",
-        "snippet as placeholder (D-7 backfill)."
+        "text as a provisional description (will be refreshed when the ",
+        "code reaches the description-refresh frequency)."
       ))
-      paste0("[D-7 placeholder; awaiting refresh] First observed: ", snippet)
+      paste0("First observed in: ", snippet)
     } else {
       seg_desc
     }

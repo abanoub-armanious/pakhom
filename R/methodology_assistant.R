@@ -93,7 +93,12 @@
     column_name         = as.character(rec$column_name %||% NA_character_)[1],
     column_description  = as.character(rec$column_description %||% "")[1],
     requested_primitives = prims,
-    interpretation_note = as.character(rec$interpretation_note %||% "")[1]
+    interpretation_note = as.character(rec$interpretation_note %||% "")[1],
+    # Phase 62.1: free-form provenance/relevance judgment. The `%||% ""` default
+    # is the R7 replay back-compat hinge: an old inferred_methodology block
+    # (pinned from a pre-62 run) lacks this field and must still load + replay
+    # deterministically, defaulting to "" (no provenance framing rendered).
+    metric_provenance   = as.character(rec$metric_provenance %||% "")[1]
   )
 }
 
@@ -353,7 +358,14 @@ interpret_metrics <- function(data, research_focus, metric_cols = NULL,
     "primitives are honest for it (a right-skewed count must not be summarized ",
     "by a mean; a bounded ratio is not an unbounded count) -- request only what ",
     "is defensible; (3) what a reader should take from the results given the ",
-    "focus.\n\n",
+    "focus; (4) the column's PROVENANCE/RELEVANCE -- what it actually measures ",
+    "and whether it is a SUBSTANTIVE MEASURE OF THE PHENOMENON under study or ",
+    "INCIDENTAL SOURCE/PLATFORM METADATA (e.g. upvotes, view/comment counts, IDs) ",
+    "that reflects how the data was collected or received rather than the ",
+    "phenomenon. Reason from the column's meaning and the focus; flag if the ",
+    "per-theme statistics should be read with caution (platform reception is not ",
+    "prevalence; few observations in small subthemes make spread statistics ",
+    "indicative not precise).\n\n",
     "You are the analyst -- do not pick from a menu, reason about each real ",
     "column. If a column needs a computation this catalog lacks, name it ",
     "anyway: the pipeline records the gap honestly rather than substituting a ",
@@ -366,7 +378,7 @@ interpret_metrics <- function(data, research_focus, metric_cols = NULL,
     "\n\nReturn one record per numeric metric column in `metrics`, and one per ",
     "timestamp column in `temporal_columns` (each: column_name, ",
     "column_description, requested_primitives [primitive + rationale], ",
-    "interpretation_note). Request only honest summaries."
+    "interpretation_note, metric_provenance). Request only honest summaries."
   )
   # The RESPONSE carries one record (description + N primitives + rationales +
   # note) per column, so the token budget must scale with column count or a
@@ -500,7 +512,7 @@ load_pinned_methodology <- function(inferred_block, research_focus = NULL) {
 # ---- serialization + archive -------------------------------------------------
 
 .column_record_to_list <- function(rec) {
-  list(
+  out <- list(
     column_name          = rec$column_name,
     column_description   = rec$column_description,
     requested_primitives = lapply(rec$requested_primitives, function(p) {
@@ -514,6 +526,14 @@ load_pinned_methodology <- function(inferred_block, research_focus = NULL) {
     }),
     interpretation_note  = rec$interpretation_note
   )
+  # Phase 62.1: serialize metric_provenance only when non-empty -- same
+  # discipline as args, so a pre-62 archive (no provenance) round-trips
+  # byte-identically and a populated one carries the judgment into the
+  # copy-pasteable inferred_methodology block.
+  if (nzchar(rec$metric_provenance %||% "")) {
+    out$metric_provenance <- rec$metric_provenance
+  }
+  out
 }
 
 #' Serialize a MethodologyArticulations to a plain list (Phase 61.2)
@@ -578,9 +598,12 @@ format_methodology_articulations_md <- function(art) {
       paste(vapply(rec$requested_primitives, function(p)
         sprintf("  - `%s`: %s", p$primitive, p$rationale), character(1)),
         collapse = "\n")
+    prov <- if (nzchar(rec$metric_provenance %||% ""))
+      paste0("**Relevance to focus:** ", rec$metric_provenance, "\n\n") else ""
     paste0(
       "### ", rec$column_name, "\n\n",
       rec$column_description, "\n\n",
+      prov,
       "**Requested primitives:**\n", prims, "\n\n",
       "**Interpretation:** ", rec$interpretation_note, "\n")
   }

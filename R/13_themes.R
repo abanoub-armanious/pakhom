@@ -2488,7 +2488,11 @@ enrich_themes <- function(theme_set, data, coding_state = NULL,
       )
       qtexts <- vapply(
         ordered_labels,
-        function(lbl) substr(as.character(selected[[lbl]]$text %||% ""), 1, 200),
+        # Phase 62.3: word-boundary truncation (reuses the Phase 58 Tier 9 V-8
+        # helper) so display quotes don't sever mid-word; visible " ..." marker.
+        # Keep the `%||% ""` guard -- the helper's is.na() check errors on NULL.
+        function(lbl) .truncate_quote_word_boundary(selected[[lbl]]$text %||% "",
+                                                    max_chars = 200L),
         character(1)
       )
       qtexts <- qtexts[nchar(qtexts) > 0]
@@ -2504,7 +2508,13 @@ enrich_themes <- function(theme_set, data, coding_state = NULL,
           s <- selected[[lbl]]
           if (is.null(s) || is.null(s$text) || !nzchar(s$text)) return(NULL)
           list(
-            text         = substr(as.character(s$text), 1, 200),
+            # Phase 62.3: word-boundary truncation (same call as the bare-string
+            # supporting_quotes above, so the two fields stay consistent). These
+            # are DISPLAY strings only -- no offsets, never re-verified against
+            # source (T0.1 runs on the separate coded_segments path), so changing
+            # the truncated length cannot touch the provenance contract.
+            text         = .truncate_quote_word_boundary(as.character(s$text),
+                                                         max_chars = 200L),
             sentiment_score = s$sentiment %||% NA_real_,
             entry_id     = s$entry_id %||% NA_character_,
             source_table = s$source_table %||% NA_character_,

@@ -1734,11 +1734,40 @@ generate_report <- function(data, theme_set, correlations_df, insights,
               if (nzchar(rat)) paste0(" &mdash; ", .html_esc(rat)) else "")
     }, character(1)), collapse = "<br>")
   }
-  sprintf("<tr><td><strong>%s</strong></td><td>%s</td><td>%s</td><td>%s</td></tr>",
+  # Phase 62.1: the AI's free-form provenance/relevance judgment, shown inline.
+  # Empty (pre-62 archives / AI returned nothing) -> an em dash, never fabricated.
+  prov <- rec$metric_provenance %||% ""
+  prov_html <- if (nzchar(prov)) .html_esc(prov) else "&mdash;"
+  sprintf("<tr><td><strong>%s</strong></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>",
           .html_esc(rec$column_name %||% ""),
           .html_esc(rec$column_description %||% ""),
           prim_html,
-          .html_esc(rec$interpretation_note %||% ""))
+          .html_esc(rec$interpretation_note %||% ""),
+          prov_html)
+}
+
+#' Classify a metric column as substantive vs source/platform metadata (Phase 62.1)
+#'
+#' Routes the AI's OWN free-form provenance prose into one of two report groups.
+#' This is NOT a hardcoded taxonomy of column "kinds" the researcher configures
+#' (which the load-bearing principle forbids) and NOT a classification of the
+#' column itself -- it reads the AI's prose judgment and surfaces it as a header.
+#' Signals are drawn from the wording the schema/prompt asks the AI to use
+#' ("metadata", "platform", "reception", "incidental", "engagement"). When the AI
+#' gave no provenance (empty -> pre-62 archives), the metric is left UNGROUPED
+#' (rendered in a single neutral table), so old runs render exactly as before.
+#'
+#' @return "metadata", "substantive", or "" (ungrouped/unknown).
+#' @keywords internal
+.metric_provenance_group <- function(rec) {
+  prov <- tolower(rec$metric_provenance %||% "")
+  if (!nzchar(prov)) return("")
+  meta_signals <- c("metadata", "platform", "reception", "incidental",
+                    "engagement", "not the phenomenon", "not a measure of",
+                    "how the data was collected", "view count", "upvote",
+                    "comment count")
+  if (any(vapply(meta_signals, function(s) grepl(s, prov, fixed = TRUE),
+                 logical(1)))) "metadata" else "substantive"
 }
 
 #' Render the Methodology Setup section (Phase 61.4)
@@ -1809,18 +1838,43 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     }
   }
 
-  col_table <- function(heading, recs) {
+  col_table <- function(heading, recs, caption = "") {
     if (length(recs) == 0L) return(character(0))
     rows <- paste(vapply(recs, .methodology_column_row, character(1)),
                   collapse = "\n")
     c(sprintf("<h3>%s</h3>", heading),
+      if (nzchar(caption)) sprintf("<p class=\"ms-group-caption\"><em>%s</em></p>", caption) else character(0),
       "<table>",
       paste0("<thead><tr><th>Column</th><th>What it represents</th>",
-             "<th>Requested primitives</th><th>How to read</th></tr></thead>"),
+             "<th>Requested primitives</th><th>How to read</th>",
+             "<th>Relevance to focus</th></tr></thead>"),
       paste0("<tbody>", rows, "</tbody>"),
       "</table>")
   }
-  parts <- c(parts, col_table("Metric interpretations", metrics))
+  # Phase 62.1: group the metric interpretations by the AI's OWN provenance prose
+  # into "Substantive measures" vs "Source / engagement metadata" -- the grouping
+  # IS the methodological signal (the tool refuses to conflate platform reception
+  # with the phenomenon). When NO metric carries provenance (pre-62 archives /
+  # AI returned none), fall back to the original single neutral table so old runs
+  # render unchanged.
+  if (length(metrics) > 0L) {
+    groups <- vapply(metrics, .metric_provenance_group, character(1))
+    if (all(groups == "")) {
+      parts <- c(parts, col_table("Metric interpretations", metrics))
+    } else {
+      subst <- metrics[groups %in% c("substantive", "")]
+      meta  <- metrics[groups == "metadata"]
+      parts <- c(parts, col_table(
+        "Metric interpretations &mdash; substantive measures", subst,
+        caption = "Measures the AI judged to bear on the phenomenon under study."))
+      parts <- c(parts, col_table(
+        "Metric interpretations &mdash; source / engagement metadata", meta,
+        caption = paste0("The AI judged these to reflect how the data was ",
+                         "collected or received (e.g. platform engagement), not ",
+                         "the phenomenon itself. Read the per-theme statistics as ",
+                         "reception/salience signals, not prevalence or severity.")))
+    }
+  }
   parts <- c(parts, col_table("Temporal interpretations", temporal))
 
   parts <- c(parts, "</div>", "")

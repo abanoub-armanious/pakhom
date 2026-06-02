@@ -866,7 +866,8 @@
     type                 = "object",
     additionalProperties = FALSE,
     required             = list("column_name", "column_description",
-                                "requested_primitives", "interpretation_note"),
+                                "requested_primitives", "interpretation_note",
+                                "metric_provenance"),
     properties = list(
       column_name = list(type = "string",
                          description = "Exact column name as shown in the prompt."),
@@ -889,6 +890,26 @@
         description = paste0(
           "What a reader should take from these results given the research ",
           "focus -- shown alongside the numbers in the report."
+        )
+      ),
+      # Phase 62.1: free-form provenance/relevance judgment (NOT an enum, NOT a
+      # fixed taxonomy -- the AI reasons in prose, same as column_description).
+      metric_provenance = list(
+        type        = "string",
+        description = paste0(
+          "Judge, in your own words, what this column MEASURES and how relevant ",
+          "it is to THIS study's research focus -- on a spectrum from a ",
+          "SUBSTANTIVE MEASURE OF THE PHENOMENON under study (e.g. a symptom or ",
+          "severity score, a rating, a survey response) to INCIDENTAL ",
+          "SOURCE/PLATFORM METADATA that reflects how the data was collected or ",
+          "received rather than the phenomenon itself (e.g. upvotes, view counts, ",
+          "comment counts, post IDs). Reason from the column's meaning and the ",
+          "focus -- do NOT pick from a fixed list. State plainly which it is and ",
+          "why; if the per-theme statistics should be read with caution (e.g. ",
+          "they reflect platform reception, not prevalence/severity; or they rest ",
+          "on few observations in small subthemes), say so. If the column's ",
+          "meaning is unclear from its name and values, say that and treat it as ",
+          "metadata pending researcher confirmation."
         )
       )
     )

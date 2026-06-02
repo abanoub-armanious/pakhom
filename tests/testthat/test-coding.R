@@ -822,13 +822,19 @@ test_that("D-7: new code with empty AI description gets D-7 placeholder", {
     base_system_prompt = "test"
   ))
 
-  # Code admitted with the D-7 placeholder marker, not an empty string.
+  # Code admitted with an honest provisional description, not an empty string.
+  # Phase 62.2: the "[D-7 placeholder; awaiting refresh]" engineering marker was
+  # dropped -- it leaked into themes.json and biased clustering embeddings
+  # (description feeds paste(name, description) in R/13_themes.R). The backfill
+  # now keeps the first-segment snippet as a clean human description.
   expect_length(state$codebook, 1L)
   desc <- state$codebook[["food addiction"]]$description
   expect_true(nzchar(desc),
-              info = "Empty description should have been backfilled with a placeholder")
-  expect_true(grepl("D-7 placeholder", desc, fixed = TRUE),
-              info = "Backfill should be tagged with the D-7 marker for downstream identification")
+              info = "Empty description should have been backfilled with a provisional one")
+  expect_false(grepl("D-7 placeholder", desc, fixed = TRUE),
+               info = "Phase 62.2: the engineering marker must NOT leak into the description")
+  expect_true(grepl("First observed in:", desc, fixed = TRUE),
+              info = "Backfill is a clean 'First observed in: <snippet>' provisional description")
   expect_true(grepl("food addiction", desc, fixed = TRUE),
               info = "Backfill should include the first-segment snippet for reviewer context")
 })
@@ -1027,11 +1033,13 @@ test_that("D-7 audit followup LOW F2: NA AI description triggers backfill (not a
       config = list(max_retries_per_entry = 1L), base_system_prompt = "test"
     ))
   })
-  # Code admitted with the placeholder (not "" and not NA).
+  # Code admitted with an honest provisional description (not "" and not NA).
+  # Phase 62.2: engineering marker dropped; clean "First observed in:" default.
   desc <- state$codebook[["food addiction"]]$description
   expect_true(nzchar(desc))
   expect_false(is.na(desc))
-  expect_true(grepl("D-7 placeholder", desc, fixed = TRUE))
+  expect_false(grepl("D-7 placeholder", desc, fixed = TRUE))
+  expect_true(grepl("First observed in:", desc, fixed = TRUE))
 })
 
 test_that("D-7 audit followup: whitespace-only AI description triggers backfill", {
@@ -1065,7 +1073,9 @@ test_that("D-7 audit followup: whitespace-only AI description triggers backfill"
     config = list(max_retries_per_entry = 1L), base_system_prompt = "test"
   ))
   desc <- state$codebook[["food addiction"]]$description
-  expect_true(grepl("D-7 placeholder", desc, fixed = TRUE))
+  # Phase 62.2: whitespace-only AI description -> clean provisional backfill.
+  expect_false(grepl("D-7 placeholder", desc, fixed = TRUE))
+  expect_true(grepl("First observed in:", desc, fixed = TRUE))
 })
 
 test_that("C-5 audit followup LOW F4: refresh_interval <= 0 disables the dispatcher", {
