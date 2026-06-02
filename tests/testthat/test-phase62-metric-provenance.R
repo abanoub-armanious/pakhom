@@ -105,3 +105,30 @@ test_that("Methodology Setup is BACK-COMPAT: no provenance -> single neutral tab
   expect_false(grepl("substantive measures", h, fixed = TRUE))      # no grouping
   expect_match(h, "&mdash;", fixed = TRUE)                          # empty provenance -> em dash, not fabricated
 })
+
+# ---- 62.5: deterministic small-n spread reliability caveat -------------------
+# 62.4's small-n caveat was specified as AI-authored prose; empirically gpt-4o
+# would not reliably emit it (two re-validation runs, both absent). It is rendered
+# deterministically instead -- explain-don't-gate: no value suppressed, no n-floor,
+# n shown beside every statistic -- consistent with the metadata + correlation caveats.
+
+test_that("Methodology Setup renders a deterministic small-n spread caveat when metrics interpreted (62.5)", {
+  mi <- new_metric_interpretation(metrics = list(
+    .mk_prov_rec("score", "Reddit net upvotes; platform engagement metadata.")), source = "ai")
+  art <- new_methodology_articulations(
+    new_relevance_criterion(relevance_criterion = "on-focus iff it concerns the lived experience of X under study"),
+    mi, source = "ai")
+  h <- pakhom:::.build_methodology_setup_section(art)
+  expect_match(h, "Reading spread at small n", fixed = TRUE)
+  expect_match(h, "indicative, not precise", fixed = TRUE)
+  expect_match(h, "the number of entries (n) is shown", fixed = TRUE)   # explain, not suppress
+})
+
+test_that("small-n caveat is omitted when no metric columns were interpreted (62.5)", {
+  mi <- new_metric_interpretation(metrics = list(), temporal_columns = list(), source = "ai")
+  art <- new_methodology_articulations(
+    new_relevance_criterion(relevance_criterion = "on-focus iff it concerns the lived experience of X under study"),
+    mi, source = "ai")
+  h <- pakhom:::.build_methodology_setup_section(art)
+  expect_false(grepl("Reading spread at small n", h, fixed = TRUE))
+})

@@ -1875,6 +1875,22 @@ generate_report <- function(data, theme_set, correlations_df, insights,
                          "reception/salience signals, not prevalence or severity.")))
     }
   }
+  # Phase 62.5: deterministic small-n reliability caveat for the per-subtheme
+  # spread statistics. EXPLAIN, don't gate (parallel to the correlation section's
+  # exploratory caveat + the metadata caveat above): no value is ever suppressed,
+  # there is no n-floor/threshold, and the n is shown beside every statistic so the
+  # reader judges. A fixed note is the reliable vehicle -- eliciting this via the
+  # AI's free-form interpretation_note proved unreliable on real data (gpt-4o
+  # omitted it across re-validation runs even when explicitly asked).
+  if (length(metrics) > 0L) {
+    parts <- c(parts, paste0(
+      '<p class="ms-smalln-caveat"><strong>Reading spread at small n:</strong> ',
+      'where this report shows spread statistics (e.g. MAD, IQR, p90) for a ',
+      'subtheme with few entries, read them as indicative, not precise &mdash; ',
+      'they summarize that handful of observations, not a population. Nothing is ',
+      'suppressed: the number of entries (n) is shown beside every statistic so ',
+      'you can weigh each accordingly.</p>'))
+  }
   parts <- c(parts, col_table("Temporal interpretations", temporal))
 
   parts <- c(parts, "</div>", "")
