@@ -30,7 +30,7 @@ init_checkpoints <- function(output_dir, config_hash = NULL, ...) {
     config_hash = config_hash,
     step_order = c(
       "data_loaded", "methodology_setup", "progressive_coding",
-      "sentiment_done", "themes_generated", "correlations"
+      "sentiment_done", "themes_generated", "research_coverage", "correlations"
     ),
     manifest_file = file.path(checkpoint_dir, "_manifest.rds")
   )

@@ -852,6 +852,37 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   valid_names <- theme_names(theme_set)
 
   # ========================================================================
+  # STEP 5c: Research-question coverage (Phase 63; Mode 2). A late, post-hoc AI
+  # pass: where did each named focus facet land across the final themes? It
+  # REPORTS the AI's read of the emergent grouping; it never changes it (C1/C2).
+  # Dispersion across themes is a valid inductive outcome (the section frames it
+  # so). Non-fatal: a failure just omits the report section.
+  # ========================================================================
+  research_coverage <- NULL
+  if (identical(config$methodology$mode, "codebook_collaborative")) {
+    if ("research_coverage" %in% completed) {
+      log_info("\n[STEP 5c] Loading research-question coverage from checkpoint...")
+      research_coverage <- load_checkpoint(checkpoint, "research_coverage")
+    } else {
+      log_info("\n[STEP 5c] Assessing research-question coverage (where each focus facet landed)...")
+      research_coverage <- tryCatch(
+        assess_research_coverage(
+          research_focus = config$study$research_focus %||% "",
+          concepts       = config$study$concepts,
+          theme_set      = theme_set, provider = provider,
+          audit_log      = audit_log, response_cache = response_cache),
+        error = function(e) {
+          log_warn("Research-coverage assessment failed (report will omit the section): {e$message}")
+          NULL
+        })
+      if (!is.null(research_coverage)) {
+        archive_research_coverage(research_coverage, output_dir)
+        save_checkpoint(checkpoint, "research_coverage", research_coverage)
+      }
+    }
+  }
+
+  # ========================================================================
   # STEP 6: Correlation analysis
   # ========================================================================
   correlations_df <- NULL
@@ -1060,7 +1091,10 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
       # Phase 61.4: the full bundle drives the Methodology Setup section +
       # per-theme temporal panel (NULL on the legacy-resume path -> the
       # renderer falls back to the archived JSON, else omits the section).
-      methodology_articulations = methodology_articulations
+      methodology_articulations = methodology_articulations,
+      # Phase 63: where each named focus facet landed across the themes
+      # (Mode 2; NULL on Mode 3 / legacy resume -> the section is omitted).
+      research_coverage = research_coverage
     )
   }
 

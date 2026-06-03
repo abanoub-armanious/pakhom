@@ -29,7 +29,8 @@ generate_report(
   framework_spec = NULL,
   framework_archive = NULL,
   metric_interpretation = NULL,
-  methodology_articulations = NULL
+  methodology_articulations = NULL,
+  research_coverage = NULL
 )
 }
 \arguments{
@@ -123,6 +124,13 @@ panel). When NULL, the renderer falls back to reading the archived
 when neither is available the section is omitted. When supplied and
 \code{metric_interpretation} is NULL, the metric interpretation is derived
 from this bundle.}
+
+\item{research_coverage}{Optional \code{ResearchCoverage} object (Phase 63;
+Mode 2). Drives the "Research-question coverage" section -- where each named
+focus facet landed across the themes. When NULL, the renderer falls back to
+the archived \code{rules/research_coverage.json} under the output dir if
+present; when neither is available (or no separable facets were found) the
+section is omitted.}
 }
 \value{
 Path to generated HTML report

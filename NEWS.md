@@ -78,6 +78,22 @@ version bump; the package remains an unpublished 1.0.0.
   methodology appendix, the AC4-stamped-CSV read guard, and the empty-correlations
   report guard from the same audit are retained.
 
+### Research-question coverage (the named-facet-dispersion lens)
+
+A new Mode-2 report section answers the question a researcher most cares about:
+*did my analysis address what I set out to study, and where did each part land?*
+A late AI pass reads the named facets out of the researcher's OWN focus +
+concepts and judges, per facet, where its content landed across the themes --
+central (its own theme), dispersed (across several), peripheral, or not surfaced
+-- with an honest note. The package renders this; it never classifies the
+researcher's content or forces a theme per facet (C1/C2 untouched). Crucially, a
+facet that disperses is framed as a valid inductive outcome, NOT a coverage
+failure, and the section points to Mode 3 for guaranteed per-facet coverage. It
+is checkpointed + archived to `rules/research_coverage.{md,json}`, and omitted
+when the focus states no separable facets (byte-identical back-compat). On real
+data the AI correctly surfaced "physical effects" as dispersed across the
+emotional and behavioural themes -- exactly the gap this lens closes.
+
 ### A negative result, recorded
 
 A convergence-time "consolidation check" prompt counterweight (group remaining

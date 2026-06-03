@@ -570,6 +570,12 @@ export_theme_subtheme_summary_csvs <- function(theme_stats, output_dir,
 #'   when neither is available the section is omitted. When supplied and
 #'   \code{metric_interpretation} is NULL, the metric interpretation is derived
 #'   from this bundle.
+#' @param research_coverage Optional \code{ResearchCoverage} object (Phase 63;
+#'   Mode 2). Drives the "Research-question coverage" section -- where each named
+#'   focus facet landed across the themes. When NULL, the renderer falls back to
+#'   the archived \code{rules/research_coverage.json} under the output dir if
+#'   present; when neither is available (or no separable facets were found) the
+#'   section is omitted.
 #' @return Path to generated HTML report
 #' @export
 generate_report <- function(data, theme_set, correlations_df, insights,
@@ -588,7 +594,8 @@ generate_report <- function(data, theme_set, correlations_df, insights,
                              framework_spec = NULL,
                              framework_archive = NULL,
                              metric_interpretation = NULL,
-                             methodology_articulations = NULL) {
+                             methodology_articulations = NULL,
+                             research_coverage = NULL) {
   validate_class(theme_set, "ThemeSet")
 
   # Phase 61.4: when the full articulations bundle is supplied but the
@@ -682,7 +689,9 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     methodology_articulations = methodology_articulations,
     # Phase 58 Tier 4 V-5: pass output_dir so the T0.1 dashboard can
     # find fabrication_log.csv to count pre-rejection fabrications.
-    output_dir = output_dir
+    output_dir = output_dir,
+    # Phase 63: research-question coverage section (Mode 2).
+    research_coverage = research_coverage
   )
 
   # Write Rmd (collapse to single string to prevent duplication)
@@ -774,7 +783,8 @@ generate_report <- function(data, theme_set, correlations_df, insights,
                                 framework_spec = NULL,
                                 framework_archive = NULL,
                                 methodology_articulations = NULL,
-                                output_dir = NULL) {
+                                output_dir = NULL,
+                                research_coverage = NULL) {
 
   theme_count <- length(theme_stats)
 
@@ -831,11 +841,25 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     stamp_methodology_html(meth_mode, run_id = run_id), '\n'
   )
 
+  # Epistemic-honesty caveat for the standalone HTML artifact: in Mode 2/3 the
+  # codes + themes + summary are AI-generated and researcher-gated. A reviewer
+  # who picks up the rendered report detached from the docs should see this
+  # in-body (Mode 1's themes are researcher-authored, so it does not apply there).
+  ai_artifact_caveat <- if ((config$methodology$mode %||% "") %in%
+                            c("codebook_collaborative", "framework_applied")) {
+    paste0('<p class="ai-artifact-caveat"><em>The codes, themes, and this summary ',
+           'are AI-generated analytic artifacts produced under the declared ',
+           'methodology, intended for researcher review and curation -- not a ',
+           'substitute for the researcher\'s own immersion and interpretive ',
+           'judgement. The provenance, coverage, and methodology disclosures below ',
+           'document how they were produced.</em></p>\n\n')
+  } else ""
   content <- paste0(content,
     '<div class="hero-section">\n',
     '\n# Executive Summary\n\n',
     ai_synthesis$executive_summary, '\n',
     '</div>\n\n',
+    ai_artifact_caveat,
     .build_metrics_dashboard(overall_stats, theme_count, sentiment_class,
                              comparison_result = comparison_result),
     '\n\n'
@@ -907,6 +931,17 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   if (!is.null(ms_art)) {
     content <- paste0(content, .build_methodology_setup_section(ms_art))
   }
+
+  # Phase 63: Research-question coverage section -- where each named focus facet
+  # landed across the themes. Prefer the in-memory object; else the archived
+  # rules/research_coverage.json (resume / direct generate_report()). The
+  # builder returns "" when there is no object or no separable facets, so this
+  # is a no-op (byte-identical) on Mode 3 / legacy / vague-focus runs.
+  rc_cov <- research_coverage
+  if (is.null(rc_cov) && !is.null(output_dir)) {
+    rc_cov <- .load_research_coverage_from_run_dir(output_dir)
+  }
+  content <- paste0(content, .build_research_coverage_section(rc_cov))
 
   # Inline data overview context into executive summary (Issue 4)
   rc <- overall_stats$research_context
@@ -2144,7 +2179,9 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     # aggregates. Without this preface a reader could confuse a per-entry
     # "[<metric>: 8]" with an aggregate cell.
     "<p class=\"subtheme-table-caption\"><em>",
-    if (has_legacy) "Median(MAD) and Mean(SD) columns are subtheme aggregates; " else "",
+    if (has_legacy) paste0("Median(MAD) and Mean(SD) columns are subtheme aggregates -- ",
+                           "read spread (MAD, SD) as indicative, not precise, when n is small ",
+                           "(the n is shown beside each); ") else "",
     if (has_ai) paste0("primitive-named columns are the AI analyst's chosen ",
                        "summaries for that column (interpretation notes below); ") else "",
     "the bracketed values after each example comment are that source ",
@@ -3031,6 +3068,13 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     }
   }
 
+  if (!is.null(insights$theoretical_implications) ||
+      !is.null(insights$practical_implications)) {
+    content <- paste0(content,
+      "> _The implications below are **exploratory and hypothesis-generating**, read ",
+      "from cross-sectional associations in a single corpus. They are not causal ",
+      "claims and require confirmatory testing._\n\n")
+  }
   if (!is.null(insights$theoretical_implications)) {
     content <- paste0(content,
       "## Theoretical Implications\n\n",
@@ -3287,6 +3331,23 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "codebook_collaborative" = "AI-assisted **codebook** thematic analysis (Braun & Clarke's codebook orientation -- an evolving, AI-collaborative codebook with a full provenance/audit trail)",
     "framework_applied"      = "AI-assisted **framework-applied** (deductive) thematic analysis (a pre-specified framework mapped onto the corpus, with an abductive pass for non-fitting data)",
     "AI-assisted thematic analysis")
+  # The theme-generation step must describe the algorithm that ACTUALLY ran. The
+  # production default is the Phase 60 v2 embedding-free multi-pass AI clustering,
+  # NOT the retired Phase 52 HAC-on-embeddings path -- so branch on the configured
+  # algorithm, or the methods text a researcher pastes into a manuscript misstates
+  # the method. Mirrors the dynamic algorithm label the pipeline logs.
+  theme_algo <- config$analysis$themes$algorithm %||% "v2"
+  theme_step_desc <- if (identical(theme_algo, "v1")) {
+    "**HAC + AI-judged divisive theme walk** -- Phase 52: codes clustered via ward.D2 on cosine embeddings; AI judges coherence at each internal node; nested sub-subthemes when subthemes exceed a size cap"
+  } else {
+    "**Multi-pass AI clustering with label-after-clustering** -- Phase 60: the AI sees all codes at once and proposes a partition into conceptual clusters; passes repeat (grouping clusters into larger clusters) until the AI declares convergence (no hardcoded pass count); a separate post-convergence pass assigns theme + subtheme labels. Embedding-free; clustering depth is the AI's dynamic call"
+  }
+  theme_algo_row <- if (identical(theme_algo, "v1")) {
+    "HAC (ward.D2 linkage, cosine distance on code-name embeddings; Jaccard fallback) + AI-judged divisive tree walk"
+  } else {
+    "Multi-pass AI clustering: AI-proposed partitions until AI-declared convergence, then a separate labeling pass (embedding-free; no count thresholds)"
+  }
+  theme_algo_short <- if (identical(theme_algo, "v1")) "the Phase 52 HAC + AI tree walk" else "the Phase 60 multi-pass AI clustering"
   content <- paste0(
     "# Appendix A: Methodology\n\n",
     "## Analysis Process\n\n",
@@ -3295,7 +3356,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "2. **Progressive sequential coding** -- each entry read individually; applicable text coded with existing or novel codes\n",
     "3. **AI-judged saturation arbitration** -- Phase 56: an AI arbiter reviews codebook trajectory metrics at an auto-scaled cadence and returns a 3-valued verdict; no hardcoded thresholds\n",
     "4. **Code-aware sentiment analysis** -- sentiment scored on coded entries using assigned codes as context\n",
-    "5. **HAC + AI-judged divisive theme walk** -- Phase 52: codes clustered via ward.D2 on cosine embeddings; AI judges coherence at each internal node; nested sub-subthemes when subthemes exceed size cap\n",
+    "5. ", theme_step_desc, "\n",
     "6. **Deterministic code-path cascading** -- entries mapped to themes through their codes (no AI re-reading)\n",
     "7. **Correlation analysis** -- statistical associations between themes, sentiment, and metadata\n\n",
     "## Top Codes\n\n",
@@ -3340,7 +3401,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "| Primary Model | ", model_name, " |\n",
     "| Fast Model (sentiment) | ", fast_model, " |\n",
     "| Reasoning Model (themes, review) | ", reasoning_model, " |\n",
-    "| Theme generation | HAC (ward.D2 linkage, cosine distance on code-name embeddings; Jaccard fallback) + AI-judged divisive tree walk |\n",
+    "| Theme generation | ", theme_algo_row, " |\n",
     "| Correlation Method | ", corr_method, " |\n",
     "| Dynamic Method Selection | ", dynamic_corr, " |\n",
     "| P-Value Adjustment | ", p_adjust, " |\n\n"
@@ -3417,7 +3478,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "**Multiple testing:** Bonferroni correction is applied within the correlation analysis ",
     "to control family-wise error rate. However, the full analysis pipeline involves ",
     "multiple sequential decision points (saturation arbitration via the Phase 56 AI ",
-    "judge, per-cluster theme decisions via the Phase 52 HAC + AI tree walk, and ",
+    "judge, per-pass theme clustering via ", theme_algo_short, ", and ",
     "deterministic theme cascading). Each decision introduces potential for cumulative ",
     "error. Readers should interpret individual findings within this context and ",
     "prioritize patterns that replicate across runs.\n\n",

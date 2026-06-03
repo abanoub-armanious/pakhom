@@ -299,11 +299,13 @@ binge-eating + sleep corpus):
 | 2 | medication / review-path | 47 | 1 | **10** | 0% | 117 |
 | 6 | emotional triggers | 157 | **3** | **7** | 0% | 154 (92% single-code) |
 
-All three runs landed in the 4-10 publication-quality target range with
-zero single-code themes. The Round 6 case (157 codes → 3 substantive
-passes → 7 themes with 2-3 subthemes each) is the empirical
-demonstration that v2 produces a clean theme/subtheme hierarchy at
-realistic codebook scale.
+In these three validation runs (n = 3 -- indicative, not a performance
+guarantee) all landed in a 4-10 theme range with zero single-code themes.
+The Round 6 case (157 codes → 3 substantive passes → 7 themes with 2-3
+subthemes each) demonstrates that v2 can produce a clean theme/subtheme
+hierarchy at realistic codebook scale. Single-code reduction is
+run-dependent, not a guaranteed invariant (C-tenet 1: the AI judges
+convergence; there are no count thresholds).
 
 For details on per-theme quality assessment, see
 `pakhom/notes/strategic_audit/PHASE_60_9_DEEP_DIVE.md`.
@@ -328,9 +330,13 @@ effects" within a broad lived-experience study) may not surface as its own
 theme: the codes that express it can legitimately disperse across the emotional
 and behavioural themes where they cohere more strongly. That is sound emergent
 grouping -- the content is preserved in the codes and visible in the per-theme
-breakdowns -- not a coverage failure. If you need *guaranteed* coverage of named
-facets, use Mode 3 (Framework Applied), where the facets are the framework
-constructs and every construct is reported.
+breakdowns -- not a coverage failure. The Mode 2 report includes a
+**research-question coverage** section that maps each named facet to where it
+landed across the themes (marking dispersion explicitly as the valid outcome it
+is), so you can confirm your study addressed each facet without forcing a theme
+per facet. If you need *guaranteed* coverage of named facets, use Mode 3
+(Framework Applied), where the facets are the framework constructs and every
+construct is reported.
 
 **The AI is the analyst; the package is its calculator (Phase 61).** Before
 coding, a Methodology Assistant articulates a relevance criterion (injected into
@@ -387,10 +393,11 @@ configuration_selection_aid(
 #> $expected_api_spend_usd: 3
 ```
 
-The bracket is empirical -- it's derived from the three Phase 60.8 runs
-above. A narrow research focus tends to produce fewer codes per coded
-entry (more cohesive); a broad focus produces more codes and may
-require more clustering passes.
+The bracket is **indicative, not a guarantee** -- it is derived from only
+three Phase 60.8 validation runs (above), so treat the numbers as rough
+expectations that will vary with your corpus and model. A narrow research
+focus tends to produce fewer codes per coded entry (more cohesive); a broad
+focus produces more codes and may require more clustering passes.
 
 ## Mode 3: Framework Applied (apply a theoretical framework verbatim)
 

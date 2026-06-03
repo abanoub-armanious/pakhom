@@ -80,7 +80,8 @@
   "clustering_proposal",              # Phase 60: v2 per-pass clustering proposal (continue|converged)
   "label_pass",                       # Phase 60: v2 post-convergence labeling pass
   "relevance_criterion",              # Phase 61: methodology-assistant relevance articulation
-  "metric_interpretation"             # Phase 61: methodology-assistant per-metric interpretation
+  "metric_interpretation",            # Phase 61: methodology-assistant per-metric interpretation
+  "research_coverage"                 # Phase 63: research-question coverage assessment
 )
 
 # -- Constructor ---------------------------------------------------------------

@@ -959,6 +959,103 @@
 }
 
 # ==============================================================================
+# Research-question coverage (Phase 63)
+# ==============================================================================
+
+#' Research-question coverage schema (Phase 63)
+#'
+#' One AI judgement of where each named research facet (read off the researcher's
+#' OWN focus + concepts) landed across the final themes. \code{coverage_level} is
+#' the AI's structural self-assessment -- an AI-judgment enum, like the saturation
+#' verdict (\code{reached/not_yet/uncertain}) and the cluster decision
+#' (\code{coherent_theme/split_required/atomic_outlier}) -- NOT a package
+#' classification of the researcher's content, and never a quality score.
+#'
+#' @return A JSON Schema list (OpenAI strict-mode compatible).
+#' @keywords internal
+.research_coverage_schema <- function() {
+  facet <- list(
+    type                 = "object",
+    additionalProperties = FALSE,
+    required             = list("facet", "coverage_level", "supporting_codes",
+                                "landed_in_themes", "coverage_note"),
+    properties = list(
+      facet = list(
+        type        = "string",
+        description = paste0(
+          "A named research facet or sub-question the researcher set out to study, ",
+          "read from the research focus and concepts in their OWN words (e.g. ",
+          "'physical effects', 'emotional triggers', 'recovery'). Do NOT invent ",
+          "facets the focus does not state; do NOT force the corpus into a fixed ",
+          "taxonomy."
+        )
+      ),
+      coverage_level = list(
+        type        = "string",
+        enum        = list("central", "dispersed", "peripheral", "not_surfaced"),
+        description = paste0(
+          "YOUR descriptive judgement of where this facet's content landed: ",
+          "'central' = it organizes its own theme or subtheme; 'dispersed' = its ",
+          "codes are spread across several themes (a NORMAL, valid inductive ",
+          "outcome -- the facet IS addressed, it just was not the organizing ",
+          "principle of a standalone theme); 'peripheral' = a few codes touch it; ",
+          "'not_surfaced' = the corpus did not raise it. A structural description, ",
+          "NOT a quality score; 'dispersed' is not a deficiency."
+        )
+      ),
+      supporting_codes = list(
+        type        = "array",
+        items       = list(type = "string"),
+        description = paste0(
+          "The names of the codes (verbatim from the codebook shown) that express ",
+          "this facet. Empty when the facet was not surfaced."
+        )
+      ),
+      landed_in_themes = list(
+        type        = "array",
+        items       = list(type = "string"),
+        description = paste0(
+          "The names of the themes (verbatim from the structure shown) those codes ",
+          "landed in. Empty when not surfaced; more than one = the facet dispersed."
+        )
+      ),
+      coverage_note = list(
+        type        = "string",
+        description = paste0(
+          "One or two honest sentences: where this facet landed and how the ",
+          "analysis addresses it, or -- if not_surfaced -- that the corpus did not ",
+          "raise it (state that plainly rather than implying a flaw in the method). ",
+          "If it dispersed, say so as a valid emergent outcome."
+        )
+      )
+    )
+  )
+  list(
+    type                 = "object",
+    additionalProperties = FALSE,
+    required             = list("facets", "overall_note"),
+    properties = list(
+      facets = list(
+        type        = "array",
+        items       = facet,
+        description = paste0(
+          "One record per named facet / sub-question in the research focus + ",
+          "concepts (may be empty if the focus states no separable facets)."
+        )
+      ),
+      overall_note = list(
+        type        = "string",
+        description = paste0(
+          "A brief, honest summary of how well this run's themes address the stated ",
+          "research focus overall -- including any facet the corpus did not surface. ",
+          "Do not overclaim."
+        )
+      )
+    )
+  )
+}
+
+# ==============================================================================
 # Schema validation helper (lightweight; used in tests + sanity checks)
 # ==============================================================================
 

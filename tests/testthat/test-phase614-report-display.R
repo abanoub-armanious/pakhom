@@ -94,7 +94,10 @@ test_that(".format_primitive_result is NA-safe", {
 # ===========================================================================
 
 test_that("subtheme table is BYTE-IDENTICAL to legacy when no column interpreted", {
-  # No ai_metric_stats field at all (pre-61.3b stats object).
+  # No ai_metric_stats field at all (pre-61.3b stats object). The legacy caption
+  # now carries the Phase-63 small-n caveat (audit followup -- the legacy spread
+  # battery must disclose small-n fragility too, since the 62.5d dagger only fires
+  # on the AI path); the table is otherwise byte-identical to the legacy render.
   ts <- list(metric_cols = c("score"),
     subtheme_stats = list(
       Morning = list(name = "Morning", description = "AM", n = 3L,
@@ -104,9 +107,10 @@ test_that("subtheme table is BYTE-IDENTICAL to legacy when no column interpreted
   expected <- paste0(
     "<h3>Subthemes (per-subtheme summary)</h3>\n\n",
     "<p class=\"subtheme-table-caption\"><em>",
-    "Median(MAD) and Mean(SD) columns are subtheme aggregates; the ",
-    "bracketed values after each example comment are that source ",
-    "entry's metric values.</em></p>\n\n",
+    "Median(MAD) and Mean(SD) columns are subtheme aggregates -- read spread ",
+    "(MAD, SD) as indicative, not precise, when n is small (the n is shown ",
+    "beside each); the bracketed values after each example comment are that ",
+    "source entry's metric values.</em></p>\n\n",
     "<div class=\"subtheme-table-wrapper\">\n",
     "<table class=\"subtheme-summary-table\">\n",
     "<thead><tr><th>Subtheme</th><th>n</th><th>Median(MAD) score</th>",

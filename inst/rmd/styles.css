@@ -1255,6 +1255,60 @@ table:not(.dataTable) tr:hover td {
   line-height: 1.4;
 }
 
+/* Phase 63: Research-question coverage section -- where each named focus facet
+ * landed across the themes. "dispersed" is styled neutrally (a valid inductive
+ * outcome), never as an error. */
+.research-coverage-section { margin: 1rem 0 1.75rem 0; }
+.research-coverage-section .rc-preamble {
+  font-size: 0.85rem;
+  color: var(--text-secondary, #5a6c7d);
+  line-height: 1.5;
+  margin: 0 0 0.75rem 0;
+}
+.research-coverage-section .rc-overall { font-size: 0.9rem; margin: 0 0 0.75rem 0; }
+.research-coverage-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.research-coverage-table th,
+.research-coverage-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border, #e3e8ee);
+}
+.research-coverage-table .rc-facet { font-weight: 600; }
+.research-coverage-table .rc-note  { color: var(--text-secondary, #5a6c7d); }
+.research-coverage-table .rc-codes {
+  font-size: 0.78rem;
+  color: var(--text-secondary, #8a98a5);
+  margin-top: 0.15rem;
+}
+.rc-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 0.75rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.rc-central      { background: #e6f4ea; color: #1e7e34; }  /* its own theme */
+.rc-dispersed    { background: #e8eef7; color: #2c5aa0; }  /* spread -- a VALID outcome */
+.rc-peripheral   { background: #fdf3e3; color: #b9770e; }  /* a few codes */
+.rc-not_surfaced { background: #eef0f2; color: #6b7785; }  /* honestly absent */
+
+/* Phase 63 audit followup: the in-body "AI-generated artifacts, researcher-
+ * curated" caveat under the executive summary (Mode 2/3 standalone report). */
+.ai-artifact-caveat {
+  font-size: 0.82rem;
+  color: var(--text-secondary, #5a6c7d);
+  border-left: 3px solid #d6dce3;
+  padding: 0.3rem 0.7rem;
+  margin: 0.25rem 0 1rem 0;
+  background: #fafbfc;
+}
+
 /* Per-column interpretation notes beneath the per-subtheme table. */
 .metric-interpretation-notes {
   margin: 0.25rem 0 1.25rem 0;
