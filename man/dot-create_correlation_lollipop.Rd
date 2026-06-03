@@ -11,7 +11,8 @@
   top_n,
   n_total_vars,
   methodology_mode = NULL,
-  run_id = NULL
+  run_id = NULL,
+  excluded_mat = NULL
 )
 }
 \arguments{
@@ -31,6 +32,10 @@ matrix (used in the subtitle to make the filter explicit).}
 \item{methodology_mode}{AC4 caption.}
 
 \item{run_id}{AC4 caption.}
+
+\item{excluded_mat}{Logical matrix from \code{\link[=.build_excluded_pair_matrix]{.build_excluded_pair_matrix()}}
+marking analyst-internal / circular pairs (or NULL). Such pairs are
+labelled "excluded (circular)" instead of being shown as a finding.}
 }
 \description{
 Phase 58 Tier 5 C-10 fallback: when the variable count exceeds the

@@ -478,23 +478,12 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
 
   methods_used <- results$methods_used  # NULL when not dynamic
 
-  # Guard: empty correlation matrix
+  # Guard: empty correlation matrix (fewer than 2 variables). Shares the single
+  # empty-result constructor with the all-NA-pairwise guard below, so every
+  # empty path matches the populated path's schema exactly (one source of truth).
   if (is.null(cm) || nrow(cm) < 2) {
     log_info("No correlation pairs to extract (fewer than 2 variables)")
-    return(tibble::tibble(
-      var1 = character(), var2 = character(), correlation = numeric(),
-      p_value = numeric(), p_raw = numeric(), p_bh = numeric(),
-      p_bonferroni = numeric(),
-      # H-14: effect_size now uses 4-tier classification
-      # (negligible/small/medium/large) -- empty tibble keeps schema
-      # in sync so downstream consumers don't hit column-mismatch.
-      effect_size = character(),
-      significant = logical(), meaningful_effect = logical(),
-      method = character(), ci_lower = numeric(), ci_upper = numeric(),
-      # Phase 63 (#2b): flag + reason for analyst-internal/circular pairs, kept in
-      # the exported matrix but removed from findings (schema-consistent empty case).
-      excluded_from_findings = logical(), exclusion_reason = character()
-    ))
+    return(.empty_significant_correlations(include_method = !is.null(methods_used)))
   }
 
   pairs <- list()
@@ -560,6 +549,18 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
     }
   }
 
+  # Guard the degenerate all-NA-pairwise case: if every pairwise correlation
+  # was NA (e.g. a constant / zero-variance metric in every theme), `pairs` is
+  # empty and bind_rows() yields a 0-column tibble, so arrange(correlation)
+  # errors BEFORE the flag-column branch below. Return a well-formed,
+  # full-schema 0-row result so the CSV export + every downstream consumer
+  # (and compare_runs) see a consistent shape on degenerate corpora.
+  # (Complements e613841, which guards the no-correlations case downstream in
+  # the report renderer; this guards the producer itself, which is not
+  # tryCatch-wrapped at its pipeline call site.)
+  if (length(pairs) == 0L) {
+    return(.empty_significant_correlations(include_method = !is.null(methods_used)))
+  }
   df <- bind_rows(pairs) |> arrange(desc(abs(.data$correlation)))
 
   # Phase 63 (#2b): FLAG analyst-internal / circular correlation pairs as
@@ -600,9 +601,6 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
                       df$var2[df$excluded_from_findings],
                       df$exclusion_reason[df$excluded_from_findings]), collapse = ", ")))
     }
-  } else {
-    df$exclusion_reason       <- character(0)
-    df$excluded_from_findings <- logical(0)
   }
   n_sig <- sum(df$significant)
   n_meaningful <- sum(df$meaningful_effect, na.rm = TRUE)
@@ -610,6 +608,34 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
            "{n_sig} significant after Bonferroni (p < {p_threshold}). ",
            "All three p-adjustments (raw, BH, Bonferroni) reported per pair.")
   df
+}
+
+#' Empty, full-schema significant-correlations tibble
+#'
+#' Returned by [extract_significant()] when no pairwise correlation was
+#' computable (every off-diagonal r was NA). Carries every column the
+#' populated path emits -- including the Phase 63 (#2b) `exclusion_reason`
+#' and `excluded_from_findings` flags -- so the CSV export, the report
+#' consumers, and compare_runs see a consistent schema on degenerate corpora.
+#'
+#' @param include_method Logical; whether to include the per-pair `method`
+#'   column (present only when the caller computed per-pair methods).
+#' @return A 0-row tibble with the full extract_significant column set.
+#' @keywords internal
+.empty_significant_correlations <- function(include_method = FALSE) {
+  base <- tibble::tibble(
+    var1 = character(0), var2 = character(0),
+    correlation = numeric(0),
+    p_value = numeric(0), p_raw = numeric(0),
+    p_bh = numeric(0), p_bonferroni = numeric(0),
+    significant = logical(0), meaningful_effect = logical(0),
+    effect_size = character(0),
+    ci_lower = numeric(0), ci_upper = numeric(0)
+  )
+  if (isTRUE(include_method)) base$method <- character(0)
+  base$exclusion_reason       <- character(0)
+  base$excluded_from_findings <- logical(0)
+  base
 }
 
 #' Generate AI insights from correlation findings
@@ -696,10 +722,18 @@ generate_insights <- function(correlations_df, theme_set, provider,
 #' @param max_inline_vars Integer; correlation matrices with more
 #'   variables than this render as a top-N lollipop instead of a
 #'   heatmap. Default 30L.
+#' @param excluded_pairs Optional data frame (the [extract_significant()]
+#'   result) carrying `var1`, `var2`, and `excluded_from_findings`. Pairs
+#'   flagged TRUE (analyst-internal / circular, e.g. an affect instrument x
+#'   a theme-membership column) are shown but never presented as a
+#'   significant finding -- the heatmap blanks them (and discloses the count)
+#'   and the lollipop marks them "excluded (circular)". NULL (default)
+#'   reproduces the pre-#2b plot exactly.
 create_correlation_plot <- function(results, output_path,
                                       methodology_mode = NULL,
                                       run_id = NULL,
-                                      max_inline_vars = 30L) {
+                                      max_inline_vars = 30L,
+                                      excluded_pairs = NULL) {
   log_info("Creating correlation plot...")
 
   cm <- results$correlation_matrix
@@ -709,6 +743,14 @@ create_correlation_plot <- function(results, output_path,
     log_warn("Correlation matrix has fewer than 2 variables -- skipping plot")
     return(invisible(NULL))
   }
+
+  # Phase 63 (#2b consistency): flag analyst-internal / circular pairs
+  # (excluded_from_findings upstream) so neither the heatmap nor the lollipop
+  # presents them as a significant finding. Built on the ORIGINAL variable
+  # names but index-aligned to cm/pa, so it survives the name-humanizing below.
+  orig_var_names <- rownames(cm) %||% colnames(cm)
+  excluded_mat <- .build_excluded_pair_matrix(orig_var_names, excluded_pairs)
+  n_excluded_shown <- sum(excluded_mat[upper.tri(excluded_mat)])
 
   # Humanize variable names for the plot
   .humanize_var <- function(x) {
@@ -739,7 +781,8 @@ create_correlation_plot <- function(results, output_path,
     .create_correlation_lollipop(
       cm = cm, pa = pa, output_path = output_path,
       top_n = top_n, n_total_vars = n_vars,
-      methodology_mode = methodology_mode, run_id = run_id
+      methodology_mode = methodology_mode, run_id = run_id,
+      excluded_mat = excluded_mat
     )
     return(invisible(NULL))
   }
@@ -760,6 +803,12 @@ create_correlation_plot <- function(results, output_path,
 
   png(output_path, width = plot_size, height = plot_size, res = 120)
 
+  # #2b consistency: blank excluded (analyst-internal / circular) pairs so they
+  # are not shown as significant. Their colour + coefficient would otherwise
+  # read as a finding; they remain in correlations.csv with their real values
+  # and exclusion_reason.
+  pa_plot <- .mask_excluded_pvalues(pa, excluded_mat)
+
   tryCatch({
     corrplot::corrplot(
       cm, method = "color", type = "upper", order = "hclust",
@@ -767,7 +816,7 @@ create_correlation_plot <- function(results, output_path,
       addCoef.col = "black", number.cex = max(0.4, 0.7 - n_vars * 0.02),
       col = grDevices::colorRampPalette(
         c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))(200),
-      p.mat = pa, sig.level = 0.05, insig = "blank",
+      p.mat = pa_plot, sig.level = 0.05, insig = "blank",
       title = "Correlation Matrix with Significance",
       mar = c(bottom_margin, 0, 2, 0)
     )
@@ -780,6 +829,17 @@ create_correlation_plot <- function(results, output_path,
     graphics::mtext(
       methodology_plot_caption(methodology_mode, run_id),
       side = 1, line = bottom_margin - 1, cex = 0.7, col = "#7F8C8D", adj = 1,
+      outer = FALSE
+    )
+  }
+
+  # #2b consistency: disclose the blanked circular pairs (kept in the CSV) so
+  # the heatmap's omission is transparent rather than silent.
+  if (n_excluded_shown > 0L) {
+    graphics::mtext(
+      sprintf("%d analyst-internal/circular pair(s) excluded from findings (shown in correlations.csv with exclusion_reason).",
+              n_excluded_shown),
+      side = 1, line = bottom_margin, cex = 0.6, col = "#E67E22", adj = 0,
       outer = FALSE
     )
   }
@@ -807,52 +867,30 @@ create_correlation_plot <- function(results, output_path,
 #'   matrix (used in the subtitle to make the filter explicit).
 #' @param methodology_mode AC4 caption.
 #' @param run_id AC4 caption.
+#' @param excluded_mat Logical matrix from [.build_excluded_pair_matrix()]
+#'   marking analyst-internal / circular pairs (or NULL). Such pairs are
+#'   labelled "excluded (circular)" instead of being shown as a finding.
 #' @keywords internal
 .create_correlation_lollipop <- function(cm, pa, output_path, top_n,
                                           n_total_vars,
                                           methodology_mode = NULL,
-                                          run_id = NULL) {
+                                          run_id = NULL,
+                                          excluded_mat = NULL) {
   n <- ncol(cm)
   if (n < 2L) return(invisible(NULL))
 
-  # Extract upper-triangle pairs. Vectorize via upper.tri() rather
-  # than nested loops so this stays O(n^2) without R's per-iteration
-  # interpreter overhead.
-  ut <- upper.tri(cm, diag = FALSE)
-  row_idx <- row(cm)[ut]
-  col_idx <- col(cm)[ut]
-  r_vals  <- cm[ut]
-  p_vals  <- if (!is.null(pa)) pa[ut] else rep(NA_real_, length(r_vals))
-
-  keep <- !is.na(r_vals)
-  if (!any(keep)) {
+  # Rank the upper-triangle pairs by |r| and classify each pair's status.
+  # #2b consistency: pairs flagged excluded_from_findings (analyst-internal /
+  # circular, e.g. an affect instrument x a theme-membership column) are KEPT
+  # visible but marked a distinct "excluded (circular)" category -- never
+  # coloured as a "p < 0.05" finding (flag-don't-drop; mirrors the
+  # correlations.csv + findings-text treatment). Pure data prep is factored
+  # into a testable helper.
+  df <- .correlation_lollipop_data(cm, pa, top_n, excluded_mat)
+  if (is.null(df) || nrow(df) == 0L) {
     log_warn("No usable correlation pairs for lollipop chart")
     return(invisible(NULL))
   }
-  row_idx <- row_idx[keep]
-  col_idx <- col_idx[keep]
-  r_vals  <- r_vals[keep]
-  p_vals  <- p_vals[keep]
-
-  abs_r <- abs(r_vals)
-  ord <- order(-abs_r)
-  ord <- ord[seq_len(min(length(ord), as.integer(top_n)))]
-  row_idx <- row_idx[ord]
-  col_idx <- col_idx[ord]
-  r_vals  <- r_vals[ord]
-  p_vals  <- p_vals[ord]
-
-  pair_label <- paste(rownames(cm)[row_idx], "<->", colnames(cm)[col_idx])
-  signif_label <- ifelse(!is.na(p_vals) & p_vals < 0.05,
-                          "p < 0.05",
-                          "n.s.")
-
-  df <- data.frame(
-    label = factor(pair_label, levels = rev(pair_label)),
-    r = r_vals,
-    significant = factor(signif_label, levels = c("p < 0.05", "n.s.")),
-    stringsAsFactors = FALSE
-  )
 
   caption_text <- if (!is.null(methodology_mode)) {
     methodology_plot_caption(methodology_mode, run_id)
@@ -869,7 +907,8 @@ create_correlation_plot <- function(results, output_path,
     ggplot2::geom_vline(xintercept = 0, colour = "#7F8C8D",
                          linewidth = 0.3) +
     ggplot2::scale_colour_manual(
-      values = c("p < 0.05" = "#3498DB", "n.s." = "#BDC3C7"),
+      values = c("p < 0.05" = "#3498DB", "n.s." = "#BDC3C7",
+                 "excluded (circular)" = "#E67E22"),
       drop = FALSE,
       name = "Significance"
     ) +
@@ -918,6 +957,103 @@ create_correlation_plot <- function(results, output_path,
   grDevices::dev.off()
   log_info("Correlation lollipop plot saved: {output_path}")
   invisible(NULL)
+}
+
+#' Build an index-aligned logical matrix of excluded (circular) pairs
+#'
+#' Given the plot's variable names and the [extract_significant()] result,
+#' returns an `n x n` logical matrix that is TRUE at `[i, j]` (and `[j, i]`)
+#' whenever the unordered pair `(var_names[i], var_names[j])` was flagged
+#' `excluded_from_findings`. The matrix is index-aligned to the correlation
+#' matrix, so it survives the plot's variable-name humanizing. Returns an
+#' all-FALSE matrix for NULL / empty / malformed input (back-compat no-op).
+#'
+#' @param var_names Character vector of the correlation matrix's variables
+#'   (original, un-humanized names).
+#' @param excluded_pairs The extract_significant() data frame, or NULL.
+#' @return An `n x n` logical matrix.
+#' @keywords internal
+.build_excluded_pair_matrix <- function(var_names, excluded_pairs) {
+  n <- length(var_names)
+  m <- matrix(FALSE, n, n, dimnames = list(var_names, var_names))
+  if (n == 0L || is.null(excluded_pairs) || !is.data.frame(excluded_pairs) ||
+      nrow(excluded_pairs) == 0L ||
+      !all(c("var1", "var2", "excluded_from_findings") %in% names(excluded_pairs))) {
+    return(m)
+  }
+  ex <- excluded_pairs[excluded_pairs$excluded_from_findings %in% TRUE, , drop = FALSE]
+  for (k in seq_len(nrow(ex))) {
+    a <- ex$var1[k]; b <- ex$var2[k]
+    if (!is.na(a) && !is.na(b) && a %in% var_names && b %in% var_names) {
+      m[a, b] <- TRUE
+      m[b, a] <- TRUE
+    }
+  }
+  m
+}
+
+#' Mask excluded pairs' adjusted p-values to non-significant
+#'
+#' Sets the p-value of every excluded (circular) pair to 1 so corrplot's
+#' `insig = "blank"` wipes its glyph -- the pair is not shown as a
+#' significant finding in the heatmap (it remains in correlations.csv with
+#' its real values). NULL `pa` or no exclusions returns `pa` unchanged.
+#'
+#' @param pa Adjusted-p matrix aligned to the correlation matrix (or NULL).
+#' @param excluded_mat Logical matrix from [.build_excluded_pair_matrix()].
+#' @return The (possibly masked) p-matrix.
+#' @keywords internal
+.mask_excluded_pvalues <- function(pa, excluded_mat) {
+  if (is.null(pa) || is.null(excluded_mat) || !any(excluded_mat)) return(pa)
+  pa[excluded_mat] <- 1  # > sig.level -> corrplot insig="blank" wipes the glyph
+  pa
+}
+
+#' Rank + classify correlation pairs for the lollipop chart
+#'
+#' Pure data prep for [.create_correlation_lollipop()]: extracts the
+#' upper-triangle pairs, keeps the non-NA ones, ranks them by `|r|`, takes
+#' the top `top_n`, and labels each pair's status. A pair flagged in
+#' `excluded_mat` is labelled `"excluded (circular)"` regardless of its
+#' p-value, so an analyst-internal / circular pair is never coloured as a
+#' `"p < 0.05"` finding -- but it is KEPT visible (flag-don't-drop). Returns
+#' NULL when no pair has a usable correlation.
+#'
+#' @param cm Correlation matrix (names already humanized by the caller).
+#' @param pa Adjusted-p matrix aligned to `cm` (NAs treated non-significant).
+#' @param top_n Integer; number of top pairs to keep.
+#' @param excluded_mat Logical matrix aligned to `cm` (or NULL).
+#' @return A data frame (`label`, `r`, `significant` factor) or NULL.
+#' @keywords internal
+.correlation_lollipop_data <- function(cm, pa, top_n, excluded_mat = NULL) {
+  ut <- upper.tri(cm, diag = FALSE)
+  r_vals <- cm[ut]
+  p_vals <- if (!is.null(pa)) pa[ut] else rep(NA_real_, length(r_vals))
+  ex_vals <- if (!is.null(excluded_mat)) as.logical(excluded_mat[ut]) else rep(FALSE, length(r_vals))
+  row_idx <- row(cm)[ut]
+  col_idx <- col(cm)[ut]
+
+  keep <- !is.na(r_vals)
+  if (!any(keep)) return(NULL)
+  row_idx <- row_idx[keep]; col_idx <- col_idx[keep]
+  r_vals  <- r_vals[keep];  p_vals <- p_vals[keep]; ex_vals <- ex_vals[keep]
+
+  ord <- order(-abs(r_vals))
+  ord <- ord[seq_len(min(length(ord), as.integer(top_n)))]
+  row_idx <- row_idx[ord]; col_idx <- col_idx[ord]
+  r_vals  <- r_vals[ord];  p_vals <- p_vals[ord]; ex_vals <- ex_vals[ord]
+
+  pair_label <- paste(rownames(cm)[row_idx], "<->", colnames(cm)[col_idx])
+  status <- ifelse(ex_vals, "excluded (circular)",
+                   ifelse(!is.na(p_vals) & p_vals < 0.05, "p < 0.05", "n.s."))
+
+  data.frame(
+    label = factor(pair_label, levels = rev(pair_label)),
+    r = r_vals,
+    significant = factor(status,
+                         levels = c("p < 0.05", "n.s.", "excluded (circular)")),
+    stringsAsFactors = FALSE
+  )
 }
 
 #' Create theme co-occurrence network visualization

@@ -9,7 +9,8 @@ create_correlation_plot(
   output_path,
   methodology_mode = NULL,
   run_id = NULL,
-  max_inline_vars = 30L
+  max_inline_vars = 30L,
+  excluded_pairs = NULL
 )
 }
 \arguments{
@@ -25,6 +26,14 @@ adds a footer caption identifying the methodology mode + run.}
 \item{max_inline_vars}{Integer; correlation matrices with more
 variables than this render as a top-N lollipop instead of a
 heatmap. Default 30L.}
+
+\item{excluded_pairs}{Optional data frame (the \code{\link[=extract_significant]{extract_significant()}}
+result) carrying \code{var1}, \code{var2}, and \code{excluded_from_findings}. Pairs
+flagged TRUE (analyst-internal / circular, e.g. an affect instrument x
+a theme-membership column) are shown but never presented as a
+significant finding -- the heatmap blanks them (and discloses the count)
+and the lollipop marks them "excluded (circular)". NULL (default)
+reproduces the pre-#2b plot exactly.}
 }
 \description{
 Renders a correlation heatmap for small matrices, OR a top-N

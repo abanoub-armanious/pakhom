@@ -979,7 +979,8 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     create_correlation_plot(corr_results, export_files$plot_file,
                              methodology_mode = config$methodology$mode,
                              run_id = basename(output_dir),
-                             max_inline_vars = max_inline_vars)
+                             max_inline_vars = max_inline_vars,
+                             excluded_pairs = correlations_df)
   }
 
   # Theme network plot. Phase 58 Tier 5 AH-9/V-1: top-N filter +

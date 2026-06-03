@@ -316,3 +316,81 @@ test_that("test_theme_cooccurrence uses Fisher when expected < 5", {
     expect_true(any(result$method == "Fisher"))
   }
 })
+
+# ---------------------------------------------------------------------------
+# Phase 63 follow-up: correlations robustness + #2b plot consistency
+# (surfaced by an independent adversarial audit of the four shipped fixes)
+# ---------------------------------------------------------------------------
+
+test_that("extract_significant returns a full-schema empty result on an all-NA matrix (no crash)", {
+  # Constant-variance columns -> every pairwise correlation is NA -> `pairs`
+  # is empty. Pre-fix this crashed at arrange(correlation) (the column was
+  # never created). It must now return a 0-row tibble with the full schema.
+  cd <- tibble::tibble(a = rep(1, 40), b = rep(2, 40), c = rep(3, 40))
+  res <- suppressWarnings(calculate_correlations(cd, method = "spearman"))
+  expect_true(all(is.na(res$correlation_matrix[upper.tri(res$correlation_matrix)])))
+  sig <- NULL
+  expect_no_error(sig <- extract_significant(res, p_threshold = 0.05))
+  expect_s3_class(sig, "tbl_df")
+  expect_equal(nrow(sig), 0L)
+  for (col in c("var1", "var2", "correlation", "significant", "meaningful_effect",
+                "effect_size", "exclusion_reason", "excluded_from_findings")) {
+    expect_true(col %in% names(sig), info = col)
+  }
+})
+
+test_that("extract_significant empty (<2 var) and all-NA paths share one schema", {
+  one <- extract_significant(list(correlation_matrix = matrix(1, 1, 1)), p_threshold = 0.05)
+  cd  <- tibble::tibble(a = rep(1, 30), b = rep(2, 30))
+  na2 <- suppressWarnings(extract_significant(calculate_correlations(cd, method = "spearman")))
+  expect_setequal(names(one), names(na2))
+  expect_equal(nrow(one), 0L)
+  expect_equal(nrow(na2), 0L)
+})
+
+test_that(".build_excluded_pair_matrix marks both triangles; no-ops on NULL/empty/malformed", {
+  vn <- c("sentiment_score", "num_comments", "theme_membership_recovery")
+  ep <- data.frame(var1 = "sentiment_score", var2 = "theme_membership_recovery",
+                   excluded_from_findings = TRUE, stringsAsFactors = FALSE)
+  m <- .build_excluded_pair_matrix(vn, ep)
+  expect_true(m[1, 3] && m[3, 1])
+  expect_equal(sum(m), 2L)                              # one unordered pair, both directions
+  expect_false(any(.build_excluded_pair_matrix(vn, NULL)))
+  expect_false(any(.build_excluded_pair_matrix(vn, ep[0, ])))
+  expect_false(any(.build_excluded_pair_matrix(vn, data.frame(x = 1))))   # missing columns
+  ep2 <- data.frame(var1 = "ghost", var2 = "num_comments",
+                    excluded_from_findings = TRUE, stringsAsFactors = FALSE)
+  expect_false(any(.build_excluded_pair_matrix(vn, ep2)))                  # absent var ignored
+})
+
+test_that(".correlation_lollipop_data marks excluded pairs distinctly and never as a finding", {
+  vn <- c("sentiment_score", "num_comments", "theme_membership_recovery")
+  cm <- matrix(c(1, 0.80, 0.62, 0.80, 1, 0.02, 0.62, 0.02, 1), 3, dimnames = list(vn, vn))
+  # the circular pair (1,3) is STRONGLY significant; without the flag it would
+  # be coloured "p < 0.05"
+  pa <- matrix(c(0, 0.001, 0.001, 0.001, 0, 0.95, 0.001, 0.95, 0), 3, dimnames = list(vn, vn))
+  m  <- .build_excluded_pair_matrix(vn, data.frame(
+          var1 = "sentiment_score", var2 = "theme_membership_recovery",
+          excluded_from_findings = TRUE, stringsAsFactors = FALSE))
+  d <- .correlation_lollipop_data(cm, pa, top_n = 10, excluded_mat = m)
+  expect_equal(nrow(d), 3L)                             # excluded pair KEPT, not dropped
+  is_excl <- grepl("sentiment_score", d$label) & grepl("theme_membership_recovery", d$label)
+  expect_identical(as.character(d$significant[is_excl]), "excluded (circular)")
+  expect_false(as.character(d$significant[is_excl]) == "p < 0.05")   # absence of the bad pattern
+  is_real <- grepl("sentiment_score", d$label) & grepl("num_comments", d$label)
+  expect_identical(as.character(d$significant[is_real]), "p < 0.05") # real finding preserved
+  expect_equal(d$r, d$r[order(-abs(d$r))])              # ranked by |r| descending
+  d0 <- .correlation_lollipop_data(cm, pa, top_n = 10, excluded_mat = NULL)
+  expect_false(any(as.character(d0$significant) == "excluded (circular)"))  # NULL -> back-compat
+})
+
+test_that(".mask_excluded_pvalues blanks excluded cells and is NULL-safe", {
+  vn <- c("a", "b", "c")
+  pa <- matrix(c(0, 0.001, 0.2, 0.001, 0, 0.3, 0.2, 0.3, 0), 3, dimnames = list(vn, vn))
+  m  <- matrix(FALSE, 3, 3, dimnames = list(vn, vn)); m[1, 3] <- m[3, 1] <- TRUE
+  pm <- .mask_excluded_pvalues(pa, m)
+  expect_equal(pm[1, 3], 1)                             # excluded -> non-significant (blanked)
+  expect_equal(pm[1, 2], 0.001)                         # untouched
+  expect_null(.mask_excluded_pvalues(NULL, m))
+  expect_identical(.mask_excluded_pvalues(pa, NULL), pa)
+})
