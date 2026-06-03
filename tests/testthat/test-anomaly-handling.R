@@ -344,7 +344,7 @@ test_that("cascade routes anomaly entries into emergent themes (CRITICAL-8 regre
         )
       } else if ("verdict" %in% names(props)) {
         # Phase 60 v2 clustering call: 2 codes are conceptually distinct,
-        # converge immediately at pass 1 with no merges.
+        # converge immediately at pass 1 with no grouping.
         list(
           content = jsonlite::toJSON(list(
             verdict = "converged",
