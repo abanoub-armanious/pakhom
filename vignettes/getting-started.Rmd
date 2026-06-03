@@ -26,8 +26,9 @@ knitr::opts_chunk$set(
 
 ## What is pakhom?
 
-**pakhom** is an R package that automates reflexive thematic analysis
-(Braun & Clarke, 2006) using AI. It takes a dataset of text entries (e.g.,
+**pakhom** is an R package for AI-assisted thematic analysis (after
+Braun & Clarke, 2006), offered in three methodologically-distinct modes
+(reflexive, codebook, and framework). It takes a dataset of text entries (e.g.,
 forum posts, survey responses, interview transcripts) and produces a
 publication-quality HTML report containing themes, codes, sentiment analysis,
 correlation analysis, and supporting evidence.
@@ -68,13 +69,17 @@ analysis works:
 4. **Researcher review** (optional) -- You curate the codebook before theming
 5. **Code-aware sentiment analysis** -- AI assigns sentiment scores using the
    codes assigned to each entry as context for more accurate scoring
-6. **HAC + AI-judged theme generation** (Phase 52) -- code embeddings are
-   clustered with hierarchical agglomerative clustering (ward.D2 linkage on
-   cosine distance; Jaccard fallback). An AI judge walks the dendrogram
-   top-down and decides `coherent_theme` / `split_required` / `atomic_outlier`
-   at every internal node, articulating the central organizing concept
-   before each decision. Subthemes recurse up to `max_subtheme_depth` when a
-   subtheme exceeds `max_codes_per_subtheme` codes
+6. **Multi-pass AI theme generation** (Phase 60, the `v2` default) -- the AI
+   sees the entire codebook at once and proposes a partition of the codes into
+   clusters (pass 1); each further pass takes the prior clusters as units and
+   the AI either groups them again or declares the partition converged. There
+   are no hardcoded pass counts, cluster-size thresholds, or target theme
+   counts -- clustering depth (flat, nested, or anywhere between) is the AI's
+   dynamic call for the data at hand. Codes are *grouped*, never combined into
+   new codes; theme and subtheme names are assigned in a dedicated labeling
+   pass *after* the grouping converges. (The legacy Phase 52 HAC-on-embeddings
+   tree-walk is retained as an opt-in `algorithm: "v1"` for back-compatible
+   test fixtures.)
 7. **Deterministic theme cascading** -- Entry-to-theme assignment flows through
    the code hierarchy (pure R, no AI re-reading of entries)
 8. **Correlation analysis** -- Statistical tests between themes and variables
@@ -557,15 +562,18 @@ analysis:
 
   themes:
     # Per C1 ("AI decides when to stop"), pakhom does not gate theme
-    # generation on hardcoded n_themes / merge passes. The Phase 52
-    # HAC + AI-judged divisive tree walk cuts the dendrogram wherever
-    # the AI articulates a coherent central organizing concept.
-    include_subthemes: true       # Walk one level deeper for subthemes
+    # generation on hardcoded n_themes / pass counts / size thresholds.
+    # The default v2 algorithm groups codes across multiple AI passes and
+    # stops when the AI declares the partition converged (depth is the
+    # AI's dynamic call).
+    algorithm: "v2"               # "v2" (default: multi-pass AI clustering)
+                                  #   or "v1" (legacy Phase 52 HAC tree walk)
+    include_subthemes: true       # Render the emergent subtheme decomposition
     include_quotes: true          # Render representative quotes per theme
     quotes_per_theme: 3
     approach: "inductive"         # "inductive" (Mode 2) or "deductive" (Mode 3)
-    max_subtheme_depth: 3         # Phase 58 Tier 1 C-12: nested sub-subthemes
-    max_codes_per_subtheme: 25    # Phase 58 Tier 1 AF-8: triggers recursion
+    max_subtheme_depth: 3         # v1 HAC walker only; no-op under algorithm: "v2"
+    max_codes_per_subtheme: 25    # v1 HAC walker only; no-op under algorithm: "v2"
     max_inline_themes: 30         # Phase 58 Tier 5 C-3: top-N inlining cap
     max_inline_themes_temporal: 30  # Phase 58 Tier 5 AH-8: temporal plot
 

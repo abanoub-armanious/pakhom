@@ -536,11 +536,13 @@ substantive mass (~56 entries). The load-bearing medication × sleep
 interaction finding was buried in the long tail.
 
 (Phase 60 note: the algorithm has since been rewritten as multi-pass
-AI clustering with label-after-clustering, targeting 4-10 themes for
-corpora of this size. The narrative above describes a v1 run; under v2,
-the medication × sleep findings should surface as their own theme rather
-than vanishing in 417 single-code buckets. Whether v2 actually delivers
-this is the subject of Phase 60.8 empirical re-validation.)
+AI clustering with label-after-clustering, which surfaces a handful of
+themes rather than hundreds of single-code buckets. The narrative above
+describes a v1 run; under v2, the medication × sleep findings should
+surface as their own theme rather than vanishing in 417 single-code
+buckets. The Phase 60.8 indicative re-validation (n = 3, summarized
+earlier in this vignette) found v2 does this; broader validation remains
+future work.)
 
 This is not a bug in Mode 2 fundamentally. Any code-similarity-based
 clustering -- HAC, multi-pass AI partitioning, or other -- is

@@ -292,20 +292,27 @@ test_that("AC9 enforcement: rules injection cannot be turned off via task or con
 # Phase 56: inductive-pass variant of the Mode 3 rule + methodology_override
 # ============================================================================
 
-test_that("Phase 56: codebook_collaborative rule reflects Phase 52 HAC tree walk", {
-  # Pre-Phase-52 Mode 2 rule said "model does NOT name themes -- researcher's role".
-  # Phase 52 made the AI propose theme names (via central_organizing_concept).
-  # The refreshed rule must reflect this without losing the researcher-as-author
-  # framing.
+test_that("Phase 63: codebook_collaborative rule reflects the v2 grouping posture (no stale v1 mechanics)", {
+  # Mode 2 lets the AI PROPOSE codes + cluster-level groupings while the
+  # researcher remains the deliverable's author. The injected + archived rule
+  # text describes the methodological POSTURE -- group codes, judge a shared
+  # central organizing concept, AI-decided convergence, label after grouping --
+  # NOT the retired v1 HAC-dendrogram implementation (the production v2
+  # algorithm does not walk a dendrogram, so the rules must not claim it does).
   cfg <- list(methodology = list(mode = "codebook_collaborative"))
   rules <- generate_methodology_rules(cfg)
-  # Affirmative: AI proposes theme groupings + names
-  expect_match(rules, "HAC")
+  # Affirmative: AI groups codes + judges a shared central organizing concept
+  expect_match(rules, "groups codes into conceptual clusters")
   expect_match(rules, "central organizing concept")
-  # Still researcher-final: review pass can rename / merge / split
+  # C2: groups, never combines codes into new codes
+  expect_match(rules, "never combines them into new codes")
+  # Still researcher-final: review pass can rename / merge / split / delete
   expect_match(rules, "rename, merge, split, or delete")
-  # Symmetric prompt framing (vs. pre-Phase-52 merge-biased)
-  expect_match(rules, "ALL these codes share a principle|symmetric")
+  # Symmetric (anti-consolidation-bias) framing, not a merge-biased prompt
+  expect_match(rules, "symmetric")
+  # Regression guard (Phase 63 publication fix): NO stale v1 HAC/dendrogram
+  # mechanics leak into the rules that are archived + injected on every call.
+  expect_false(grepl("HAC|dendrogram|internal node|one-level-deeper|tree walk", rules))
 })
 
 test_that("Phase 56: framework_applied default rule still forbids new construct generation", {

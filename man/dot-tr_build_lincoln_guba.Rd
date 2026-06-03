@@ -15,8 +15,8 @@ verification, methodology-rules injection, framework grounding.
 \item \strong{Dependability} (~reliability) -- audit log + AC9
 stamping + parent_run_id soft-lock (T1.5).
 \item \strong{Confirmability} (~objectivity) -- reflexivity
-scaffold (Olmos-Vega AMEE 149) + Phase 52 articulation
-requirement.
+scaffold (Olmos-Vega AMEE 149) + per-cluster organizing-concept
+rationale (audit-logged).
 \item \strong{Transferability} (~external validity) -- AC4 output
 stamping, cross-run comparison, QDPX export.
 }

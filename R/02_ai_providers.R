@@ -174,7 +174,7 @@ create_ai_provider <- function(provider = "openai", config = NULL) {
 #'     \item \code{prompt_hash}: character. SHA-256 hex digest of the request
 #'       inputs (prompt + system_prompt + model + temperature + max_tokens +
 #'       json_mode + response_schema + documents). Used as the cache key for
-#'       \code{replay_run()}; stable across R versions and platforms because
+#'       the planned \code{replay_run()}; stable across R versions and platforms because
 #'       the underlying hash is computed over a JSON serialization of the
 #'       inputs, not the R object.
 #'     \item \code{request_id}: character or \code{NA_character_}.

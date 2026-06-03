@@ -346,8 +346,8 @@ bundle_transparency_report <- function(run_dir,
 #'   \item \strong{Dependability} (~reliability) -- audit log + AC9
 #'     stamping + parent_run_id soft-lock (T1.5).
 #'   \item \strong{Confirmability} (~objectivity) -- reflexivity
-#'     scaffold (Olmos-Vega AMEE 149) + Phase 52 articulation
-#'     requirement.
+#'     scaffold (Olmos-Vega AMEE 149) + per-cluster organizing-concept
+#'     rationale (audit-logged).
 #'   \item \strong{Transferability} (~external validity) -- AC4 output
 #'     stamping, cross-run comparison, QDPX export.
 #' }
@@ -401,7 +401,7 @@ bundle_transparency_report <- function(run_dir,
         # lines starting with "  +" / "  concept" produced six <li>
         # items when the author intended three.
         "Reflexivity scaffold (researcher_positionality + research_paradigm + reflexive_notes) injected to AI system prompt every turn (Olmos-Vega AMEE Guide 149)",
-        "Phase 52 articulation requirement: AI must write central organizing concept BEFORE clustering decision (anti-vacuous gate)",
+        "Per-cluster articulation: the AI records a central-organizing-concept rationale for each grouping decision (audit-logged, inspectable)",
         "Researcher review pause-points (codebook + themes)"
       ),
       run_evidence = list(

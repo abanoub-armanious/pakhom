@@ -113,7 +113,7 @@ print.Code <- function(x, ...) {
 #'
 #' First-class container that holds a set of Code objects within a Theme.
 #' Use NA_character_ for name when codes are not yet sub-grouped (a "virtual"
-#' subtheme that will be populated by Phase 52's clustering).
+#' subtheme that will be populated by theme clustering).
 #'
 #' @param name Subtheme name; NA_character_ for virtual/ungrouped
 #' @param description Subtheme description
@@ -121,7 +121,7 @@ print.Code <- function(x, ...) {
 #'   coerced to stub Codes for use in tests / non-coding-state contexts)
 #' @param subthemes List of nested Subtheme S3 objects (or raw lists
 #'   coerced via recursive create_subtheme call). Phase 58 Tier 1 C-12
-#'   added nested subthemes to support depth-N HAC walker decomposition.
+#'   added nested subthemes to support depth-N hierarchical decomposition.
 #'   Empty list = leaf Subtheme (no nested children).
 #' @return Subtheme S3 object
 #' @export
@@ -233,9 +233,9 @@ subtheme_code_keys <- function(subtheme) {
 
 #' Number of nested subthemes within a Subtheme
 #'
-#' Phase 58 Tier 1 C-12 introduced nested Subthemes so the HAC walker
-#' can produce hierarchical decomposition (e.g. a 200-code subtheme
-#' broken into sub-subthemes via depth-N recursion). Returns 0 for
+#' Phase 58 Tier 1 C-12 introduced nested Subthemes so the theme algorithm
+#' can produce hierarchical decomposition (e.g. a large subtheme
+#' broken into sub-subthemes). Returns 0 for
 #' leaf Subthemes.
 #'
 #' @param subtheme Subtheme S3

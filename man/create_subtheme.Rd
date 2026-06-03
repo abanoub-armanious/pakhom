@@ -21,7 +21,7 @@ coerced to stub Codes for use in tests / non-coding-state contexts)}
 
 \item{subthemes}{List of nested Subtheme S3 objects (or raw lists
 coerced via recursive create_subtheme call). Phase 58 Tier 1 C-12
-added nested subthemes to support depth-N HAC walker decomposition.
+added nested subthemes to support depth-N hierarchical decomposition.
 Empty list = leaf Subtheme (no nested children).}
 }
 \value{
@@ -30,5 +30,5 @@ Subtheme S3 object
 \description{
 First-class container that holds a set of Code objects within a Theme.
 Use NA_character_ for name when codes are not yet sub-grouped (a "virtual"
-subtheme that will be populated by Phase 52's clustering).
+subtheme that will be populated by theme clustering).
 }

@@ -13,8 +13,8 @@ subtheme_n_subthemes(subtheme)
 Integer; depth-1 nested subtheme count.
 }
 \description{
-Phase 58 Tier 1 C-12 introduced nested Subthemes so the HAC walker
-can produce hierarchical decomposition (e.g. a 200-code subtheme
-broken into sub-subthemes via depth-N recursion). Returns 0 for
+Phase 58 Tier 1 C-12 introduced nested Subthemes so the theme algorithm
+can produce hierarchical decomposition (e.g. a large subtheme
+broken into sub-subthemes). Returns 0 for
 leaf Subthemes.
 }

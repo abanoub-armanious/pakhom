@@ -1,9 +1,9 @@
 # pakhom
 
-> AI-Assisted Reflexive Thematic Analysis with Methodology-as-Architecture
+> AI-Assisted Thematic Analysis (reflexive · codebook · framework modes) with Methodology-as-Architecture
 
-**pakhom** is an R package that conducts AI-assisted reflexive thematic
-analysis with three methodologically-distinct operating modes. Methodology is
+**pakhom** is an R package that conducts AI-assisted thematic analysis across three
+methodologically-distinct operating modes (reflexive, codebook, framework). Methodology is
 codified at the **architectural** level — the AI's role is shaped by the mode
 you declare, not by user discipline at the configuration level. Every output
 carries the methodology stamp, every AI-attributed verbatim claim is verified
@@ -136,16 +136,20 @@ voice. The author is Coptic Egyptian.
   post-convergence pass: only after the AI declares convergence does it
   see the full tree and assign researcher-facing names + descriptions to
   every theme and subtheme, with cross-theme name distinctness enforced.
-  This honors C-tenet 3 (AI-declared convergence) and C-tenet 5
-  (label-after-clustering). Replaces both the pre-Phase-52 sequential
-  pairwise insertion (kitchen-sink theme bug) AND the Phase 52 HAC +
+  This honors C-tenet 1 (AI-declared convergence) and
+  C-tenet 5 (labels are assigned only after clustering, so no
+  bucket-label pressure shapes the structural decisions). Replaces
+  both the pre-Phase-52 sequential pairwise insertion (kitchen-sink
+  theme bug) AND the Phase 52 HAC +
   tree-walk (87-92% single-code themes; the prior algorithm couldn't
   pass either tenet). The legacy Phase 52 path is preserved under
   `config$analysis$themes$algorithm = "v1"` for test-fixture back-compat
-  only and will be removed once Phase 60.8 empirical re-validation lands
-- **Recursive subtheme decomposition** -- subthemes nest up to
-  `max_subtheme_depth` levels (default 3) when a subtheme exceeds
-  `max_codes_per_subtheme` codes (Phase 58 Tier 1 C-12); paper-style
+  only and is slated for removal in a future cleanup
+- **Emergent subtheme structure** -- under v2, subthemes arise from the
+  multi-pass grouping itself (a penultimate-pass cluster becomes a theme's
+  subthemes); their depth is the AI's dynamic call, not a fixed recursion
+  limit (the legacy v1 walker instead nests via `max_subtheme_depth` /
+  `max_codes_per_subtheme`). Paper-style
   per-subtheme summary tables render each metric column with the AI analyst's
   chosen primitives (Phase 61.4; Median(MAD) + Mean(SD) kept as a per-column
   fallback), small-n spread/shape cells flagged against the analyst's

@@ -2,7 +2,7 @@
 % Please edit documentation in R/13_themes.R
 \name{generate_themes_iterative}
 \alias{generate_themes_iterative}
-\title{Generate themes via HAC + AI-judged divisive tree walk}
+\title{Generate themes by grouping codes into AI-judged clusters}
 \usage{
 generate_themes_iterative(
   coding_state,
@@ -46,18 +46,23 @@ emergent-themes pass to inject the Mode 3 inductive variant; NULL
 for normal Mode 2 + Mode 3 deductive callers.}
 }
 \value{
-\code{ThemeSet} S3 object with merge_history attached. The
-merge_history$tree_walk field carries the HAC tree + per-node
-decisions for replay (Phase 52 audit trail).
+\code{ThemeSet} S3 object. Under v1 a \code{merge_history$tree_walk}
+field carries the HAC tree + per-node decisions; under v2 the multi-pass
+partition history is recorded for replay/audit instead.
 }
 \description{
-Phase 52 algorithm. Computes pairwise distance between codes (cosine on
-code-name embeddings; Jaccard fallback on entry-id sets when embeddings
-are unavailable), runs hierarchical agglomerative clustering (HAC,
-ward.D2 linkage), then walks the resulting dendrogram top-down with an
-AI judge at every internal node deciding coherent_theme /
-split_required / atomic_outlier. For each identified theme, walks one
-level deeper for subthemes.
+Dispatches to the configured theme algorithm. The default
+(\code{algorithm = "v2"}, Phase 60) is an embedding-free, multi-pass AI
+clustering: the model sees all codes at once, proposes a partition into
+clusters, and on each further pass either groups clusters again or
+declares the partition converged. There are no hardcoded pass counts or
+size thresholds, and clustering depth is the AI's dynamic call (C1).
+Codes are grouped, never combined into new codes (C2); theme and subtheme
+names are assigned in a dedicated labeling pass after convergence. The
+legacy \code{algorithm = "v1"} (Phase 52) computes code-name embeddings,
+runs hierarchical agglomerative clustering (ward.D2), and walks the
+resulting dendrogram with an AI judge at each node; it is retained for
+back-compatible test fixtures and used only when explicitly pinned.
 }
 \details{
 The function name retains its pre-Phase-52 form for back-compat with
