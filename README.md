@@ -131,7 +131,7 @@ voice. The author is Coptic Egyptian.
 - **Multi-pass clustering with label-after-clustering for themes** -- the AI
   sees ALL codes at once and proposes a partition into top-level clusters
   (pass 1); pass 2+ takes prior-pass clusters as new "leaves" and the AI
-  may merge them further or declare convergence (Phase 60). NO hardcoded
+  may group them further or declare convergence (Phase 60). NO hardcoded
   pass count, NO hardcoded cluster-size thresholds. Labeling is a DEDICATED
   post-convergence pass: only after the AI declares convergence does it
   see the full tree and assign researcher-facing names + descriptions to
@@ -146,8 +146,10 @@ voice. The author is Coptic Egyptian.
 - **Recursive subtheme decomposition** -- subthemes nest up to
   `max_subtheme_depth` levels (default 3) when a subtheme exceeds
   `max_codes_per_subtheme` codes (Phase 58 Tier 1 C-12); paper-style
-  per-subtheme summary tables (Phase 55) render Median(MAD) + Mean(SD) per
-  auto-detected metric column with quotes tagged `[metric: value]`
+  per-subtheme summary tables render each metric column with the AI analyst's
+  chosen primitives (Phase 61.4; Median(MAD) + Mean(SD) kept as a per-column
+  fallback), small-n spread/shape cells flagged against the analyst's
+  per-column reliability floor (Phase 62.5d), and quotes tagged `[metric: value]`
 - **Deterministic code-path cascading** -- entries map to themes through their
   codes (no AI re-reading of raw text), faithful to the inductive process
 - **Code-aware sentiment analysis** -- sentiment is scored after coding, using
@@ -164,6 +166,21 @@ voice. The author is Coptic Egyptian.
   "negligible" (|r| < 0.10), rank-biserial effect_r (sign-aware,
   numerically stable on extreme p-values), Cramer's V populated on the
   Fisher dispatch path, `meaningful_effect ∩ significant` headline counts
+- **AI as analyst with a calculator** -- a Methodology Assistant (Phase 61)
+  articulates a relevance criterion that keeps coding on-focus, and for each
+  numeric / timestamp column chooses, by free-form request (never a fixed
+  menu), which computational primitives are an honest summary -- a right-skewed
+  count gets a median + tail measures, not a mean+SD. Choices are archived for
+  replay-equivalent re-runs, backed by a ~45-primitive backend catalog the
+  researcher never has to configure
+- **Credibility / honesty layer** -- the report is built to survive review:
+  metrics are judged substantive vs source/platform metadata and grouped
+  accordingly (Phase 62.1); circular correlations between two AI codings of the
+  same text are excluded from findings but kept in the exported matrix with an
+  `exclusion_reason` (flag-don't-drop, Phase 63), and never headline the
+  correlation plot; saturation reporting distinguishes entries coded / examined
+  / sampled; and no n-floor ever suppresses a value -- small-n statistics are
+  marked, never hidden
 - **Researcher review points** -- pause the pipeline after coding or theme
   generation to curate the AI's output before continuing. Phase 51 Subtheme
   S3 hierarchy is preserved across rename + description-only edits (Phase
@@ -183,7 +200,7 @@ voice. The author is Coptic Egyptian.
 - **Researcher reflexivity** -- injects researcher positionality, research
   paradigm, and reflexive notes into all AI prompts, aligning with Braun &
   Clarke's emphasis on reflexive practice and Olmos-Vega AMEE Guide 149
-- **Full audit trail** -- every AI decision (code assignments, merges, skips,
+- **Full audit trail** -- every AI decision (code assignments, code groupings, skips,
   saturation judgments, fabrication catches) is logged to JSONL with
   methodology stamp + schema_version + rationale. Pre-rejection fabrication
   attempts are logged to `fabrication_log.csv` with a structured

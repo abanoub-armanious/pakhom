@@ -281,7 +281,7 @@ Mode 2's theme-generation step uses the **v2 multi-pass clustering with
 label-after-clustering** algorithm
 (`R/theme_algorithm_v2.R::generate_themes_phase60`). The AI sees the
 entire codebook at once, proposes a partition into clusters, and either
-continues with another pass (merging clusters further) or declares
+continues with another pass (grouping clusters further) or declares
 convergence. After convergence, a dedicated labeling pass with the
 whole tree visible assigns researcher-facing names + descriptions.
 
@@ -307,6 +307,63 @@ realistic codebook scale.
 
 For details on per-theme quality assessment, see
 `pakhom/notes/strategic_audit/PHASE_60_9_DEEP_DIVE.md`.
+
+### Dynamic clustering depth, the AI analyst, and the honesty layer (Phases 61--63)
+
+**Clustering depth is the AI's call, per study.** The number of passes and the
+depth of the theme/subtheme hierarchy are emergent, not configured: a narrow,
+cohesive codebook may converge in a single pass to a handful of flat themes,
+while a broad codebook may take several passes into a deeper hierarchy. Flat
+output is not a defect and deep output is not a goal -- both are valid readings
+of different data (C-tenet 1). pakhom never imposes a target shape, and it never
+combines codes into new codes: every pass returns a *partition* of the existing
+codes, and a theme is the *union* of the original codes grouped under it
+(C-tenet 2). The themes it produces are a refinable scaffold -- enable the
+`after_themes` review point to inspect and adjust the grouping before the report
+is built.
+
+**Named facets may disperse (Mode 2) or be guaranteed (Mode 3).** In inductive
+Mode 2, a secondary facet you named in your research focus (say, "physical
+effects" within a broad lived-experience study) may not surface as its own
+theme: the codes that express it can legitimately disperse across the emotional
+and behavioural themes where they cohere more strongly. That is sound emergent
+grouping -- the content is preserved in the codes and visible in the per-theme
+breakdowns -- not a coverage failure. If you need *guaranteed* coverage of named
+facets, use Mode 3 (Framework Applied), where the facets are the framework
+constructs and every construct is reported.
+
+**The AI is the analyst; the package is its calculator (Phase 61).** Before
+coding, a Methodology Assistant articulates a relevance criterion (injected into
+the coding prompt to keep coding on-focus) and, for each numeric or timestamp
+column, decides which computational primitives are an *honest* summary -- a
+right-skewed count is summarised by a median and tail measures, not a mean+SD; a
+bounded ratio is not treated as an unbounded count. These choices are free-form
+(the AI is never handed a fixed menu to pick from) and archived, so a run can be
+replayed deterministically.
+
+**The honesty layer.** The report is built to be trustworthy under review:
+
+- *Metric provenance.* Each metric is judged as a substantive measure of the
+  phenomenon or as incidental source/platform metadata (upvotes, comment counts),
+  and grouped accordingly, so platform reception is never silently read as
+  prevalence or severity.
+- *Small-n reliability.* Spread and distribution-shape statistics on small
+  subthemes are marked as indicative: the analyst supplies a per-column
+  reliability floor (`min_reliable_n`) and the per-subtheme table flags any
+  spread/shape cell below it. Nothing is hidden -- the value and its n are always
+  shown; the threshold is the analyst's judgement, not a fixed cutoff.
+- *No circular findings.* A correlation between two AI codings of the same text
+  (an affect score and a theme-membership indicator) is internal coding
+  consistency, not an empirical association; such pairs are excluded from the
+  findings (and from the correlation plot's significance markers) but kept in the
+  exported matrix with an `exclusion_reason`, so the exclusion is auditable.
+- *Saturation, honestly labelled.* The coverage report distinguishes the entries
+  coded, examined, and sampled, and the AI saturation arbiter judges convergence
+  from the entries-coded growth curve rather than a fixed heuristic.
+
+None of these introduce user-facing hardcoding: the AI judges per run, and the
+package renders those judgements transparently rather than classifying your data
+for you.
 
 ### Choosing the right configuration
 

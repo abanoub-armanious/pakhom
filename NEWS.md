@@ -1,5 +1,154 @@
 # pakhom 1.0.0
 
+## Phase 63: report credibility, group/cluster wording, and the small-n reliability flag
+
+Phase 63 is an evidence-driven pass over the v2 output: a multi-run audit of
+whether the reports are publishable and actually answer their research
+questions, plus the credibility and robustness fixes that audit surfaced. No
+version bump; the package remains an unpublished 1.0.0.
+
+### Framing (binding design principles, restated)
+
+- **Clustering depth is the AI's dynamic call.** A run may produce flat themes, a
+  deep hierarchy, or anything between -- all are valid outcomes, determined per
+  data, research question, and codebook richness (C-tenet 1: the AI judges
+  convergence; there are no count thresholds anywhere). The package never imposes
+  a target shape and never treats a flat result as a defect.
+- **Themes are a refinable scaffold, not a verdict.** The multi-pass clustering
+  produces a principled grouping; an `after_themes` human-review pause lets the
+  researcher refine it before the report is built. Residual redundancy (two
+  near-synonymous themes left ungrouped on a given draw) is handled there and in
+  the docs, deliberately -- not by over-tuning the prompt (see the negative
+  result below).
+- **The package GROUPS codes; it never combines them into new codes** (invariant
+  C-tenet 2, schema-enforced: the clustering schema returns only a PARTITION of
+  code indices, and theme derivation takes the UNION of the original codes;
+  labeling is a separate pass that runs AFTER clustering). The clustering prompt
+  wording was brought into line with this -- every AI-facing "merge" is now
+  "group"/"cluster" (the `continue`/`converged` verdict tokens and internal
+  identifiers are unchanged). A controlled A/B on the cached real-corpus
+  codebooks confirmed the reword is behaviorally inert: across two reworded
+  re-theming runs (k=3 each) versus the pre-reword steer-NEW baseline (k=5),
+  single-code rates matched and max-share distributions overlapped -- the two
+  reworded runs straddled the baseline (one drew finer partitions, one coarser),
+  ruling out a systematic shift.
+- **Mode 2 vs Mode 3 and named facets.** In inductive Mode 2, a named secondary
+  facet of the focus (e.g. "physical effects" in a broad lived-experience study)
+  may legitimately DISPERSE across emergent themes rather than surface as its own
+  unit -- sound emergent grouping, with the content preserved in the codes. A
+  researcher who needs guaranteed coverage of named facets should use Mode 3
+  (framework-applied), where those facets are the framework constructs.
+
+### Credibility and honesty fixes
+
+- **Circular "Key Findings" excluded -- flag, don't drop.** `extract_significant`
+  flags affect-instrument x theme-membership correlation pairs (and
+  within-affect-instrument pairs) as `excluded_from_findings`: both sides are the
+  AI analyst's own codings of the same text, so the correlation is internal
+  coding consistency, not an empirical association. The pairs are KEPT in the
+  exported matrix with their real coefficients, p-values, and an
+  `exclusion_reason` (a full audit trail), but their `significant` /
+  `meaningful_effect` flags are zeroed so every findings / insight / section
+  consumer excludes them with no leak. The correlation PLOT was made consistent:
+  the heatmap blanks excluded pairs (with a disclosure caption) and the top-N
+  lollipop marks them a distinct "excluded (circular)" category -- a circular
+  pair can never appear as the headline "p < 0.05" association.
+- **Saturation wording.** The coverage banner, the saturation section, and the
+  suggested methods-section paragraph now label the three distinct counts --
+  coded / examined / sampled -- so "coding 40 of the 126 entries examined (450
+  sampled)" no longer reads as a contradiction. The AI saturation arbiter itself
+  was investigated and confirmed sound (its growth curve is keyed by
+  entries-coded, so a strict relevance gate does not manufacture false
+  saturation) and was left unchanged.
+- **Representative quotes by analytic fit.** Per-theme representative quotes are
+  drawn from theme-characteristic entries (membership breadth at or below the
+  median) before sentiment-positioning, so a diffuse, multi-coded extreme post no
+  longer leads many themes; each quote's shown sentiment/emotion is resolved from
+  its source entry via the entry-id-linked provenance records.
+- **AI-numeric small-n reliability flag (62.5d).** The Methodology Assistant
+  returns a per-column `min_reliable_n` -- its judgement of the subtheme size
+  below which THAT column's spread/shape statistics are merely indicative -- and
+  the per-subtheme table marks (a dagger + footnote) any spread/shape cell
+  computed on fewer entries than that floor. Explain-don't-gate: the value and its
+  n are always shown; the threshold is the analyst's number, never a package
+  hardcode; robust centers and plain counts are never marked.
+- **Robustness.** `extract_significant` now returns a full-schema empty result on
+  a degenerate all-NA-pairwise matrix instead of erroring before its empty-case
+  branch (it is not wrapped at its pipeline call site). The mode-accurate
+  methodology appendix, the AC4-stamped-CSV read guard, and the empty-correlations
+  report guard from the same audit are retained.
+
+### A negative result, recorded
+
+A convergence-time "consolidation check" prompt counterweight (group remaining
+sibling sub-aspects before converging) was implemented and tested in a controlled
+A/B, then REJECTED: it systematically re-introduced the mega-theme / kitchen-sink
+pathology (max-share 0.5-0.875). Over-generation and over-consolidation are two
+ends of one dial; the shipped prompt sits at a sound point (occasional residual
+redundancy, never a mega-theme). Residual redundancy is handled by the
+`after_themes` review pause, not by the prompt.
+
+## Phase 62: scientific-substance hardening
+
+Motivated by an adversarial substance audit of the Phase 61.5 runs. The verdict
+was that the output is a trustworthy, publishable scaffold; Phase 62 closes the
+specific substance gaps the audit found, without adding any user-facing
+hardcoding (the AI judges per run; the package never classifies content).
+
+- **Metric provenance / relevance.** The Methodology Assistant judges, in prose,
+  what each numeric column actually MEASURES and how relevant it is to the study
+  -- on a spectrum from a substantive measure of the phenomenon to incidental
+  source/platform metadata (upvotes, comment counts, IDs). The per-metric report
+  table groups columns into "substantive measures" vs "source / engagement
+  metadata" using the AI's own judgement (free prose, no enum, no fixed taxonomy),
+  and the researcher's own `research_context` is threaded to the analyst so a
+  column literally named "score" is read as Reddit upvotes (metadata) rather than
+  a rating scale -- the exact conflation this prevents.
+- **Honest small-n framing.** A deterministic Methodology-Setup caveat explains
+  that spread statistics on small subthemes are indicative, not precise, with n
+  shown beside every statistic (62.5c); Phase 63's 62.5d adds the precise per-cell
+  marker on top of it. No n-floor ever suppresses a value.
+- **Cleaner inputs to clustering.** The "[D-7 placeholder]" marker that had leaked
+  into themes.json (and biased clustering embeddings) was removed; quotes truncate
+  on word boundaries; within-AI-call correlation tautologies are excluded; and the
+  report-render bugs found by the output audit (AC4-stamped CSV reads,
+  empty-correlation corpora, mode-accurate methodology labeling) were fixed.
+- **Re-validation.** Smoke + 250- and 450-entry broad runs on the real corpus
+  re-validated the stack at scale, with replay equivalence preserved.
+
+## Phase 61: AI as analyst with a calculator
+
+Phase 61 moves metric reasoning from a fixed battery to the AI analyst, under a
+principle locked in at the end of Phase 60: backend scaffolding the AI uses
+internally is fine; user-facing hardcoding (configuration that pre-classifies the
+researcher's data) is not.
+
+- **Backend metric-primitives catalog** (`R/metric_primitives.R`): ~45 `prim_*`
+  primitives across location, spread, position, distribution-shape, heavy-tail,
+  proportional, categorical, temporal, and circular families, fed by a single
+  registry that drives both the AI-facing catalog and an allowlist dispatcher (no
+  `get` / `eval` / `match.fun` on a model-supplied name). All internal -- the
+  researcher never configures it.
+- **Methodology Assistant** (`R/methodology_assistant.R`): a Step 2.5 that runs
+  before coding. It articulates a relevance criterion (with on/off-focus examples
+  and a discrimination principle) that is injected into the coding prompt to fix
+  research-focus drift, and it interprets each metric/timestamp column --
+  choosing, by free-string request (NOT an enum/menu), which primitives are an
+  honest summary for that column and writing how to read them. All articulations
+  are archived (md + JSON) and can be pinned into config for replay-equivalent
+  re-runs.
+- **Report display** (Phase 61.4): a Methodology Setup section (relevance
+  criterion + per-metric interpretations + AI/pinned source badge), a per-subtheme
+  table showing each column's AI-chosen primitives with interpretation notes
+  (legacy Median(MAD)/Mean(SD) kept as a per-column fallback), and a per-theme
+  temporal panel computed from the AI's temporal primitives.
+- **Empirical re-validation** (Phase 61.5): on the real corpus + real API, the
+  focus-drift fix improved the on-focus theme ratio markedly, the metric
+  interpretations used type-appropriate primitives (robust / tail / zero-inflated
+  / bounded / temporal, never a naive mean+SD), the per-subtheme AI-primitive
+  table rendered live on a broad-focus run, and replay equivalence held. The
+  strict relevance criterion is a precision/breadth dial the researcher controls.
+
 ## Phase 60: theme-algorithm rewrite (multi-pass clustering + label-after-clustering)
 
 The Phase 59 Stage 2 smoke campaign found that the Phase 52 HAC + AI tree-walk
