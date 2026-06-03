@@ -51,3 +51,27 @@ test_that("per-subtheme table carries a small-n caveat on the legacy battery pat
   expect_match(html, "indicative, not precise", fixed = TRUE)  # ...with the small-n caveat
   expect_match(html, "the n is shown", fixed = TRUE)           # ...and nothing hidden
 })
+
+test_that("methodology appendix states the ACTUAL Mann-Whitney effect size (rank-biserial, not |Z|/sqrt(N)) [H1]", {
+  ap <- .pr_appendix(.pr_cfg())
+  # the production code computes rank-biserial 2U/(n1*n2)-1; the appendix must say so
+  expect_match(ap, "rank-biserial", fixed = TRUE)
+  # the retired (Phase-58-replaced) |Z|/sqrt(N) derivation must NOT reappear
+  expect_false(grepl("|Z|", ap, fixed = TRUE))
+})
+
+test_that(".build_thematic_section discloses 0 themes honestly instead of broken chunks [robustness]", {
+  # A 0-theme corpus (empty / 0 on-focus / Mode-3 no-codes-no-anomalies) must
+  # DISCLOSE rather than emit the theme-distribution / sentiment-by-theme chunks,
+  # which crash on the all-NA emerged_themes column and leave `## Error` boxes.
+  sec <- .build_thematic_section(theme_stats = list(), theme_order = character(0),
+                                 n_themes = 0L, export_files = list(), config = NULL)
+  expect_match(sec, "No themes emerged", fixed = TRUE)
+  expect_false(grepl("theme-distribution", sec, fixed = TRUE))  # the crashing chunk is gone
+  expect_false(grepl("strsplit", sec, fixed = TRUE))
+  expect_false(grepl("```{r", sec, fixed = TRUE))               # no executable chunks at all
+  # also fires defensively when n_themes is reported but theme_order is empty
+  sec2 <- .build_thematic_section(theme_stats = list(), theme_order = character(0),
+                                  n_themes = 5L, export_files = list(), config = NULL)
+  expect_match(sec2, "No themes emerged", fixed = TRUE)
+})

@@ -1394,6 +1394,24 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 
 .build_thematic_section <- function(theme_stats, theme_order, n_themes, export_files,
                                      config = NULL) {
+  # Honest-failure guard (robustness audit): a corpus that yields ZERO themes
+  # (empty corpus, 0 on-focus entries, or a Mode-3 run with no matched
+  # constructs and no anomalies) must DISCLOSE that rather than emit the
+  # theme-distribution / sentiment-by-theme chunks, which crash on the all-NA
+  # emerged_themes column (read back as logical -> strsplit error) and leave
+  # `## Error` boxes in the published report's headline section.
+  if (is.null(n_themes) || length(n_themes) == 0L || is.na(n_themes) ||
+      n_themes < 1L || length(theme_order) == 0L) {
+    return(paste0(
+      "# Thematic Analysis\n\n",
+      "No themes emerged from this corpus. This is an honest outcome rather than ",
+      "an error: it typically means no entries were on-focus for the stated ",
+      "research question (see the Corpus Coverage and Saturation sections for the ",
+      "coded / examined / sampled counts), or a Mode-3 framework matched no ",
+      "constructs. No theme distribution, per-theme statistics, or sentiment-by-",
+      "theme comparison is shown because there are no themes to summarize.\n\n"
+    ))
+  }
   # Phase 58 Tier 5 C-3: top-N inlining + tabular index for remainder.
   # Themes beyond max_inline_themes are rendered as compact one-line
   # rows linking to their per-theme detail HTMLs. Default 30 keeps the
@@ -1840,8 +1858,8 @@ generate_report <- function(data, theme_set, correlations_df, insights,
             .html_esc(badge)),
     paste0('<p>Before coding, the AI analyst articulated how to focus this ',
            'study and how to honestly summarize each measured column. These ',
-           'decisions are recorded here for peer review and can be pinned for a ',
-           'replay-equivalent confirmatory run.</p>')
+           'decisions are recorded here for peer review and can be pinned to ',
+           're-apply the same methodology choices in a confirmatory run.</p>')
   )
 
   if (has_criterion) {
@@ -3414,7 +3432,8 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
       "is selected per variable pair based on variable types. Binary-binary pairs use ",
       "Pearson (phi coefficient), binary-continuous pairs use Pearson (point-biserial), ",
       "continuous pairs use Pearson if both pass Shapiro-Wilk normality test (otherwise Spearman), ",
-      "and ordinal pairs use Spearman rank correlation.\n\n"
+      "and any pair involving an ordinal variable (e.g. AI-elicited sentiment / intensity scores) ",
+      "uses Spearman rank correlation.\n\n"
     )
   }
 
@@ -3461,8 +3480,11 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
         )
       }
       content <- paste0(content,
-        "\n*Call-site override: pinned regardless of config to ensure ",
-        "deterministic re-runs.\n\n"
+        "\n*Call-site override: temperature pinned to 0 regardless of config to ",
+        "minimize run-to-run variance. Note: LLM inference is not guaranteed ",
+        "bit-identical across runs (especially on providers without a seed ",
+        "parameter), and coding / sentiment / insight / synthesis run at higher ",
+        "temperatures and are non-deterministic by design.\n\n"
       )
     }
   }
@@ -3475,19 +3497,25 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "binary (0/1) membership with continuous variables, researchers may also consider ",
     "Pearson correlation (equivalent to point-biserial correlation) as an alternative. ",
     "The `method` parameter in the configuration allows switching between methods.\n\n",
-    "**Multiple testing:** Bonferroni correction is applied within the correlation analysis ",
-    "to control family-wise error rate. However, the full analysis pipeline involves ",
+    "**Multiple testing:** Bonferroni and BH-FDR corrections are applied within the ",
+    "correlation analysis over the SUBSTANTIVE variable pairs only -- circular / ",
+    "analyst-internal pairs are excluded from the correction family and reported ",
+    "separately with their raw p-values. However, the full analysis pipeline involves ",
     "multiple sequential decision points (saturation arbitration via the Phase 56 AI ",
     "judge, per-pass theme clustering via ", theme_algo_short, ", and ",
     "deterministic theme cascading). Each decision introduces potential for cumulative ",
     "error. Readers should interpret individual findings within this context and ",
     "prioritize patterns that replicate across runs.\n\n",
     "**Theme group comparisons:** Mann-Whitney U tests (non-parametric) compare continuous ",
-    "variables between theme members and non-members. Effect size is computed as ",
-    "r = |Z| / sqrt(N). P-values are Bonferroni-adjusted across all tests.\n\n",
+    "variables between theme members and non-members. Effect size is the rank-biserial ",
+    "correlation, r = 2U/(n1*n2) - 1 (range -1 to 1; the sign indicates the direction of ",
+    "the difference, the magnitude follows Cohen's r conventions). P-values are ",
+    "Bonferroni-adjusted across all tests.\n\n",
     "**Theme co-occurrence:** Chi-square tests of independence assess whether theme pairs ",
-    "co-occur more or less often than expected by chance. Fisher's exact test is substituted ",
-    "when any expected cell frequency falls below 5. Effect size is reported as Cramer's V.\n\n"
+    "co-occur more or less often than expected by chance (computed without Yates' continuity ",
+    "correction, so Cramer's V is the primary effect-size signal). Fisher's exact test is ",
+    "substituted when any expected cell frequency falls below 5. Effect size is reported as ",
+    "Cramer's V.\n\n"
   )
 
   # Excerpt verification results

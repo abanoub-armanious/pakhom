@@ -4,14 +4,19 @@
 \alias{.fisher_z_ci}
 \title{Compute confidence interval for a correlation using Fisher z-transformation}
 \usage{
-.fisher_z_ci(r, n, conf_level = 0.95)
+.fisher_z_ci(r, n, conf_level = 0.95, method = "pearson")
 }
 \arguments{
 \item{r}{Observed correlation coefficient}
 
-\item{n}{Number of observations}
+\item{n}{Number of observations. Use the PAIRWISE-complete count (not the
+full table) when the data carry missing values, since the matrix is
+computed with use = "pairwise.complete.obs".}
 
 \item{conf_level}{Confidence level (default 0.95)}
+
+\item{method}{Correlation method ("pearson" default, or "spearman"); selects
+the standard-error formula.}
 }
 \value{
 Numeric vector of length 2: c(lower, upper), or c(NA, NA) if n < 4
@@ -19,6 +24,10 @@ Numeric vector of length 2: c(lower, upper), or c(NA, NA) if n < 4
 \description{
 Approximates a confidence interval when cor.test does not provide one
 (i.e., for Spearman and Kendall correlations). Uses the Fisher
-z-transformation: z = atanh(r), SE = 1/sqrt(n-3), then back-transforms.
+z-transformation z = atanh(r), back-transformed via tanh. The standard
+error is method-aware: Pearson (incl. point-biserial / phi) uses the
+classic 1/sqrt(n-3); Spearman uses the Bonett & Wright (2000) standard
+error sqrt((1 + r^2/2)/(n-3)), which is wider -- so rank-based CIs are
+not anti-conservative.
 }
 \keyword{internal}

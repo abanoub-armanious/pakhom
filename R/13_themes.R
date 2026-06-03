@@ -23,8 +23,8 @@
 #
 # Entry-to-theme cascade is deterministic (cascade_theme_assignments below):
 # each entry is mapped to themes/subthemes via its assigned codes, with no
-# AI re-reading of raw text. Replay-equivalent given (provider, seed,
-# audit_log).
+# AI re-reading of raw text -- given a fixed coding_state it reproduces
+# exactly (pure R; the upstream coding that produced the codes is not).
 #
 # REWRITE-DIRECTION COMMITMENTS HONORED IN THIS FILE:
 #   - C1 (AI decides when to stop): no hardcoded n_themes, max_themes,
@@ -1098,11 +1098,13 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
   )
 
   result <- tryCatch({
-    # temperature = 0: replay-equivalence (AC4 / AC10) requires deterministic
-    # AI calls. The provider-level theming temperature default is 0.4
-    # (default_config.yaml:143), which would make Phase 52 non-deterministic
-    # across reruns of the same corpus. Pass 0 explicitly so themes.json is
-    # bit-identical given a fixed (provider, response_cache, distance matrix).
+    # temperature = 0: pin the theming calls to temperature 0 to MINIMIZE
+    # run-to-run variance (the provider-level theming default is 0.4, which
+    # would add avoidable non-determinism). Temperature 0 is best-effort, not a
+    # guarantee -- LLM inference can still vary across runs (especially on
+    # providers without a seed parameter); true bit-identical replay is reached
+    # only by replaying cached responses by prompt_hash (the planned
+    # replay_run(), OS.5), for which temp-0 is the right prerequisite.
     ai_result <- ai_complete(provider, prompt, system_prompt,
                               task = "theming",
                               temperature = 0,

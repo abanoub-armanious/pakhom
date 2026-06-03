@@ -513,12 +513,18 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
         ci <- c(NA_real_, NA_real_)
         if (!is.null(corr_data)) {
           ci <- tryCatch({
-            ct <- cor.test(corr_data[[rownames(cm)[i]]], corr_data[[colnames(cm)[j]]],
-                           method = pair_method, conf.level = 0.95)
+            xj <- corr_data[[rownames(cm)[i]]]
+            yj <- corr_data[[colnames(cm)[j]]]
+            ct <- cor.test(xj, yj, method = pair_method, conf.level = 0.95)
             if (!is.null(ct$conf.int)) {
               c(ct$conf.int[1], ct$conf.int[2])
             } else {
-              .fisher_z_ci(r, nrow(corr_data), conf_level = 0.95)
+              # cor.test returns no CI for Spearman/Kendall -> Fisher-z fallback,
+              # using the PAIRWISE-complete n (the matrix is pairwise.complete.obs,
+              # so the full row count would overstate n) and the method-appropriate
+              # standard error (M1 hardening).
+              n_pair <- sum(stats::complete.cases(xj, yj))
+              .fisher_z_ci(r, n_pair, conf_level = 0.95, method = pair_method)
             }
           }, error = function(e) c(NA_real_, NA_real_))
         }
@@ -601,6 +607,39 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
                       df$var2[df$excluded_from_findings],
                       df$exclusion_reason[df$excluded_from_findings]), collapse = ", ")))
     }
+  }
+  # Phase 63 hardening (M2): re-scope the multiple-comparison family to the
+  # SUBSTANTIVE (non-excluded) pairs. calculate_correlations runs the
+  # BH/Bonferroni adjustment over the FULL matrix, BEFORE the circular /
+  # within-instrument pairs are flagged above; those artifact pairs carry
+  # tiny p-values by construction and would contaminate the family (under BH,
+  # inflating the count of small p-values and pulling genuine pairs below the
+  # FDR threshold; under Bonferroni, over-penalizing every pair). Recompute
+  # both adjustments over the kept pairs' RAW p-values so the reported adjusted
+  # p-values + significance reflect the correct family. Excluded pairs keep
+  # their real raw p in the exported matrix but get NA adjusted p (they belong
+  # to no findings family). When there are no excluded pairs the family was
+  # already correct, so this branch is a no-op (byte-identical) for those runs.
+  if (nrow(df) > 0L && "excluded_from_findings" %in% names(df) &&
+      "p_raw" %in% names(df) && any(df$excluded_from_findings)) {
+    keep <- !df$excluded_from_findings & !is.na(df$p_raw)
+    df$p_bh         <- NA_real_
+    df$p_bonferroni <- NA_real_
+    if (any(keep)) {
+      df$p_bh[keep]         <- stats::p.adjust(df$p_raw[keep], method = "BH")
+      df$p_bonferroni[keep] <- stats::p.adjust(df$p_raw[keep], method = "bonferroni")
+    }
+    # Recompute `significant` from the re-scoped adjustment that p_adjusted
+    # represents (Bonferroni by default; detected by object identity so a
+    # configured adjust_method = BH / raw is honored). Excluded pairs stay FALSE.
+    sel <- if (!is.null(p_adj)) {
+      if (!is.null(p_adj$bh) && identical(pa, p_adj$bh)) "bh"
+      else if (!is.null(p_adj$raw) && identical(pa, p_adj$raw)) "raw"
+      else "bonferroni"
+    } else "bonferroni"
+    sig_p <- switch(sel, bh = df$p_bh, raw = df$p_raw, df$p_bonferroni)
+    df$significant <- keep & !is.na(sig_p) & (sig_p < p_threshold)
+    df$p_value <- sig_p  # back-compat alias (= the adjusted p used for significance)
   }
   n_sig <- sum(df$significant)
   n_meaningful <- sum(df$meaningful_effect, na.rm = TRUE)
@@ -756,6 +795,12 @@ create_correlation_plot <- function(results, output_path,
   orig_var_names <- rownames(cm) %||% colnames(cm)
   excluded_mat <- .build_excluded_pair_matrix(orig_var_names, excluded_pairs)
   n_excluded_shown <- sum(excluded_mat[upper.tri(excluded_mat)])
+
+  # M2 consistency: overlay the re-scoped (family-corrected) adjusted p-values
+  # so the heatmap/lollipop significance matches the report correlation table.
+  # Uses the ORIGINAL variable names (the df's var names), before the humanizing
+  # below; a no-op (byte-identical) when nothing was excluded.
+  pa <- .rescope_plot_pvalues(pa, orig_var_names, excluded_pairs)
 
   # Humanize variable names for the plot
   .humanize_var <- function(x) {
@@ -1014,6 +1059,37 @@ create_correlation_plot <- function(results, output_path,
   pa
 }
 
+#' Overlay re-scoped (family-corrected) adjusted p-values onto the plot p-matrix
+#'
+#' extract_significant re-scopes the BH/Bonferroni multiple-comparison family to
+#' the non-excluded (substantive) pairs (M2). The plot otherwise reads the
+#' full-matrix \code{results$p_adjusted}, so a kept pair near the threshold could
+#' read n.s. on the heatmap/lollipop while the report TABLE (which uses the
+#' re-scoped df) calls it significant. This overlays the df's re-scoped adjusted
+#' p (\code{p_value}) onto the plot matrix for kept pairs, keeping figure and
+#' table consistent. Excluded pairs are left untouched (blanked separately via
+#' [.mask_excluded_pvalues()]). A NULL / schema-incomplete df leaves the matrix
+#' unchanged (byte-identical, e.g. when nothing was excluded).
+#'
+#' @param pa Adjusted-p matrix aligned to the correlation matrix (original names).
+#' @param var_names Character vector of the matrix's ORIGINAL variable names.
+#' @param rescoped_df The [extract_significant()] data frame (var1, var2, p_value).
+#' @return The p-matrix with kept pairs' re-scoped adjusted p overlaid.
+#' @keywords internal
+.rescope_plot_pvalues <- function(pa, var_names, rescoped_df) {
+  if (is.null(pa) || is.null(rescoped_df) ||
+      !all(c("var1", "var2", "p_value") %in% names(rescoped_df))) return(pa)
+  idx <- stats::setNames(seq_along(var_names), var_names)
+  for (k in seq_len(nrow(rescoped_df))) {
+    i <- idx[[rescoped_df$var1[k]]]; j <- idx[[rescoped_df$var2[k]]]
+    pv <- rescoped_df$p_value[k]
+    if (!is.null(i) && !is.null(j) && !is.na(pv)) {
+      pa[i, j] <- pv; pa[j, i] <- pv
+    }
+  }
+  pa
+}
+
 #' Rank + classify correlation pairs for the lollipop chart
 #'
 #' Pure data prep for [.create_correlation_lollipop()]: extracts the
@@ -1260,17 +1336,29 @@ create_theme_network <- function(data, theme_set, output_path = "theme_network.p
 #'
 #' Approximates a confidence interval when cor.test does not provide one
 #' (i.e., for Spearman and Kendall correlations). Uses the Fisher
-#' z-transformation: z = atanh(r), SE = 1/sqrt(n-3), then back-transforms.
+#' z-transformation z = atanh(r), back-transformed via tanh. The standard
+#' error is method-aware: Pearson (incl. point-biserial / phi) uses the
+#' classic 1/sqrt(n-3); Spearman uses the Bonett & Wright (2000) standard
+#' error sqrt((1 + r^2/2)/(n-3)), which is wider -- so rank-based CIs are
+#' not anti-conservative.
 #'
 #' @param r Observed correlation coefficient
-#' @param n Number of observations
+#' @param n Number of observations. Use the PAIRWISE-complete count (not the
+#'   full table) when the data carry missing values, since the matrix is
+#'   computed with use = "pairwise.complete.obs".
 #' @param conf_level Confidence level (default 0.95)
+#' @param method Correlation method ("pearson" default, or "spearman"); selects
+#'   the standard-error formula.
 #' @return Numeric vector of length 2: c(lower, upper), or c(NA, NA) if n < 4
 #' @keywords internal
-.fisher_z_ci <- function(r, n, conf_level = 0.95) {
+.fisher_z_ci <- function(r, n, conf_level = 0.95, method = "pearson") {
   if (n < 4 || is.na(r) || abs(r) >= 1) return(c(NA_real_, NA_real_))
   z <- atanh(r)
-  se <- 1 / sqrt(n - 3)
+  se <- if (identical(method, "spearman")) {
+    sqrt((1 + r^2 / 2) / (n - 3))
+  } else {
+    1 / sqrt(n - 3)
+  }
   alpha <- 1 - conf_level
   z_crit <- qnorm(1 - alpha / 2)
   lower <- tanh(z - z_crit * se)

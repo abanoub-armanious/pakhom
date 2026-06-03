@@ -7,7 +7,8 @@ methodologically-distinct operating modes (reflexive, codebook, framework). Meth
 codified at the **architectural** level — the AI's role is shaped by the mode
 you declare, not by user discipline at the configuration level. Every output
 carries the methodology stamp, every AI-attributed verbatim claim is verified
-against the source corpus, and every run can be replay-equivalent.
+against the source corpus, and every run is fully auditable and comparable
+across re-runs (same data, config, framework, and provider).
 
 You give it your data, your research question, and the methodological posture
 you've chosen. It gives you back a complete thematic analysis — themes, codes,
@@ -174,9 +175,10 @@ voice. The author is Coptic Egyptian.
   articulates a relevance criterion that keeps coding on-focus, and for each
   numeric / timestamp column chooses, by free-form request (never a fixed
   menu), which computational primitives are an honest summary -- a right-skewed
-  count gets a median + tail measures, not a mean+SD. Choices are archived for
-  replay-equivalent re-runs, backed by a ~45-primitive backend catalog the
-  researcher never has to configure
+  count gets a median + tail measures, not a mean+SD. Choices are archived and
+  can be pinned to re-apply the same metric interpretations in a confirmatory
+  re-run, backed by a ~45-primitive backend catalog the researcher never has to
+  configure
 - **Credibility / honesty layer** -- the report is built to survive review:
   metrics are judged substantive vs source/platform metadata and grouped
   accordingly (Phase 62.1); circular correlations between two AI codings of the

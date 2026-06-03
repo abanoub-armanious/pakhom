@@ -9,8 +9,8 @@ load_pinned_methodology(inferred_block, research_focus = NULL)
 \description{
 Reconstructs a \code{MethodologyArticulations} from a
 \code{config$study$inferred_methodology} block (copied from a prior run's
-\code{methodology_articulations.json}). No AI call -- this is the
-replay-equivalent path (R7). Warns about any pinned primitive the catalog
+\code{methodology_articulations.json}). No AI call -- this re-applies the
+pinned methodology decisions deterministically (R7). Warns about any pinned primitive the catalog
 lacks (fail-honest, consistent with the discovery path).
 }
 \keyword{internal}

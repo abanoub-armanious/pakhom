@@ -344,8 +344,11 @@ the coding prompt to keep coding on-focus) and, for each numeric or timestamp
 column, decides which computational primitives are an *honest* summary -- a
 right-skewed count is summarised by a median and tail measures, not a mean+SD; a
 bounded ratio is not treated as an unbounded count. These choices are free-form
-(the AI is never handed a fixed menu to pick from) and archived, so a run can be
-replayed deterministically.
+(the AI is never handed a fixed menu to pick from) and archived, so the
+methodology decisions can be re-applied deterministically on a re-run (via
+`config$study$inferred_methodology`, which removes those AI calls from the loop)
+-- though the coding, sentiment and synthesis steps still query the model and
+are not bit-reproducible.
 
 **The honesty layer.** The report is built to be trustworthy under review:
 
@@ -609,9 +612,9 @@ Every finalized run carries `run_metadata.json` with:
 - `parent_run_id` + `mode_changed_from` (when the run was forked from another)
 - `analysis_schema_version` (output column schema; `compare_runs()` uses this to refuse cross-schema comparisons)
 
-This metadata is the contract that makes pakhom runs **replay-equivalent**:
-two runs against the same data + config + framework hash + provider should
-produce comparable artifacts. Cross-mode comparisons via `compare_runs()`
+This metadata is the contract that makes pakhom runs **auditable and
+comparable across re-runs**: two runs against the same data + config +
+framework hash + provider produce comparable (not bit-identical) artifacts. Cross-mode comparisons via `compare_runs()`
 or `compare_models()` route off these fields.
 
 ## The two commitment families (AC1–AC10 + C1–C8)

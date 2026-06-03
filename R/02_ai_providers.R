@@ -350,10 +350,10 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 
   # Phase 59 Stage 2 audit: pass OpenAI's `seed` field for best-effort
   # determinism. OpenAI's docs say `seed` is best-effort given a stable
-  # `system_fingerprint`; we log the returned fingerprint in the audit
-  # row (see below) so a divergent fingerprint between runs is
-  # explicitly visible. Default 42 to match the R-side test_mode seed;
-  # users can override via config$ai$openai$seed.
+  # `system_fingerprint`; that fingerprint is preserved inside the cached
+  # raw_response (when capture_raw_responses is on), where a divergent
+  # fingerprint between runs can be inspected. Default 42 to match the R-side
+  # test_mode seed; users can override via config$ai$openai$seed.
   openai_seed <- provider$openai_seed %||%
                  (if (is.list(provider$config)) provider$config$ai$openai$seed) %||%
                  42L

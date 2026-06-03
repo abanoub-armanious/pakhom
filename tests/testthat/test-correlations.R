@@ -147,6 +147,59 @@ test_that("extract_significant flags affect x theme-membership pairs excluded_fr
   expect_false(subst$excluded_from_findings)
 })
 
+test_that(".fisher_z_ci uses a wider, method-appropriate SE for Spearman (M1)", {
+  cip <- .fisher_z_ci(0.8, 30, method = "pearson")
+  cis <- .fisher_z_ci(0.8, 30, method = "spearman")
+  expect_gt(diff(cis), diff(cip))  # Spearman CI strictly wider (not anti-conservative)
+  # exact Bonett-Wright value: se = sqrt((1 + r^2/2)/(n-3))
+  r <- 0.8; n <- 30; z <- atanh(r); se <- sqrt((1 + r^2 / 2) / (n - 3))
+  expect_equal(cis, c(round(tanh(z - qnorm(0.975) * se), 3),
+                      round(tanh(z + qnorm(0.975) * se), 3)))
+  expect_true(all(is.na(.fisher_z_ci(0.8, 3, method = "spearman"))))  # n < 4 guard
+  expect_equal(.fisher_z_ci(0.5, 50), .fisher_z_ci(0.5, 50, method = "pearson"))  # default = pearson
+})
+
+test_that("extract_significant re-scopes the BH/Bonferroni family to non-excluded pairs (M2)", {
+  # Circular / within-instrument artifact pairs carry tiny p-values by
+  # construction; they must be EXCLUDED from the multiple-comparison family so a
+  # genuine pair's adjusted p reflects only the substantive tests.
+  set.seed(23)
+  n <- 120
+  cd <- tibble::tibble(sentiment_score = rnorm(n), emotion_intensity = rnorm(n))
+  cd$emotion_intensity <- -cd$sentiment_score + rnorm(n, 0, 0.2)      # within-instrument artifact
+  cd$theme_membership_A <- as.integer(cd$sentiment_score < 0)          # affect-defined theme
+  cd$score <- rnorm(n)                                                 # external metadata
+  cd$num_comments <- cd$score * 0.25 + rnorm(n, 0, 1)                  # a real, modest pair
+  res <- suppressWarnings(calculate_correlations(cd, method = "spearman"))
+  sig <- extract_significant(res, p_threshold = 0.05)
+  excl <- sig[sig$excluded_from_findings, , drop = FALSE]
+  kept <- sig[!sig$excluded_from_findings & !is.na(sig$p_raw), , drop = FALSE]
+  expect_gt(nrow(excl), 0L)
+  expect_gt(nrow(kept), 1L)
+  # excluded pairs are out of the family: NA adjusted p + never significant
+  expect_true(all(is.na(excl$p_bh)))
+  expect_true(all(is.na(excl$p_bonferroni)))
+  expect_true(all(!excl$significant))
+  # kept pairs' adjusted p == p.adjust over ONLY the kept (substantive) raw p's
+  expect_equal(kept$p_bh, p.adjust(kept$p_raw, method = "BH"))
+  expect_equal(kept$p_bonferroni, p.adjust(kept$p_raw, method = "bonferroni"))
+})
+
+test_that(".rescope_plot_pvalues overlays the re-scoped adjusted p so the plot matches the table (M2 figure consistency)", {
+  vars <- c("a", "b", "c")
+  pa <- matrix(0.001, 3, 3, dimnames = list(vars, vars)); diag(pa) <- 1  # full-family: all tiny
+  df <- data.frame(var1 = c("a", "a", "b"), var2 = c("b", "c", "c"),
+                   p_value = c(0.20, NA_real_, 0.04),  # a~b re-scoped n.s.; a~c excluded (NA); b~c sig
+                   stringsAsFactors = FALSE)
+  out <- .rescope_plot_pvalues(pa, vars, df)
+  expect_equal(out["a", "b"], 0.20); expect_equal(out["b", "a"], 0.20)  # kept pair -> re-scoped p overlaid
+  expect_equal(out["b", "c"], 0.04)
+  expect_equal(out["a", "c"], 0.001)  # NA p_value (excluded) -> untouched here (blanked separately)
+  # no-op on NULL / schema-incomplete df (byte-identical, e.g. nothing excluded)
+  expect_identical(.rescope_plot_pvalues(pa, vars, NULL), pa)
+  expect_identical(.rescope_plot_pvalues(pa, vars, data.frame(x = 1)), pa)
+})
+
 # --- Dynamic method selection tests ---
 
 test_that("detect_variable_types identifies binary/ordinal/continuous", {

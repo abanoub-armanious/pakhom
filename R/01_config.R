@@ -482,7 +482,8 @@ print.ThematicConfig <- function(x, ...) {
 
     # Audit configuration (T1.4 / OS.5 -- raw-response capture for replay_run).
     # Defaults are conservative; users running in cost-sensitive environments
-    # can disable raw response capture but lose replay_run() reproducibility.
+    # can disable raw response capture but forfeit the cached responses the
+    # planned replay_run() (OS.5) will need.
     audit = list(
       capture_raw_responses = TRUE,
       response_cache_dir = "api_responses"
@@ -509,8 +510,9 @@ print.ThematicConfig <- function(x, ...) {
       # Phase 61: replay-pin for the Methodology Assistant (Step 2.5). NULL =
       # the AI articulates the relevance criterion + per-metric interpretations
       # live; a non-NULL block (copied from a prior run's
-      # methodology_articulations.json) skips the AI calls and drives the run
-      # deterministically from the pinned articulations (replay equivalence, R7).
+      # methodology_articulations.json) skips those Step-2.5 AI calls and
+      # re-applies the pinned methodology decisions deterministically (the rest
+      # of the run -- coding, sentiment, synthesis -- still queries the model).
       inferred_methodology = NULL
     ),
 
