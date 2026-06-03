@@ -2084,13 +2084,30 @@ generate_report <- function(data, theme_set, correlations_df, insights,
         # primitive absent from this subtheme renders "n/a". The cell count
         # always equals length(plan primitives), so rows stay header-aligned.
         reqs <- s$ai_metric_stats[[mc]]$requested %||% list()
+        floor_n <- suppressWarnings(as.integer(
+          s$ai_metric_stats[[mc]]$min_reliable_n %||% NA))
         used <- rep(FALSE, length(reqs))
         for (pn in plan[[mc]]$primitives) {
           hit <- which(!used & vapply(reqs, function(r)
             identical(as.character(r$primitive %||% NA_character_)[1], pn),
             logical(1)))
           prec <- if (length(hit) > 0L) { used[hit[1]] <- TRUE; reqs[[hit[1]]] } else NULL
-          cells <- c(cells, .format_primitive_result(prec))
+          cell <- .format_primitive_result(prec)
+          # Phase 62.5d: MARK a spread/shape statistic computed on fewer entries
+          # than the analyst's per-column reliability floor (min_reliable_n). The
+          # value + its n stay shown -- this marks, it does not gate/hide. The
+          # threshold is the AI's number (not a package cutoff); only dispersion/
+          # shape estimators are eligible (robust centers + counts are never marked).
+          n_obs <- suppressWarnings(as.integer(prec$n_observed %||% NA))
+          if (!is.null(prec) && isTRUE(prec$available) &&
+              .metric_primitive_small_n_sensitive(pn) &&
+              !is.na(floor_n) && floor_n > 0L &&
+              !is.na(n_obs) && n_obs < floor_n) {
+            cell <- paste0(cell, sprintf(
+              "<sup class=\"smalln-flag\" title=\"n=%d below the analyst's reliability floor of %d for this spread/shape measure; read as indicative\">&dagger;</sup>",
+              n_obs, floor_n))
+          }
+          cells <- c(cells, cell)
         }
       } else {
         mstats <- s$metric_stats[[mc]] %||% list()
@@ -2160,6 +2177,19 @@ generate_report <- function(data, theme_set, correlations_df, insights,
         "<ul>", paste(note_items, collapse = ""), "</ul>\n</div>\n")
   }
 
+  # Phase 62.5d: footnote explaining the small-n marker, shown only when at least
+  # one spread/shape cell was marked. Explain-don't-gate: nothing is suppressed,
+  # and the threshold is the analyst's per-column number, not a fixed cutoff.
+  smalln_footnote <- if (any(grepl("class=\"smalln-flag\"", body_rows, fixed = TRUE))) {
+    paste0(
+      "<p class=\"smalln-footnote\"><sup>&dagger;</sup> A spread or distribution-",
+      "shape statistic (e.g. SD, MAD, IQR, skewness) computed on fewer entries ",
+      "than the analyst judged necessary for a reliable estimate of that measure ",
+      "for this column. Read it as indicative, not precise &mdash; the value and ",
+      "its n are shown (nothing is suppressed), and the threshold is the analyst's ",
+      "per-column judgement, not a fixed cutoff.</p>\n")
+  } else ""
+
   paste0(
     "<h3>Subthemes (per-subtheme summary)</h3>\n\n",
     caption,
@@ -2168,6 +2198,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     "<thead>", header_row, "</thead>\n",
     "<tbody>", paste(body_rows, collapse = "\n"), "</tbody>\n",
     "</table>\n</div>\n\n",
+    smalln_footnote,
     notes_html
   )
 }

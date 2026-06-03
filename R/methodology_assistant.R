@@ -81,6 +81,13 @@
 # discovery responses never set args and `args` stays an empty list. The
 # pinned-replay block (config$study$inferred_methodology, NOT schema-constrained)
 # CAN set args, and they must survive coercion or replay silently loses them.
+# Phase 62.5d: coerce the AI's per-column reliability floor to a non-negative
+# integer, or NA when absent/invalid (a pre-62.5d pinned block, or a non-number).
+.coerce_reliable_floor <- function(x) {
+  v <- suppressWarnings(as.integer(x %||% NA))
+  if (length(v) != 1L || is.na(v) || v < 0L) NA_integer_ else v
+}
+
 .coerce_column_record <- function(rec) {
   if (is.null(rec) || !is.list(rec) || is.null(rec$column_name)) return(NULL)
   prims <- lapply(.as_record_list(rec$requested_primitives, "primitive"), function(p) {
@@ -98,7 +105,10 @@
     # is the R7 replay back-compat hinge: an old inferred_methodology block
     # (pinned from a pre-62 run) lacks this field and must still load + replay
     # deterministically, defaulting to "" (no provenance framing rendered).
-    metric_provenance   = as.character(rec$metric_provenance %||% "")[1]
+    metric_provenance   = as.character(rec$metric_provenance %||% "")[1],
+    # Phase 62.5d: the AI's per-column reliability floor (NA when absent, e.g. a
+    # pre-62.5d pinned block -> the report simply won't mark any cell as small-n).
+    min_reliable_n      = .coerce_reliable_floor(rec$min_reliable_n)
   )
 }
 
@@ -362,7 +372,11 @@ interpret_metrics <- function(data, research_focus, metric_cols = NULL,
     "variability statistics (MAD, IQR, SD) honestly when a per-theme subtheme ",
     "has FEW observations: state plainly that such spread is indicative, not ",
     "precise, at small n (the n is always shown beside each statistic and is ",
-    "never suppressed); (4) the column's PROVENANCE/RELEVANCE -- what it actually measures ",
+    "never suppressed). Also give a NUMERIC min_reliable_n for the column -- the ",
+    "subtheme size below which ITS spread/shape statistics (MAD/IQR/SD/skewness/ ",
+    "tail indices) should be read as indicative rather than reliable, reasoned ",
+    "from the column's own distribution; the report only MARKS such cells, it ",
+    "never hides a value; (4) the column's PROVENANCE/RELEVANCE -- what it actually measures ",
     "and whether it is a SUBSTANTIVE MEASURE OF THE PHENOMENON under study or ",
     "INCIDENTAL SOURCE/PLATFORM METADATA (e.g. upvotes, view/comment counts, IDs) ",
     "that reflects how the data was collected or received rather than the ",
@@ -400,7 +414,9 @@ interpret_metrics <- function(data, research_focus, metric_cols = NULL,
     "timestamp column in `temporal_columns` (each: column_name, ",
     "column_description, requested_primitives [primitive + rationale], ",
     "interpretation_note [include the small-n spread reliability caution], ",
-    "metric_provenance). Request only honest summaries."
+    "metric_provenance, min_reliable_n [integer: the entry count below which ",
+    "THIS column's spread/shape stats are merely indicative -- your per-column ",
+    "judgement]). Request only honest summaries."
   )
   # The RESPONSE carries one record (description + N primitives + rationales +
   # note) per column, so the token budget must scale with column count or a
@@ -556,6 +572,12 @@ load_pinned_methodology <- function(inferred_block, research_focus = NULL) {
   # copy-pasteable inferred_methodology block.
   if (nzchar(rec$metric_provenance %||% "")) {
     out$metric_provenance <- rec$metric_provenance
+  }
+  # Phase 62.5d: serialize the reliability floor only when set, so a pre-62.5d
+  # archive round-trips byte-identically and a populated one carries the floor
+  # into the copy-pasteable inferred_methodology block.
+  if (!is.na(rec$min_reliable_n %||% NA_integer_)) {
+    out$min_reliable_n <- rec$min_reliable_n
   }
   out
 }

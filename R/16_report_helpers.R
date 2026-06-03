@@ -340,6 +340,9 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
   list(
     column_description  = rec$column_description %||% "",
     interpretation_note = rec$interpretation_note %||% "",
+    # Phase 62.5d: carry the AI's per-column reliability floor so the renderer can
+    # MARK (not hide) spread/shape cells computed on fewer entries than this.
+    min_reliable_n      = rec$min_reliable_n %||% NA_integer_,
     requested           = stats_list
   )
 }

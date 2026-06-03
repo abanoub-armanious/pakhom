@@ -681,6 +681,42 @@ prim_shapiro_p <- function(x) {
   )
 }
 
+# ------------------------------------------------------------------------------
+# Phase 62.5d: small-n reliability classification (backend; NOT user config)
+# ------------------------------------------------------------------------------
+# Which primitives are dispersion / distribution-shape ESTIMATORS whose
+# reliability degrades at small n. This is a STATISTICAL property of the
+# estimator (a spread or higher-moment / tail statistic on a handful of points is
+# fragile), NOT a content classification the researcher supplies -- the same kind
+# of backend scaffolding as the registry's `family` field. Robust centers
+# (median / mean / mode, log_mean) and plain counts (n, n_unique) are deliberately
+# EXCLUDED. The per-column n THRESHOLD is never hardcoded: it is the AI analyst's
+# numeric judgement (min_reliable_n in .metric_intelligence_schema), and the
+# report only MARKS such cells (it never hides a value). A test asserts every
+# name here exists in the registry, so a rename can't silently orphan the set.
+.SMALL_N_SENSITIVE_PRIMITIVES <- c(
+  "prim_sd", "prim_mad", "prim_iqr", "prim_range_width", "prim_cv",    # spread
+  "prim_skewness", "prim_kurtosis_excess",                             # shape (not counts)
+  "prim_log_sd", "prim_outlier_count_iqr", "prim_max_to_median_ratio", # heavy-tail spread
+  "prim_shapiro_p"                                                     # normality test
+)
+
+#' Is a primitive a small-n-sensitive spread/shape estimator? (Phase 62.5d)
+#'
+#' Backend predicate for the per-subtheme reliability flag: TRUE for the
+#' dispersion / distribution-shape estimators in
+#' \code{.SMALL_N_SENSITIVE_PRIMITIVES}, FALSE for robust centers, counts,
+#' positions, proportions, temporal primitives, and any unknown name. Pure
+#' lookup; carries no threshold (the threshold is the AI's per-column
+#' \code{min_reliable_n}).
+#'
+#' @param primitive Character primitive name.
+#' @return Logical scalar.
+#' @keywords internal
+.metric_primitive_small_n_sensitive <- function(primitive) {
+  isTRUE(as.character(primitive)[1] %in% .SMALL_N_SENSITIVE_PRIMITIVES)
+}
+
 #' List the available metric primitives (the AI's catalog)
 #'
 #' The machine-readable catalog of computational primitives the Phase 61

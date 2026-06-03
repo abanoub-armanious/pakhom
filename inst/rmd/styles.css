@@ -1238,6 +1238,23 @@ table:not(.dataTable) tr:hover td {
   cursor: help;
 }
 
+/* Phase 62.5d: small-n reliability marker. A spread/shape statistic computed on
+ * fewer entries than the AI analyst's per-column floor (min_reliable_n) is
+ * MARKED with a dagger -- never hidden. The value + its n stay shown; the
+ * footnote and the cell's title attribute explain. Explain-don't-gate. */
+.smalln-flag {
+  color: #b9770e;          /* amber, matching the fail-honest gap marker */
+  font-weight: 600;
+  cursor: help;
+  margin-left: 1px;
+}
+.smalln-footnote {
+  font-size: 0.78rem;
+  color: var(--text-secondary, #5a6c7d);
+  margin: 0.15rem 0 1rem 0;
+  line-height: 1.4;
+}
+
 /* Per-column interpretation notes beneath the per-subtheme table. */
 .metric-interpretation-notes {
   margin: 0.25rem 0 1.25rem 0;

@@ -867,7 +867,7 @@
     additionalProperties = FALSE,
     required             = list("column_name", "column_description",
                                 "requested_primitives", "interpretation_note",
-                                "metric_provenance"),
+                                "metric_provenance", "min_reliable_n"),
     properties = list(
       column_name = list(type = "string",
                          description = "Exact column name as shown in the prompt."),
@@ -910,6 +910,28 @@
           "on few observations in small subthemes), say so. If the column's ",
           "meaning is unclear from its name and values, say that and treat it as ",
           "metadata pending researcher confirmation."
+        )
+      ),
+      # Phase 62.5d: AI-judged numeric reliability floor for THIS column's
+      # spread/shape summaries (NOT a package hardcode -- the AI's per-run number;
+      # the report MARKS, never hides, cells computed on fewer entries than this).
+      min_reliable_n = list(
+        type        = "integer",
+        description = paste0(
+          "The minimum number of observations (subtheme size) below which SPREAD ",
+          "and DISTRIBUTION-SHAPE summaries of THIS column -- SD, MAD, IQR, range, ",
+          "CV, skewness, kurtosis, tail indices, normality tests -- should be read ",
+          "as merely INDICATIVE rather than reliable. Reason from the column's own ",
+          "distribution: a heavy-tailed or strongly skewed column needs MORE ",
+          "observations before its spread/shape is trustworthy; a tight, ",
+          "well-behaved column needs fewer. This is YOUR judgement for this column. ",
+          "The report uses it only to MARK (never hide) spread/shape cells computed ",
+          "on fewer entries than this -- the value and its n are always shown. Use a ",
+          "small number (e.g. 1) if you judge no caution is warranted. Robust ",
+          "centers (median, mode) and plain counts are never marked, so this floor ",
+          "concerns the spread/shape measures only. For a timestamp column (where ",
+          "the report shows posting rhythms, not spread), a small number such as 1 ",
+          "is fine."
         )
       )
     )
