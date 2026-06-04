@@ -44,6 +44,14 @@ The codebase follows the tidyverse style guide. All `man/` pages are generated
 by roxygen2 (>= 7.3.3): edit the roxygen comments above each function, not the
 `.Rd` files.
 
+## Versioning
+
+The package is in pre-publication development, and its version is intentionally
+held at **1.0.0** (the planned initial-release version). Please do **not** bump
+the version number during this phase; record changes as dated entries in
+`NEWS.md` instead. The version changes only when the maintainer cuts the first
+published release.
+
 ## Code of conduct
 
 By participating in this project you agree to abide by its

@@ -1,5 +1,11 @@
 # pakhom 1.0.0
 
+> **Release status.** This is pakhom's initial release version. The package is in
+> pre-publication preparation (CRAN / JOSS submission pending); the version is
+> intentionally held at 1.0.0 throughout this pre-release development and will be
+> the version of the first published release. Development progress is tracked in
+> the dated entries below, not via version-number increments.
+
 ## Phase 63: report credibility, group/cluster wording, and the small-n reliability flag
 
 Phase 63 is an evidence-driven pass over the v2 output: a multi-run audit of
