@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: "pakhom: AI-Assisted Reflexive Thematic Analysis with Methodology-as-Architecture"
+title: "pakhom: AI-Assisted Thematic Analysis with Methodology-as-Architecture"
 message: >-
   If you use this package in research, please cite it using the metadata below.
 type: software
@@ -19,8 +19,8 @@ identifiers:
 repository-code: "https://github.com/abanoub-armanious/pakhom"
 url: "https://abanoub-armanious.github.io/pakhom/"
 abstract: >-
-  pakhom is an R package that conducts AI-assisted reflexive thematic
-  analysis with three methodologically-distinct operating modes (Reflexive
+  pakhom is an R package that conducts AI-assisted thematic analysis
+  across three methodologically-distinct operating modes (Reflexive
   Scaffold, Codebook Collaborative, Framework Applied). Methodology is
   codified at the architectural level: the AI's role is shaped by the
   mode declared in the config, not by user discipline at the configuration
@@ -40,7 +40,7 @@ keywords:
   - R package
 license: MIT
 version: 1.0.0
-date-released: 2026-05-04
+date-released: 2026-06-03
 references:
   - type: article
     authors:
@@ -50,24 +50,37 @@ references:
     journal: "Communications of the ACM"
     year: 2024
     month: 10
+    volume: 67
+    issue: 10
+    start: 18
+    end: 21
+    doi: "10.1145/3649404"
     notes: "Empirical motivation for Mode 1 (Reflexive Scaffold)."
   - type: article
     authors:
       - family-names: Jowsey
         given-names: Tanisha
-      - family-names: Braun
-        given-names: Virginia
-      - family-names: Clarke
-        given-names: Victoria
-      - family-names: Lupton
-        given-names: Deborah
-      - family-names: Fine
-        given-names: Michelle
+      - family-names: Stapleton
+        given-names: Peta
+      - family-names: Campbell
+        given-names: Shawna
+      - family-names: Davidson
+        given-names: Alexandra
+      - family-names: McGillivray
+        given-names: Cher
+      - family-names: Maugeri
+        given-names: Isabella
+      - family-names: Lee
+        given-names: Megan
+      - family-names: Keogh
+        given-names: Justin
     title: >-
-      A Frankenstein-like assemblage: An evaluation of Microsoft Copilot's
-      attempts at thematic analysis.
+      Frankenstein, thematic analysis and generative artificial intelligence:
+      Quality appraisal methods and considerations for qualitative research
     journal: "PLOS ONE"
     year: 2025
+    volume: 20
+    issue: 9
     doi: "10.1371/journal.pone.0330217"
     notes: "Empirical motivation for the Tier-0 transparency layer."
   - type: book

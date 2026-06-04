@@ -29,12 +29,13 @@ navbar:
       aria-label: LinkedIn
 
 home:
-  title: "pakhom: AI-Integrated Reflexive Thematic Analysis"
+  title: "pakhom: AI-Assisted Thematic Analysis with Methodology-as-Architecture"
   description: >
-    An R package that automates Braun & Clarke reflexive thematic analysis
-    using OpenAI or Anthropic APIs. Supports learning from prior manual
-    studies, checkpoint/resume, researcher review points, and
-    publication-quality HTML reports.
+    An R package for AI-assisted thematic analysis in three
+    methodologically-distinct modes (reflexive, codebook, framework) using
+    OpenAI or Anthropic APIs. Supports learning from prior manual studies,
+    checkpoint/resume, researcher review points, and publication-quality
+    HTML reports.
 
 reference:
   - title: "Run an Analysis"

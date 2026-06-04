@@ -2,9 +2,10 @@
 # Package-Level Documentation and Global Imports
 # ==============================================================================
 
-#' pakhom: AI-Assisted Reflexive Thematic Analysis
+#' pakhom: AI-Assisted Thematic Analysis with Methodology-as-Architecture
 #'
-#' Conducts AI-assisted reflexive thematic analysis with methodology
+#' Conducts AI-assisted thematic analysis -- reflexive, codebook, and
+#' framework modes -- with methodology
 #' codified at the architectural level. Three methodologically-distinct
 #' operating modes (Reflexive Scaffold, Codebook Collaborative,
 #' Framework Applied) shape the AI's role explicitly so the chosen

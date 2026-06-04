@@ -221,7 +221,8 @@ make_quote <- function(source_doc_id, source_doc_type, source_text,
 # returns char_location indices into the source document, and Anthropic
 # guarantees those indices are valid. Compare to free-form quote
 # generation where the model can produce text that looks plausible but
-# isn't in any source (the Frankenstein/Jowsey 2025 failure mode at 58%).
+# isn't in any source (the Frankenstein/Jowsey 2025 failure mode: 44.5% of
+# Microsoft Copilot's supporting quotes were fabricated).
 # ==============================================================================
 
 #' Construct a QuoteProvenance from a single Anthropic citation

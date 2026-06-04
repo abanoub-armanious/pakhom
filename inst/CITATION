@@ -2,7 +2,7 @@ citHeader("To cite pakhom in publications, use:")
 
 bibentry(
   bibtype  = "Manual",
-  title    = "pakhom: AI-Integrated Thematic Analysis Following Braun and Clarke",
+  title    = "pakhom: AI-Assisted Thematic Analysis with Methodology-as-Architecture",
   author   = person(given = c("Abanoub", "J."), family = "Armanious"),
   year     = "2026",
   note     = sprintf("R package version %s", meta$Version),

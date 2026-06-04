@@ -732,6 +732,14 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   if (!rmarkdown::pandoc_available()) {
     rstudio_pandoc <- "/Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/aarch64"
     if (dir.exists(rstudio_pandoc)) {
+      # CRAN politeness: set RSTUDIO_PANDOC only for this render and restore the
+      # caller's value on exit, rather than permanently mutating their session env.
+      old_pandoc <- Sys.getenv("RSTUDIO_PANDOC", unset = NA_character_)
+      on.exit(
+        if (is.na(old_pandoc)) Sys.unsetenv("RSTUDIO_PANDOC")
+        else Sys.setenv(RSTUDIO_PANDOC = old_pandoc),
+        add = TRUE
+      )
       Sys.setenv(RSTUDIO_PANDOC = rstudio_pandoc)
       log_info("Using RStudio-bundled pandoc: {rstudio_pandoc}")
     }
