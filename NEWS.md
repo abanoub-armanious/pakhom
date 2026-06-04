@@ -1406,10 +1406,12 @@ config, a progressive coding state), not the package brand.
 
 Phase B addresses the most-cited empirical critiques of LLM-for-TA tools
 via three "Frankenstein-derived" universal requirements (mandatory in all
-modes). The naming references Jowsey, Braun, Clarke, Lupton & Fine 2025
+modes). The naming references Jowsey, Stapleton, Campbell et al. 2025
 (PLOS One, doi:10.1371/journal.pone.0330217) which characterized
 Microsoft Copilot's failures as Frankenstein-like assemblage from
-disconnected fragments.
+disconnected fragments. (Distinct from the later position paper
+Jowsey, Braun, Clarke, Lupton & Fine 2025, Qualitative Inquiry,
+doi:10.1177/10778004251401851 — see the methodology phase below.)
 
 - **T0.1 part 1: Quote provenance + 4-step verification ladder** — new
   `R/quote_provenance.R` module with `make_quote()` constructor (deterministic
