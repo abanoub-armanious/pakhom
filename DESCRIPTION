@@ -2,7 +2,8 @@ Package: pakhom
 Title: AI-Assisted Thematic Analysis with Methodology-as-Architecture
 Version: 1.0.0
 Authors@R: person(given = c("Abanoub", "J."), family = "Armanious",
-    role = c("aut", "cre"), email = "armaniousabanoub@gmail.com")
+    role = c("aut", "cre"), email = "armaniousabanoub@gmail.com",
+    comment = c(ORCID = "0000-0002-7005-8297"))
 Description: Conducts AI-assisted thematic analysis across three
     methodologically-distinct operating modes (reflexive scaffold, codebook
     collaborative, framework applied). Methodology is codified at the
@@ -24,7 +25,7 @@ Description: Conducts AI-assisted thematic analysis across three
     honors Saint Pachomius the Great (c. 292-348 CE), whose written Rule
     of communal discipline established the genre of methodology-as-written-
     document, of which this package is a digital descendant. Development
-    assisted by Claude (Anthropic).
+    was assisted by AI-based coding tools.
 URL: https://github.com/abanoub-armanious/pakhom,
     https://abanoub-armanious.github.io/pakhom/
 BugReports: https://github.com/abanoub-armanious/pakhom/issues

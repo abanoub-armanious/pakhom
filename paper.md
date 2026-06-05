@@ -1,9 +1,8 @@
 <!--
 NOTE TO MAINTAINER, before any JOSS submission:
-  1. Replace the placeholder ORCID (0000-0000-0000-0000) with your real ORCID iD
-     (JOSS requires an ORCID for each author).
-  2. Set your `affiliation` (currently "Independent Researcher").
-  3. JOSS requires the software repository to be PUBLIC; make it public first.
+  1. ORCID is set below. Confirm the `affiliation` (currently "Independent
+     Researcher") is how you want to be listed, or set an institution.
+  2. JOSS requires the software repository to be PUBLIC; make it public first.
 This paper.md / paper.bib are excluded from the built package tarball via .Rbuildignore.
 -->
 ---
@@ -18,7 +17,7 @@ tags:
   - reproducibility
 authors:
   - name: Abanoub J. Armanious
-    orcid: 0000-0000-0000-0000
+    orcid: 0000-0002-7005-8297
     affiliation: 1
 affiliations:
   - name: Independent Researcher
@@ -142,6 +141,6 @@ practice [@braun2022thematic].
 
 The package name, *pakhom*, is the Coptic Egyptian form of Pachomius (c. 292–348 CE),
 whose written *Rule* of communal discipline established the genre of
-methodology-as-written-document. Development was assisted by Claude (Anthropic).
+methodology-as-written-document. Development was assisted by AI-based coding tools.
 
 # References

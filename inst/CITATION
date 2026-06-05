@@ -3,7 +3,8 @@ citHeader("To cite pakhom in publications, use:")
 bibentry(
   bibtype  = "Manual",
   title    = "pakhom: AI-Assisted Thematic Analysis with Methodology-as-Architecture",
-  author   = person(given = c("Abanoub", "J."), family = "Armanious"),
+  author   = person(given = c("Abanoub", "J."), family = "Armanious",
+                    comment = c(ORCID = "0000-0002-7005-8297")),
   year     = "2026",
   note     = sprintf("R package version %s", meta$Version),
   url      = "https://github.com/abanoub-armanious/pakhom"

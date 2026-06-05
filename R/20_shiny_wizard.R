@@ -275,7 +275,7 @@ config_wizard_app <- function(output_path = "config.yaml") {
       style = paste0("margin-top: 10px; padding: 10px 12px; background: #f0f7ff; ",
                      "border-left: 3px solid #4a90d9; border-radius: 4px; font-size: 0.9em;"),
       shiny::tags$strong("Your privacy. "),
-      "pakhom runs entirely on your own machine and collects no telemetry — ",
+      "pakhom runs entirely on your own machine and collects no telemetry, and ",
       "nothing about you or your data is sent to its authors. Your text is ",
       "transmitted only to the AI provider you select above (over HTTPS), and ",
       "solely to perform the analysis you request. Your API key is read from your ",

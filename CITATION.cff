@@ -8,7 +8,8 @@ authors:
     family-names: Armanious
     name-particle: J.
     email: armaniousabanoub@gmail.com
-    affiliation: ""
+    orcid: "https://orcid.org/0000-0002-7005-8297"
+    affiliation: "Independent Researcher"
 identifiers:
   - type: url
     value: "https://github.com/abanoub-armanious/pakhom"

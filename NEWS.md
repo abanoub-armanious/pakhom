@@ -427,7 +427,7 @@ new test expectations; six independent review angles all closed.**
    (`stringi` promotion, four user-visible local-TZ leaks, static
    UTC test comment-blindness, tier-count "11 tiers" vs "ten tiers"
    inconsistency) + four LOW. Closed in `ad7a70b`.
-4. **security-review** (Claude Code skill): zero findings at
+4. **security-review** (AI-assisted): zero findings at
    confidence >= 7 across HTML/XSS, XXE, path traversal, SQL
    injection, YAML deserialization, credential handling, JSON
    injection, code-execution sinks, command injection, and prompt

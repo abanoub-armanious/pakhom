@@ -516,7 +516,24 @@ reviewers.
 
 ## Author
 
-Developed by **[Abanoub J. Armanious, MS](https://www.linkedin.com/in/abanoubarmanious/)**.
+Developed by **Abanoub J. Armanious, MS**.
+
+- ORCID: <https://orcid.org/0000-0002-7005-8297>
+- GitHub: [@abanoub-armanious](https://github.com/abanoub-armanious)
+- Google Scholar: [profile](https://scholar.google.com/citations?user=dGC45ngAAAAJ&hl=en)
+- ResearchGate: [Abanoub-Armanious](https://www.researchgate.net/profile/Abanoub-Armanious)
+- LinkedIn: [abanoubarmanious](https://www.linkedin.com/in/abanoubarmanious)
+- Bug reports & questions: [GitHub issues](https://github.com/abanoub-armanious/pakhom/issues) or armaniousabanoub@gmail.com
+
+### A note from the author
+
+pakhom is the first R package I've built, developed over roughly two years. I've
+worked hard to make it rigorous and genuinely useful (including anti-fabrication
+checks, a transparency layer, and thousands of tests), but it's the work of one
+person learning as they go, and there will be rough edges. If you hit a bug, find
+something unclear, or have an idea, please contact me. I'll be grateful for your
+patience and your feedback, and I'll do my best to make pakhom better for the
+community.
 
 ## License
 
