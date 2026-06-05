@@ -289,12 +289,12 @@ minimal example:
 ```yaml
 study:
   name: "My Research Study"
-  research_focus: "How does medication affect the interplay between sleep and binge eating?"
-  research_context: "Online forum discussions from Reddit"
+  research_focus: "How does remote work affect employee wellbeing and work-life balance?"
+  research_context: "Online forum discussions"
   concepts:
-    - "medication"
-    - "sleep"
-    - "binge eating"
+    - "remote work"
+    - "wellbeing"
+    - "work-life balance"
 
 ai:
   provider: "openai"
@@ -314,9 +314,8 @@ output:
 ### Understanding the Key Settings
 
 **`study.research_focus`** -- This is the most important setting. It tells the
-AI what your research question is. Be specific. Instead of "sleep problems,"
-write "How does medication affect the interplay between sleep quality and
-binge eating behaviors?"
+AI what your research question is. Be specific. Instead of "work stress,"
+write "How does remote work affect employee wellbeing and work-life balance?"
 
 **`study.concepts`** -- The key concepts in your study. These help the AI
 generate more targeted codes focused on the research question. List 2--5 concepts.

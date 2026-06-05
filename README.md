@@ -376,6 +376,14 @@ Researchers who:
 rather than in config files. The package warns if it detects a key pasted
 directly into `config.yaml`.
 
+**Your privacy:** pakhom runs entirely on your own machine. It collects no
+telemetry and sends nothing about you or your data to its authors or any third
+party. Your data is transmitted only to the AI provider you configure (OpenAI or
+Anthropic, over HTTPS), and solely to perform the analysis you request; your API
+key is read from your environment and is never written to logs, audit records,
+or outputs. See [`SECURITY.md`](SECURITY.md) for the full data-handling
+description.
+
 ## Multi-Model Reliability
 
 To assess inter-model reliability, run the pipeline multiple times with
@@ -409,8 +417,8 @@ independence. For reviewer-guided analysis, use single-model sequential runs.
 ## For methodologists / reviewers: architectural commitments
 
 The package codifies ten load-bearing commitments. Each is regression-
-tested at the integration level (the test suite as of Phase 58 has
-3,300+ expectations pinning them against silent regression). They are
+tested at the integration level (the test suite has 4,700+ expectations
+pinning them against silent regression). They are
 the contract a peer reviewer can check the package's claims against:
 
 - **AC1**: AI is scaffold by architecture, not by configuration.

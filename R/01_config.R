@@ -503,8 +503,8 @@ print.ThematicConfig <- function(x, ...) {
       name = "Untitled Study",
       research_focus = "",
       research_context = "",
-      concepts = NULL,  # e.g., c("medication", "binge eating", "sleep")
-      researcher_positionality = NULL,  # e.g., "Clinical psychologist with 10 years experience in eating disorders"
+      concepts = NULL,  # e.g., c("remote work", "wellbeing", "work-life balance")
+      researcher_positionality = NULL,  # e.g., "Organizational psychologist studying remote-work practices"
       research_paradigm = NULL,  # e.g., "critical realist", "social constructionist", "pragmatist"
       reflexive_notes = NULL,  # Free-text researcher reflections on their approach and assumptions
       # Phase 61: replay-pin for the Methodology Assistant (Step 2.5). NULL =

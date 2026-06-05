@@ -38,4 +38,4 @@ None (new submission).
 The analysis pipeline requires an OpenAI or Anthropic API key and makes paid
 API calls, so examples that would call a provider are not run. The
 statistical, report-rendering, and quote-provenance layers are pure R and are
-exercised offline by the test suite (4600+ expectations, all AI calls mocked).
+exercised offline by the test suite (4,700+ expectations, all AI calls mocked).
