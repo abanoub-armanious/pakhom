@@ -27,6 +27,38 @@
   }
 }
 
+#' Neutralize HTML in AI-generated prose while preserving intended Markdown
+#'
+#' AI free-text (executive summary, conclusion, implications, key findings,
+#' saturation articulation/rationale, learning reflection, correlation
+#' narrative) is interpolated into the report as \emph{Markdown} -- so it must
+#' keep working bold/links/lists/blockquotes -- but it can echo prompt-injected
+#' corpus content like \samp{<script>} or \samp{<img onerror=...>}. Running the
+#' full \code{.html_esc} here would also escape the quotes/ampersands the
+#' Markdown relies on. Instead, neutralize only what enables tag injection:
+#' \itemize{
+#'   \item \code{<} -> \code{&lt;} and \code{>} -> \code{&gt;} (no tag can open)
+#'   \item a \emph{bare} \code{&} (not already starting an HTML entity) ->
+#'     \code{&amp;}, so existing entities and our own \code{&bull;}/\code{&mdash;}
+#'     are left intact and not double-escaped.
+#' }
+#' \code{**bold**}, \code{[text](url)}, lists, and \code{>} blockquote markers we
+#' prepend ourselves all keep working; an injected \code{<tag>} cannot.
+#' @param x Character string of AI-generated prose (NULL/NA -> "").
+#' @return HTML-tag-neutralized, Markdown-preserving string.
+#' @keywords internal
+.sanitize_ai_prose <- function(x) {
+  if (is.null(x) || all(is.na(x))) return("")
+  x <- as.character(x)
+  x[is.na(x)] <- ""
+  # Bare & first (a & not already part of a &name; / &#123; / &#xAF; entity),
+  # so the &lt;/&gt; we introduce next aren't themselves re-amped.
+  x <- gsub("&(?!#?[A-Za-z0-9]+;)", "&amp;", x, perl = TRUE)
+  x <- gsub("<", "&lt;", x, fixed = TRUE)
+  x <- gsub(">", "&gt;", x, fixed = TRUE)
+  x
+}
+
 #' Export all analysis results to files
 #'
 #' @param data tibble with all analysis columns
@@ -865,7 +897,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   content <- paste0(content,
     '<div class="hero-section">\n',
     '\n# Executive Summary\n\n',
-    ai_synthesis$executive_summary, '\n',
+    .sanitize_ai_prose(ai_synthesis$executive_summary), '\n',
     '</div>\n\n',
     ai_artifact_caveat,
     .build_metrics_dashboard(overall_stats, theme_count, sentiment_class,
@@ -1250,7 +1282,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   if (nchar(learning$reflection) > 0) {
     content <- paste0(content,
       "## What the AI Learned and How It Applied Those Findings\n\n",
-      learning$reflection, "\n\n"
+      .sanitize_ai_prose(learning$reflection), "\n\n"
     )
   }
 
@@ -1702,13 +1734,21 @@ generate_report <- function(data, theme_set, correlations_df, insights,
         q <- ts$quotes_with_context[[quote_type]]
         if (is.null(q$text) || is.na(q$text)) next
 
-        qclass <- if (q$sentiment < .SENTIMENT_NEGATIVE_THRESHOLD) "negative"
-          else if (q$sentiment > .SENTIMENT_POSITIVE_THRESHOLD) "positive"
+        # NA-guard the sentiment BEFORE the comparisons. This runs in the
+        # Rmd-string-BUILDING phase (not a knitr chunk), so an NA here would
+        # abort the whole report build -- error=TRUE only catches failures
+        # *inside* rendered chunks. Mirrors the detail-page guard below.
+        q_sent <- suppressWarnings(as.numeric(q$sentiment %||% NA_real_))
+
+        qclass <- if (is.na(q_sent)) "neutral"
+          else if (q_sent < .SENTIMENT_NEGATIVE_THRESHOLD) "negative"
+          else if (q_sent > .SENTIMENT_POSITIVE_THRESHOLD) "positive"
           else "neutral"
 
-        slabel <- if (q$sentiment < -0.3) "High Distress"
-          else if (q$sentiment < 0) "Moderate Distress"
-          else if (q$sentiment < 0.3) "Neutral/Mixed"
+        slabel <- if (is.na(q_sent)) "Neutral/Mixed"
+          else if (q_sent < -0.3) "High Distress"
+          else if (q_sent < 0) "Moderate Distress"
+          else if (q_sent < 0.3) "Neutral/Mixed"
           else "Positive"
 
         content <- paste0(content,
@@ -1716,7 +1756,8 @@ generate_report <- function(data, theme_set, correlations_df, insights,
           .html_esc(gsub("\n", " ", q$text)), '\n',
           '<div class="quote-meta">\n',
           '<span class="sentiment-pill ', qclass, '">', slabel, '</span>\n',
-          'Sentiment: ', round(q$sentiment, 2), ' &bull; ', q$emotion %||% "N/A", '\n',
+          'Sentiment: ', if (is.na(q_sent)) "N/A" else round(q_sent, 2),
+          ' &bull; ', q$emotion %||% "N/A", '\n',
           '</div>\n',
           '</div>\n\n'
         )
@@ -2857,7 +2898,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   )
 
   if (!is.null(corr_interpretation)) {
-    content <- paste0(content, corr_interpretation$summary, "\n\n")
+    content <- paste0(content, .sanitize_ai_prose(corr_interpretation$summary), "\n\n")
   }
 
   # Phase 39: correlation_plot.png is conditionally produced (skipped
@@ -3077,8 +3118,8 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     if (is.data.frame(findings)) {
       for (i in seq_len(min(5, nrow(findings)))) {
         content <- paste0(content,
-          "### ", i, ". ", findings$insight[i], "\n\n",
-          findings$explanation[i], "\n\n"
+          "### ", i, ". ", .sanitize_ai_prose(findings$insight[i]), "\n\n",
+          .sanitize_ai_prose(findings$explanation[i]), "\n\n"
         )
       }
     } else if (is.list(findings)) {
@@ -3086,9 +3127,9 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
         f <- findings[[i]]
         insight_text <- if (is.list(f)) f$insight else as.character(f)
         explanation <- if (is.list(f)) f$explanation %||% "" else ""
-        content <- paste0(content, "### ", i, ". ", insight_text, "\n\n")
+        content <- paste0(content, "### ", i, ". ", .sanitize_ai_prose(insight_text), "\n\n")
         if (nchar(explanation) > 0) {
-          content <- paste0(content, explanation, "\n\n")
+          content <- paste0(content, .sanitize_ai_prose(explanation), "\n\n")
         }
       }
     }
@@ -3104,14 +3145,14 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   if (!is.null(insights$theoretical_implications)) {
     content <- paste0(content,
       "## Theoretical Implications\n\n",
-      insights$theoretical_implications, "\n\n"
+      .sanitize_ai_prose(insights$theoretical_implications), "\n\n"
     )
   }
 
   if (!is.null(insights$practical_implications)) {
     content <- paste0(content,
       "## Practical Implications\n\n",
-      insights$practical_implications, "\n\n"
+      .sanitize_ai_prose(insights$practical_implications), "\n\n"
     )
   }
 
@@ -3119,7 +3160,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   if (!is.null(ai_synthesis) && !is.null(ai_synthesis$conclusion)) {
     content <- paste0(content,
       "## Conclusion\n\n",
-      ai_synthesis$conclusion, "\n\n"
+      .sanitize_ai_prose(ai_synthesis$conclusion), "\n\n"
     )
   }
 
@@ -3161,8 +3202,11 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     # the AI's articulation + rationale instead. Fall back to the
     # legacy signal list when reading an older state file that
     # predates Phase 56 (back-compat: replay of pre-Phase-56 runs).
-    articulation <- as.character(sat$ai_articulation %||% "")
-    rationale    <- as.character(sat$ai_rationale %||% "")
+    # Sanitize the AI free-text up front (neutralizes injected <tags> while
+    # preserving Markdown) BEFORE we prepend our own "> " blockquote markers,
+    # so the markers stay literal and the content can't inject HTML.
+    articulation <- .sanitize_ai_prose(as.character(sat$ai_articulation %||% ""))
+    rationale    <- .sanitize_ai_prose(as.character(sat$ai_rationale %||% ""))
     if (nzchar(articulation) || nzchar(rationale)) {
       content <- paste0(content,
         "## How the AI arbiter judged saturation\n\n",
@@ -3303,7 +3347,9 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   if (isTRUE(sat$reached)) {
     art <- coding_state$saturation$ai_articulation %||% NA_character_
     art_str <- if (!is.na(art) && nzchar(trimws(art))) {
-      paste0(" The arbiter articulated: \"", substr(art, 1, 280), "\"")
+      # AI free-text -> neutralize injected HTML (Markdown preserved).
+      paste0(" The arbiter articulated: \"",
+             .sanitize_ai_prose(substr(art, 1, 280)), "\"")
     } else ""
     content <- paste0(content,
       "Thematic saturation was assessed via an AI-judged arbiter ",
@@ -4010,6 +4056,22 @@ sentiment_colors <- c(
   detail_dir <- file.path(output_dir, "theme_details")
   dir.create(detail_dir, recursive = TRUE, showWarnings = FALSE)
 
+  # Vendored client-side libraries for the interactive entries table (jQuery +
+  # DataTables, both MIT-licensed; see inst/COPYRIGHTS). Copied in beside the
+  # detail pages so each report is fully self-contained and renders its tables
+  # OFFLINE -- no CDN, no version rot, no MITM surface. Referenced by local
+  # filename in the <head> below. file.copy is an overwrite-safe no-op when the
+  # target already exists; a missing source just degrades the table to static
+  # (the DataTables init script tolerates its absence).
+  for (.asset in c("jquery-3.7.1.min.js",
+                   "jquery.dataTables.min.js",
+                   "jquery.dataTables.min.css")) {
+    .asset_src <- system.file("rmd", .asset, package = "pakhom")
+    if (nzchar(.asset_src) && file.exists(.asset_src)) {
+      file.copy(.asset_src, file.path(detail_dir, .asset), overwrite = TRUE)
+    }
+  }
+
   generated <- list()
 
   for (tn in theme_order) {
@@ -4024,10 +4086,17 @@ sentiment_colors <- c(
       '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n',
       '<title>', .html_esc(tn), ' -- Theme Details</title>\n',
       '<link rel="stylesheet" href="../styles.css">\n',
-      # DataTables CDN with offline fallback
-      '<link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">\n',
-      '<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>\n',
-      '<script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>\n',
+      # jQuery + DataTables are VENDORED (bundled in inst/rmd/, copied into this
+      # theme_details/ dir above) and referenced by LOCAL filename -- no CDN.
+      # Each report is thus fully self-contained: interactive tables render
+      # offline, forever, with no network dependency, no CDN version-rot, and no
+      # compromised/MITM'd-payload surface. Licences + provenance (incl. the
+      # SHA-256 of each bundled file) are recorded in inst/COPYRIGHTS. (The init
+      # script below no-ops gracefully if an asset is ever absent -- the table
+      # degrades to static rather than erroring.)
+      '<link rel="stylesheet" href="jquery.dataTables.min.css">\n',
+      '<script src="jquery-3.7.1.min.js"></script>\n',
+      '<script src="jquery.dataTables.min.js"></script>\n',
       '<style>\n',
       '#entries-table { table-layout: fixed; width: 100% !important; }\n',
       '#entries-table th:nth-child(1) { width: 40%; }\n',
