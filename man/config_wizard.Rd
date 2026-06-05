@@ -13,6 +13,13 @@ config_wizard(output_path = "config.yaml")
 The path to the created config file (invisibly)
 }
 \description{
-Guides the user through creating a config.yaml via CLI prompts.
-Only works in interactive mode.
+Guides the user through creating a config.yaml via CLI prompts. The first
+prompt is the (mandatory) methodology mode -- reflexive_scaffold,
+codebook_collaborative, or framework_applied -- so the generated config
+passes \code{\link[=validate_config]{validate_config()}}. This is the text-based companion to the
+web-based \code{\link[=config_wizard_app]{config_wizard_app()}}. Only works in interactive mode.
+}
+\seealso{
+\code{\link[=config_wizard_app]{config_wizard_app()}} for the web-based wizard;
+\code{\link[=methodology_decision_aid]{methodology_decision_aid()}} for help choosing a methodology mode.
 }

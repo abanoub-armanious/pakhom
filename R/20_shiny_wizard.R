@@ -66,8 +66,8 @@ config_wizard_app <- function(output_path = "config.yaml") {
 
   server <- function(input, output, session) {
     step <- shiny::reactiveVal(1L)
-    total_steps <- 7L
-    step_labels <- c("Study", "AI Provider", "Data", "Learning",
+    total_steps <- 8L
+    step_labels <- c("Methodology", "Study", "AI Provider", "Data", "Learning",
                      "Analysis", "Output", "Review & Save")
     saved_path <- shiny::reactiveVal(NULL)
 
@@ -97,8 +97,22 @@ config_wizard_app <- function(output_path = "config.yaml") {
 
     shiny::observeEvent(input$btn_back, { step(max(1L, step() - 1L)) })
     shiny::observeEvent(input$btn_next, {
-      # Validate required fields on step 1
+      # Step 1 (Methodology): framework_applied (Mode 3) requires a
+      # framework spec, mirroring create_config()/validate_config(). Block
+      # advancing without one so the saved config can't fail validation.
       if (step() == 1L) {
+        if (identical(input$methodology_mode, "framework_applied") &&
+            (is.null(input$framework_spec_path) ||
+             nchar(trimws(input$framework_spec_path)) == 0)) {
+          shiny::showNotification(
+            "Framework mode requires a framework spec (a built-in alias like 'tpb' or a path).",
+            type = "error")
+          return()
+        }
+      }
+      # Step 2 (Study): research focus is required (validate_config() rejects
+      # an empty study.research_focus for every mode).
+      if (step() == 2L) {
         if (is.null(input$research_focus) || nchar(trimws(input$research_focus)) == 0) {
           shiny::showNotification("Research focus is required.", type = "error")
           return()
@@ -110,13 +124,14 @@ config_wizard_app <- function(output_path = "config.yaml") {
     # --- Step content ---
     output$step_content <- shiny::renderUI({
       switch(as.character(step()),
-        "1" = .ui_step_study(),
-        "2" = .ui_step_ai(input),
-        "3" = .ui_step_data(),
-        "4" = .ui_step_learning(),
-        "5" = .ui_step_analysis(),
-        "6" = .ui_step_output(),
-        "7" = .ui_step_review(input, output_path)
+        "1" = .ui_step_methodology(),
+        "2" = .ui_step_study(),
+        "3" = .ui_step_ai(input),
+        "4" = .ui_step_data(),
+        "5" = .ui_step_learning(),
+        "6" = .ui_step_analysis(),
+        "7" = .ui_step_output(),
+        "8" = .ui_step_review(input, output_path)
       )
     })
 
@@ -166,6 +181,39 @@ config_wizard_app <- function(output_path = "config.yaml") {
 # ==============================================================================
 # UI builders for each step
 # ==============================================================================
+
+#' @keywords internal
+.ui_step_methodology <- function() {
+  shiny::div(class = "section-card",
+    shiny::h3(class = "section-title", "Methodology Mode"),
+    shiny::p(class = "help-text",
+             "The most consequential choice in pakhom: it determines which AI ",
+             "behaviors are permitted, which artifacts are mandatory, and which ",
+             "report sections are generated. This declaration is required -- a ",
+             "config without it cannot be loaded. Unsure which fits your study? ",
+             "Run ", shiny::code("methodology_decision_aid()"), " for guidance, ",
+             "or see ", shiny::code("vignette('methodology-modes')"), "."),
+
+    shiny::radioButtons("methodology_mode", NULL,
+      choiceNames = list(
+        shiny::HTML("<b>Reflexive scaffold</b> (Mode 1) &mdash; inductive, bottom-up reflexive thematic analysis. The AI acts as a provocateur (questions, counter-narratives); the researcher does the meaning-making. Reflexive memos + positionality are mandatory. <i>(Braun &amp; Clarke reflexive TA.)</i>"),
+        shiny::HTML("<b>Codebook collaborative</b> (Mode 2) &mdash; the AI proposes codes across the corpus; the researcher accepts / edits / rejects each. A shared codebook is the deliverable; inter-rater reliability is available. <i>(Codebook / template TA.)</i>"),
+        shiny::HTML("<b>Framework applied</b> (Mode 3) &mdash; deductive coding against a predefined framework you supply (TPB, COM-B, TDF, or a custom spec); entries that resist the framework are flagged. <i>(Framework / theoretical analysis.)</i>")
+      ),
+      choiceValues = c("reflexive_scaffold", "codebook_collaborative", "framework_applied"),
+      selected = "codebook_collaborative", width = "100%"),
+
+    shiny::conditionalPanel(
+      condition = "input.methodology_mode == 'framework_applied'",
+      shiny::br(),
+      shiny::textInput("framework_spec_path", "Framework Specification", width = "100%",
+                       placeholder = "Built-in alias (tpb, comb, tdf) or a path to a custom YAML/JSON spec"),
+      shiny::div(class = "help-text",
+                 "Required for framework_applied. Use a built-in alias ('tpb', ",
+                 "'comb', 'tdf') or a path to your own framework spec file.")
+    )
+  )
+}
 
 #' @keywords internal
 .ui_step_study <- function() {
@@ -522,8 +570,23 @@ config_wizard_app <- function(output_path = "config.yaml") {
   ai_block <- list(provider = provider)
   ai_block[[provider]] <- provider_block
 
+  # Methodology block (Sprint-4 / T1.3): mandatory. Without it, the saved
+  # config fails validate_config() with "Missing required config section:
+  # 'methodology'". The Methodology step captures the mode; framework_applied
+  # (Mode 3) additionally captures framework_spec_path.
+  meth_mode <- val("methodology_mode", "codebook_collaborative")
+  methodology_block <- list(mode = meth_mode)
+  if (identical(meth_mode, "framework_applied")) {
+    # Single-bracket + list() preserves an explicit NULL leaf (the `$<- NULL`
+    # idiom would DROP the key). The key is therefore always present for
+    # Mode 3, so an omitted path surfaces as the actionable
+    # validate_config() error rather than a silently dropped field.
+    methodology_block["framework_spec_path"] <- list(val("framework_spec_path"))
+  }
+
   # Build config
   config <- list(
+    methodology = methodology_block,
     study = list(
       name = val("study_name", "Untitled Study"),
       research_focus = val("research_focus", ""),

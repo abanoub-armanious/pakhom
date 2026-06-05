@@ -264,9 +264,12 @@ library(pakhom)
 config_wizard_app("config.yaml")
 ```
 
-This opens a step-by-step web interface in your browser where you can fill in
-every setting with descriptions, validation, and live YAML preview. When done,
-it saves the file. Requires the `shiny` package (`install.packages("shiny")`).
+This opens a step-by-step web interface in your browser. It starts with your
+**methodology mode** (Reflexive Scaffold, Codebook Collaborative, or Framework
+Applied -- the mandatory architectural choice), then walks you through every
+other setting with descriptions, validation, and a live YAML preview. When done,
+it saves a config that loads cleanly. Requires the `shiny` package
+(`install.packages("shiny")`).
 
 ### Option B: CLI Wizard
 
@@ -274,7 +277,9 @@ it saves the file. Requires the `shiny` package (`install.packages("shiny")`).
 config_wizard("config.yaml")
 ```
 
-A simpler text-based wizard that runs in your R console.
+A simpler text-based wizard that runs in your R console. Its first prompt is the
+methodology mode (and, for Framework Applied, the framework spec); it then asks
+for study metadata, data path, and provider.
 
 ### Option C: Write it Manually
 

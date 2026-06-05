@@ -1152,13 +1152,41 @@ create_config <- function(methodology = "codebook_collaborative",
   invisible(output_path)
 }
 
+#' Map a CLI methodology choice to a canonical mode name
+#'
+#' Accepts a menu number ("1"/"2"/"3"), a canonical mode name, or blank
+#' (Enter = default). Returns the canonical mode string, or \code{NULL} for
+#' an unrecognized choice so the caller can raise an actionable error.
+#'
+#' @param raw The raw user input (a single string from \code{readline()}).
+#' @param default Mode returned when \code{raw} is blank.
+#' @keywords internal
+.parse_methodology_choice <- function(raw, default = .METHODOLOGY_MODE_CODEBOOK_COLLABORATIVE) {
+  raw <- trimws(raw)
+  if (nchar(raw) == 0) return(default)  # Enter = default (Mode 2)
+  switch(raw,
+    "1" = .METHODOLOGY_MODE_REFLEXIVE_SCAFFOLD,
+    "2" = .METHODOLOGY_MODE_CODEBOOK_COLLABORATIVE,
+    "3" = .METHODOLOGY_MODE_FRAMEWORK_APPLIED,
+    reflexive_scaffold = .METHODOLOGY_MODE_REFLEXIVE_SCAFFOLD,
+    codebook_collaborative = .METHODOLOGY_MODE_CODEBOOK_COLLABORATIVE,
+    framework_applied = .METHODOLOGY_MODE_FRAMEWORK_APPLIED,
+    NULL
+  )
+}
+
 #' Interactive configuration wizard
 #'
-#' Guides the user through creating a config.yaml via CLI prompts.
-#' Only works in interactive mode.
+#' Guides the user through creating a config.yaml via CLI prompts. The first
+#' prompt is the (mandatory) methodology mode -- reflexive_scaffold,
+#' codebook_collaborative, or framework_applied -- so the generated config
+#' passes [validate_config()]. This is the text-based companion to the
+#' web-based [config_wizard_app()]. Only works in interactive mode.
 #'
 #' @param output_path Where to save the config (default "config.yaml")
 #' @return The path to the created config file (invisibly)
+#' @seealso [config_wizard_app()] for the web-based wizard;
+#'   [methodology_decision_aid()] for help choosing a methodology mode.
 #' @export
 config_wizard <- function(output_path = "config.yaml") {
   if (!interactive()) {
@@ -1168,6 +1196,32 @@ config_wizard <- function(output_path = "config.yaml") {
   cat("pakhom Configuration Wizard\n")
   cat("================================\n")
   cat("This wizard will help you create a config.yaml file.\n\n")
+
+  # Methodology mode -- the load-bearing architectural choice (T1.3). It is
+  # mandatory: a config without it fails validate_config(). Prompt for it
+  # first, mirroring the Shiny wizard's Methodology step.
+  cat("Methodology mode -- determines AI behaviors, mandatory artifacts, and\n")
+  cat("report sections. Run methodology_decision_aid() if you are unsure.\n")
+  cat("  1. reflexive_scaffold      (Mode 1) inductive reflexive TA; AI as provocateur\n")
+  cat("  2. codebook_collaborative  (Mode 2) AI proposes codes, researcher gates; shared codebook\n")
+  cat("  3. framework_applied       (Mode 3) deductive coding against a framework you supply\n")
+  methodology_raw <- readline("Choose [1/2/3 or name] (default: 2): ")
+  methodology <- .parse_methodology_choice(methodology_raw)
+  if (is.null(methodology)) {
+    stop("Invalid methodology choice: '", trimws(methodology_raw), "'. Choose ",
+         "1/2/3 or one of: reflexive_scaffold, codebook_collaborative, ",
+         "framework_applied.", call. = FALSE)
+  }
+
+  framework_spec_path <- NULL
+  if (identical(methodology, "framework_applied")) {
+    framework_spec_path <- trimws(readline(
+      "Framework spec (built-in alias tpb/comb/tdf or path to YAML/JSON): "))
+    if (nchar(framework_spec_path) == 0) {
+      stop("framework_applied (Mode 3) requires a framework spec (alias or path).",
+           call. = FALSE)
+    }
+  }
 
   study_name <- readline("Study name: ")
   if (nchar(study_name) == 0) study_name <- "Untitled Study"
@@ -1201,16 +1255,26 @@ config_wizard <- function(output_path = "config.yaml") {
     overrides[["study.researcher_positionality"]] <- positionality
   }
 
-  do.call(create_config, c(list(
+  # NB: pass create_config()'s real parameter names. Earlier this used
+  # `data_path =` / `config_path =`, which are NOT create_config() params --
+  # they fell into `...`, were flattened to bogus top-level keys, and the
+  # database path + output path were silently lost. Use database_path= and
+  # output_path=, and pass the methodology declaration captured above.
+  wizard_args <- list(
+    methodology = methodology,
     study_name = study_name,
     research_focus = research_focus,
     concepts = concepts,
-    data_path = data_path,
+    database_path = data_path,
     source_type = source_type,
     output_dir = output_dir,
     provider = provider,
-    config_path = output_path
-  ), overrides))
+    output_path = output_path
+  )
+  if (!is.null(framework_spec_path)) {
+    wizard_args$framework_spec_path <- framework_spec_path
+  }
+  do.call(create_config, c(wizard_args, overrides))
 
   cat("\nConfig saved to: ", output_path, "\n")
   cat("Next steps:\n")
