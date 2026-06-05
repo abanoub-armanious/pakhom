@@ -4,7 +4,7 @@
 \alias{.fuzzy_deduplicate_codes}
 \title{Deduplicate a list of codes by merging fuzzy near-duplicates}
 \usage{
-.fuzzy_deduplicate_codes(codes, threshold = 0.35)
+.fuzzy_deduplicate_codes(codes, threshold = 0.15)
 }
 \description{
 Deduplicate a list of codes by merging fuzzy near-duplicates

@@ -226,6 +226,23 @@ test_that(".compare_codes computes Jaccard similarity", {
   expect_true(result$stability$jaccard_overall <= 1)
 })
 
+test_that(".compare_codes Jaccard mirrors the fuzzy breakdown, not exact strings", {
+  skip_if_not_installed("stringdist")
+  snap1 <- .load_run_snapshot(file.path(fixture_dir, "run_2026-01-01_120000"))
+  snap2 <- .load_run_snapshot(file.path(fixture_dir, "run_2026-01-02_120000"))
+  result <- .compare_codes(list(snap1, snap2), snap2)
+
+  s <- result$stability
+  n_matched <- s$n_stable + s$n_renamed
+  total <- n_matched + s$n_new + s$n_dropped
+  expected <- if (total > 0) round(n_matched / total, 3) else 1
+  # The headline Jaccard must mirror the fuzzy stable/renamed/new/dropped table.
+  # The fixture renames "Medication Nausea" -> "Medication Nausea and GI Issues";
+  # exact-string Jaccard would drop that pair and report a lower, self-
+  # contradictory number than the breakdown it sits beside.
+  expect_equal(s$jaccard_overall, expected)
+})
+
 # ==============================================================================
 # Theme Matching
 # ==============================================================================

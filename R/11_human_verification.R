@@ -61,7 +61,9 @@ run_human_verification <- function(data, coding_state,
     log_info("Found completed human coding sheet -- computing IRR...")
     irr_stats <- .compute_irr_agreement(
       completed_path, ai_ref_path, codebook_path,
-      sample_ids, config$max_codes_per_entry
+      sample_ids, config$max_codes_per_entry,
+      match_threshold = config$match_threshold %||% 0.15,
+      seed = config$seed
     )
 
     result <- list(
@@ -147,14 +149,22 @@ run_human_verification <- function(data, coding_state,
 # ==============================================================================
 # Internal: Compute IRR agreement statistics
 # ==============================================================================
-# Uses fuzzy string matching (stringdist) to avoid penalizing minor wording
-# differences between human and AI codes (e.g., "sleep issues" vs "sleep problems").
-# Reports both Cohen's kappa and Krippendorff's alpha -- the latter is preferred
-# for multi-label coding with potential missing data (Krippendorff, 2011).
+# Aligns the two raters by entry_id, then canonicalizes codes with conservative
+# fuzzy matching (Jaro-Winkler <= 0.15) that bridges spelling / inflection
+# differences ("sleep issue" vs "sleep issues") but NOT semantic variants
+# ("sleep issues" vs "sleep problems"), which are real disagreements.
+# Headline coefficient: Krippendorff's alpha with a Jaccard set-distance -- the
+# field-standard agreement metric for set-valued (multi-label) coding (Artstein
+# & Poesio, 2008) -- reported with a bootstrap 95% CI. Also reports per-entry
+# Jaccard similarity, exact-set percent agreement, and mean per-code Cohen's
+# kappa. All are computed per-entry / per-code, so none inflate with codebook
+# size (the defect of a flattened binary kappa/alpha).
 # ==============================================================================
 
 .compute_irr_agreement <- function(human_path, ai_path, codebook_path,
-                                    sample_ids, max_codes) {
+                                    sample_ids, max_codes,
+                                    match_threshold = 0.15,
+                                    n_boot = 2000L, seed = 42L) {
   # comment="#" so a methodology stamp at the file head survives the
   # round-trip through the user's spreadsheet edit.
   human_df <- tryCatch(
@@ -174,130 +184,132 @@ run_human_verification <- function(data, coding_state,
   )
 
   if (is.null(human_df) || is.null(ai_df)) {
-    return(list(
-      cohens_kappa = NA_real_, kappa_interpretation = "Error",
-      krippendorff_alpha = NA_real_, alpha_interpretation = "Error",
-      percent_agreement = NA_real_, jaccard_similarity = NA_real_,
-      n_entries = 0L, error = "Could not read coding sheets"
-    ))
+    return(.empty_irr_result("Could not read coding sheets"))
   }
 
-  # Read codebook to get all possible codes
-  all_codes <- character(0)
-  if (file.exists(codebook_path)) {
-    codebook <- tryCatch(
-      readr::read_csv(codebook_path, show_col_types = FALSE, comment = "#"),
-      error = function(e) NULL
-    )
-    if (!is.null(codebook) && "code_text" %in% names(codebook)) {
-      all_codes <- tolower(trimws(codebook$code_text))
-    }
-  }
+  # NB: codebook_path is accepted for signature stability but is NOT needed for
+  # agreement -- the codes actually assigned by each rater come from the sheets
+  # themselves, and the previous codebook read populated a variable that was
+  # never used.
 
   code_cols <- paste0("code_", seq_len(max_codes))
   code_cols <- intersect(code_cols, names(human_df))
   code_cols <- intersect(code_cols, names(ai_df))
 
   if (length(code_cols) == 0) {
+    return(.empty_irr_result("No code columns found"))
+  }
+
+  # Collect the non-empty, normalized code strings in one sheet row.
+  .row_codes <- function(df, idx) {
+    v <- tolower(trimws(as.character(unlist(df[idx, code_cols]))))
+    v[!is.na(v) & nchar(v) > 0]
+  }
+
+  # --- Align the two raters by entry_id, NOT by row position. -----------------
+  # Both sheets carry an entry_id column. A researcher routinely sorts or
+  # filters the coding sheet in a spreadsheet before saving it; under the old
+  # positional alignment that silently mis-paired rows and corrupted every
+  # statistic. Joining on entry_id guarantees each compared pair is the SAME
+  # entry. (Legacy sheets that lack entry_id fall back to positional order.)
+  if ("entry_id" %in% names(human_df) && "entry_id" %in% names(ai_df)) {
+    h_eid <- as.character(human_df$entry_id)
+    a_eid <- as.character(ai_df$entry_id)
+    if (anyDuplicated(h_eid) || anyDuplicated(a_eid)) {
+      log_warn("IRR: duplicate entry_id rows found; using the first occurrence of each.")
+    }
+    h_first <- !duplicated(h_eid)
+    a_first <- !duplicated(a_eid)
+    h_map <- stats::setNames(which(h_first), h_eid[h_first])
+    a_map <- stats::setNames(which(a_first), a_eid[a_first])
+    common <- intersect(names(h_map), names(a_map))
+    # Order by the original sample order when available, else by id.
+    if (!is.null(sample_ids)) {
+      sid <- as.character(sample_ids)
+      common <- c(sid[sid %in% common], setdiff(common, sid))
+    }
+    dropped <- length(union(names(h_map), names(a_map))) - length(common)
+    if (dropped > 0) {
+      log_warn("IRR: {dropped} entry(ies) present in only one sheet were excluded from agreement.")
+    }
+    if (length(common) == 0) {
+      return(.empty_irr_result("No entry_id values shared between the two coding sheets"))
+    }
+    human_raw <- lapply(common, function(id) .row_codes(human_df, h_map[[id]]))
+    ai_raw    <- lapply(common, function(id) .row_codes(ai_df,    a_map[[id]]))
+  } else {
+    log_warn("IRR: a coding sheet lacks an entry_id column; falling back to positional row alignment.")
+    n_pos <- min(nrow(human_df), nrow(ai_df))
+    human_raw <- lapply(seq_len(n_pos), function(i) .row_codes(human_df, i))
+    ai_raw    <- lapply(seq_len(n_pos), function(i) .row_codes(ai_df, i))
+  }
+
+  n_entries <- length(human_raw)
+
+  # --- Canonicalize codes so set operations are exact. ------------------------
+  # The threshold is deliberately conservative (0.15 Jaro-Winkler): it bridges
+  # spelling / inflection differences ("sleep issue" vs "sleep issues",
+  # jw<=0.04) but NOT semantic variants ("sleep issues" vs "sleep problems",
+  # jw~=0.30), which are genuine labelling disagreements and must not be hidden.
+  all_observed <- unique(unlist(c(human_raw, ai_raw)))
+  all_observed <- all_observed[!is.na(all_observed) & nchar(all_observed) > 0]
+
+  if (length(all_observed) == 0) {
+    # Both raters left every compared entry blank -> vacuously perfect agreement.
     return(list(
-      cohens_kappa = NA_real_, kappa_interpretation = "Error",
-      krippendorff_alpha = NA_real_, alpha_interpretation = "Error",
-      percent_agreement = NA_real_, jaccard_similarity = NA_real_,
-      n_entries = 0L, error = "No code columns found"
+      cohens_kappa = NA_real_, kappa_interpretation = "N/A",
+      krippendorff_alpha = NA_real_, alpha_interpretation = "N/A",
+      alpha_ci_low = NA_real_, alpha_ci_high = NA_real_,
+      percent_agreement = 100.0, jaccard_similarity = 1.0,
+      n_entries = n_entries, n_codes = 0L,
+      per_entry_jaccard = rep(1.0, n_entries),
+      per_entry_agreement = rep(1.0, n_entries),
+      error = NULL
     ))
   }
 
-  # Extract code sets per entry for each rater
-  n_entries <- min(nrow(human_df), nrow(ai_df))
-  agreements <- numeric(0)
-  jaccards <- numeric(0)
+  canonical_codes <- .fuzzy_deduplicate_codes(all_observed, threshold = match_threshold)
+  human_sets <- lapply(human_raw, .map_to_canonical,
+                       canonical = canonical_codes, threshold = match_threshold)
+  ai_sets    <- lapply(ai_raw, .map_to_canonical,
+                       canonical = canonical_codes, threshold = match_threshold)
 
-  for (i in seq_len(n_entries)) {
-    human_codes <- tolower(trimws(unlist(human_df[i, code_cols])))
-    human_codes <- human_codes[!is.na(human_codes) & nchar(human_codes) > 0]
+  # --- Per-entry set metrics (the honest, multi-label-valid agreement). -------
+  per_entry_jaccard <- vapply(seq_len(n_entries), function(i)
+    1 - .jaccard_set_distance(human_sets[[i]], ai_sets[[i]]), numeric(1))
+  per_entry_agreement <- vapply(seq_len(n_entries), function(i) {
+    h <- human_sets[[i]]; a <- ai_sets[[i]]
+    if (length(h) == 0 && length(a) == 0) 1.0
+    else if (setequal(h, a)) 1.0 else 0.0
+  }, numeric(1))
 
-    ai_codes <- tolower(trimws(unlist(ai_df[i, code_cols])))
-    ai_codes <- ai_codes[!is.na(ai_codes) & nchar(ai_codes) > 0]
-
-    # Fuzzy-match human codes to AI codes (and vice versa)
-    matched_human <- .fuzzy_match_codes(human_codes, ai_codes)
-    matched_ai <- .fuzzy_match_codes(ai_codes, human_codes)
-
-    # n_matched: count of successful matches from human->AI direction
-    n_matched <- length(matched_human$matched)
-    total_unique <- length(union(human_codes, ai_codes))
-
-    # Jaccard similarity: matched pairs / union of codes
-    if (total_unique > 0) {
-      jaccards <- c(jaccards, n_matched / total_unique)
-    }
-
-    # Percent agreement: full bidirectional match for this entry
-    # 1 if all human codes matched AI codes AND all AI codes matched human codes, 0 otherwise
-    all_human_matched <- length(matched_human$unmatched) == 0
-    all_ai_matched <- length(matched_ai$unmatched) == 0
-    entry_agree <- if (length(human_codes) == 0 && length(ai_codes) == 0) 1.0
-                   else if (all_human_matched && all_ai_matched) 1.0
-                   else 0.0
-    agreements <- c(agreements, entry_agree)
-  }
-
-  # Build binary agreement matrix using fuzzy matching for kappa and alpha
-  # First, build a unified code list by fuzzy-deduplicating all observed codes
-  all_observed_codes <- unique(c(
-    tolower(trimws(unlist(human_df[, code_cols]))),
-    tolower(trimws(unlist(ai_df[, code_cols])))
-  ))
-  all_observed_codes <- all_observed_codes[!is.na(all_observed_codes) & nchar(all_observed_codes) > 0]
-
-  kappa <- NA_real_
-  alpha <- NA_real_
-
-  if (length(all_observed_codes) > 0) {
-    # Deduplicate codes list using fuzzy matching (merge near-duplicates)
-    canonical_codes <- .fuzzy_deduplicate_codes(all_observed_codes)
-
-    human_binary <- integer(0)
-    ai_binary <- integer(0)
-
-    for (i in seq_len(n_entries)) {
-      human_codes <- tolower(trimws(unlist(human_df[i, code_cols])))
-      human_codes <- human_codes[!is.na(human_codes) & nchar(human_codes) > 0]
-
-      ai_codes <- tolower(trimws(unlist(ai_df[i, code_cols])))
-      ai_codes <- ai_codes[!is.na(ai_codes) & nchar(ai_codes) > 0]
-
-      # Map each rater's codes to canonical codes via fuzzy matching
-      human_canonical <- .map_to_canonical(human_codes, canonical_codes)
-      ai_canonical <- .map_to_canonical(ai_codes, canonical_codes)
-
-      human_binary <- c(human_binary, as.integer(canonical_codes %in% human_canonical))
-      ai_binary <- c(ai_binary, as.integer(canonical_codes %in% ai_canonical))
-    }
-
-    # NOTE: Kappa/alpha computed on flattened entry-code pairs, which inflates
-    # effective sample size for multi-label coding. Interpret with caution.
-    # A per-entry set-level agreement metric is also reported (percent_agreement).
-    log_info("Note: Kappa/alpha computed on flattened entry-code pairs (see documentation for caveats)")
-
-    kappa <- .compute_cohens_kappa(human_binary, ai_binary)
-
-    # Compute Krippendorff's alpha (nominal, binary data)
-    alpha <- .compute_krippendorff_alpha(human_binary, ai_binary,
-                                          n_codes = length(canonical_codes),
-                                          n_entries = n_entries)
-  }
+  # --- Headline chance-corrected coefficients. --------------------------------
+  # Krippendorff's alpha with a Jaccard set-distance is the field-standard
+  # agreement coefficient for set-valued (multi-label) coding (Artstein &
+  # Poesio, 2008). It operates on per-unit set distances and so -- unlike a
+  # flattened binary presence/absence matrix, whose agreement inflates as the
+  # number of distinct codes grows -- is NOT distorted by codebook size.
+  alpha    <- .set_krippendorff_alpha(human_sets, ai_sets)
+  alpha_ci <- .bootstrap_alpha_ci(human_sets, ai_sets, n_boot = n_boot, seed = seed)
+  # Cohen's kappa is a single-label coefficient; for multi-label data we report
+  # the MEAN per-code kappa (each canonical code scored as its own binary
+  # present/absent problem across entries). Computed per code, it is likewise
+  # immune to the flattening inflation. Supplementary to the set-based alpha.
+  kappa <- .mean_per_code_kappa(human_sets, ai_sets, canonical_codes)
 
   list(
     cohens_kappa = round(kappa, 3),
     kappa_interpretation = .interpret_kappa(kappa),
     krippendorff_alpha = round(alpha, 3),
     alpha_interpretation = .interpret_alpha(alpha),
-    percent_agreement = round(mean(agreements, na.rm = TRUE) * 100, 1),
-    jaccard_similarity = round(mean(jaccards, na.rm = TRUE), 3),
+    alpha_ci_low = round(alpha_ci[1], 3),
+    alpha_ci_high = round(alpha_ci[2], 3),
+    percent_agreement = round(mean(per_entry_agreement, na.rm = TRUE) * 100, 1),
+    jaccard_similarity = round(mean(per_entry_jaccard, na.rm = TRUE), 3),
     n_entries = n_entries,
-    per_entry_jaccard = jaccards,
-    per_entry_agreement = agreements,
+    n_codes = length(canonical_codes),
+    per_entry_jaccard = per_entry_jaccard,
+    per_entry_agreement = per_entry_agreement,
     error = NULL
   )
 }
@@ -312,7 +324,7 @@ run_human_verification <- function(data, coding_state,
 #' @param threshold Normalized distance threshold (0 = exact, 1 = anything matches)
 #' @return List with `matched` (target codes that were matched) and `unmatched`
 #' @keywords internal
-.fuzzy_match_codes <- function(source, target, threshold = 0.35) {
+.fuzzy_match_codes <- function(source, target, threshold = 0.15) {
   if (length(source) == 0 || length(target) == 0) {
     return(list(matched = character(0), unmatched = source))
   }
@@ -337,7 +349,7 @@ run_human_verification <- function(data, coding_state,
 
 #' Deduplicate a list of codes by merging fuzzy near-duplicates
 #' @keywords internal
-.fuzzy_deduplicate_codes <- function(codes, threshold = 0.35) {
+.fuzzy_deduplicate_codes <- function(codes, threshold = 0.15) {
   if (length(codes) <= 1) return(codes)
 
   canonical <- character(0)
@@ -357,7 +369,7 @@ run_human_verification <- function(data, coding_state,
 
 #' Map a set of codes to canonical codes via fuzzy matching
 #' @keywords internal
-.map_to_canonical <- function(codes, canonical, threshold = 0.35) {
+.map_to_canonical <- function(codes, canonical, threshold = 0.15) {
   if (length(codes) == 0) return(character(0))
 
   mapped <- character(0)
@@ -396,9 +408,10 @@ run_human_verification <- function(data, coding_state,
 
 #' Compute Krippendorff's alpha for binary nominal data (2 raters)
 #'
-#' Implements Krippendorff's alpha for nominal data with 2 coders.
-#' More robust than Cohen's kappa for sparse binary matrices and handles
-#' the prevalence/bias problem better (Krippendorff, 2011).
+#' Binary-nominal primitive, retained for the single-label / binary case and
+#' its unit tests. NOTE: the multi-label IRR path does NOT apply this to a
+#' flattened presence/absence matrix -- that inflates agreement as the codebook
+#' grows. Multi-label agreement uses .set_krippendorff_alpha (Jaccard distance).
 #'
 #' @param rater1 Binary integer vector (flattened: n_entries * n_codes)
 #' @param rater2 Binary integer vector (same length as rater1)
@@ -440,6 +453,113 @@ run_human_verification <- function(data, coding_state,
   if (D_e == 0) return(1.0)  # Perfect expected agreement
 
   1 - (D_o / D_e)
+}
+
+#' Empty/error IRR result with the full result schema
+#' @keywords internal
+.empty_irr_result <- function(error_msg) {
+  list(
+    cohens_kappa = NA_real_, kappa_interpretation = "Error",
+    krippendorff_alpha = NA_real_, alpha_interpretation = "Error",
+    alpha_ci_low = NA_real_, alpha_ci_high = NA_real_,
+    percent_agreement = NA_real_, jaccard_similarity = NA_real_,
+    n_entries = 0L, n_codes = 0L,
+    per_entry_jaccard = numeric(0), per_entry_agreement = numeric(0),
+    error = error_msg
+  )
+}
+
+#' Jaccard distance between two code sets (0 = identical, 1 = disjoint)
+#' Two empty sets are treated as identical (distance 0).
+#' @keywords internal
+.jaccard_set_distance <- function(s, t) {
+  if (length(s) == 0 && length(t) == 0) return(0)
+  u <- length(union(s, t))
+  if (u == 0) return(0)
+  1 - length(intersect(s, t)) / u
+}
+
+#' Krippendorff's alpha for set-valued (multi-label) coding by 2 raters
+#'
+#' Uses a Jaccard set-distance: alpha = 1 - D_o / D_e, where D_o is the mean
+#' per-entry distance between the two raters' code sets, and D_e is the mean
+#' distance over all pairs of the 2n observed code sets (the chance baseline).
+#' Because it works on per-entry set distances, it does not inflate with the
+#' number of distinct codes -- the defect of a flattened binary kappa/alpha.
+#' Returns NA when alpha is undefined (fewer than 2 codings, or D_e == 0 with
+#' non-zero observed disagreement).
+#' @keywords internal
+.set_krippendorff_alpha <- function(human_sets, ai_sets) {
+  n <- length(human_sets)
+  if (n < 1L) return(NA_real_)
+
+  d_o <- mean(vapply(seq_len(n), function(i)
+    .jaccard_set_distance(human_sets[[i]], ai_sets[[i]]), numeric(1)))
+
+  pool <- c(human_sets, ai_sets)
+  m <- length(pool)
+  if (m < 2L) return(NA_real_)
+
+  total <- 0
+  cnt <- 0L
+  for (i in seq_len(m - 1L)) {
+    for (j in (i + 1L):m) {
+      total <- total + .jaccard_set_distance(pool[[i]], pool[[j]])
+      cnt <- cnt + 1L
+    }
+  }
+  d_e <- total / cnt
+  if (d_e == 0) return(if (d_o == 0) 1.0 else NA_real_)
+  1 - d_o / d_e
+}
+
+#' Mean per-code Cohen's kappa across entries (multi-label supplementary metric)
+#'
+#' For each canonical code, builds the binary present/absent vector across
+#' entries for each rater and computes Cohen's kappa, then averages over codes.
+#' Codes used by neither rater (which would spuriously score 1.0) are skipped.
+#' @keywords internal
+.mean_per_code_kappa <- function(human_sets, ai_sets, canonical_codes) {
+  if (length(canonical_codes) == 0 || length(human_sets) == 0) return(NA_real_)
+  n <- length(human_sets)
+  kappas <- numeric(0)
+  for (code in canonical_codes) {
+    h <- vapply(human_sets, function(s) as.integer(code %in% s), integer(1))
+    a <- vapply(ai_sets,    function(s) as.integer(code %in% s), integer(1))
+    if (sum(h) == 0L && sum(a) == 0L) next  # code present for neither rater
+    k <- .compute_cohens_kappa(h, a)
+    if (!is.na(k)) kappas <- c(kappas, k)
+  }
+  if (length(kappas) == 0) return(NA_real_)
+  mean(kappas)
+}
+
+#' Nonparametric bootstrap 95% CI for the set-based Krippendorff alpha
+#'
+#' Resamples entries with replacement and recomputes alpha. Returns c(lo, hi),
+#' or c(NA, NA) when the sample is too small (< 8 entries) for a meaningful
+#' interval. The caller's RNG state is preserved.
+#' @keywords internal
+.bootstrap_alpha_ci <- function(human_sets, ai_sets,
+                                n_boot = 2000L, conf = 0.95, seed = 42L) {
+  n <- length(human_sets)
+  if (n < 8L || n_boot < 1L) return(c(NA_real_, NA_real_))
+
+  if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
+    old_seed <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
+    on.exit(assign(".Random.seed", old_seed, envir = .GlobalEnv), add = TRUE)
+  }
+  set.seed(seed)
+
+  alphas <- vapply(seq_len(n_boot), function(b) {
+    idx <- sample.int(n, n, replace = TRUE)
+    .set_krippendorff_alpha(human_sets[idx], ai_sets[idx])
+  }, numeric(1))
+  alphas <- alphas[is.finite(alphas)]
+  if (length(alphas) < 2L) return(c(NA_real_, NA_real_))
+
+  a <- (1 - conf) / 2
+  unname(stats::quantile(alphas, c(a, 1 - a), names = FALSE, na.rm = TRUE))
 }
 
 #' Interpret kappa value using Landis & Koch (1977) scale

@@ -4,7 +4,7 @@
 \alias{.map_to_canonical}
 \title{Map a set of codes to canonical codes via fuzzy matching}
 \usage{
-.map_to_canonical(codes, canonical, threshold = 0.35)
+.map_to_canonical(codes, canonical, threshold = 0.15)
 }
 \description{
 Map a set of codes to canonical codes via fuzzy matching

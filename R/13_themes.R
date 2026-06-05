@@ -2456,8 +2456,7 @@ enrich_themes <- function(theme_set, data, coding_state = NULL,
     if (safe_col %in% names(data)) {
       theme_entries <- data[data[[safe_col]] == 1L, ]
     } else if ("emerged_themes" %in% names(data)) {
-      theme_entries <- data[!is.na(data$emerged_themes) &
-                             grepl(tn, data$emerged_themes, fixed = TRUE), ]
+      theme_entries <- data[.entry_in_theme(data$emerged_themes, tn), ]
     } else {
       theme_entries <- data[0, ]  # empty
     }

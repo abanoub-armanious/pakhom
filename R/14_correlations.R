@@ -98,7 +98,7 @@ prepare_correlation_data <- function(data, theme_set, config = list()) {
       safe_col <- paste0("theme_membership_", make.names(tn))
       if ("emerged_themes" %in% names(data)) {
         corr_data[[safe_col]] <- as.integer(
-          !is.na(data$emerged_themes) & grepl(tn, data$emerged_themes, fixed = TRUE)
+          .entry_in_theme(data$emerged_themes, tn)
         )
       } else {
         corr_data[[safe_col]] <- 0L

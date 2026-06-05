@@ -491,3 +491,177 @@ test_that(".compute_irr_agreement reads through methodology stamps in completed 
   expect_equal(result$n_entries, 3L)
   expect_true(result$percent_agreement >= 50)
 })
+
+# ==============================================================================
+# BUG 2 regression: rater alignment is by entry_id, NOT row position
+# ==============================================================================
+test_that("compute_irr_agreement aligns by entry_id even when rows are shuffled", {
+  tmp_dir <- tempfile("irr_join_")
+  dir.create(tmp_dir, recursive = TRUE)
+  on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+
+  human_df <- tibble::tibble(
+    entry_id = paste0("e_", 1:5),
+    code_1 = c("sleep issues", "medication effects", "mood changes", "appetite", "anxiety"),
+    code_2 = rep("", 5)
+  )
+  # SAME codings keyed to the SAME entry_ids, but the AI sheet rows are in a
+  # different order -- exactly what happens when a user sorts the spreadsheet.
+  ai_df <- human_df[c(4, 2, 5, 1, 3), ]
+
+  hp <- file.path(tmp_dir, "h.csv"); ap <- file.path(tmp_dir, "a.csv")
+  cp <- file.path(tmp_dir, "c.csv")
+  readr::write_csv(human_df, hp); readr::write_csv(ai_df, ap)
+  readr::write_csv(tibble::tibble(code_text = "x", frequency = 1L), cp)
+
+  result <- pakhom:::.compute_irr_agreement(hp, ap, cp,
+    sample_ids = paste0("e_", 1:5), max_codes = 2)
+
+  # Joined by entry_id, every entry matches itself -> perfect agreement.
+  # Under the OLD positional alignment this would have been badly mis-paired.
+  expect_equal(result$n_entries, 5L)
+  expect_equal(result$percent_agreement, 100.0)
+  expect_equal(result$jaccard_similarity, 1.0)
+  expect_equal(result$cohens_kappa, 1.0)
+})
+
+test_that("compute_irr_agreement drops entries present in only one sheet", {
+  tmp_dir <- tempfile("irr_partialjoin_")
+  dir.create(tmp_dir, recursive = TRUE)
+  on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+
+  human_df <- tibble::tibble(
+    entry_id = paste0("e_", 1:4),
+    code_1 = c("sleep issues", "anxiety", "mood changes", "appetite"),
+    code_2 = rep("", 4)
+  )
+  ai_df <- tibble::tibble(  # only e_1..e_3 in common; e_9 is AI-only
+    entry_id = c("e_1", "e_2", "e_3", "e_9"),
+    code_1 = c("sleep issues", "anxiety", "mood changes", "weight gain"),
+    code_2 = rep("", 4)
+  )
+  hp <- file.path(tmp_dir, "h.csv"); ap <- file.path(tmp_dir, "a.csv")
+  cp <- file.path(tmp_dir, "c.csv")
+  readr::write_csv(human_df, hp); readr::write_csv(ai_df, ap)
+  readr::write_csv(tibble::tibble(code_text = "x", frequency = 1L), cp)
+
+  result <- pakhom:::.compute_irr_agreement(hp, ap, cp,
+    sample_ids = paste0("e_", 1:4), max_codes = 2)
+
+  # Only the 3 shared entries are compared (e_4 human-only, e_9 AI-only dropped).
+  expect_equal(result$n_entries, 3L)
+  expect_equal(result$percent_agreement, 100.0)
+})
+
+# ==============================================================================
+# BUG 3 regression: conservative threshold keeps semantic variants distinct
+# ==============================================================================
+test_that("semantic variants are NOT merged (counted as disagreement)", {
+  tmp_dir <- tempfile("irr_threshold_")
+  dir.create(tmp_dir, recursive = TRUE)
+  on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+
+  human_df <- tibble::tibble(entry_id = c("e_1", "e_2"),
+    code_1 = c("sleep issues", "mood changes"), code_2 = c("", ""))
+  ai_df <- tibble::tibble(entry_id = c("e_1", "e_2"),
+    code_1 = c("sleep problems", "mood swings"), code_2 = c("", ""))  # variants
+  hp <- file.path(tmp_dir, "h.csv"); ap <- file.path(tmp_dir, "a.csv")
+  cp <- file.path(tmp_dir, "c.csv")
+  readr::write_csv(human_df, hp); readr::write_csv(ai_df, ap)
+  readr::write_csv(tibble::tibble(code_text = "x", frequency = 1L), cp)
+
+  result <- pakhom:::.compute_irr_agreement(hp, ap, cp,
+    sample_ids = c("e_1", "e_2"), max_codes = 2)
+
+  # "sleep issues"/"sleep problems" (jw~0.30) and "mood changes"/"mood swings"
+  # (jw~0.20) are genuine labelling differences at the 0.15 threshold, so NONE
+  # of the entries should be scored as agreement (the old 0.35 wrongly merged
+  # them -> falsely perfect agreement).
+  expect_equal(result$percent_agreement, 0.0)
+  expect_equal(result$jaccard_similarity, 0.0)
+})
+
+# ==============================================================================
+# BUG 1 regression: set-based Krippendorff alpha + per-code kappa primitives
+# ==============================================================================
+test_that(".jaccard_set_distance computes set distances", {
+  expect_equal(pakhom:::.jaccard_set_distance(c("a", "b"), c("a", "b")), 0)
+  expect_equal(pakhom:::.jaccard_set_distance("a", "b"), 1)
+  expect_equal(pakhom:::.jaccard_set_distance(c("a", "b"), "a"), 0.5)
+  expect_equal(pakhom:::.jaccard_set_distance(character(0), character(0)), 0)
+  expect_equal(pakhom:::.jaccard_set_distance("a", character(0)), 1)
+})
+
+test_that(".set_krippendorff_alpha matches hand-computed values", {
+  # Perfect agreement -> alpha = 1.
+  expect_equal(pakhom:::.set_krippendorff_alpha(list("a", "b"), list("a", "b")), 1.0)
+  # H1={a},A1={a}; H2={b},A2={c}: D_o=0.5, D_e=5/6 -> alpha = 1 - 0.6 = 0.4.
+  expect_equal(
+    pakhom:::.set_krippendorff_alpha(list("a", "b"), list("a", "c")),
+    0.4, tolerance = 1e-9
+  )
+  # Systematic disagreement on shared codes -> negative alpha.
+  a <- pakhom:::.set_krippendorff_alpha(list("a", "b"), list("b", "a"))
+  expect_true(a < 0)
+})
+
+test_that(".mean_per_code_kappa averages per-code agreement", {
+  # H={a},{b}; A={a},{c}: code a perfect (k=1), codes b,c one-sided (k=0).
+  k <- pakhom:::.mean_per_code_kappa(list("a", "b"), list("a", "c"),
+                                     c("a", "b", "c"))
+  expect_equal(k, 1 / 3, tolerance = 1e-9)
+  # Codes present for neither rater are skipped (no spurious 1.0).
+  k2 <- pakhom:::.mean_per_code_kappa(list("a"), list("a"), c("a", "zzz"))
+  expect_equal(k2, 1.0)
+})
+
+test_that("set-based alpha is not inflated by sparse, distinct codes", {
+  # 50% of entries share their (single) code, the rest are all-distinct.
+  # A flattened binary alpha would be pulled toward 1 by the many 0/0 cells;
+  # the set-based alpha must stay moderate.
+  tmp_dir <- tempfile("irr_noinflate_")
+  dir.create(tmp_dir, recursive = TRUE)
+  on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
+
+  ids <- paste0("e_", 1:8)
+  # e1-e4: identical code in both raters (agreement). e5-e8: genuinely distinct
+  # words in each rater (disagreement). All 16 strings are chosen with no shared
+  # 4-char prefixes so the conservative canonicalizer does not merge any of them.
+  human_df <- tibble::tibble(entry_id = ids,
+    code_1 = c("insomnia", "nausea", "cravings", "bloating",
+               "dizziness", "fatigue", "anxiety", "weight gain"),
+    code_2 = rep("", 8))
+  ai_df <- tibble::tibble(entry_id = ids,
+    code_1 = c("insomnia", "nausea", "cravings", "bloating",
+               "headaches", "restlessness", "depression", "appetite loss"),
+    code_2 = rep("", 8))
+  hp <- file.path(tmp_dir, "h.csv"); ap <- file.path(tmp_dir, "a.csv")
+  cp <- file.path(tmp_dir, "c.csv")
+  readr::write_csv(human_df, hp); readr::write_csv(ai_df, ap)
+  readr::write_csv(tibble::tibble(code_text = "x", frequency = 1L), cp)
+
+  result <- pakhom:::.compute_irr_agreement(hp, ap, cp,
+    sample_ids = ids, max_codes = 2)
+
+  expect_equal(result$percent_agreement, 50.0)         # 4 of 8 entries match
+  expect_true(result$krippendorff_alpha < 0.8)          # NOT inflated to ~1
+  expect_true(result$krippendorff_alpha > 0)            # but still positive
+  # n >= 8 -> a bootstrap CI is produced and well-ordered.
+  expect_false(is.na(result$alpha_ci_low))
+  expect_false(is.na(result$alpha_ci_high))
+  expect_true(result$alpha_ci_low <= result$alpha_ci_high)
+})
+
+test_that("bootstrap alpha CI is NA for small samples", {
+  ci <- pakhom:::.bootstrap_alpha_ci(list("a", "b", "c"), list("a", "b", "c"),
+                                     n_boot = 100L)
+  expect_true(all(is.na(ci)))
+})
+
+test_that("bootstrap alpha CI preserves the caller's RNG stream", {
+  set.seed(123)
+  before <- .Random.seed
+  invisible(pakhom:::.bootstrap_alpha_ci(
+    as.list(letters[1:10]), as.list(letters[1:10]), n_boot = 50L, seed = 7L))
+  expect_identical(.Random.seed, before)
+})

@@ -735,9 +735,7 @@ compute_mode1_theme_stats <- function(data, theme_set, reflection_log,
     if (safe_col %in% names(data)) {
       entries <- data[data[[safe_col]] == 1L, , drop = FALSE]
     } else if ("emerged_themes" %in% names(data)) {
-      entries <- data[!is.na(data$emerged_themes) &
-                       grepl(tn, data$emerged_themes, fixed = TRUE), ,
-                       drop = FALSE]
+      entries <- data[.entry_in_theme(data$emerged_themes, tn), , drop = FALSE]
     } else {
       entries <- data[0, , drop = FALSE]
     }

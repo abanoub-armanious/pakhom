@@ -4,7 +4,7 @@
 \alias{.fuzzy_match_codes}
 \title{Match codes from source to target using normalized string distance}
 \usage{
-.fuzzy_match_codes(source, target, threshold = 0.35)
+.fuzzy_match_codes(source, target, threshold = 0.15)
 }
 \arguments{
 \item{source}{Character vector of codes to match}

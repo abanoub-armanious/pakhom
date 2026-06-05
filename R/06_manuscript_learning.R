@@ -368,11 +368,13 @@ parse_raw_data_files <- function(raw_data_dir, max_files = NULL, seed = NULL) {
 #' @param max_codebook_chars Max characters for codebook context per study
 #' @param max_manuscript_chars Max characters for manuscript supplements per study
 #' @param max_raw_samples Max raw data examples per study
+#' @param seed Single RNG seed used for ALL example sampling, so the learning
+#'   context is reproducible across runs (default 42).
 #' @return LearningContext S3 object
 #' @export
 generate_learning_context <- function(studies, max_codebook_chars = 20000L,
                                        max_manuscript_chars = 12000L,
-                                       max_raw_samples = 5L) {
+                                       max_raw_samples = 5L, seed = 42L) {
   if (!inherits(studies, "PreviousStudies") || studies$n_studies == 0) {
     log_warn("No previous studies available for learning context")
     return(.empty_learning_context())
@@ -495,7 +497,7 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
 
           # Add entry-level coding examples (actual coded segments)
           sample_refs <- refs[!is.na(refs$coded_text), ]
-          sample_refs <- withr::with_seed(42, {
+          sample_refs <- withr::with_seed(seed, {
             sample_refs[sample(seq_len(nrow(sample_refs)),
                                min(10, nrow(sample_refs))), ]
           })
@@ -563,8 +565,10 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
       raw_summary <- c(raw_summary, summary_line)
 
       if (n_with_text > 0) {
-        samples <- rd_with_text |>
-          slice_sample(n = min(max_raw_samples, n_with_text))
+        # Seed the raw-example sampling with the SAME single seed (it was
+        # previously unseeded), so the whole learning context is reproducible.
+        samples <- withr::with_seed(seed,
+          rd_with_text |> slice_sample(n = min(max_raw_samples, n_with_text)))
         for (i in seq_len(nrow(samples))) {
           sample_text <- substr(samples$text[i], 1, 300)
           coding_parts <- c(coding_parts, paste0(
@@ -588,11 +592,12 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
       "These benchmarks reflect how experienced human researchers code similar data:\n\n"
     )
 
-    if (!is.null(benchmarks$max_code_coverage_pct)) {
-      cal_text <- paste0(cal_text,
-        "- Maximum code coverage: ", benchmarks$max_code_coverage_pct,
-        "% of entries (no single code should exceed this)\n")
-    }
+    # NB: the "maximum code coverage" benchmark was intentionally dropped from
+    # the prompt. It injected an outlier MAX as a hard ceiling ("no single code
+    # should exceed this"), which is both statistically vacuous (a single
+    # extreme study sets it) and a quasi-hardcoded count constraint -- counter to
+    # the principle that the AI, not a fixed number, decides code granularity.
+    # The value is still computed and logged for transparency, just not injected.
     if (!is.null(benchmarks$typical_code_count)) {
       cal_text <- paste0(cal_text,
         "- Typical codebook size: ~", benchmarks$typical_code_count, " leaf codes per study\n")

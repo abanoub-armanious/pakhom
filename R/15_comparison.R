@@ -675,8 +675,13 @@ list_available_runs <- function(results_base) {
     n_dropped <- nrow(pairwise$dropped)
     total <- n_stable + n_new + n_dropped
 
-    # Jaccard on exact code text
-    jaccard <- .code_jaccard(curr_texts, prev_texts)
+    # Jaccard consistent with the FUZZY pairwise matching above: each matched
+    # pair (stable OR renamed) is one shared code. The old exact set-Jaccard on
+    # the raw text missed the near-identical RENAMES that the breakdown counts,
+    # so the headline number contradicted its own table and applied a stricter
+    # rule than the sibling sentiment-reclassification metric's Jaccard.
+    n_matched <- nrow(pairwise$stable) + nrow(pairwise$renamed)
+    jaccard <- if (total > 0) round(n_matched / total, 3) else 1
 
     stability <- list(
       jaccard_overall = jaccard,

@@ -8,7 +8,8 @@ generate_learning_context(
   studies,
   max_codebook_chars = 20000L,
   max_manuscript_chars = 12000L,
-  max_raw_samples = 5L
+  max_raw_samples = 5L,
+  seed = 42L
 )
 }
 \arguments{
@@ -19,6 +20,9 @@ generate_learning_context(
 \item{max_manuscript_chars}{Max characters for manuscript supplements per study}
 
 \item{max_raw_samples}{Max raw data examples per study}
+
+\item{seed}{Single RNG seed used for ALL example sampling, so the learning
+context is reproducible across runs (default 42).}
 }
 \value{
 LearningContext S3 object

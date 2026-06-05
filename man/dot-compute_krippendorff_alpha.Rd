@@ -19,8 +19,9 @@
 Krippendorff's alpha (numeric)
 }
 \description{
-Implements Krippendorff's alpha for nominal data with 2 coders.
-More robust than Cohen's kappa for sparse binary matrices and handles
-the prevalence/bias problem better (Krippendorff, 2011).
+Binary-nominal primitive, retained for the single-label / binary case and
+its unit tests. NOTE: the multi-label IRR path does NOT apply this to a
+flattened presence/absence matrix -- that inflates agreement as the codebook
+grows. Multi-label agreement uses .set_krippendorff_alpha (Jaccard distance).
 }
 \keyword{internal}

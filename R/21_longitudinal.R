@@ -66,6 +66,7 @@
 
   best_parsed <- NULL
   best_n      <- 0L
+  best_fmt    <- NA_character_
 
   for (fmt in .DATE_FORMATS) {
     parsed <- suppressWarnings(as.POSIXct(cleaned, format = fmt, tz = "UTC"))
@@ -73,12 +74,36 @@
     if (n_ok > best_n) {
       best_n      <- n_ok
       best_parsed <- parsed
+      best_fmt    <- fmt
       if (n_ok == sum(non_na)) break
     }
   }
 
   if (is.null(best_parsed) || best_n == 0L) {
     return(rep(as.POSIXct(NA), length(x)))
+  }
+
+  # Day/month ambiguity: a slash-ordered date such as "03/05/2024" parses under
+  # BOTH "%m/%d/%Y" and "%d/%m/%Y" into different instants. When the winning
+  # format is one of these and the swapped order parses just as many values into
+  # genuinely different dates, warn -- temporal results could be months off.
+  # (Targeted on purpose: a blanket "multiple formats parse" check false-fires
+  # because a date-only format also "parses" a datetime by ignoring its time.)
+  for (pair in list(c("%m/%d/%Y", "%d/%m/%Y"),
+                    c("%m/%d/%Y %H:%M:%S", "%d/%m/%Y %H:%M:%S"))) {
+    if (!is.na(best_fmt) && best_fmt %in% pair) {
+      other <- setdiff(pair, best_fmt)
+      alt   <- suppressWarnings(as.POSIXct(cleaned, format = other, tz = "UTC"))
+      if (sum(!is.na(alt[non_na])) == best_n &&
+          any(!is.na(alt[non_na]) & !is.na(best_parsed[non_na]) &
+              alt[non_na] != best_parsed[non_na])) {
+        log_warn(paste0(
+          "Ambiguous timestamp format: values parse under both '", best_fmt,
+          "' and '", other, "' into different dates; using '", best_fmt,
+          "'. Supply ISO-8601 (YYYY-MM-DD) timestamps to disambiguate."))
+      }
+      break
+    }
   }
 
   best_parsed
@@ -196,7 +221,7 @@
       } else if ("emerged_themes" %in% names(rows_in_period)) {
         # Fallback: parse semicolon-delimited emerged_themes
         n_entries <- sum(
-          grepl(tn, rows_in_period$emerged_themes, fixed = TRUE),
+          .entry_in_theme(rows_in_period$emerged_themes, tn),
           na.rm = TRUE
         )
       } else {
@@ -253,7 +278,7 @@
         mask <- rep(FALSE, nrow(data))
       }
     } else if ("emerged_themes" %in% names(data)) {
-      mask <- grepl(tn, data$emerged_themes, fixed = TRUE) & !is.na(data$emerged_themes)
+      mask <- .entry_in_theme(data$emerged_themes, tn)
     } else {
       mask <- rep(FALSE, nrow(data))
     }
@@ -279,23 +304,40 @@
       theme_obj <- theme_set$themes[[i]]
       birth_keys <- tolower(theme_code_keys(theme_obj))
 
-      if (length(birth_keys) > 0 && !is.null(coding_state$saturation$code_birth_log)) {
+      birth_ids <- coding_state$saturation$code_birth_entry_id
+      if (length(birth_keys) > 0 && !is.null(birth_ids)) {
+        # Preferred: resolve each code's birth entry by its STABLE std_id, then
+        # take the earliest birth timestamp. Robust to the analytic frame having
+        # subset/reordered rows (which broke the old positional-index lookup).
+        sids <- vapply(birth_keys,
+                       function(k) as.character(birth_ids[[k]] %||% NA_character_),
+                       character(1))
+        sids <- sids[!is.na(sids)]
+        if (length(sids) > 0 && "std_id" %in% names(data)) {
+          rows <- match(sids, as.character(data$std_id))
+          ts_at_birth <- data$.parsed_ts[rows]
+          ok <- !is.na(ts_at_birth)
+          if (any(ok)) {
+            first_code_date <- min(ts_at_birth[ok])
+            n_codes_at_emergence <- sum(ts_at_birth == first_code_date, na.rm = TRUE)
+          }
+        }
+      } else if (length(birth_keys) > 0 &&
+                 !is.null(coding_state$saturation$code_birth_log)) {
+        # Legacy fallback (checkpoint predates code_birth_entry_id): the
+        # positional index can be off when entries were skipped before analysis.
         birth_log <- coding_state$saturation$code_birth_log
-        # Find entries where these codes were first created
         code_births <- vapply(birth_keys, function(code_key) {
           entry_idx <- birth_log[[code_key]]
           if (is.null(entry_idx)) return(NA_integer_)
           as.integer(entry_idx)
         }, integer(1))
-
         code_births <- code_births[!is.na(code_births)]
-
         if (length(code_births) > 0) {
           earliest_entry_idx <- min(code_births)
           n_codes_at_emergence <- sum(code_births == earliest_entry_idx)
-
-          # Map entry index back to timestamp
-          if (earliest_entry_idx <= nrow(data) && !is.na(data$.parsed_ts[earliest_entry_idx])) {
+          if (earliest_entry_idx <= nrow(data) &&
+              !is.na(data$.parsed_ts[earliest_entry_idx])) {
             first_code_date <- data$.parsed_ts[earliest_entry_idx]
           }
         }

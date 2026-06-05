@@ -260,6 +260,137 @@ test_that("codebook review applies split", {
   })
 })
 
+# ==============================================================================
+# Regression: peripheral correctness bugs
+# ==============================================================================
+
+test_that("merge replaces whole code keys, not substrings (BUG 1)", {
+  withr::with_tempdir({
+    # 'sleep' is a substring of the DISTINCT code 'sleep_problems'. Merging
+    # 'sleep' into 'target' must rename only the exact 'sleep' key and leave
+    # 'sleep_problems' untouched (the old substring gsub corrupted it into
+    # 'target_problems').
+    cs <- structure(list(
+      codebook = list(
+        sleep = list(code_name = "Sleep", description = "", type = "descriptive",
+                     frequency = 1L, entry_ids = "e1", coded_segments = list()),
+        sleep_problems = list(code_name = "Sleep Problems", description = "",
+                     type = "descriptive", frequency = 1L, entry_ids = "e1",
+                     coded_segments = list()),
+        target = list(code_name = "Target", description = "", type = "descriptive",
+                     frequency = 1L, entry_ids = "e2", coded_segments = list())
+      ),
+      entry_results = list(
+        e1 = list(codes_assigned = c("sleep", "sleep_problems"),
+                  skipped = FALSE, coded_segments = list())
+      ),
+      entries_processed = 1L
+    ), class = "ProgressiveCodingState")
+
+    reviewed <- tibble::tibble(
+      code_key        = c("sleep", "sleep_problems", "target"),
+      code_name       = c("Sleep", "Sleep Problems", "Target"),
+      action          = c("merge", "keep", "keep"),
+      new_name        = NA_character_,
+      merge_into      = c("target", NA_character_, NA_character_),
+      new_description = NA_character_,
+      split_name      = NA_character_,
+      researcher_memo = NA_character_
+    )
+    write_reviewed_codebook(getwd(), reviewed)
+    result <- review_progressive_codebook(cs, getwd())
+
+    e1 <- result$coding_state$entry_results[["e1"]]
+    expect_true("sleep_problems" %in% e1$codes_assigned)     # intact
+    expect_true("target" %in% e1$codes_assigned)             # merged
+    expect_false("target_problems" %in% e1$codes_assigned)   # NOT corrupted
+    expect_false("sleep" %in% e1$codes_assigned)             # source gone
+  })
+})
+
+test_that("split gives the new code FRESH counters, not a doubled copy (BUG 3)", {
+  withr::with_tempdir({
+    cs <- make_coding_state()  # code_a: freq 3, entries e1,e2,e3
+    reviewed <- tibble::tibble(
+      code_key        = c("code_a", "code_b"),
+      code_name       = c("Code A", "Code B"),
+      action          = c("split", "keep"),
+      new_name        = c("Code A Part 1", NA_character_),
+      merge_into      = NA_character_,
+      new_description = NA_character_,
+      split_name      = c("Code A Part 2", NA_character_),
+      researcher_memo = NA_character_
+    )
+    write_reviewed_codebook(getwd(), reviewed)
+    result <- review_progressive_codebook(cs, getwd())
+
+    split <- result$coding_state$codebook[["code_a_part_2"]]
+    # Counters reflect the entries actually assigned the split code (the 3 that
+    # had code_a), not a blind copy of code_a's single codebook segment.
+    expect_equal(sort(split$entry_ids), c("e1", "e2", "e3"))
+    expect_equal(split$frequency, 3L)
+    # Every codebook-level segment now points at the NEW key (the old copy left
+    # them pointing at "code_a").
+    expect_true(length(split$coded_segments) >= 3)
+    expect_true(all(vapply(split$coded_segments,
+                           function(s) s$code_key == "code_a_part_2", logical(1))))
+  })
+})
+
+test_that("merge with an invalid target is a safe no-op (BUG 2)", {
+  withr::with_tempdir({
+    cs <- make_coding_state()
+    reviewed <- tibble::tibble(
+      code_key        = c("code_a", "code_b"),
+      code_name       = c("Code A", "Code B"),
+      action          = c("merge", "delete"),
+      new_name        = NA_character_,
+      merge_into      = c("does_not_exist", NA_character_),  # bad target
+      new_description = NA_character_,
+      split_name      = NA_character_,
+      researcher_memo = NA_character_
+    )
+    write_reviewed_codebook(getwd(), reviewed)
+    result <- review_progressive_codebook(cs, getwd())
+
+    # The bad merge is skipped (code_a survives intact), and the loop does NOT
+    # abort -- the sibling delete of code_b still applies.
+    expect_false(is.null(result$coding_state$codebook[["code_a"]]))
+    expect_null(result$coding_state$codebook[["code_b"]])
+  })
+})
+
+test_that("theme split gives every resulting theme a unique id (BUG 4)", {
+  withr::with_tempdir({
+    themes <- list(
+      list(id = 1L, name = "Theme A", description = "Desc A",
+           codes_included = c("Code 1", "Code 2", "Code 3")),
+      list(id = 2L, name = "Theme B", description = "Desc B",
+           codes_included = c("Code B"))
+    )
+    ts <- create_theme_set(themes)
+    reviewed <- tibble::tibble(
+      theme_name      = c("Theme A", "Theme B"),
+      description     = c("Desc A", "Desc B"),
+      codes_included  = c("Code 1; Code 2; Code 3", "Code B"),
+      action          = c("split", "keep"),
+      new_name        = c("Theme A1", NA_character_),
+      new_description = c("First half", NA_character_),
+      merge_into      = NA_character_,
+      codes_to_add    = NA_character_,
+      codes_to_remove = c("Code 3", NA_character_),
+      split_into      = c("Theme A2", NA_character_),
+      researcher_memo = NA_character_
+    )
+    write_reviewed_themes(getwd(), reviewed)
+    result <- review_themes(ts, getwd())
+
+    ids <- vapply(result$theme_set$themes, function(t) as.integer(t$id %||% 0L),
+                  integer(1))
+    expect_equal(length(ids), length(unique(ids)))  # no collisions / no 2n+1
+  })
+})
+
 test_that("codebook review stores researcher memo", {
   withr::with_tempdir({
     cs <- make_coding_state()

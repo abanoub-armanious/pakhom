@@ -394,7 +394,7 @@ export_theme_entry_csvs <- function(data, theme_set, output_dir,
       entries <- data[data[[safe_col]] == 1L, ]
     } else if ("emerged_themes" %in% names(data)) {
       entries <- data[!is.na(data$emerged_themes) &
-                       grepl(tn, data$emerged_themes, fixed = TRUE), ]
+                       .entry_in_theme(data$emerged_themes, tn), ]
     } else {
       next
     }
@@ -1201,45 +1201,58 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 .build_irr_section <- function(irr_result) {
   stats <- irr_result$irr_stats
 
-  # Pull alpha fields with fallback for backward compat
-  alpha_val <- stats$krippendorff_alpha %||% NA_real_
+  alpha_val    <- stats$krippendorff_alpha %||% NA_real_
   alpha_interp <- stats$alpha_interpretation %||% "N/A"
+  ci_lo <- stats$alpha_ci_low %||% NA_real_
+  ci_hi <- stats$alpha_ci_high %||% NA_real_
+  ci_str <- if (!is.na(ci_lo) && !is.na(ci_hi))
+    paste0(" (95% CI [", ci_lo, ", ", ci_hi, "])") else ""
+  n_codes <- stats$n_codes %||% NA_integer_
+  kappa_label <- if (!is.na(n_codes))
+    paste0("Mean per-code Cohen's kappa (", n_codes, " codes)") else
+    "Mean per-code Cohen's kappa"
 
   content <- paste0(
     "# Inter-Rater Reliability\n\n",
     "A human verification step was performed to assess coding agreement between ",
-    "the AI system and a human researcher. Code matching used fuzzy string ",
-    "comparison (Jaro-Winkler distance) to account for minor wording differences.\n\n",
+    "the AI system and a human researcher. The two coders were aligned by entry ",
+    "id, and codes were matched with conservative fuzzy comparison (Jaro-Winkler ",
+    "distance up to 0.15) that bridges spelling and inflection differences but ",
+    "treats distinct wordings as genuine disagreements.\n\n",
     "## Agreement Statistics\n\n",
     "| Metric | Value | Interpretation |\n",
     "|--------|------:|----------------|\n",
-    "| Krippendorff's Alpha | ", alpha_val, " | ", alpha_interp, " |\n",
-    "| Cohen's Kappa | ", stats$cohens_kappa, " | ", stats$kappa_interpretation, " |\n",
-    "| Percent Agreement | ", stats$percent_agreement, "% | |\n",
+    "| Krippendorff's alpha (set-based, Jaccard) | ", alpha_val, ci_str, " | ", alpha_interp, " |\n",
+    "| ", kappa_label, " | ", stats$cohens_kappa, " | ", stats$kappa_interpretation, " |\n",
+    "| Percent Agreement (exact code set) | ", stats$percent_agreement, "% | |\n",
     "| Mean Jaccard Similarity | ", stats$jaccard_similarity, " | |\n",
     "| Entries Compared | ", stats$n_entries, " | |\n\n"
   )
 
-  # Interpretation -- prioritize Krippendorff's alpha as recommended metric
+  # Interpretation -- the set-based Krippendorff alpha is the recommended metric.
   if (!is.na(alpha_val)) {
     content <- paste0(content,
       "## Interpretation\n\n",
-      "**Krippendorff's alpha** of **", alpha_val, "** indicates **",
-      tolower(alpha_interp), "** (Krippendorff, 2011). ",
-      "Alpha is the recommended reliability metric for multi-label coding as it ",
-      "handles prevalence bias and sparse code matrices better than Cohen's kappa. ",
-      "Krippendorff recommends alpha >= 0.667 for tentative conclusions and ",
-      ">= 0.800 for reliable conclusions.\n\n",
-      "Cohen's kappa of **", stats$cohens_kappa, "** (",
-      tolower(stats$kappa_interpretation), " agreement; Landis & Koch, 1977) ",
-      "is provided for comparison. ",
-      "The mean Jaccard similarity of **", stats$jaccard_similarity,
-      "** represents the average overlap between code sets assigned by each rater.\n\n"
+      "**Krippendorff's alpha** of **", alpha_val, "**", ci_str, " indicates **",
+      tolower(alpha_interp), "** agreement (Krippendorff, 2011). ",
+      "Computed with a Jaccard set-distance, alpha is the recommended reliability ",
+      "metric for multi-label coding: it scores each entry's whole code *set*, so -- ",
+      "unlike a flattened code-by-code matrix -- it is not inflated by the number ",
+      "of distinct codes in the codebook. Krippendorff recommends alpha >= 0.667 ",
+      "for tentative conclusions and >= 0.800 for reliable conclusions.\n\n",
+      "The **mean per-code Cohen's kappa** of **", stats$cohens_kappa, "** (",
+      tolower(stats$kappa_interpretation), "; Landis & Koch, 1977) averages a ",
+      "separate present/absent kappa over each code and is provided as a ",
+      "supplementary, per-code view. ",
+      "The **mean Jaccard similarity** of **", stats$jaccard_similarity,
+      "** is the average overlap between the code sets assigned by each rater, and ",
+      "**percent agreement** is the share of entries where the two coders chose the ",
+      "exact same code set.\n\n"
     )
   } else if (!is.na(stats$cohens_kappa)) {
     content <- paste0(content,
       "## Interpretation\n\n",
-      "Cohen's kappa of **", stats$cohens_kappa, "** indicates **",
+      "The **mean per-code Cohen's kappa** of **", stats$cohens_kappa, "** indicates **",
       tolower(stats$kappa_interpretation), " agreement** (Landis & Koch, 1977). ",
       "The mean Jaccard similarity of **", stats$jaccard_similarity,
       "** represents the average overlap between code sets assigned by each rater.\n\n"
@@ -4226,7 +4239,7 @@ sentiment_colors <- c(
         theme_entries <- data[data[[safe_col]] == 1L, ]
       } else if ("emerged_themes" %in% names(data)) {
         theme_entries <- data[!is.na(data$emerged_themes) &
-                               grepl(tn, data$emerged_themes, fixed = TRUE), ]
+                               .entry_in_theme(data$emerged_themes, tn), ]
       } else {
         theme_entries <- data[0, ]
       }

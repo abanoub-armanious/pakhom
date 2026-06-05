@@ -107,6 +107,7 @@ create_coding_state <- function(learning_context = NULL, config_hash = NULL) {
       #                             which broke after the first checkpoint reset and
       #                             caused premature saturation in long runs)
       code_birth_log = list(),
+      code_birth_entry_id = list(),
       code_n_coded_at_birth = list(),
       reached = FALSE,
       reached_at_entry = NA_integer_,
@@ -519,6 +520,11 @@ run_progressive_coding <- function(data, provider, config = list(),
       new_keys <- setdiff(names(state$codebook), names(state$saturation$code_birth_log))
       for (nk in new_keys) {
         state$saturation$code_birth_log[[nk]] <- idx
+        # Also record the STABLE std_id of the birth entry. 21_longitudinal.R
+        # resolves first_code_date via this id (robust to row subsetting /
+        # reordering), instead of indexing by the positional `idx`, which is
+        # off whenever the analytic frame has dropped skipped entries.
+        state$saturation$code_birth_entry_id[[nk]] <- entry_id
         state$saturation$code_n_coded_at_birth[[nk]] <- n_coded
       }
       if (!is.null(audit_log)) {

@@ -4,6 +4,27 @@
 # These functions were undefined in the old script (Bug #8). Now implemented.
 # ==============================================================================
 
+#' Does each entry's emerged_themes list contain theme `tn` exactly?
+#'
+#' \code{emerged_themes} is a "; "-delimited list of EXACT theme names. The old
+#' test, \code{grepl(tn, emerged_themes, fixed = TRUE)}, matched on substrings,
+#' so a theme whose name is contained in another's (e.g. "Sleep" inside "Sleep
+#' Problems") produced false-positive membership and inflated every per-theme
+#' count, correlation, and prevalence figure built from it. This does an exact,
+#' token-level membership test instead. NA / empty entries are not members.
+#'
+#' @param emerged_themes Character vector (one "; "-joined list per entry).
+#' @param tn Single exact theme name to test for.
+#' @return Logical vector, same length as \code{emerged_themes}.
+#' @keywords internal
+.entry_in_theme <- function(emerged_themes, tn) {
+  if (length(emerged_themes) == 0L) return(logical(0))
+  vapply(emerged_themes, function(s) {
+    if (is.na(s) || !nzchar(s)) return(FALSE)
+    tn %in% trimws(strsplit(s, ";", fixed = TRUE)[[1]])
+  }, logical(1), USE.NAMES = FALSE)
+}
+
 #' Aggregate per-theme statistics for report
 #'
 #' @param data tibble with theme_membership_* or emerged_themes columns
@@ -48,7 +69,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
       entries <- data[data[[safe_col]] == 1L, ]
     } else if ("emerged_themes" %in% names(data)) {
       entries <- data[!is.na(data$emerged_themes) &
-                       grepl(tn, data$emerged_themes, fixed = TRUE), ]
+                       .entry_in_theme(data$emerged_themes, tn), ]
     } else {
       entries <- data[0, ]
     }
@@ -511,7 +532,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
     data[data[[safe_col]] == 1L, ]
   } else if ("emerged_themes" %in% names(data)) {
     data[!is.na(data$emerged_themes) &
-           grepl(tn, data$emerged_themes, fixed = TRUE), ]
+           .entry_in_theme(data$emerged_themes, tn), ]
   } else {
     data[0, ]
   }

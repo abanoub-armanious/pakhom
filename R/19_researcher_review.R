@@ -105,6 +105,7 @@ review_progressive_codebook <- function(coding_state, output_dir,
       # Process merges
       merge_rows <- reviewed[reviewed$action == "merge" & !is.na(reviewed$action) &
                                !is.na(reviewed$merge_into), ]
+      n_merged <- 0L
       for (i in seq_len(nrow(merge_rows))) {
         source_key <- merge_rows$code_key[i]
         target_key <- tolower(trimws(merge_rows$merge_into[i]))
@@ -123,7 +124,10 @@ review_progressive_codebook <- function(coding_state, output_dir,
           for (eid in names(coding_state$entry_results)) {
             er <- coding_state$entry_results[[eid]]
             if (!isTRUE(er$skipped)) {
-              er$codes_assigned <- gsub(source_key, target_key, er$codes_assigned, fixed = TRUE)
+              # Exact-key replacement: codes_assigned holds whole code KEYS, so
+              # substring gsub would corrupt any key that merely contains
+              # source_key (e.g. source "sleep" mangling "sleep_problems").
+              er$codes_assigned[er$codes_assigned == source_key] <- target_key
               er$codes_assigned <- unique(er$codes_assigned)
               for (j in seq_along(er$coded_segments)) {
                 if (er$coded_segments[[j]]$code_key == source_key) {
@@ -142,6 +146,12 @@ review_progressive_codebook <- function(coding_state, output_dir,
             log_ai_decision(audit_log, "researcher_review", "code_merged",
                             source_key = source_key, target_key = target_key)
           }
+          n_merged <- n_merged + 1L
+        } else {
+          # Don't silently no-op: a typo'd merge_into (target not in the
+          # codebook) or an already-removed source must be surfaced, not lost.
+          log_warn(paste0("Codebook review: merge skipped -- source '", source_key,
+                          "' or target '", target_key, "' not found in the codebook."))
         }
       }
 
@@ -195,16 +205,23 @@ review_progressive_codebook <- function(coding_state, output_dir,
         old_name <- coding_state$codebook[[key]]$code_name
         coding_state$codebook[[key]]$code_name <- new_name_1
 
-        # Create duplicate code
+        # Create the second code with FRESH counters. Blind-copying the
+        # original's aggregates double-counted frequency/entry_ids across both
+        # halves and left the copied codebook-level segments pointing at the OLD
+        # key; instead rebuild frequency / entry_ids / coded_segments from the
+        # entries actually assigned the new code in the loop below.
         new_code <- original
         new_code$code_name <- split_name
-        coding_state$codebook[[split_key]] <- new_code
+        new_code$entry_ids <- character(0)
+        new_code$coded_segments <- list()
+        new_code$frequency <- 0L
 
-        # Duplicate entry_results references
+        split_entry_ids <- character(0)
+        split_segments <- list()
         for (eid in names(coding_state$entry_results)) {
           er <- coding_state$entry_results[[eid]]
           if (!isTRUE(er$skipped) && key %in% er$codes_assigned) {
-            er$codes_assigned <- c(er$codes_assigned, split_key)
+            er$codes_assigned <- unique(c(er$codes_assigned, split_key))
             new_segs <- lapply(er$coded_segments, function(s) {
               if (s$code_key == key) {
                 s2 <- s
@@ -217,8 +234,14 @@ review_progressive_codebook <- function(coding_state, output_dir,
             new_segs <- Filter(Negate(is.null), new_segs)
             er$coded_segments <- c(er$coded_segments, new_segs)
             coding_state$entry_results[[eid]] <- er
+            split_entry_ids <- c(split_entry_ids, eid)
+            split_segments <- c(split_segments, new_segs)
           }
         }
+        new_code$entry_ids <- unique(split_entry_ids)
+        new_code$coded_segments <- split_segments
+        new_code$frequency <- length(new_code$entry_ids)
+        coding_state$codebook[[split_key]] <- new_code
 
         n_split <- n_split + 1L
         if (!is.null(audit_log)) {
@@ -250,7 +273,8 @@ review_progressive_codebook <- function(coding_state, output_dir,
 
       n_deleted <- length(delete_keys)
       n_renamed <- nrow(rename_rows)
-      n_merged <- nrow(merge_rows)
+      # n_merged is the count of merges actually applied (set in the loop above),
+      # not nrow(merge_rows) -- skipped merges must not be counted as applied.
       log_info("Codebook review applied: {n_deleted} deleted, {n_renamed} renamed, {n_merged} merged, {n_split} split, {n_desc_updated} descriptions updated, {n_memos} memos added")
       log_info("Codebook now has {length(coding_state$codebook)} codes")
     }
@@ -538,7 +562,12 @@ review_themes <- function(theme_set, output_dir, audit_log = NULL,
       theme_2 <- theme
       theme_2$name <- split_into_name
       theme_2$codes_included <- codes_for_second
-      theme_2$id <- length(new_themes) + length(new_themes) + 1L
+      # theme_1 keeps the original theme's id, so theme_2 needs a fresh,
+      # collision-free id (the old `2 * length + 1` could both collide and skip).
+      theme_2$id <- max(c(
+        vapply(new_themes, function(t) as.integer(t$id %||% 0L), integer(1)),
+        as.integer(theme$id %||% 0L), 0L
+      )) + 1L
 
       new_themes <- c(new_themes, list(theme_1), list(theme_2))
 
