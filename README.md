@@ -143,13 +143,14 @@ voice. The author is Coptic Egyptian.
   both the pre-Phase-52 sequential pairwise insertion (kitchen-sink
   theme bug) AND the Phase 52 HAC +
   tree-walk (87-92% single-code themes; the prior algorithm couldn't
-  pass either tenet). The legacy Phase 52 path is preserved under
-  `config$analysis$themes$algorithm = "v1"` for test-fixture back-compat
-  only and is slated for removal in a future cleanup
+  pass either tenet). That HAC algorithm has since been removed -- v2 is
+  the only theme-generation engine; a config still pinning
+  `config$analysis$themes$algorithm = "v1"` is honored as v2 with a
+  one-time deprecation notice.
 - **Emergent subtheme structure** -- under v2, subthemes arise from the
   multi-pass grouping itself (a penultimate-pass cluster becomes a theme's
   subthemes); their depth is the AI's dynamic call, not a fixed recursion
-  limit (the legacy v1 walker instead nests via `max_subtheme_depth` /
+  limit (the removed v1 walker had instead nested via `max_subtheme_depth` /
   `max_codes_per_subtheme`). Paper-style
   per-subtheme summary tables render each metric column with the AI analyst's
   chosen primitives (Phase 61.4; Median(MAD) + Mean(SD) kept as a per-column

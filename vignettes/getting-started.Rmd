@@ -77,9 +77,8 @@ analysis works:
    counts -- clustering depth (flat, nested, or anywhere between) is the AI's
    dynamic call for the data at hand. Codes are *grouped*, never combined into
    new codes; theme and subtheme names are assigned in a dedicated labeling
-   pass *after* the grouping converges. (The legacy Phase 52 HAC-on-embeddings
-   tree-walk is retained as an opt-in `algorithm: "v1"` for back-compatible
-   test fixtures.)
+   pass *after* the grouping converges. (The earlier Phase 52 HAC-on-embeddings
+   tree-walk has been removed; v2 is the only theme-generation engine.)
 7. **Deterministic theme cascading** -- Entry-to-theme assignment flows through
    the code hierarchy (pure R, no AI re-reading of entries)
 8. **Correlation analysis** -- Statistical tests between themes and variables
@@ -570,14 +569,14 @@ analysis:
     # The default v2 algorithm groups codes across multiple AI passes and
     # stops when the AI declares the partition converged (depth is the
     # AI's dynamic call).
-    algorithm: "v2"               # "v2" (default: multi-pass AI clustering)
-                                  #   or "v1" (legacy Phase 52 HAC tree walk)
+    algorithm: "v2"               # multi-pass AI clustering -- the only engine
+                                  #   (a pinned "v1" is honored as v2 + warns)
     include_subthemes: true       # Render the emergent subtheme decomposition
     include_quotes: true          # Render representative quotes per theme
     quotes_per_theme: 3
     approach: "inductive"         # "inductive" (Mode 2) or "deductive" (Mode 3)
-    max_subtheme_depth: 3         # v1 HAC walker only; no-op under algorithm: "v2"
-    max_codes_per_subtheme: 25    # v1 HAC walker only; no-op under algorithm: "v2"
+    max_subtheme_depth: 3         # inert: only the removed v1 HAC walker read this
+    max_codes_per_subtheme: 25    # inert: only the removed v1 HAC walker read this
     max_inline_themes: 30         # Phase 58 Tier 5 C-3: top-N inlining cap
     max_inline_themes_temporal: 30  # Phase 58 Tier 5 AH-8: temporal plot
 
