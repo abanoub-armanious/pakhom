@@ -96,8 +96,7 @@ test_that("review_progressive_codebook exports CSV with correct columns", {
     expected_cols <- c(
       "code_key", "code_name", "description", "frequency", "n_entries",
       "example_segment", "action", "new_name", "merge_into",
-      "new_description", "split_name", "researcher_memo",
-      "irr_agreement", "irr_flag"
+      "new_description", "split_name", "researcher_memo"
     )
     expect_true(all(expected_cols %in% names(df)))
     expect_equal(nrow(df), 2L)
@@ -412,35 +411,6 @@ test_that("codebook review stores researcher memo", {
     expect_equal(result$coding_state$codebook$code_a$researcher_memo,
                  "This code needs further refinement")
     expect_null(result$coding_state$codebook$code_b$researcher_memo)
-  })
-})
-
-test_that("codebook review includes IRR agreement when provided", {
-  withr::with_tempdir({
-    cs <- make_coding_state()
-
-    irr_result <- list(
-      per_code_agreement = list(
-        "Code A" = 0.85,
-        "Code B" = 0.45
-      )
-    )
-
-    result <- review_progressive_codebook(cs, getwd(), irr_result = irr_result)
-    expect_equal(result$status, "exported")
-
-    export_path <- file.path("researcher_review", "codebook_review.csv")
-    df <- readr::read_csv(export_path, show_col_types = FALSE)
-
-    # Row for Code A (high agreement)
-    row_a <- df[df$code_name == "Code A", ]
-    expect_equal(row_a$irr_agreement, 0.85)
-    expect_true(is.na(row_a$irr_flag) || row_a$irr_flag == "")
-
-    # Row for Code B (low agreement)
-    row_b <- df[df$code_name == "Code B", ]
-    expect_equal(row_b$irr_agreement, 0.45)
-    expect_equal(row_b$irr_flag, "LOW_AGREEMENT")
   })
 })
 

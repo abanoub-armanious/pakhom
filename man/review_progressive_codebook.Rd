@@ -8,7 +8,6 @@ review_progressive_codebook(
   coding_state,
   output_dir,
   audit_log = NULL,
-  irr_result = NULL,
   methodology_mode = NULL
 )
 }
@@ -18,8 +17,6 @@ review_progressive_codebook(
 \item{output_dir}{Pipeline output directory}
 
 \item{audit_log}{Optional AuditLog}
-
-\item{irr_result}{Optional IRR result list}
 
 \item{methodology_mode}{Optional methodology mode (T1.7 / AC4). When
 non-NULL, the exported review CSV is stamped with a comment header

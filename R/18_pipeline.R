@@ -673,7 +673,6 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     if (isTRUE(config$analysis$review_points$after_coding)) {
       review_result <- review_progressive_codebook(coding_state, output_dir,
                                                     audit_log = audit_log,
-                                                    irr_result = irr_result,
                                                     methodology_mode = config$methodology$mode)
       if (review_result$status == "exported") {
         log_info("Pipeline paused for codebook review (iteration {review_iteration}).")
@@ -1072,6 +1071,12 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
       config = config,
       output_file = report_file,
       comparison_result = comparison_result,
+      # Human verification / IRR stats (set-based Krippendorff alpha + CI, mean
+      # per-code kappa). irr_result is the run_human_verification() output from
+      # STEP 3b; NULL when human verification is disabled -> the report's IRR
+      # section is omitted. Without this the computed IRR never reached the
+      # report (.build_rmd_content -> .build_irr_section keys off irr_stats).
+      irr_result = irr_result,
       coding_results = coding_results,
       coding_state = coding_state,
       theme_group_tests = theme_group_tests,

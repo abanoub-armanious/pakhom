@@ -665,3 +665,38 @@ test_that("bootstrap alpha CI preserves the caller's RNG stream", {
     as.list(letters[1:10]), as.list(letters[1:10]), n_boot = 50L, seed = 7L))
   expect_identical(.Random.seed, before)
 })
+
+# ==============================================================================
+# The computed IRR must actually reach the report: .build_rmd_content threads
+# irr_result into .build_irr_section, and the pipeline passes it to
+# generate_report(). (Regression: the pipeline used to compute IRR but never
+# pass it, so the entire IRR section was silently absent from every report.)
+# ==============================================================================
+test_that("the IRR section is rendered into the report when stats are present", {
+  data  <- sample_data(8)
+  stats <- aggregate_overall_statistics(data, mock_theme_set(), consolidated = NULL,
+                                        learning_context = NULL, config = mock_config())
+  ef <- list(sentiment_file = "s.csv", correlations_file = "c.csv", codes_file = "codes.csv")
+  base_args <- list(
+    overall_stats = stats, theme_stats = list(), theme_order = character(0),
+    ai_synthesis = list(executive_summary = "ok", conclusion = "done"),
+    corr_interpretation = NULL, insights = list(), export_files = ef,
+    config = mock_config()
+  )
+  # Shape mirrors run_human_verification()'s "completed" return.
+  irr <- list(status = "completed", irr_stats = list(
+    cohens_kappa = 0.71, kappa_interpretation = "Substantial",
+    krippendorff_alpha = 0.78, alpha_interpretation = "Acceptable (tentative conclusions)",
+    alpha_ci_low = 0.61, alpha_ci_high = 0.90, percent_agreement = 80.0,
+    jaccard_similarity = 0.85, n_entries = 20L, n_codes = 12L, error = NULL))
+
+  with_irr <- do.call(pakhom:::.build_rmd_content, c(base_args, list(irr_result = irr)))
+  expect_true(grepl("# Inter-Rater Reliability", with_irr, fixed = TRUE))
+  expect_true(grepl("Krippendorff's alpha (set-based, Jaccard)", with_irr, fixed = TRUE))
+  expect_true(grepl("95% CI [0.61, 0.9", with_irr, fixed = TRUE))
+  expect_true(grepl("Mean per-code Cohen's kappa (12 codes)", with_irr, fixed = TRUE))
+
+  # Omitted when no IRR was run (irr_result = NULL).
+  no_irr <- do.call(pakhom:::.build_rmd_content, c(base_args, list(irr_result = NULL)))
+  expect_false(grepl("# Inter-Rater Reliability", no_irr, fixed = TRUE))
+})

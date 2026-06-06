@@ -30,7 +30,6 @@
 #' @param coding_state ProgressiveCodingState
 #' @param output_dir Pipeline output directory
 #' @param audit_log Optional AuditLog
-#' @param irr_result Optional IRR result list
 #' @param methodology_mode Optional methodology mode (T1.7 / AC4). When
 #'   non-NULL, the exported review CSV is stamped with a comment header
 #'   identifying the mode and run id. NULL skips stamping (legacy /
@@ -38,7 +37,7 @@
 #' @return List with status ("exported" or "applied") and updated coding_state
 #' @keywords internal
 review_progressive_codebook <- function(coding_state, output_dir,
-                                         audit_log = NULL, irr_result = NULL,
+                                         audit_log = NULL,
                                          methodology_mode = NULL) {
   review_dir <- file.path(output_dir, "researcher_review")
   dir.create(review_dir, recursive = TRUE, showWarnings = FALSE)
@@ -304,21 +303,8 @@ review_progressive_codebook <- function(coding_state, output_dir,
     merge_into = "",    # for merge action (target code_key)
     new_description = "",   # for editing code descriptions
     split_name = "",        # for split action (name of second code)
-    researcher_memo = "",   # for interpretive notes/rationale
-    irr_agreement = NA_real_,  # IRR agreement score (populated if irr_result provided)
-    irr_flag = ""           # "LOW_AGREEMENT" flag if agreement < 0.6
+    researcher_memo = ""    # for interpretive notes/rationale
   )
-
-  if (!is.null(irr_result) && !is.null(irr_result$per_code_agreement)) {
-    for (i in seq_len(nrow(review_df))) {
-      cn <- review_df$code_name[i]
-      agr <- irr_result$per_code_agreement[[cn]]
-      if (!is.null(agr)) {
-        review_df$irr_agreement[i] <- round(agr, 3)
-        if (agr < 0.6) review_df$irr_flag[i] <- "LOW_AGREEMENT"
-      }
-    }
-  }
 
   review_df <- review_df[order(-review_df$frequency), ]
   readr::write_csv(review_df, export_path)
