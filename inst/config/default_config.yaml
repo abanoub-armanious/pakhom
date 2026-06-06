@@ -23,7 +23,7 @@
 
 # -----------------------------------------------------------------------------
 # Methodology
-# Multi-mode architecture (Sprint-4 / T1.3). Every run MUST declare its
+# Multi-mode architecture. Every run MUST declare its
 # methodological posture; there is intentionally no default. The mode
 # determines which AI behaviors are permitted, which artifacts are
 # mandatory, and which report sections are generated.
@@ -86,7 +86,7 @@ study:
   research_focus: ""              # REQUIRED. Your research question. Be specific.
   research_context: ""            # Brief description of data source and population.
   concepts: ~                     # Optional: 2-5 key concepts (list of strings).
-  # Phase 58 Tier 3 AH-4: reflexivity scaffolding. Olmos-Vega et al.
+  # Reflexivity scaffolding. Olmos-Vega et al.
   # (AMEE Guide 149) recommend positionality + paradigm + reflexive
   # notes be present in every turn of qualitative analysis. pakhom
   # injects these into the AI system prompt at every coding /
@@ -159,7 +159,7 @@ ai:
 # Where the pipeline reads input text from. SQLite database is required.
 # -----------------------------------------------------------------------------
 data:
-  source_type: "generic"          # "generic" / "reddit" / "twitter" / "clinical" -- default changed to "generic" Phase 59 (C4 dataset-agnostic)
+  source_type: "generic"          # "generic" / "reddit" / "twitter" / "clinical" (C4 dataset-agnostic)
   database: ~                     # REQUIRED. Path to a SQLite .db file.
   tables: ~                       # NULL = auto-detect; or list of table names.
   custom_query: ~                 # Optional: SQL query overriding tables.
@@ -244,9 +244,8 @@ analysis:
   coding:
     min_code_frequency: 1
     include_in_vivo: true
-    # Phase 58 Tier 9 L-21: code_style removed (was "descriptive" --
-    # dead since Phase 50e; the value was set in .config_defaults
-    # but never read by any caller).
+    # code_style removed (was "descriptive" -- it was set in
+    # .config_defaults but never read by any caller).
     max_retries_per_entry: 2
     use_fallback_extraction: true
     fallback_keyword_patterns: ~
@@ -255,14 +254,14 @@ analysis:
     segment_length_max: ~
     code_label_min_words: ~
     code_label_max_words: ~
-    # Phase 58 Tier 2 C-5: every-N-new-codes description-refresh pass.
+    # Every-N-new-codes description-refresh pass.
     # When `description_refresh_interval` (default 100) new codes have
     # been admitted since the last refresh, the AI is re-prompted to
     # rewrite the description for every code with frequency >=
     # `description_refresh_min_freq` (default 50) using a sample of
     # `description_refresh_sample_segments` (default 5) coded_segments.
-    # Pre-Phase-58 the description was anchored to the FIRST segment
-    # forever, so high-frequency codes carried descriptions that didn't
+    # Without this, a description anchored to the FIRST segment forever
+    # would leave high-frequency codes with descriptions that didn't
     # match the actual conceptual scope. Set interval = 0 to disable.
     # Mode 3 (framework) skips the refresh entirely (framework
     # constructs have researcher-authored descriptions).
@@ -270,10 +269,10 @@ analysis:
     description_refresh_min_freq: 50
     description_refresh_sample_segments: 5
     # Saturation: per C1 ("AI decides when to stop"), saturation is judged
-    # by an AI arbiter (Phase 56; R/saturation_arbiter.R) rather than by
+    # by an AI arbiter (R/saturation_arbiter.R) rather than by
     # threshold-based heuristics. No user-facing saturation knobs --
     # cadence is auto-scaled by corpus size (max(20, ceiling(n/50))).
-    # The six pre-Phase-56 knobs (saturation_enabled / saturation_window /
+    # The earlier threshold knobs (saturation_enabled / saturation_window /
     # saturation_threshold / saturation_confirmations /
     # min_coded_before_saturation / ai_assessment_interval) are removed.
 
@@ -296,15 +295,15 @@ analysis:
     # configs still load; safe to delete.
     max_subtheme_depth: 3
     max_codes_per_subtheme: 25
-    # Phase 58 Tier 5 C-3: cap on full inline theme cards in the main
+    # Cap on full inline theme cards in the main
     # HTML report. Themes ranked beyond this cap (by prevalence, with
-    # Phase 54 theme_kind ordering preserved) render as compact rows
+    # theme_kind ordering preserved) render as compact rows
     # linking to per-theme detail HTML pages. Prevents pandoc OOM on
     # corpora producing hundreds of themes. Per-theme detail HTMLs
     # are unaffected -- every theme retains full provenance there.
     max_inline_themes: 30
-    # Phase 58 Tier 5 AH-8/V-2: cap on themes shown on the
-    # temporal_emergence.png chart. Pre-Phase-58 every theme was
+    # Cap on themes shown on the
+    # temporal_emergence.png chart. Without it, every theme would be
     # rendered, producing an unreadable vertical wall at scale. Top
     # themes are selected by cumulative entry count.
     max_inline_themes_temporal: 30
@@ -316,17 +315,17 @@ analysis:
     min_observations: 30
     min_theme_entries: 5
     use_multi_label: true
-    # Phase 58 Tier 5 C-10: correlation_plot.png switches from a
+    # correlation_plot.png switches from a
     # corrplot heatmap to a top-N effect-size lollipop chart above
     # this variable count. Default 30 keeps the heatmap when it is
     # legible; above 30 the lollipop is publication-readable at any
     # corpus scale.
     max_inline_vars: 30
-    # Phase 58 Tier 5 AH-9/V-1: theme_network.png filters to the
+    # theme_network.png filters to the
     # top-N most-connected themes when there are more themes than
     # this. Default 30 keeps the chart from becoming an unreadable
-    # hairball on large theme inventories (the pre-Phase-58 plot
-    # rendered all 417 themes at once).
+    # hairball on large theme inventories (an unfiltered plot
+    # could render hundreds of themes at once).
     max_inline_themes_network: 30
 
   test_mode:

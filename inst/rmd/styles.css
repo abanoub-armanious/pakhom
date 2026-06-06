@@ -335,7 +335,7 @@ a:hover {
   margin-top: 0.15rem;
 }
 
-/* Phase 58 Tier 5 C-3: compact theme card for top-N inlining.
+/* Compact theme card for top-N inlining.
    Themes ranked beyond max_inline_themes render as a single-line
    row linking to the per-theme detail HTML. Keeps the main report
    renderable at scale (pandoc OOMs on inline cards for 400+ themes). */
@@ -499,10 +499,10 @@ a:hover {
   color: var(--text-primary);
 }
 
-/* Phase 58 Tier 8 H-6: saturation-banner variant. The renderer at
-   R/17_report.R:1898 emits this class when Phase 56 saturation-aware
+/* Saturation-banner variant. The renderer at
+   R/17_report.R emits this class when saturation-aware
    coverage reports saturation_reached = TRUE (i.e. the AI arbiter
-   intentionally stopped before consuming the full corpus). Pre-Tier-8
+   intentionally stopped before consuming the full corpus). Earlier
    the CSS was missing; the class fell through to the default
    .coverage-banner base style with no visual differentiation between
    intentional saturation and silent truncation. Blue (information)

@@ -98,11 +98,13 @@ test_that("symlink detection works via base R", {
   writeLines("hello", f)
   expect_false(nzchar(Sys.readlink(f)))
 
-  # Symlink -- creation needs privileges / developer-mode on Windows, so
-  # skip the readback assertion when the platform cannot create one (the
-  # regular-file check above already runs everywhere).
+  # Symlink detection is OS-specific. On Windows, file.symlink() may even
+  # report success yet produce a link Sys.readlink() cannot resolve (real
+  # symlinks need privileges / developer-mode), so this base-R behaviour is
+  # only assertable on Unix-likes. The regular-file check above runs
+  # everywhere; the package degrades gracefully where symlinks are absent.
+  skip_on_os("windows")
   link <- file.path(tmp, "link.txt")
-  created <- suppressWarnings(file.symlink(f, link))
-  skip_if_not(isTRUE(created), "symlinks not supported on this platform")
+  file.symlink(f, link)
   expect_true(nzchar(Sys.readlink(link)))
 })
