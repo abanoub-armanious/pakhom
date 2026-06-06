@@ -29,10 +29,12 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
-      # Fake API keys so config validation tests pass
-      # (no real API calls are made in tests)
-      OPENAI_API_KEY: "sk-test-fake-key-for-ci"
-      ANTHROPIC_API_KEY: "sk-ant-test-fake-key-for-ci"
+      # No API keys in CI. The tests that touch a provider either mock it
+      # (testthat::local_mocked_bindings) or set their own ephemeral key via
+      # withr/Sys.setenv; everything else skips gracefully when no key is
+      # present (verified: a key-less R CMD check is 0E/0W). Injecting a fake
+      # key here made key-presence-guarded tests attempt LIVE API calls, which
+      # the real endpoints reject -> reported as ERRORs (the previous red CI).
 
     steps:
       - uses: actions/checkout@v4
