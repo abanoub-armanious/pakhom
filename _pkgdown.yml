@@ -122,6 +122,7 @@ reference:
       annotating plots / reports with the mode and provenance evidence.
     contents:
       - methodology_decision_aid
+      - configuration_selection_aid
       - methodology_plot_caption
 
   - title: "Run State + Soft-Lock (T1.5)"
@@ -221,6 +222,7 @@ reference:
     desc: "Load data from SQLite and explore databases"
     contents:
       - load_data
+      - load_corpus_from_config
       - explore_database
       - detect_variable_types
 
@@ -334,6 +336,7 @@ reference:
     contents:
       - init_live_tracker
       - live_record_assignment
+      - live_record_clustering_pass
       - live_snapshot_codebook
       - live_snapshot_clusters
 

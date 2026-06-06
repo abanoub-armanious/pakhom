@@ -214,3 +214,65 @@ test_that("export_qdpx with empty codebook still produces a valid sources-only z
   entries <- utils::unzip(result, list = TRUE)$Name
   expect_true("project.qde" %in% entries)
 })
+
+# ==========================================================================
+# Adversarial content: XML metacharacters, XML-1.0-illegal control chars, and
+# unicode in code names / descriptions / source text must still yield a VALID,
+# re-parseable .qde (researchers import this into NVivo/ATLAS.ti/MAXQDA, so a
+# malformed export would silently break their workflow).
+# ==========================================================================
+test_that("export_qdpx survives XML metachars + control chars + unicode", {
+  skip_if_not_installed("xml2")
+  ctrl <- "\x01"; vtab <- "\x0B"  # both illegal in XML 1.0 text
+  bad_text <- paste0("amp & lt< gt> quote\" apos' ctrl", ctrl,
+                     " vtab", vtab, " emoji \U0001F600 café.")
+  bad_name <- paste0("Sleep & \"Wake\"<issues>", ctrl)
+
+  data <- data.frame(
+    std_id = c("e1", "e2"),
+    std_text = c(bad_text, "plain second entry"),
+    std_source = c("post", "comment"),
+    std_author = c("u&a", "u<b>"),
+    std_date = as.POSIXct(c("2026-01-01 10:00:00", "2026-01-02 12:00:00"), tz = "UTC"),
+    stringsAsFactors = FALSE
+  )
+  state <- create_coding_state()
+  prov <- make_quote(source_doc_id = "e1", source_doc_type = "post",
+                     source_text = bad_text, start_char = 0L, end_char = 10L,
+                     exact_text = substr(bad_text, 1, 10),
+                     citation_source = "pipeline_derived")
+  state$codebook[["k1"]] <- list(
+    code_key = "k1", code_name = bad_name,
+    description = paste0("Desc with & < > and ctrl", ctrl, " char."),
+    type = "descriptive", frequency = 1L, entry_ids = "e1",
+    coded_segments = list(list(entry_id = "e1", text = substr(bad_text, 1, 10),
+                               start_char = 0L, end_char = 10L, provenance = prov)))
+  state$entry_results[["e1"]] <- list(
+    codes_assigned = "k1",
+    coded_segments = list(list(code_key = "k1", code_name = bad_name,
+      text = substr(bad_text, 1, 10), start_char = 0L, end_char = 10L)))
+  state$entries_processed <- "e1"
+
+  out <- withr::local_tempfile(fileext = ".qdpx")
+  expect_no_error(export_qdpx(coding_state = state, data = data, output_path = out))
+  expect_true(file.exists(out))
+
+  ex <- withr::local_tempdir()
+  utils::unzip(out, exdir = ex)
+  qde <- list.files(ex, pattern = "\\.qde$", recursive = TRUE, full.names = TRUE)
+  expect_length(qde, 1L)
+
+  # The crux: the .qde must be well-formed XML despite the adversarial input.
+  doc <- xml2::read_xml(qde[1])
+  expect_s3_class(doc, "xml_document")
+
+  # The code name's meaningful tokens survive (xml2 un-escapes on read); the
+  # angle-bracketed "<issues>" must NOT have leaked through as a raw element.
+  raw <- readChar(qde[1], file.info(qde[1])$size, useBytes = TRUE)
+  expect_false(grepl("<issues>", raw, fixed = TRUE))   # escaped, not a live tag
+  expect_true(grepl("Sleep", raw, fixed = TRUE))
+
+  # Source text files are written (the post bodies live in plain-text sources).
+  txts <- list.files(ex, pattern = "\\.txt$", recursive = TRUE)
+  expect_gte(length(txts), 1L)
+})
