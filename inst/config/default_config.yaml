@@ -279,30 +279,22 @@ analysis:
 
   themes:
     # Per C1 (AI decides when to stop), pakhom does not gate theme generation
-    # on hardcoded counts or proportions. The v2 algorithm (Phase 60)
-    # performs multi-pass AI-judged clustering with AI-declared convergence,
-    # followed by a dedicated post-convergence labeling pass. The knobs
-    # that survived Phase 50e + 53 cleanup are display-only or v1-only.
+    # on hardcoded counts or proportions. Theme generation performs multi-pass
+    # AI-judged clustering with AI-declared convergence, followed by a dedicated
+    # post-convergence labeling pass.
     #
-    # Phase 60 algorithm selector. "v2" (the default) uses multi-pass
-    # clustering + label-after-clustering. "v1" preserves the legacy
-    # Phase 52 HAC + tree-walk; kept for test-fixture back-compat. The
-    # v1 path produces 87-92% single-code themes (Phase 59 Stage 2)
-    # and will be removed once v2 is empirically validated.
+    # Theme-generation engine. "v2" is the only engine; this knob is retained so
+    # that older configs still load (any other value is treated as "v2").
     algorithm: "v2"
     include_subthemes: true       # Render the per-theme subtheme decomposition.
     include_quotes: true          # Render representative quotes in the per-theme report.
     quotes_per_theme: 3           # Number of representative quotes selected per theme.
     approach: "inductive"         # "inductive" (Mode 2) or "deductive" (Mode 3 framework).
-    # v1 HAC walker ONLY -- NO-OP under the default algorithm: "v2".
-    # (Under v2, subtheme depth is derived from the multi-pass
-    # clustering tree, not a fixed recursion limit.) For the legacy v1
-    # walker: recursion depth, descending theme -> subtheme -> ... up to
-    # this many levels (default 3; 1 = single-level).
+    # Inert: these two knobs were only ever read by the removed v1 HAC walker.
+    # Under the current engine, subtheme structure is derived from the
+    # multi-pass clustering tree, so they have no effect. Retained so older
+    # configs still load; safe to delete.
     max_subtheme_depth: 3
-    # v1 HAC walker ONLY -- NO-OP under algorithm: "v2". For v1: a
-    # coherent subtheme with more codes than this is re-walked one level
-    # deeper into sub-subthemes.
     max_codes_per_subtheme: 25
     # Phase 58 Tier 5 C-3: cap on full inline theme cards in the main
     # HTML report. Themes ranked beyond this cap (by prevalence, with

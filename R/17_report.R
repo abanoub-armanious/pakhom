@@ -3510,12 +3510,12 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   # Phase 58 Tier 4 V-4: callsite-level temperature overrides for the
   # tasks that pin temperature for replay-equivalence (AC10). The
   # config-level table previously showed the CONFIG default (e.g.
-  # theming = 0.4) but the runtime called ai_complete with explicit
-  # temperature=0 at .evaluate_cluster (R/13_themes.R Phase 52 fix)
-  # and at .ai_judge_saturation + .refresh_code_description. Showing
+  # theming = 0.4) but the runtime calls ai_complete with explicit
+  # temperature=0 for theme clustering (R/theme_algorithm_v2.R) and at
+  # .ai_judge_saturation + .refresh_code_description. Showing
   # the config value misleads readers about the effective temperature.
   runtime_temp_overrides <- list(
-    theming               = 0,  # R/13_themes.R::.evaluate_cluster (Phase 52 CRITICAL-2)
+    theming               = 0,  # R/theme_algorithm_v2.R clustering decisions
     saturation_check      = 0,  # R/saturation_arbiter.R::.ai_judge_saturation (Phase 56)
     description_refresh   = 0   # R/09_coding.R::.refresh_code_description (Phase 58 Tier 2 C-5)
   )

@@ -1026,29 +1026,6 @@ test_that("Phase 60: Mode 3 inductive (anomaly emergent) runs v2 algorithm on sy
 # v1 legacy preservation: ensure algorithm="v1" still works for back-compat tests
 # ------------------------------------------------------------------------------
 
-test_that("Phase 60: algorithm='v1' dispatches to legacy Phase 52 HAC walker", {
-  state <- .v2_state(3L)
-  testthat::local_mocked_bindings(
-    ai_complete = function(provider, prompt, system_prompt, task,
-                            temperature, response_schema, ...) {
-      # Return v1-shape response (Phase 52 schema)
-      list(
-        content = jsonlite::toJSON(list(
-          central_organizing_concept = "no single principle covers the cluster across the most-distant pair",
-          decision = "split_required",
-          proposed_name = NULL, proposed_description = NULL,
-          rationale = "the most-distant pair cannot share a principle"
-        ), auto_unbox = TRUE, null = "null"),
-        usage = list()
-      )
-    },
-    .package = "pakhom"
-  )
-  ts <- generate_themes_iterative(state, .v2_provider(),
-                                     config = list(algorithm = "v1"))
-  # Legacy split_required cascade -> N atomic themes for 3 codes
-  expect_equal(ts$merge_history$algorithm, "hac_divisive_tree_walk")
-})
 
 
 # ------------------------------------------------------------------------------

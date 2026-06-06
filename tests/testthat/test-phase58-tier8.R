@@ -101,40 +101,6 @@ test_that("write_corpus_coverage with methodology stamp prepends to JSON", {
 # M-21: .derive_theme_description fallback
 # ==========================================================================
 
-test_that(".derive_theme_description returns articulation when non-empty", {
-  codes <- list(
-    list(name = "code-a", frequency = 10L),
-    list(name = "code-b", frequency = 5L)
-  )
-  out <- pakhom:::.derive_theme_description(
-    leaf_indices = c(1L, 2L),
-    codes = codes,
-    articulation = "A meaningful unifying principle."
-  )
-  expect_equal(out, "A meaningful unifying principle.")
-})
-
-test_that(".derive_theme_description falls back to top-3 codes when articulation empty", {
-  codes <- list(
-    list(name = "code-a", frequency = 10L),
-    list(name = "code-b", frequency = 5L),
-    list(name = "code-c", frequency = 20L),
-    list(name = "code-d", frequency = 1L)
-  )
-  out <- pakhom:::.derive_theme_description(
-    leaf_indices = c(1L, 2L, 3L, 4L),
-    codes = codes,
-    articulation = ""
-  )
-  # Format: "Theme grouping: top1; top2; top3."
-  expect_match(out, "^Theme grouping: ")
-  # Top-3 by frequency: code-c (20), code-a (10), code-b (5)
-  expect_match(out, "code-c", fixed = TRUE)
-  expect_match(out, "code-a", fixed = TRUE)
-  expect_match(out, "code-b", fixed = TRUE)
-  # code-d (freq 1) should NOT be in top-3
-  expect_false(grepl("code-d", out, fixed = TRUE))
-})
 
 
 # ==========================================================================
@@ -226,28 +192,6 @@ test_that(".THEME_DEFAULTS still includes narrative field (back-compat)", {
 # Tier 8 audit followups
 # ==========================================================================
 
-test_that("audit followup CRITICAL-1: M-21 reads decision$central_organizing_concept", {
-  # This test exercises the call-site contract (not the helper
-  # directly) so a future field-name regression at the call site
-  # would surface. The decision record produced by .evaluate_cluster
-  # uses `central_organizing_concept`; pre-followup the call site
-  # at R/13_themes.R:512 read `decision$articulation` which is NULL,
-  # silently bypassing the Tier 0 C-1 articulation in 100% of cases.
-  decision <- list(
-    decision = "coherent_theme",
-    central_organizing_concept = "Real AI articulation here",
-    proposed_name = "Theme A",
-    proposed_description = "",  # empty -- forces fallback path
-    rationale = ""
-  )
-  out <- pakhom:::.derive_theme_description(
-    leaf_indices = c(1L),
-    codes = list(list(name = "code1", frequency = 1L)),
-    articulation = decision$central_organizing_concept
-  )
-  # Should equal the AI articulation, NOT "Theme grouping:" fallback
-  expect_equal(out, "Real AI articulation here")
-})
 
 test_that("audit followup HIGH-2: M-27 snapshot uses field names live_snapshot_clusters reads", {
   # Pre-followup the snapshot builder used `proposed_name` (snapshot
