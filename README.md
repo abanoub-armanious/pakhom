@@ -121,41 +121,36 @@ voice. The author is Coptic Egyptian.
   a human researcher would in NVivo. The AI codes applicable text segments
   inline, building and reusing a codebook organically as it goes. Per-entry
   prompts use additive semantic retrieval: top-N most-frequent codes plus
-  top-K semantically similar codes per entry (Phase 58 Tier 0 C-6), so the
+  top-K semantically similar codes per entry, so the
   AI never sees a truncated codebook and rarely re-invents existing codes
 - **AI saturation arbiter** -- per the architectural commitment that the AI
   decides when to stop (C1), saturation is judged by a structured AI call
   ("reached / not_yet / uncertain" with a 30+ char articulation requirement)
   every cadence ticks; no hardcoded windows / thresholds / confirmation
-  counts (Phase 56). Cadence auto-scales with corpus size; the arbiter
+  counts. Cadence auto-scales with corpus size; the arbiter
   refuses vacuous articulations
 - **Multi-pass clustering with label-after-clustering for themes** -- the AI
   sees ALL codes at once and proposes a partition into top-level clusters
   (pass 1); pass 2+ takes prior-pass clusters as new "leaves" and the AI
-  may group them further or declare convergence (Phase 60). NO hardcoded
+  may group them further or declare convergence. NO hardcoded
   pass count, NO hardcoded cluster-size thresholds. Labeling is a DEDICATED
   post-convergence pass: only after the AI declares convergence does it
   see the full tree and assign researcher-facing names + descriptions to
   every theme and subtheme, with cross-theme name distinctness enforced.
   This honors C-tenet 1 (AI-declared convergence) and
   C-tenet 5 (labels are assigned only after clustering, so no
-  bucket-label pressure shapes the structural decisions). Replaces
-  both the pre-Phase-52 sequential pairwise insertion (kitchen-sink
-  theme bug) AND the Phase 52 HAC +
-  tree-walk (87-92% single-code themes; the prior algorithm couldn't
-  pass either tenet). That HAC algorithm has since been removed -- v2 is
-  the only theme-generation engine; a config still pinning
-  `config$analysis$themes$algorithm = "v1"` is honored as v2 with a
+  bucket-label pressure shapes the structural decisions). This multi-pass
+  clustering is the only theme-generation engine; a config still pinning
+  `config$analysis$themes$algorithm = "v1"` is honored with a
   one-time deprecation notice.
-- **Emergent subtheme structure** -- under v2, subthemes arise from the
+- **Emergent subtheme structure** -- subthemes arise from the
   multi-pass grouping itself (a penultimate-pass cluster becomes a theme's
   subthemes); their depth is the AI's dynamic call, not a fixed recursion
-  limit (the removed v1 walker had instead nested via `max_subtheme_depth` /
-  `max_codes_per_subtheme`). Paper-style
+  limit. Paper-style
   per-subtheme summary tables render each metric column with the AI analyst's
-  chosen primitives (Phase 61.4; Median(MAD) + Mean(SD) kept as a per-column
+  chosen primitives (Median(MAD) + Mean(SD) kept as a per-column
   fallback), small-n spread/shape cells flagged against the analyst's
-  per-column reliability floor (Phase 62.5d), and quotes tagged `[metric: value]`
+  per-column reliability floor, and quotes tagged `[metric: value]`
 - **Deterministic code-path cascading** -- entries map to themes through their
   codes (no AI re-reading of raw text), faithful to the inductive process
 - **Code-aware sentiment analysis** -- sentiment is scored after coding, using
@@ -166,13 +161,13 @@ voice. The author is Coptic Egyptian.
 - **Live tracking artifacts** -- per-entry codebook snapshot + per-decision
   cluster snapshot are streamed to `outputs/<run>/live/` so a researcher
   can `tail -F` mid-run and watch the codebook + theme hierarchy grow
-  (Phase 53; C3 commitment)
+  (C3 commitment)
 - **Methodology-grade statistical layer** -- Spearman/Kendall for ordinal
-  sentiment (Phase 58 Tier 6 H-13), 4-tier effect-size labels including
+  sentiment, 4-tier effect-size labels including
   "negligible" (|r| < 0.10), rank-biserial effect_r (sign-aware,
   numerically stable on extreme p-values), Cramer's V populated on the
   Fisher dispatch path, `meaningful_effect ∩ significant` headline counts
-- **AI as analyst with a calculator** -- a Methodology Assistant (Phase 61)
+- **AI as analyst with a calculator** -- a Methodology Assistant
   articulates a relevance criterion that keeps coding on-focus, and for each
   numeric / timestamp column chooses, by free-form request (never a fixed
   menu), which computational primitives are an honest summary -- a right-skewed
@@ -182,21 +177,20 @@ voice. The author is Coptic Egyptian.
   configure
 - **Credibility / honesty layer** -- the report is built to survive review:
   metrics are judged substantive vs source/platform metadata and grouped
-  accordingly (Phase 62.1); circular correlations between two AI codings of the
+  accordingly; circular correlations between two AI codings of the
   same text are excluded from findings but kept in the exported matrix with an
-  `exclusion_reason` (flag-don't-drop, Phase 63), and never headline the
+  `exclusion_reason` (flag-don't-drop), and never headline the
   correlation plot; saturation reporting distinguishes entries coded / examined
   / sampled; and no n-floor ever suppresses a value -- small-n statistics are
   marked, never hidden
 - **Researcher review points** -- pause the pipeline after coding or theme
-  generation to curate the AI's output before continuing. Phase 51 Subtheme
-  S3 hierarchy is preserved across rename + description-only edits (Phase
-  58 Tier 8 M-28); only code-mutating edits trigger a re-flatten
+  generation to curate the AI's output before continuing. The Subtheme
+  hierarchy is preserved across rename + description-only edits; only
+  code-mutating edits trigger a re-flatten
 - **Checkpoint/resume** -- long-running analyses can be interrupted and
   resumed without losing progress. Flat checkpoint architecture ensures
-  reliable resume across retries. Pre-tier resume paths emit explicit
-  WARN banners describing methodology-era drift (Phase 58 Tier 6 + Tier 7
-  + Tier 8 + Tier 9 each thread a resume warning)
+  reliable resume across retries. Resume paths emit explicit
+  WARN banners describing methodology-era drift
 - **Inter-rater reliability** -- built-in IRR computation (Cohen's kappa,
   Krippendorff's alpha) for human verification of AI-generated codes
 - **Multiple AI providers** -- works with OpenAI (GPT-4o) or Anthropic (Claude),
@@ -212,31 +206,29 @@ voice. The author is Coptic Egyptian.
   methodology stamp + schema_version + rationale. Pre-rejection fabrication
   attempts are logged to `fabrication_log.csv` with a structured
   `failure_reason` field (which ladder step failed) for methodology-paper
-  attribution (Phase 58 Tier 7 M-13/E-19)
+  attribution
 - **QDPX export** -- exports codebook and coded segments in QDPX format for
   import into NVivo, ATLAS.ti, or MAXQDA. Project Description honestly
-  reports pre-rejection fabrication-caught counts (Phase 58 Tier 7 AH-10)
+  reports pre-rejection fabrication-caught counts
 - **Longitudinal analysis** -- when entries have timestamps, tracks theme
   prevalence trends and emergence timelines within a single run; figures
-  filter to top-N by entry count to stay legible at scale (Phase 58 Tier 5
-  AH-8/V-2)
+  filter to top-N by entry count to stay legible at scale
 - **Publication-quality reports** -- generates self-contained HTML reports with
   paper-style per-subtheme summary tables, representative quotes (sentiment-
   positioned + author-spread-aware), saturation arbiter rationale,
   effect-size lollipop charts for large correlation matrices, theme network
   filtered to top-N by weighted degree with an explanatory legend, top-N
-  inline cards plus compact-row tail for large theme inventories (Phase 58
-  Tier 5)
+  inline cards plus compact-row tail for large theme inventories
 - **Methodological transparency report bundler** -- `bundle_transparency_-
   report(run_dir)` produces a single self-contained HTML + JSON companion
   bundling audit log + Lincoln & Guba (1985) credibility / dependability /
   confirmability / transferability mapping + reflexivity scaffold + T0.1
   dashboard + T0.3 coverage card + theme set summary. The "AI does the
   bookkeeping so the human does the reflexivity, here is the receipt for
-  everything" artifact (Sprint-4 OS.6, Phase 58)
+  everything" artifact
 - **Run comparison** -- compare results across pipeline runs to assess
   stability and track how themes evolve. Coverage card persistence
-  (`coverage_card.json`, Phase 58 Tier 8 H-10) lets reproducibility audits
+  (`coverage_card.json`) lets reproducibility audits
   reconstruct the funnel without re-running the pipeline
 
 ## Quick Start
@@ -344,9 +336,9 @@ pakhom::persist_memos(result$reflection_log, result$output_dir)
 | 1. Learn from prior studies | Parses QDPX codebooks and manuscripts for coding conventions and structural patterns |
 | 2. Load & preprocess data | Reads from SQLite database, cleans text, standardizes columns |
 | 3. Progressive coding | AI reads each entry sequentially, coding applicable text with existing or novel codes |
-| 4. Saturation detection | AI arbiter judges saturation at adaptive cadence (`reached` / `not_yet` / `uncertain` with a 30-char articulation floor; Phase 56). Replaces the pre-Phase-56 heuristic that monitored code-creation rate and reuse stability |
+| 4. Saturation detection | AI arbiter judges saturation at adaptive cadence (`reached` / `not_yet` / `uncertain` with a 30-char articulation floor). Replaces an earlier heuristic that monitored code-creation rate and reuse stability |
 | 5. Sentiment analysis | AI scores sentiment on coded entries, using codes as context |
-| 6. Theme generation | Multi-pass AI-judged clustering with label-after-clustering (Phase 60). At every pass, the AI sees all current leaves (codes initially, then prior-pass clusters) and either proposes a partition into new clusters OR declares convergence. After convergence, a single dedicated labeling pass assigns researcher-facing names to every theme + subtheme with the whole tree visible. NO hardcoded thresholds (C1); codes preserved as atomic leaves (C2); no name leakage during clustering (C5) |
+| 6. Theme generation | Multi-pass AI-judged clustering with label-after-clustering. At every pass, the AI sees all current leaves (codes initially, then prior-pass clusters) and either proposes a partition into new clusters OR declares convergence. After convergence, a single dedicated labeling pass assigns researcher-facing names to every theme + subtheme with the whole tree visible. NO hardcoded thresholds (C1); codes preserved as atomic leaves (C2); no name leakage during clustering (C5) |
 | 7. Theme cascading | Deterministic entry-to-theme mapping through the code hierarchy |
 | 8. Correlations | Statistical analysis of theme-sentiment relationships and co-occurrence |
 | 9. QDPX export | Exports codebook and coded segments for QDA software interoperability |
@@ -439,8 +431,7 @@ the contract a peer reviewer can check the package's claims against:
 - **AC10**: Stage-gating via filesystem state.
 
 The methodology-modes vignette covers each commitment in narrative
-context. The full design document is at
-`pakhom/notes/strategic_audit/SPRINT4_DESIGN.md` Part I.
+context.
 
 ## For methodologists: rewrite-direction commitments (C1–C8)
 
@@ -457,8 +448,7 @@ output rendering must honour them:
   thresholds. The AI judges saturation and clustering convergence;
   pakhom records the AI's articulation but never overrides it with a
   count gate. Enforced in `R/saturation_arbiter.R` (coding saturation)
-  and `R/theme_algorithm_v2.R` (multi-pass clustering convergence,
-  Phase 60).
+  and `R/theme_algorithm_v2.R` (multi-pass clustering convergence).
 - **C2 — Codes preserved through clustering.** Codes are atomic
   leaves; themes and subthemes are GROUPS of codes, not summaries that
   replace them. Clustering never mutates code names, descriptions, or
@@ -477,12 +467,12 @@ output rendering must honour them:
   provides. A clinical-interview corpus with `age` + `medication_dose`
   produces the same quality of output as a Reddit corpus with
   `score` + `upvote_ratio`. Enforced by `.detect_metric_columns()` in
-  `R/16_report_helpers.R` and (post-Phase 60) by the dynamic
+  `R/16_report_helpers.R` and by the dynamic
   `compare_theme_groups()` in `R/14_correlations.R`.
 - **C5 — No catch-all / "Other" buckets.** In the inductive modes
   (Mode 2), the AI is never given an "Other" or "Miscellaneous" code
   to dump uncertain segments into. Every coded segment must articulate
-  what it represents. During theme clustering (Phase 60), the AI's
+  what it represents. During theme clustering, the AI's
   prompts in `R/theme_algorithm_v2.R` explicitly forbid bucket-label
   openers ("Various aspects of X", "Mixed experiences with Y"); the
   `.clustering_schema()` has no name/description fields at all so
@@ -507,9 +497,7 @@ output rendering must honour them:
   never hardcoded to particular column names. Enforced in
   `R/16_report_helpers.R::.build_subtheme_summary_table`.
 
-The canonical definitions live in
-`pakhom/notes/strategic_audit/REWRITE_PLAN_PHASE_50_TO_59.md:498-528`.
-**Any future contributor (human or AI) should re-read both AC1–AC10
+**Any future contributor should re-read both AC1–AC10
 and C1–C8 before changing the coding loop, the theme algorithm, the
 statistical layer, or the report renderer.** These eighteen
 commitments together are the contract the package promises peer

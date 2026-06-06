@@ -35,12 +35,9 @@
 #         codebook. Mode 3 deductive uses apply_framework_themes() which
 #         pre-populates themes from framework constructs and does NOT call
 #         this file. Mode 3 inductive (anomaly_handling = "extend" |
-#         "revise") calls generate_themes_phase60() on the synthetic
+#         "revise") calls generate_themes_multipass() on the synthetic
 #         anomaly-codebook in .generate_emergent_themes_from_anomalies()
-#         via R/13_themes.R (post Phase 60.2 wiring).
-#
-# DESIGN DOC: pakhom/notes/strategic_audit/PHASE_60_THEME_ALGORITHM_REWRITE.md
-# C-COMMITMENTS: pakhom/notes/strategic_audit/REWRITE_PLAN_PHASE_50_TO_59.md:498-528
+#         via R/13_themes.R.
 #
 # ALGORITHM IN ONE PARAGRAPH:
 #   Pass 1 input is the raw codebook -- each code is a leaf. The AI sees
@@ -100,7 +97,7 @@
 #' @return \code{ThemeSet} S3 with merge_history attached.
 #' @export
 #' @keywords internal
-generate_themes_phase60 <- function(coding_state, provider, config = list(),
+generate_themes_multipass <- function(coding_state, provider, config = list(),
                                        learning_context = NULL,
                                        research_focus = "",
                                        concepts = NULL,
@@ -111,7 +108,7 @@ generate_themes_phase60 <- function(coding_state, provider, config = list(),
   if (!inherits(coding_state, "ProgressiveCodingState")) {
     stop("coding_state must be a ProgressiveCodingState object", call. = FALSE)
   }
-  validate_provider(provider, caller = "generate_themes_phase60")
+  validate_provider(provider, caller = "generate_themes_multipass")
 
   codes <- .extract_codes_from_state(coding_state)
 

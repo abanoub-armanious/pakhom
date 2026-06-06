@@ -11,7 +11,7 @@ An object of class \code{character} of length 4.
 .VALID_MEMO_TYPES
 }
 \description{
-Per SPRINT4_DESIGN.md M1.3 (line 285):
+The four memo types:
 operational  -- procedural notes (e.g., "decided to merge codes X+Y")
 coding       -- reflexive notes during the coding pass (Mode 2/3 mostly)
 theoretical  -- conceptual / interpretive memos (the classic Charmaz form)

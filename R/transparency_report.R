@@ -1,8 +1,7 @@
 # ==============================================================================
-# Methodological Transparency Report (Sprint-4 OS.6 / Stage 1A)
+# Methodological Transparency Report
 # ==============================================================================
-# Implements the OS.6 "anti-Jowsey compliance pack" per SPRINT4_DESIGN.md
-# (lines 492-504). Bundles the run's transparency artifacts into a single
+# Bundles the run's transparency artifacts into a single
 # self-contained HTML report so a methodology paper reviewer can pick up
 # ONE file and verify:
 #

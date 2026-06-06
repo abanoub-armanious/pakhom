@@ -141,6 +141,6 @@ practice [@braun2022thematic].
 
 The package name, *pakhom*, is the Coptic Egyptian form of Pachomius (c. 292–348 CE),
 whose written *Rule* of communal discipline established the genre of
-methodology-as-written-document. Development was assisted by AI-based coding tools.
+methodology-as-written-document.
 
 # References

@@ -42,7 +42,7 @@
     return(as.integer(override))
   }
   cw <- tryCatch(as.integer(provider$context_window), error = function(e) NULL)
-  # MEMORY.md R-quirk: is.na(NULL) returns logical(0); guard with !is.null first
+  # R quirk: is.na(NULL) returns logical(0); guard with !is.null first
   if (is.null(cw) || length(cw) == 0L || is.na(cw) || cw <= 0L) {
     return(.MAX_ENTRY_CHARS)
   }
@@ -617,11 +617,11 @@ run_progressive_coding <- function(data, provider, config = list(),
     # the codebook has stopped growing. In Mode 3 the codebook NEVER
     # grows beyond the pre-populated constructs (assignments only
     # increment existing-code frequencies), so the arbiter
-    # mechanically saturates at the first call (entry 23/250 in the
-    # Phase 59 Stage 2 Round 4/5 smoke runs -- 92% of corpus skipped).
+    # mechanically saturates at the first call (entry 23/250 in
+    # smoke runs -- 92% of corpus skipped).
     # The right Mode 3 stop criterion is corpus exhaustion, not
     # codebook stability. Skip the arbiter entirely when a framework
-    # spec is present. See PHASE_60_THEME_ALGORITHM_REWRITE.md Phase 60.4.
+    # spec is present.
     if (is.null(framework_spec) && n_coded > 0 &&
         n_coded %% saturation_cadence == 0 &&
         n_coded != last_arbiter_n) {

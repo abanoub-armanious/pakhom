@@ -1,19 +1,14 @@
 # ==============================================================================
-# Reflexive Memos as Data (Sprint-4 M1.3 / phase 33)
+# Reflexive Memos as Data
 # ==============================================================================
-# Closes phase 30 audit HIGH #2 / H5: ResearcherReflectionLog has a memos
-# slot (since phase 30) but no CRUD API. Per AC6 (symmetric obligations
-# across modes): Mode 2/3 carry researcher burden via the codebook-review
-# and theme-review pause-points (CSV export-edit-reimport cycles); Mode 1
-# carries equivalent burden via reflexive memos at pause points + dynamic
-# positionality. Without memo CRUD, Mode 1's burden parity was
-# aspirational rather than operational. This module implements the
-# foundational layer: Memo S3 + add/read/list + Markdown round-trip with
-# YAML frontmatter (matching the SPRINT4_DESIGN.md M1.3 spec line 277-298)
-# + persistence + load. Subsequent phases may layer AI-coding-of-memos
-# (the "researcher voice" theme set in spec line 293) on top.
+# Per AC6 (symmetric obligations across modes): Mode 2/3 carry researcher
+# burden via the codebook-review and theme-review pause-points (CSV
+# export-edit-reimport cycles); Mode 1 carries equivalent burden via
+# reflexive memos at pause points + dynamic positionality. This module
+# implements the memo layer: Memo S3 + add/read/list + Markdown round-trip
+# with YAML frontmatter + persistence + load.
 #
-# Memo schema per SPRINT4_DESIGN.md M1.3 (line 282-290):
+# Memo schema:
 #   id                : memo_<ISO-timestamp-with-dashes>_<3-char-suffix>
 #   timestamp         : ISO-8601 (with Z / +HHMM)
 #   author            : free-text (default "researcher")
@@ -24,7 +19,7 @@
 #   linked_prior_memo : character or NULL (memo_id of antecedent memo)
 #   body              : free-text Markdown
 #
-# Storage layout (per spec line 295):
+# Storage layout:
 #   outputs/<run>/memos/<memo_id>.md   -- one file per memo
 # ==============================================================================
 
@@ -34,7 +29,7 @@
 
 #' Valid memo type enum values
 #'
-#' Per SPRINT4_DESIGN.md M1.3 (line 285):
+#' The four memo types:
 #'   operational  -- procedural notes (e.g., "decided to merge codes X+Y")
 #'   coding       -- reflexive notes during the coding pass (Mode 2/3 mostly)
 #'   theoretical  -- conceptual / interpretive memos (the classic Charmaz form)
@@ -76,7 +71,7 @@
 
 #' Construct a Memo S3 object
 #'
-#' Per SPRINT4_DESIGN.md M1.3 (line 277-298). The body is the researcher's
+#' The body is the researcher's
 #' free-text Markdown; the header fields capture the memo's
 #' position in the analytic timeline and its links to other artifacts.
 #'
@@ -376,7 +371,7 @@ list_memos <- function(log, type = NULL, author = NULL,
 
 #' Serialize a Memo to a Markdown string with YAML frontmatter
 #'
-#' Per SPRINT4_DESIGN.md M1.3 (line 280-291). The frontmatter carries
+#' The frontmatter carries
 #' the schema fields; the body follows after the closing \code{---}.
 #' YAML is written with explicit quoting on fields that may contain
 #' special characters so the round-trip is lossless even with

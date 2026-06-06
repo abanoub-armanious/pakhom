@@ -347,7 +347,7 @@ live_snapshot_clusters <- function(tracker, walk_status,
 #' Writes \code{outputs/<run>/live/clustering_pass_<N>.json} with the AI's
 #' partition proposal for pass N: the input leaves, the proposed cluster
 #' assignments, and the AI's rationale per cluster + overall. Called from
-#' \code{generate_themes_phase60()} in \code{R/theme_algorithm_v2.R} after
+#' \code{generate_themes_multipass()} in \code{R/theme_algorithm_v2.R} after
 #' every clustering call.
 #'
 #' Honors C-tenet 3 (live tracking artifacts during processing): a

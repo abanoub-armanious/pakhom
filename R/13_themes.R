@@ -105,7 +105,7 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
   if (!identical(algorithm, "v2")) {
     log_warn("themes algorithm '{algorithm}' is no longer available; using v2 (the only supported theme-generation engine).")
   }
-  return(generate_themes_phase60(
+  return(generate_themes_multipass(
     coding_state          = coding_state,
     provider              = provider,
     config                = config,

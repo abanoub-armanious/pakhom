@@ -8,14 +8,12 @@
 }
 \description{
 Used by \code{ai_propose_clustering()} during the multi-pass theme-
-clustering algorithm in \code{generate_themes_phase60()}. Replaces (for the
+clustering algorithm in \code{generate_themes_multipass()}. Replaces (for the
 v2 algorithm) the single-call \code{.theme_decision_schema()} which fused
 structural and labeling decisions in one shot.
 }
 \details{
-Design contract honored by this schema (binding under C-tenet 3 and 5,
-\code{pakhom/notes/strategic_audit/REWRITE_PLAN_PHASE_50_TO_59.md:498-528}
-and \code{PHASE_60_THEME_ALGORITHM_REWRITE.md}):
+Design contract honored by this schema (binding under C-tenets 3 and 5):
 
 (a) NO \code{name} / \code{description} fields. Labeling happens in a
 dedicated post-convergence pass (\code{.theme_labeling_schema()}).

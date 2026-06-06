@@ -185,7 +185,7 @@ test_that(".warn_pre_tier7_coding_resume warns when ANY legacy QP is present (mi
   # Warning must fire, AND must report 1 of 2 (so the consumer can see the
   # mixed-vintage situation rather than a binary "all legacy" flag).
   expect_match(all_out, "1 of 2")
-  expect_match(all_out, "pre-Phase-58-Tier-7")
+  expect_match(all_out, "older progressive_coding")
 })
 
 test_that(".warn_pre_tier7_coding_resume silent on all-modern checkpoint", {
@@ -205,7 +205,7 @@ test_that(".warn_pre_tier7_coding_resume silent on all-modern checkpoint", {
   out <- .capture_log_warn(
     pakhom:::.warn_pre_tier7_coding_resume(coding_state)
   )
-  expect_false(any(grepl("pre-Phase-58-Tier-7", out)))
+  expect_false(any(grepl("older progressive_coding", out)))
 })
 
 test_that(".warn_pre_tier7_coding_resume silent on NULL coding_state (fresh run)", {
@@ -213,5 +213,5 @@ test_that(".warn_pre_tier7_coding_resume silent on NULL coding_state (fresh run)
     pakhom:::.warn_pre_tier7_coding_resume(NULL)
   )
   # No legacy QPs to find; no warning.
-  expect_false(any(grepl("pre-Phase-58-Tier-7", out)))
+  expect_false(any(grepl("older progressive_coding", out)))
 })

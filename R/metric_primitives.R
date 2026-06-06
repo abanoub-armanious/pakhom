@@ -8,11 +8,11 @@
 # taxonomy -- inspects each metric column plus the research focus and decides
 # WHICH primitives are honest for that column and HOW to interpret the result.
 #
-# This is BACKEND scaffolding (per the Phase 61 design contract): the researcher
+# This is BACKEND scaffolding: the researcher
 # never sees, picks from, or configures this catalog. They supply only their
 # data + research focus + mode. The catalog is invisible to them. That makes it
 # the "backend hardcoding = fine" kind, never the "user-facing classification =
-# forbidden" kind. See notes/strategic_audit/PHASE_61_AI_AS_ANALYST_DESIGN.md.
+# forbidden" kind.
 #
 # Design properties (binding):
 #  * SINGLE SOURCE OF TRUTH. .metric_primitive_registry() is the only place a

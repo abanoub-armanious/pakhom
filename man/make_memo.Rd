@@ -49,7 +49,7 @@ the timeline view).}
 A \code{Memo} S3 object.
 }
 \description{
-Per SPRINT4_DESIGN.md M1.3 (line 277-298). The body is the researcher's
+The body is the researcher's
 free-text Markdown; the header fields capture the memo's
 position in the analytic timeline and its links to other artifacts.
 }

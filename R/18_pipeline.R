@@ -131,7 +131,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   resume_step <- NULL
   # T1.7 (AC4): run-dir name carries the methodology mode short-code so a
   # reviewer scanning the outputs/ directory sees Mode 1 / 2 / 3 without
-  # opening run_metadata.json. Spec: SPRINT4_DESIGN.md line 237.
+  # opening run_metadata.json.
   meth_mode <- .config_methodology_mode(config)
 
   # AC2 mode dispatch: refuse Mode 1 BEFORE creating output_dir so a
@@ -168,8 +168,8 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
       # Resuming into it silently overwrites analysis_report.html / CSVs /
       # audit_log.jsonl etc. and the audit trail is lost (replay no longer
       # reproduces the file state of the finalized run). Refuse rather
-      # than silently mutate. Spec: SPRINT4_DESIGN.md AC5 ("soft-lock with
-      # audit trail; methodology change creates new run").
+      # than silently mutate (AC5: soft-lock with audit trail; a
+      # methodology change creates a new run).
       if (is_run_finalized(output_dir)) {
         stop(sprintf(
           "Run %s is FINALIZED. Per AC5 (soft-lock with audit trail), a ",
@@ -934,10 +934,8 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
         "tibbles were produced by the older statistical pipeline (pre-",
         "rank-biserial effect_r, pre-negligible effect tier, pre-Fisher ",
         "Cramer's V). The published report's methodology prose describes ",
-        "the Tier 6 methods. To realign, delete the 'correlations' step ",
-        "from outputs/<run>/checkpoint.rds and rerun from this point. ",
-        "See PHASE_57_DEEP_AUDIT_FINDINGS.md (Tier 6) for the methodology ",
-        "rewrite details."
+        "the current methods. To realign, delete the 'correlations' step ",
+        "from outputs/<run>/checkpoint.rds and rerun from this point."
       ))
     }
   } else {
@@ -1306,20 +1304,17 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   }
   if (n_legacy > 0L) {
     log_warn(paste0(
-      "Resuming from a pre-Phase-58-Tier-7 progressive_coding ",
+      "Resuming from an older progressive_coding ",
       "checkpoint: ", n_legacy, " of ", n_total,
       " cached QuoteProvenance objects predate the ",
-      "V-6/L-3 offset-reference fix (the JSON-escape bug that ",
-      "drove Phase 57 to 99.89% verified_fuzzy) and the ",
-      "M-13/E-19 failure_reason field. The cached verification ",
+      "offset-reference verification fix and the ",
+      "failure_reason field. The cached verification ",
       "results stand (re-verification is not invalidated by the ",
       "schema gap), but the report's Tier-0 dashboard prose ",
-      "describes the Tier 7 ladder while the cached quotes were ",
+      "describes the current ladder while the cached quotes were ",
       "produced under the older prompt + verifier pairing. To ",
       "align, delete the 'progressive_coding' step from ",
-      "outputs/<run>/checkpoint.rds and rerun from step 3. See ",
-      "PHASE_57_DEEP_AUDIT_FINDINGS.md (Tier 7) for the prompt ",
-      "+ ladder rewrite details."
+      "outputs/<run>/checkpoint.rds and rerun from step 3."
     ))
   }
   invisible(NULL)

@@ -3522,22 +3522,22 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "framework_applied"      = "AI-assisted **framework-applied** (deductive) thematic analysis (a pre-specified framework mapped onto the corpus, with an abductive pass for non-fitting data)",
     "AI-assisted thematic analysis")
   # The theme-generation step must describe the algorithm that ACTUALLY ran. The
-  # production default is the Phase 60 v2 embedding-free multi-pass AI clustering,
-  # NOT the retired Phase 52 HAC-on-embeddings path -- so branch on the configured
-  # algorithm, or the methods text a researcher pastes into a manuscript misstates
-  # the method. Mirrors the dynamic algorithm label the pipeline logs.
+  # production default is the v2 embedding-free multi-pass AI clustering, NOT the
+  # retired HAC-on-embeddings path -- so branch on the configured algorithm, or
+  # the methods text a researcher pastes into a manuscript misstates the method.
+  # Mirrors the dynamic algorithm label the pipeline logs.
   theme_algo <- config$analysis$themes$algorithm %||% "v2"
   theme_step_desc <- if (identical(theme_algo, "v1")) {
-    "**HAC + AI-judged divisive theme walk** -- Phase 52: codes clustered via ward.D2 on cosine embeddings; AI judges coherence at each internal node; nested sub-subthemes when subthemes exceed a size cap"
+    "**HAC + AI-judged divisive theme walk** -- codes clustered via ward.D2 on cosine embeddings; AI judges coherence at each internal node; nested sub-subthemes when subthemes exceed a size cap"
   } else {
-    "**Multi-pass AI clustering with label-after-clustering** -- Phase 60: the AI sees all codes at once and proposes a partition into conceptual clusters; passes repeat (grouping clusters into larger clusters) until the AI declares convergence (no hardcoded pass count); a separate post-convergence pass assigns theme + subtheme labels. Embedding-free; clustering depth is the AI's dynamic call"
+    "**Multi-pass AI clustering with label-after-clustering** -- the AI sees all codes at once and proposes a partition into conceptual clusters; passes repeat (grouping clusters into larger clusters) until the AI declares convergence (no hardcoded pass count); a separate post-convergence pass assigns theme + subtheme labels. Embedding-free; clustering depth is the AI's dynamic call"
   }
   theme_algo_row <- if (identical(theme_algo, "v1")) {
     "HAC (ward.D2 linkage, cosine distance on code-name embeddings; Jaccard fallback) + AI-judged divisive tree walk"
   } else {
     "Multi-pass AI clustering: AI-proposed partitions until AI-declared convergence, then a separate labeling pass (embedding-free; no count thresholds)"
   }
-  theme_algo_short <- if (identical(theme_algo, "v1")) "the Phase 52 HAC + AI tree walk" else "the Phase 60 multi-pass AI clustering"
+  theme_algo_short <- if (identical(theme_algo, "v1")) "the HAC + AI tree walk" else "the multi-pass AI clustering"
   content <- paste0(
     "# Appendix A: Methodology\n\n",
     "## Analysis Process\n\n",
@@ -3673,7 +3673,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "correlation analysis over the SUBSTANTIVE variable pairs only -- circular / ",
     "analyst-internal pairs are excluded from the correction family and reported ",
     "separately with their raw p-values. However, the full analysis pipeline involves ",
-    "multiple sequential decision points (saturation arbitration via the Phase 56 AI ",
+    "multiple sequential decision points (saturation arbitration via the AI ",
     "judge, per-pass theme clustering via ", theme_algo_short, ", and ",
     "deterministic theme cascading). Each decision introduces potential for cumulative ",
     "error. Readers should interpret individual findings within this context and ",

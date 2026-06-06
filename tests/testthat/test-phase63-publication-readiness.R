@@ -32,8 +32,11 @@ test_that("methodology appendix describes the ACTUAL theme algorithm (v2 default
   expect_match(ap_v1, "ward.D2", fixed = TRUE)
   expect_false(grepl("Multi-pass AI clustering", ap_v1, fixed = TRUE))
   # the Statistical-Notes decision-point list is algorithm-accurate too
-  expect_match(ap_v2, "Phase 60 multi-pass AI clustering", fixed = TRUE)
-  expect_match(ap_v1, "Phase 52 HAC", fixed = TRUE)
+  expect_match(ap_v2, "the multi-pass AI clustering", fixed = TRUE)
+  expect_match(ap_v1, "the HAC + AI tree walk", fixed = TRUE)
+  # published methods text carries no internal dev-process labels
+  expect_false(grepl("Phase 60", ap_v2, fixed = TRUE))
+  expect_false(grepl("Phase 52", ap_v1, fixed = TRUE))
 })
 
 test_that("per-subtheme table carries a small-n caveat on the legacy battery path too", {

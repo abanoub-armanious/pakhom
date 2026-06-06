@@ -255,9 +255,8 @@ methodology_decision_aid <- function(interactive = base::interactive(),
 # configuration knobs based on their corpus size, codebook size, and
 # whether the research focus is narrow or broad.
 #
-# The recommendations encode empirical evidence from the Phase 60.8
-# re-validation (see pakhom/notes/strategic_audit/PHASE_60_9_DEEP_DIVE.md).
-# Three Mode 2 runs across two foci and two scales validated the v2
+# The recommendations encode empirical evidence from the re-validation
+# runs. Three Mode 2 runs across two foci and two scales validated the v2
 # algorithm's behavior; the numerical bracket below ("expect 6-10 themes
 # from 40-150 codes") is derived from those three runs.
 # ==============================================================================

@@ -1,8 +1,8 @@
 # Code of Conduct
 
-## Our commitment
+## My commitment
 
-We want participation in the `pakhom` project to be a welcoming, respectful,
+I want participation in the `pakhom` project to be a welcoming, respectful,
 and harassment-free experience for everyone, regardless of background or
 identity. To that end, this project has adopted the **Contributor Covenant,
 version 2.1**, as its code of conduct.

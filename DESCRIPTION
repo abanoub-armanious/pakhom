@@ -24,8 +24,7 @@ Description: Conducts AI-assisted thematic analysis across three
     thematic analysis). The package name 'pakhom' (Coptic for 'eagle')
     honors Saint Pachomius the Great (c. 292-348 CE), whose written Rule
     of communal discipline established the genre of methodology-as-written-
-    document, of which this package is a digital descendant. Development
-    was assisted by AI-based coding tools.
+    document, of which this package is a digital descendant.
 URL: https://github.com/abanoub-armanious/pakhom,
     https://abanoub-armanious.github.io/pakhom/
 BugReports: https://github.com/abanoub-armanious/pakhom/issues

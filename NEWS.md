@@ -187,7 +187,7 @@ only; new runs use the v2 algorithm by default.
 ### Algorithm rewrite (60.1)
 
 - **New file `R/theme_algorithm_v2.R`** (~1100 lines): the multi-pass
-  clustering algorithm. `generate_themes_phase60()` orchestrates the
+  clustering algorithm. `generate_themes_multipass()` orchestrates the
   loop; `ai_propose_clustering()` is the per-pass AI call;
   `apply_partition()` and `derive_theme_subtheme_structure()` are pure
   functions; `ai_label_theme_set()` is the single post-convergence
@@ -286,8 +286,7 @@ deferred to a future patch.
 
 ### 60.9 publication-quality deep dive
 
-Complete deep-dive at
-`pakhom/notes/strategic_audit/PHASE_60_9_DEEP_DIVE.md`. Per-run quality
+Per-run quality
 assessment + cross-run observations + configuration selection guide.
 All 23 themes across the three runs have substantive noun-phrase names;
 zero bucket-label openers; zero empty descriptions; zero fabricated
@@ -970,15 +969,14 @@ a `memos = list()` slot since phase 30 but had no CRUD API. Per AC6
 (symmetric obligations across modes), Mode 1's burden parity vs Modes
 2/3 is delivered through reflexive memos at pause points -- without a
 memo CRUD + persistence layer, Mode 1's burden was aspirational rather
-than operational. Phase 33 implements the foundational layer per the
-SPRINT4_DESIGN.md M1.3 spec (line 277-298): typed memos with Markdown
-round-trip + YAML frontmatter + persistence under `memos/` + report
-section + integrity tracking. Future phases may layer AI-coding-of-
-memos (the "researcher voice" theme set, spec line 293) on top.
+than operational. Phase 33 implements the foundational layer: typed
+memos with Markdown round-trip + YAML frontmatter + persistence under
+`memos/` + report section + integrity tracking. Future phases may layer
+AI-coding-of-memos on top.
 
 - **`R/memos.R`** (new file). The full memo API:
-  * `make_memo(body, type, ...)` constructor with the SPRINT4_DESIGN.md
-    M1.3 schema (id, timestamp, author, type, linked_codes,
+  * `make_memo(body, type, ...)` constructor with the memo
+    schema (id, timestamp, author, type, linked_codes,
     linked_themes, linked_entries, linked_prior_memo, body) + 4 valid
     types (operational / coding / theoretical / positionality).
   * `add_memo(log, body, ...)` appends a memo to a
@@ -1484,7 +1482,7 @@ configs and runs continue to work):
   documented as De Paoli & Mathis (2024) Inductive Thematic Saturation
   ratio (doi:10.1007/s11135-024-01950-6). The 0.05 stopping threshold is
   noted as stricter than De Paoli's illustrative 0.28 single-timepoint
-  observation because we use the ratio as a stopping criterion.
+  observation because the ratio is used as a stopping criterion.
 
 - **OS.2: Correlations reframed as exploratory associations** — themes are
   inductively derived from the same data the correlations are computed on,

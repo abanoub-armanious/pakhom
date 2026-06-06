@@ -24,7 +24,7 @@ frontmatter alongside methodology_mode. NULL omits the field.}
 Character: the full Markdown content (frontmatter + body).
 }
 \description{
-Per SPRINT4_DESIGN.md M1.3 (line 280-291). The frontmatter carries
+The frontmatter carries
 the schema fields; the body follows after the closing \code{---}.
 YAML is written with explicit quoting on fields that may contain
 special characters so the round-trip is lossless even with

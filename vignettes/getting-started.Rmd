@@ -69,7 +69,7 @@ analysis works:
 4. **Researcher review** (optional) -- You curate the codebook before theming
 5. **Code-aware sentiment analysis** -- AI assigns sentiment scores using the
    codes assigned to each entry as context for more accurate scoring
-6. **Multi-pass AI theme generation** (Phase 60, the `v2` default) -- the AI
+6. **Multi-pass AI theme generation** -- the AI
    sees the entire codebook at once and proposes a partition of the codes into
    clusters (pass 1); each further pass takes the prior clusters as units and
    the AI either groups them again or declares the partition converged. There
@@ -77,8 +77,7 @@ analysis works:
    counts -- clustering depth (flat, nested, or anywhere between) is the AI's
    dynamic call for the data at hand. Codes are *grouped*, never combined into
    new codes; theme and subtheme names are assigned in a dedicated labeling
-   pass *after* the grouping converges. (The earlier Phase 52 HAC-on-embeddings
-   tree-walk has been removed; v2 is the only theme-generation engine.)
+   pass *after* the grouping converges.
 7. **Deterministic theme cascading** -- Entry-to-theme assignment flows through
    the code hierarchy (pure R, no AI re-reading of entries)
 8. **Correlation analysis** -- Statistical tests between themes and variables
@@ -125,7 +124,7 @@ choosing among them, see `vignette("methodology-modes")`. In short:
 
 ### R and RStudio
 
-You need R (version 4.1 or higher) installed on your computer. We strongly
+You need R (version 4.1 or higher) installed on your computer. I strongly
 recommend using [RStudio](https://posit.co/download/rstudio-desktop),
 which provides a user-friendly interface for running R code.
 
@@ -388,7 +387,7 @@ All results are also exported as machine-readable files:
 | File | Contents |
 |------|----------|
 | `sentiment_scores.csv` | Every entry with sentiment score, emotion, intensity |
-| `codes.csv` | Codebook with all codes and frequencies (Phase 60.6 rename from `consolidated_codes.csv`) |
+| `codes.csv` | Codebook with all codes and frequencies (renamed from `consolidated_codes.csv`) |
 | `correlations.csv` | All pairwise correlation results |
 | `themes.json` | Complete theme definitions (name, description, codes, quotes) |
 | `theme_entries/` | One CSV per theme containing its assigned entries |
@@ -538,7 +537,7 @@ data:
   source_type: "reddit"           # reddit, twitter, clinical, generic
   preprocessing:
     min_char: 50                  # Minimum characters to keep an entry
-    # Phase 56: thematic saturation is now AI-arbited; no user knobs.
+    # thematic saturation is AI-arbited; no user knobs.
     # The AI judges saturation per max(20, ceiling(n_corpus / 50))
     # coded entries -- see ?pakhom::run_progressive_coding.
 
@@ -575,10 +574,10 @@ analysis:
     include_quotes: true          # Render representative quotes per theme
     quotes_per_theme: 3
     approach: "inductive"         # "inductive" (Mode 2) or "deductive" (Mode 3)
-    max_subtheme_depth: 3         # inert: only the removed v1 HAC walker read this
-    max_codes_per_subtheme: 25    # inert: only the removed v1 HAC walker read this
-    max_inline_themes: 30         # Phase 58 Tier 5 C-3: top-N inlining cap
-    max_inline_themes_temporal: 30  # Phase 58 Tier 5 AH-8: temporal plot
+    max_subtheme_depth: 3         # inert: legacy knob, no longer read
+    max_codes_per_subtheme: 25    # inert: legacy knob, no longer read
+    max_inline_themes: 30         # top-N theme inlining cap
+    max_inline_themes_temporal: 30  # top-N cap for temporal plot
 
   human_verification:
     enabled: false                # Enable for inter-rater reliability
@@ -595,10 +594,10 @@ analysis:
     method: "spearman"
     adjust_method: "bonferroni"
     min_observations: 30
-    min_theme_entries: 5          # Phase 58 Tier 6 H-16: harmonized
+    min_theme_entries: 5          # minimum entries per theme
     use_multi_label: true
-    max_inline_vars: 30           # Phase 58 Tier 5 C-10: lollipop above
-    max_inline_themes_network: 30  # Phase 58 Tier 5 AH-9: network top-N
+    max_inline_vars: 30           # switch to lollipop above this many vars
+    max_inline_themes_network: 30  # top-N cap for theme network
 
 output:
   results_dir: "outputs/results"
