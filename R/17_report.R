@@ -27,23 +27,125 @@
   }
 }
 
+# Allowlisted URL schemes for links embedded in AI-generated prose (consumed by
+# .url_scheme_unsafe / .defang_unsafe_links below). Everything else --
+# javascript:, data:, vbscript:, file:, ... -- is defanged, because pandoc turns
+# [text](url) into <a href="url"> WITHOUT vetting the scheme and DECODES HTML
+# entities in the URL first, so [x](javascript&colon;..) or [x](&#106;avascript:..)
+# would otherwise render as a live, clickable javascript: href.
+.SAFE_URL_SCHEMES <- c("http", "https", "mailto", "ftp", "ftps", "tel")
+
+#' Decode the HTML character references pandoc/browsers resolve inside a URL
+#'
+#' Enough to reveal a link's true scheme: decimal (\code{&#106;}), hex
+#' (\code{&#x6a;}), and the named refs that can disguise a scheme or its colon.
+#' Iterates to a fixed point so multi-layer encodings (\code{&amp;#106;}) are
+#' caught. Used ONLY to DECIDE whether a link is safe -- the original prose is
+#' what gets kept or dropped, so over-decoding here cannot corrupt output.
+#' @keywords internal
+#' @noRd
+.decode_url_entities <- function(s) {
+  if (!grepl("&", s, fixed = TRUE)) return(s)
+  named <- c(colon = ":", sol = "/", quest = "?", num = "#", period = ".",
+             lpar = "(", rpar = ")", commat = "@", Tab = " ", NewLine = " ",
+             amp = "&")
+  for (.it in 1:5) {
+    before <- s
+    for (nm in names(named)) s <- gsub(paste0("&", nm, ";"), named[[nm]], s, fixed = TRUE)
+    repeat {
+      m <- regexpr("&#[xX]?[0-9A-Fa-f]+;", s, perl = TRUE)
+      if (m[1] == -1L) break
+      tok  <- regmatches(s, m)
+      body <- sub(";$", "", sub("^&#", "", tok))
+      code <- if (grepl("^[xX]", body)) strtoi(sub("^[xX]", "", body), 16L)
+              else suppressWarnings(as.integer(body))
+      ch <- if (is.na(code) || code < 1L || code > 0x10FFFF) ""
+            else tryCatch(intToUtf8(code), error = function(e) "")
+      s <- sub("&#[xX]?[0-9A-Fa-f]+;", ch, s, perl = TRUE)
+    }
+    if (identical(s, before)) break
+  }
+  s
+}
+
+#' Is a markdown link destination's URL scheme unsafe to render?
+#'
+#' Decodes entity obfuscation, strips the whitespace/control chars browsers
+#' ignore, then allowlists the scheme (\code{.SAFE_URL_SCHEMES}). Scheme-less
+#' (relative / anchor / query) destinations are safe; an absolute URL whose
+#' scheme is not allowlisted -- or is malformed after decoding -- is unsafe.
+#' @keywords internal
+#' @noRd
+.url_scheme_unsafe <- function(dest) {
+  d <- .decode_url_entities(dest)
+  d <- gsub("[[:space:][:cntrl:]]", "", d)
+  d <- tolower(d)
+  first_seg <- sub("[/?#].*$", "", d)
+  if (!grepl(":", first_seg, fixed = TRUE)) return(FALSE)   # no scheme -> relative -> safe
+  scheme <- sub(":.*$", "", first_seg)
+  if (!grepl("^[a-z][a-z0-9+.-]*$", scheme)) return(TRUE)   # obfuscated / malformed scheme
+  !(scheme %in% .SAFE_URL_SCHEMES)
+}
+
+# Inline markdown link or image: [text](dest ...) / ![alt](dest ...). The dest
+# is the run up to the first whitespace or paren; the tail captures any title.
+.MD_LINK_RE   <- "(!?)\\[([^]]*)\\]\\(\\s*([^()[:space:]]*)([^)]*)\\)"
+# Reference-style definition at line start: [label]: dest "title".
+.MD_REFDEF_RE <- "(?m)^([ ]{0,3}\\[[^]]+\\]:[ \\t]*)(\\S+)"
+
+#' Defang markdown links/images whose URL scheme is unsafe
+#'
+#' Replaces an unsafe inline link/image with its visible text, and rewrites an
+#' unsafe reference definition's URL to \code{#}. Safe links (http/https/mailto/
+#' relative/...) are left byte-for-byte unchanged, so legitimate citations and
+#' URLs with balanced parens are never mangled. Runs after \code{<>}-escaping,
+#' so the only links present use \code{[]()} syntax (raw \code{<url>} autolinks
+#' are already neutralized).
+#' @keywords internal
+#' @noRd
+.defang_unsafe_links <- function(x) {
+  vapply(x, function(s) {
+    if (grepl("](", s, fixed = TRUE)) {
+      gm <- gregexpr(.MD_LINK_RE, s, perl = TRUE)[[1]]
+      if (gm[1] != -1L) for (full in regmatches(s, list(gm))[[1]]) {
+        g <- regmatches(full, regexec(.MD_LINK_RE, full, perl = TRUE))[[1]]
+        if (.url_scheme_unsafe(g[4])) s <- sub(full, g[3], s, fixed = TRUE)
+      }
+    }
+    if (grepl("]:", s, fixed = TRUE)) {
+      gm <- gregexpr(.MD_REFDEF_RE, s, perl = TRUE)[[1]]
+      if (gm[1] != -1L) for (full in regmatches(s, list(gm))[[1]]) {
+        g <- regmatches(full, regexec(.MD_REFDEF_RE, full, perl = TRUE))[[1]]
+        if (.url_scheme_unsafe(g[3])) s <- sub(full, paste0(g[2], "#"), s, fixed = TRUE)
+      }
+    }
+    s
+  }, character(1), USE.NAMES = FALSE)
+}
+
 #' Neutralize HTML in AI-generated prose while preserving intended Markdown
 #'
 #' AI free-text (executive summary, conclusion, implications, key findings,
 #' saturation articulation/rationale, learning reflection, correlation
 #' narrative) is interpolated into the report as \emph{Markdown} -- so it must
 #' keep working bold/links/lists/blockquotes -- but it can echo prompt-injected
-#' corpus content like \samp{<script>} or \samp{<img onerror=...>}. Running the
-#' full \code{.html_esc} here would also escape the quotes/ampersands the
-#' Markdown relies on. Instead, neutralize only what enables tag injection:
+#' corpus content like \samp{<script>}, \samp{<img onerror=...>}, or a
+#' \samp{[click](javascript:...)} link. Running the full \code{.html_esc} here
+#' would also escape the quotes/ampersands the Markdown relies on. Instead,
+#' neutralize only what enables injection:
 #' \itemize{
 #'   \item \code{<} -> \code{&lt;} and \code{>} -> \code{&gt;} (no tag can open)
 #'   \item a \emph{bare} \code{&} (not already starting an HTML entity) ->
 #'     \code{&amp;}, so existing entities and our own \code{&bull;}/\code{&mdash;}
 #'     are left intact and not double-escaped.
+#'   \item markdown links/images whose URL scheme is not http/https/mailto/...
+#'     (e.g. \code{javascript:}, \code{data:}, including the entity-obfuscated
+#'     variants pandoc would decode) are defanged: pandoc does not vet link
+#'     schemes, so this stops a clickable \code{javascript:} href in the report.
 #' }
-#' \code{**bold**}, \code{[text](url)}, lists, and \code{>} blockquote markers we
-#' prepend ourselves all keep working; an injected \code{<tag>} cannot.
+#' \code{**bold**}, safe \code{[text](url)}, lists, and \code{>} blockquote
+#' markers we prepend ourselves all keep working; an injected \code{<tag>} or
+#' \code{javascript:} link cannot.
 #' @param x Character string of AI-generated prose (NULL/NA -> "").
 #' @return HTML-tag-neutralized, Markdown-preserving string.
 #' @keywords internal
@@ -56,6 +158,9 @@
   x <- gsub("&(?!#?[A-Za-z0-9]+;)", "&amp;", x, perl = TRUE)
   x <- gsub("<", "&lt;", x, fixed = TRUE)
   x <- gsub(">", "&gt;", x, fixed = TRUE)
+  # Defang javascript:/data:/vbscript:/... links so pandoc can't render them as
+  # live hrefs; http/https/mailto/relative links keep working.
+  x <- .defang_unsafe_links(x)
   x
 }
 

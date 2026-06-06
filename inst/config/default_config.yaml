@@ -114,7 +114,7 @@ ai:
     models:
       primary: "gpt-4o"           # Used for coding, theming, merge passes.
       fast: "gpt-4o-mini"         # Used for sentiment (lower cost, faster).
-      embedding: "text-embedding-3-small"   # Used for code-similarity context in theming.
+      embedding: "text-embedding-3-small"   # Semantic code retrieval during coding + quote-provenance.
     rate_limits:                  # OpenAI Tier 3 defaults; raise for higher tiers.
       requests_per_minute: 5000
       tokens_per_minute: 800000

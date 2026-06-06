@@ -113,6 +113,73 @@ test_that("FIX2: .sanitize_ai_prose handles NULL / NA", {
   expect_equal(pakhom:::.sanitize_ai_prose(NA_character_), "")
 })
 
+# ----------------------------------------------------------------------------
+# FIX2b: dangerous markdown-link URL schemes are defanged.
+# The report renders via pandoc, which turns [text](url) into <a href="url">
+# WITHOUT vetting the scheme and DECODES HTML entities in the URL first -- so a
+# prompt-injected [x](javascript:..) (or its entity-obfuscated variants) would
+# otherwise become a clickable javascript: href. <,>,& escaping alone does not
+# stop this because the link is [](), not a <tag>.
+# ----------------------------------------------------------------------------
+test_that("FIX2b: javascript:/data:/vbscript: links are stripped to plain text", {
+  s <- pakhom:::.sanitize_ai_prose
+  # Inline link with a dangerous scheme -> the [..](..) markup is removed, the
+  # visible text is kept, so pandoc can never emit a script: href.
+  expect_false(grepl("](", s("[click](javascript:alert(1))"), fixed = TRUE))
+  expect_false(grepl("](", s("[x](data:text/html,stuff)"),     fixed = TRUE))
+  expect_false(grepl("](", s("[x](vbscript:msgbox(1))"),       fixed = TRUE))
+  # Images too (the src= would otherwise carry the payload).
+  expect_false(grepl("](", s("![pic](javascript:alert(1))"),   fixed = TRUE))
+})
+
+test_that("FIX2b: entity-obfuscated dangerous schemes are also defanged", {
+  s <- pakhom:::.sanitize_ai_prose
+  # pandoc decodes &colon; -> : ; &#106; -> j ; hex; and one &amp; layer.
+  for (m in c("[a](javascript&colon;alert(1))",
+              "[b](&#106;avascript:alert(1))",
+              "[c](javascript&#x3a;alert(1))",
+              "[d](&#x6a;avascript:alert(1))")) {
+    expect_false(grepl("](", s(m), fixed = TRUE), info = m)
+  }
+})
+
+test_that("FIX2b: a dangerous reference-style definition is neutralized to #", {
+  out <- pakhom:::.sanitize_ai_prose("see [it][1]\n\n[1]: javascript:alert(1)")
+  # The reference URL is rewritten so [it][1] resolves to '#', not javascript:.
+  expect_false(grepl("javascript:", out, fixed = TRUE))
+  expect_true(grepl("]: #", out, fixed = TRUE))
+})
+
+test_that("FIX2b: safe links and ordinary prose are left untouched", {
+  s <- pakhom:::.sanitize_ai_prose
+  # Allowlisted schemes + relative/anchor links survive verbatim.
+  expect_equal(s("[ok](https://example.com)"), "[ok](https://example.com)")
+  expect_equal(s("[m](mailto:a@b.com)"),       "[m](mailto:a@b.com)")
+  expect_equal(s("[r](/local/path)"),          "[r](/local/path)")
+  expect_equal(s("[a](#anchor)"),              "[a](#anchor)")
+  # A safe URL with balanced parens must NOT be mangled.
+  expect_equal(s("[w](http://en.wikipedia.org/wiki/R_(language))"),
+                  "[w](http://en.wikipedia.org/wiki/R_(language))")
+  # Prose with colons that are NOT links stays put (no false positives).
+  expect_equal(s("The ratio was 3:1; see section 2: methods."),
+                  "The ratio was 3:1; see section 2: methods.")
+})
+
+test_that("FIX2b: .url_scheme_unsafe allowlists correctly", {
+  u <- pakhom:::.url_scheme_unsafe
+  expect_true(u("javascript:alert(1)"))
+  expect_true(u("data:text/html,x"))
+  expect_true(u("vbscript:x"))
+  expect_true(u("file:///etc/passwd"))
+  expect_true(u("javascript&colon;x"))     # entity colon
+  expect_true(u("&#106;avascript:x"))      # entity scheme letter
+  expect_false(u("https://x.com"))
+  expect_false(u("mailto:a@b.com"))
+  expect_false(u("/relative/path"))        # no scheme
+  expect_false(u("#anchor"))
+  expect_false(u("?q=1"))
+})
+
 test_that("FIX2: executive summary <script> is neutralized in the report build", {
   data <- sample_data(8)
   stats <- aggregate_overall_statistics(

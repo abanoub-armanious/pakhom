@@ -59,12 +59,6 @@
 
 .SENTIMENT_TENDENCY_THRESHOLD <- 0.2
 
-# Maximum codes to enumerate verbatim in a cluster summary prompt. For
-# clusters above this size we show the top-N by frequency plus the most
-# extreme pairs by cosine distance. Not a methodological knob -- a context-
-# window economy bound. See .summarize_cluster_for_prompt() below.
-.MAX_PROMPT_CODES <- 50L
-
 # ==============================================================================
 # Main entry point
 # ==============================================================================

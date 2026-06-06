@@ -2,13 +2,13 @@
 % Please edit documentation in R/structured_schemas.R
 \name{.theme_decision_schema}
 \alias{.theme_decision_schema}
-\title{Schema for AI-judged divisive cluster evaluation (Phase 52)}
+\title{Schema for AI-judged cluster evaluation (coherent / split / outlier)}
 \usage{
 .theme_decision_schema()
 }
 \description{
-Used by .evaluate_cluster() during the top-down HAC tree walk in
-generate_themes_iterative(). Replaces the pre-Phase-52 sequential-
+Used by the v2 multi-pass clustering engine (R/theme_algorithm_v2.R),
+reached via generate_themes_iterative(). Replaces the pre-Phase-52 sequential-
 merge schema (action = merge|standalone). The new shape enforces
 three load-bearing bias mitigations (Phase 49 audit + Phase 52
 design):

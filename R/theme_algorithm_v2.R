@@ -1317,7 +1317,6 @@ ai_label_theme_set <- function(skeleton, codes, provider,
 # ==============================================================================
 
 # Maximum codes to enumerate verbatim within a single cluster-leaf summary.
-# Same context-economy bound as the legacy algorithm's .MAX_PROMPT_CODES.
 # Not a methodological knob -- a context-window economy bound.
 .V2_MAX_CLUSTER_MEMBER_CODES <- 50L
 

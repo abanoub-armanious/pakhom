@@ -6,7 +6,6 @@
 # H-11 audit log schema_version stamped on every record
 # H-26 keywords capped to top-N codes by frequency
 # M-12 is_new_code dedupe within an entry
-# M-21 .derive_theme_description fallback for empty AI description
 # M-28 researcher_review preserves subthemes for non-mutating edits
 
 # ==========================================================================
@@ -95,12 +94,6 @@ test_that("write_corpus_coverage with methodology stamp prepends to JSON", {
   expect_match(raw, "n_coded", fixed = TRUE)
   expect_match(raw, "all_entries_processed", fixed = TRUE)
 })
-
-
-# ==========================================================================
-# M-21: .derive_theme_description fallback
-# ==========================================================================
-
 
 
 # ==========================================================================

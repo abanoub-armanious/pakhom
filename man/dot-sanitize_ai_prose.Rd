@@ -17,16 +17,22 @@ AI free-text (executive summary, conclusion, implications, key findings,
 saturation articulation/rationale, learning reflection, correlation
 narrative) is interpolated into the report as \emph{Markdown} -- so it must
 keep working bold/links/lists/blockquotes -- but it can echo prompt-injected
-corpus content like \samp{<script>} or \samp{<img onerror=...>}. Running the
-full \code{.html_esc} here would also escape the quotes/ampersands the
-Markdown relies on. Instead, neutralize only what enables tag injection:
+corpus content like \samp{<script>}, \samp{<img onerror=...>}, or a
+\samp{[click](javascript:...)} link. Running the full \code{.html_esc} here
+would also escape the quotes/ampersands the Markdown relies on. Instead,
+neutralize only what enables injection:
 \itemize{
 \item \code{<} -> \code{&lt;} and \code{>} -> \code{&gt;} (no tag can open)
 \item a \emph{bare} \code{&} (not already starting an HTML entity) ->
 \code{&amp;}, so existing entities and our own \code{&bull;}/\code{&mdash;}
 are left intact and not double-escaped.
+\item markdown links/images whose URL scheme is not http/https/mailto/...
+(e.g. \code{javascript:}, \code{data:}, including the entity-obfuscated
+variants pandoc would decode) are defanged: pandoc does not vet link
+schemes, so this stops a clickable \code{javascript:} href in the report.
 }
-\code{**bold**}, \code{[text](url)}, lists, and \code{>} blockquote markers we
-prepend ourselves all keep working; an injected \code{<tag>} cannot.
+\code{**bold**}, safe \code{[text](url)}, lists, and \code{>} blockquote
+markers we prepend ourselves all keep working; an injected \code{<tag>} or
+\code{javascript:} link cannot.
 }
 \keyword{internal}

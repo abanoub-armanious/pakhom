@@ -29,9 +29,9 @@ mid-flight.}
 The (possibly updated) tracker, invisibly.
 }
 \description{
-Called from \code{.walk_for_themes()} / \code{.walk_for_subthemes()}
-after each AI decision. Captures the in-progress theme structure so a
-researcher can watch the HAC tree walk produce themes in real time.
+Called during theme generation after each AI clustering decision.
+Captures the in-progress theme structure so a researcher can watch
+themes form in real time.
 }
 \details{
 Atomic rewrite. Safe to call with \code{tracker = NULL} (no-op).
