@@ -8,7 +8,7 @@
 }
 \description{
 Each record carries: key, name, description, frequency, entry_ids
-(character vector). This is the canonical input shape for the HAC
-algorithm.
+(character vector). This is the canonical input shape for the clustering
+engine.
 }
 \keyword{internal}

@@ -1,60 +1,40 @@
 # ==============================================================================
-# Theme Generation: HAC + AI-judged Divisive Tree-Walk
+# Theme Generation: dispatch, deterministic cascade, and shared helpers
 # ==============================================================================
-# Phase 52 rewrite. Replaces the pre-Phase-52 sequential pairwise insertion
-# (which produced the kitchen-sink theme bug -- one theme absorbing 593/727
-# entries on the saturation run) with deterministic hierarchical agglomerative
-# clustering (HAC, ward.D2 linkage, cosine distance from code-name embeddings
-# with Jaccard fallback for non-OpenAI providers) followed by an AI-judged
-# top-down divisive tree walk. The AI sits at every internal node of the
-# HAC tree and decides: coherent_theme | split_required | atomic_outlier.
+# Theme generation runs the multi-pass, embedding-free clustering engine in
+# R/theme_algorithm_v2.R: the AI proposes a partition of the whole codebook,
+# regroups those clusters over further passes until it declares the partition
+# converged, and assigns theme / subtheme names in a dedicated labelling pass
+# only after the structure is fixed. This file holds the parts of theme
+# generation that sit AROUND that engine:
+#   - generate_themes_iterative(): the public entry point. It validates its
+#     inputs and dispatches to the engine. (An earlier hierarchical
+#     agglomerative clustering + AI tree-walk algorithm was removed; a config
+#     pinning algorithm = "v1" is honoured as the current engine with a
+#     one-time deprecation notice.)
+#   - cascade_theme_assignments(): the deterministic entry-to-theme cascade --
+#     each entry is mapped to themes / subthemes through its assigned codes with
+#     no AI re-reading of raw text, so given a fixed coding_state it reproduces
+#     exactly (pure R; the upstream coding that produced the codes is not).
+#   - shared helpers (.extract_codes_from_state, .fallback_theme_name) plus the
+#     deterministic theme post-processing (keyword + sentiment-tendency
+#     enrichment) layered on the engine's output for the report.
 #
-# Bias mitigations enforced by .theme_decision_schema():
-#   (a) Articulation requirement -- the AI must write the central organizing
-#       concept BEFORE the decision. If forcing one feels artificial it must
-#       say so explicitly there.
-#   (b) Closed three-valued enum -- no hedging.
-#   (c) Most-distant code pair shown unconditionally in every prompt;
-#       rationale field requires addressing it specifically.
-#
-# The C1 commitment (AI decides when to stop) is honored: NO hardcoded
-# n_themes, max_themes, max_merge_passes, similarity gates, or stopping
-# heuristics. The HAC tree gives a deterministic skeleton; the AI cuts it.
-#
-# Entry-to-theme cascade is deterministic (cascade_theme_assignments below):
-# each entry is mapped to themes/subthemes via its assigned codes, with no
-# AI re-reading of raw text -- given a fixed coding_state it reproduces
-# exactly (pure R; the upstream coding that produced the codes is not).
-#
-# REWRITE-DIRECTION COMMITMENTS HONORED IN THIS FILE:
-#   - C1 (AI decides when to stop): no hardcoded n_themes, max_themes,
-#     min_codes_per_theme, similarity gates. Saturation arbiter (Phase 56)
-#     and the AI tree walk (Phase 52) make all structural decisions.
-#   - C2 (codes preserved through clustering): the Code S3 (see
-#     R/12_theme_data.R) is the atomic leaf; themes/subthemes carry
-#     code_keys + code_indices (the original codebook keys), never
-#     mutated names/descriptions/assignments.
-#   - C5 (no catch-all buckets): the AI is never offered an "Other"
-#     verdict; the closed three-valued enum
-#     (coherent_theme | split_required | atomic_outlier) is the only
-#     option set.
-#   - C7 (mode-aware): Mode 3 framework-applied path pre-populates the
-#     codebook with constructs (see R/09_coding.R) so this file's HAC
-#     walk operates on a deductive codebook; Mode 1 doesn't use this
-#     file at all (run_mode1 invokes the provocateur loop).
-#
-# PHASE 60 STATUS (2026-05-25): The new v2 algorithm in
-# R/theme_algorithm_v2.R is now the production default. It implements:
-#   - Multi-pass clustering with AI-declared convergence (C-tenet 3).
-#   - Label-after-clustering with the whole tree visible (C-tenet 5).
-#   - No articulation gate; no single-leaf auto-theme shortcut.
-# The code in THIS file remains as the v1 algorithm for back-compat with
-# calibrated test fixtures (test-themes.R Phase 52 + C-1 test groups).
-# Dispatch lives in generate_themes_iterative() below: callers passing
-# config$algorithm = "v2" (the default) get the new algorithm;
-# config$algorithm = "v1" gets the legacy code path in this file.
-# The v1 path is scheduled for deletion after Phase 60.8 empirical
-# re-validation confirms v2 is stable on real corpora.
+# Design commitments honoured here and by the engine:
+#   - C1 (the AI decides when to stop): no hardcoded n_themes, max_themes,
+#     min_codes_per_theme, or similarity gates; the AI's per-pass convergence
+#     call makes every structural decision.
+#   - C2 (codes preserved through clustering): the Code S3 (R/12_theme_data.R)
+#     is the atomic leaf; themes / subthemes carry the original codebook keys
+#     and indices, never mutated names / descriptions / assignments.
+#   - C5 (no catch-all buckets): clustering can only PARTITION the codes it is
+#     given -- there is no "Other" verdict and no schema field for inventing a
+#     code -- and names are assigned only after the structure is set, so label
+#     pressure cannot shape it.
+#   - C7 (mode-aware): the Mode 3 framework path pre-populates the codebook with
+#     constructs (R/09_coding.R) so clustering operates on a deductive codebook;
+#     Mode 1 does not use this file at all (run_mode1 invokes the provocateur
+#     loop).
 # ==============================================================================
 
 .SENTIMENT_TENDENCY_THRESHOLD <- 0.2
@@ -100,9 +80,9 @@
 #'   \code{ai_complete} call for this walk. Used by the Phase 54
 #'   emergent-themes pass to inject the Mode 3 inductive variant; NULL
 #'   for normal Mode 2 + Mode 3 deductive callers.
-#' @return \code{ThemeSet} S3 object. Under v1 a \code{merge_history$tree_walk}
-#'   field carries the HAC tree + per-node decisions; under v2 the multi-pass
-#'   partition history is recorded for replay/audit instead.
+#' @return \code{ThemeSet} S3 object. Its \code{merge_history} records the
+#'   multi-pass partition history (per-pass clusters + the AI's decisions) for
+#'   replay / audit.
 #' @export
 generate_themes_iterative <- function(coding_state, provider, config = list(),
                                        learning_context = NULL,
@@ -147,8 +127,8 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
 #' Extract codes from coding state into a uniform record list
 #'
 #' Each record carries: key, name, description, frequency, entry_ids
-#' (character vector). This is the canonical input shape for the HAC
-#' algorithm.
+#' (character vector). This is the canonical input shape for the clustering
+#' engine.
 #'
 #' @keywords internal
 .extract_codes_from_state <- function(coding_state) {
@@ -640,9 +620,8 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
 #' \code{.inductive_code_anomaly_segments}) by code_name, packing each
 #' unique inductive code as a codebook entry whose \code{coded_segments}
 #' list contains the anomaly segments labeled with that code. The
-#' resulting state can be passed to \code{generate_themes_iterative}
-#' (Phase 52 HAC + AI-judged tree walk) as if it were a normal Mode 2
-#' run scoped to just the anomaly residuals.
+#' resulting state can be passed to \code{generate_themes_iterative} as if it
+#' were a normal Mode 2 run scoped to just the anomaly residuals.
 #'
 #' @keywords internal
 .build_synthetic_state_from_emergent_codes <- function(anomaly_segments,

@@ -11,8 +11,7 @@ Consolidates per-segment inductive codes (from
 \code{.inductive_code_anomaly_segments}) by code_name, packing each
 unique inductive code as a codebook entry whose \code{coded_segments}
 list contains the anomaly segments labeled with that code. The
-resulting state can be passed to \code{generate_themes_iterative}
-(Phase 52 HAC + AI-judged tree walk) as if it were a normal Mode 2
-run scoped to just the anomaly residuals.
+resulting state can be passed to \code{generate_themes_iterative} as if it
+were a normal Mode 2 run scoped to just the anomaly residuals.
 }
 \keyword{internal}

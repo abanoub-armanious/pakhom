@@ -46,9 +46,9 @@ emergent-themes pass to inject the Mode 3 inductive variant; NULL
 for normal Mode 2 + Mode 3 deductive callers.}
 }
 \value{
-\code{ThemeSet} S3 object. Under v1 a \code{merge_history$tree_walk}
-field carries the HAC tree + per-node decisions; under v2 the multi-pass
-partition history is recorded for replay/audit instead.
+\code{ThemeSet} S3 object. Its \code{merge_history} records the
+multi-pass partition history (per-pass clusters + the AI's decisions) for
+replay / audit.
 }
 \description{
 Dispatches to the configured theme algorithm. The default
