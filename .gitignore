@@ -1,5 +1,29 @@
+# R / RStudio
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+.DS_Store
+
+# Build artifacts
 /doc/
 /Meta/
+*.Rcheck/
+*.tar.gz
 
-# Internal development / strategy notes -- kept local, never published.
-/notes/strategic_audit/
+# Generated pkgdown site -- built and deployed by CI, not committed
+docs/
+
+# Sensitive files -- never commit. (Live config/keys/data stay in the
+# separate research project, not in the package repo.)
+config.yaml
+.Renviron
+*.db
+
+# Pipeline run artifacts (not part of the package)
+outputs/
+checkpoints/
+pipeline_run.log
+
+# Internal development / strategy notes -- kept local, never published
+/notes/
