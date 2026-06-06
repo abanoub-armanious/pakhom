@@ -272,6 +272,25 @@ test_that("export_qdpx survives XML metachars + control chars + unicode", {
   expect_false(grepl("<issues>", raw, fixed = TRUE))   # escaped, not a live tag
   expect_true(grepl("Sleep", raw, fixed = TRUE))
 
+  # Platform-independent guard against the libxml2-strictness split that made
+  # this export pass on macOS yet be rejected by Linux/Windows CI. The illegal
+  # C0 control characters must be STRIPPED before serialisation -- neither left
+  # raw (strict libxml2 errors on read) nor handed to libxml2 to mangle (lenient
+  # libxml2 substitutes U+FFFD and emits a "&#xFFFD;" reference, so the local
+  # read_xml() passes while a strict parser rejects the same input).
+  qde_bytes <- readBin(qde[1], "raw", n = file.info(qde[1])$size)
+  expect_false(any(as.integer(qde_bytes) %in% c(1:8, 11, 12, 14:31)),
+               info = "exported .qde must contain no XML-illegal control bytes")
+  # Decoded attribute values + element text must be free of the illegal chars
+  # AND of the U+FFFD replacement that signals an unstripped, mangled char.
+  parsed <- paste(c(xml2::xml_attr(xml2::xml_find_all(doc, ".//Code"), "name"),
+                    xml2::xml_text(doc)), collapse = "\n")
+  ctrl_class <- paste(intToUtf8(c(1:8, 11, 12, 14:31), multiple = TRUE), collapse = "")
+  expect_false(grepl(paste0("[", ctrl_class, "]"), parsed),
+               info = "no XML-illegal control char survives into the parsed .qde")
+  expect_false(grepl(intToUtf8(0xFFFD), parsed, fixed = TRUE),
+               info = "illegal chars must be stripped, not substituted with U+FFFD")
+
   # Source text files are written (the post bodies live in plain-text sources).
   txts <- list.files(ex, pattern = "\\.txt$", recursive = TRUE)
   expect_gte(length(txts), 1L)

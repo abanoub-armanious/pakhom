@@ -40,6 +40,32 @@
 # XML helpers
 # ==============================================================================
 
+#' Strip XML-1.0-illegal control characters from a string
+#'
+#' The XML 1.0 specification (section 2.2) forbids the C0 control characters
+#' except tab (0x09), line feed (0x0A) and carriage return (0x0D). Such
+#' characters cannot be represented in XML at all -- not even as a numeric
+#' character reference -- so any corpus-, AI- or user-derived text must have
+#' them removed before it is serialised into the .qde. libxml2 handles them
+#' inconsistently across versions (some silently substitute U+FFFD, others
+#' emit an un-parseable reference or the raw byte), which made an export
+#' readable on one platform yet rejected as malformed on another. Stripping
+#' them up front guarantees a well-formed, portable document. Tab/LF/CR and
+#' every printable character (accented letters, CJK, emoji) are preserved.
+#'
+#' @param x Character string or vector
+#' @return The input with XML-illegal control characters removed
+#' @keywords internal
+.strip_invalid_xml_chars <- function(x) {
+  if (is.null(x) || length(x) == 0) return(x)
+  x <- enc2utf8(as.character(x))
+  # Build the illegal-character class from code points so this source stays
+  # pure ASCII rather than embedding raw control bytes: 0x01-0x08, 0x0B, 0x0C
+  # and 0x0E-0x1F (every C0 control except the XML-legal tab/LF/CR).
+  illegal <- paste(intToUtf8(c(1:8, 11, 12, 14:31), multiple = TRUE), collapse = "")
+  gsub(paste0("[", illegal, "]"), "", x, perl = TRUE)
+}
+
 #' Escape a string for safe inclusion as XML text content
 #'
 #' @param x Character string
@@ -47,7 +73,7 @@
 #' @keywords internal
 .xml_escape <- function(x) {
   if (is.null(x) || length(x) == 0 || is.na(x[1])) return("")
-  x <- as.character(x[1])
+  x <- .strip_invalid_xml_chars(as.character(x[1]))
   x <- gsub("&", "&amp;", x, fixed = TRUE)
   x <- gsub("<", "&lt;", x, fixed = TRUE)
   x <- gsub(">", "&gt;", x, fixed = TRUE)
@@ -69,11 +95,11 @@
                            description = NULL) {
   node <- xml2::xml_add_child(parent, "Code",
                                guid = guid,
-                               name = name,
+                               name = .strip_invalid_xml_chars(name),
                                isCodable = tolower(as.character(is_codable)))
   if (!is.null(description) && nchar(description) > 0) {
     desc_node <- xml2::xml_add_child(node, "Description")
-    xml2::xml_set_text(desc_node, description)
+    xml2::xml_set_text(desc_node, .strip_invalid_xml_chars(description))
   }
   invisible(node)
 }
