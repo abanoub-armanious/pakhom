@@ -55,7 +55,7 @@ methodology:
 
 
 # -----------------------------------------------------------------------------
-# Audit (T1.4 / OS.5)
+# Audit (raw-response capture for replay)
 # Controls how AI request/response provenance is captured. Disabling
 # capture_raw_responses saves storage but breaks replay_run() reproducibility.
 # -----------------------------------------------------------------------------

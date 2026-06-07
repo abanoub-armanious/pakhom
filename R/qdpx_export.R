@@ -233,10 +233,16 @@
   project_guid <- .qdpx_guid("project")
   user_guid <- .qdpx_guid("user")
 
-  # Create root document
+  # Create root document. The REFI-QDA Project Exchange schema has target
+  # namespace urn:QDA-XML:project:1.0; declaring it as the default namespace
+  # on <Project> places every descendant in that namespace (xml2 children
+  # inherit the parent's default namespace), so the .qde validates against
+  # the official .xsd and imports into strict QDA software that schema-checks
+  # on read (NVivo / ATLAS.ti / MAXQDA).
   doc <- xml2::read_xml(paste0(
     '<?xml version="1.0" encoding="UTF-8"?>',
-    '<Project name="', .xml_escape(study_name), '" ',
+    '<Project xmlns="urn:QDA-XML:project:1.0" ',
+    'name="', .xml_escape(study_name), '" ',
     'origin="pakhom" ',
     'creatingUserGuid="', user_guid, '" ',
     'creationDateTime="', creation_dt, '">',

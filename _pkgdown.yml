@@ -54,7 +54,7 @@ reference:
       - config_wizard
       - config_wizard_app
 
-  - title: "Methodology Modes (Sprint-4)"
+  - title: "Methodology Modes"
     desc: >
       The three methodologically-distinct operating modes, the framework
       spec module (Mode 3), the provocateur loop (Mode 1), and the
@@ -106,9 +106,9 @@ reference:
       - verify_quotes
       - write_corpus_coverage
 
-  - title: "Methodological Transparency Report (OS.6)"
+  - title: "Methodological Transparency Report"
     desc: >
-      Phase 58 Stage 1A: self-contained HTML methodological transparency
+      A self-contained HTML methodological transparency
       report bundling Lincoln & Guba (1985) trustworthiness mapping,
       reflexivity completeness, T0.1 quote provenance summary, T0.3
       corpus coverage funnel, AC9 audit log summary, and theme set

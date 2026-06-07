@@ -169,6 +169,30 @@ test_that("QDPX project.qde XML carries UTC creationDateTime (meta-audit M4)", {
                perl = TRUE)
 })
 
+test_that("QDPX project.qde declares the REFI-QDA namespace on <Project> (conformance)", {
+  skip_if_not_installed("xml2")
+  fx <- .qdpx_minimal_fixture()
+  out <- withr::local_tempfile(fileext = ".qdpx")
+  export_qdpx(coding_state = fx$state, data = fx$data, output_path = out)
+  tmp_dir <- withr::local_tempdir()
+  utils::unzip(out, files = "project.qde", exdir = tmp_dir)
+  qde <- file.path(tmp_dir, "project.qde")
+  doc <- xml2::read_xml(qde)
+  # The REFI-QDA Project Exchange schema's target namespace. Strict QDA
+  # importers (NVivo / ATLAS.ti / MAXQDA) validate against the .xsd and
+  # reject a namespace-less <Project>.
+  expect_true("urn:QDA-XML:project:1.0" %in% as.character(xml2::xml_ns(doc)))
+  raw <- readChar(qde, file.info(qde)$size, useBytes = TRUE)
+  expect_true(grepl('xmlns="urn:QDA-XML:project:1.0"', raw, fixed = TRUE))
+  # Descendants must INHERIT the default namespace, not be stranded in
+  # no-namespace (which libxml2 would mark with an xmlns="" un-declaration).
+  expect_false(grepl('xmlns=""', raw, fixed = TRUE))
+  # Structure intact: the codebook's Code elements are still locatable.
+  # local-name() is namespace-agnostic -- a bare ".//Code" xpath no longer
+  # matches now that elements are in the default project namespace.
+  expect_gte(length(xml2::xml_find_all(doc, ".//*[local-name()='Code']")), 1L)
+})
+
 test_that("QDPX project.qde XML contains the study_name + code", {
   skip_if_not_installed("xml2")
   fx <- .qdpx_minimal_fixture()
@@ -283,7 +307,9 @@ test_that("export_qdpx survives XML metachars + control chars + unicode", {
                info = "exported .qde must contain no XML-illegal control bytes")
   # Decoded attribute values + element text must be free of the illegal chars
   # AND of the U+FFFD replacement that signals an unstripped, mangled char.
-  parsed <- paste(c(xml2::xml_attr(xml2::xml_find_all(doc, ".//Code"), "name"),
+  # local-name() so the query still finds Code elements now that they sit in
+  # the default REFI-QDA project namespace (a bare ".//Code" matches nothing).
+  parsed <- paste(c(xml2::xml_attr(xml2::xml_find_all(doc, ".//*[local-name()='Code']"), "name"),
                     xml2::xml_text(doc)), collapse = "\n")
   ctrl_class <- paste(intToUtf8(c(1:8, 11, 12, 14:31), multiple = TRUE), collapse = "")
   expect_false(grepl(paste0("[", ctrl_class, "]"), parsed),

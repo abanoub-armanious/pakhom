@@ -583,7 +583,7 @@ a:hover {
   color: var(--text-primary);
 }
 
-/* Phase 58 Tier 5 V-7: skip-reason taxonomy. Categories with up
+/* Skip-reason taxonomy. Categories with up
    to 3 verbatim examples each, instead of one bullet per distinct
    reason string. The caption explains the clustering. */
 .coverage-card .coverage-skip-caption {
@@ -1161,7 +1161,7 @@ table:not(.dataTable) tr:hover td {
   box-shadow: var(--shadow-sm);
 }
 /* ========================================================================
- * Phase 55: paper-style per-subtheme summary table
+ * Paper-style per-subtheme summary table
  * ====================================================================== */
 
 .subtheme-table-wrapper {
@@ -1225,7 +1225,7 @@ table:not(.dataTable) tr:hover td {
 }
 
 /* ========================================================================
- * Phase 61.4: AI-analyst metric display (chosen primitives + notes,
+ * AI-analyst metric display (chosen primitives + notes,
  * fail-honest gaps, Methodology Setup section, per-theme temporal panel)
  * ====================================================================== */
 
@@ -1238,7 +1238,7 @@ table:not(.dataTable) tr:hover td {
   cursor: help;
 }
 
-/* Phase 62.5d: small-n reliability marker. A spread/shape statistic computed on
+/* Small-n reliability marker. A spread/shape statistic computed on
  * fewer entries than the AI analyst's per-column floor (min_reliable_n) is
  * MARKED with a dagger -- never hidden. The value + its n stay shown; the
  * footnote and the cell's title attribute explain. Explain-don't-gate. */
@@ -1255,7 +1255,7 @@ table:not(.dataTable) tr:hover td {
   line-height: 1.4;
 }
 
-/* Phase 63: Research-question coverage section -- where each named focus facet
+/* Research-question coverage section -- where each named focus facet
  * landed across the themes. "dispersed" is styled neutrally (a valid inductive
  * outcome), never as an error. */
 .research-coverage-section { margin: 1rem 0 1.75rem 0; }
@@ -1298,7 +1298,7 @@ table:not(.dataTable) tr:hover td {
 .rc-peripheral   { background: #fdf3e3; color: #b9770e; }  /* a few codes */
 .rc-not_surfaced { background: #eef0f2; color: #6b7785; }  /* honestly absent */
 
-/* Phase 63 audit followup: the in-body "AI-generated artifacts, researcher-
+/* The in-body "AI-generated artifacts, researcher-
  * curated" caveat under the executive summary (Mode 2/3 standalone report). */
 .ai-artifact-caveat {
   font-size: 0.82rem;
