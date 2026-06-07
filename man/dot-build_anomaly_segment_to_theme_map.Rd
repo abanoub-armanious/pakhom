@@ -15,9 +15,9 @@ route the entries whose anomaly segments landed in each emergent
 theme into the correct \code{theme_membership_*} columns.
 }
 \details{
-Phase 54 audit CRITICAL-8: without this map the cascade can only
+Without this map the cascade can only
 route "anomaly" once (to a single theme), which under extend/revise
 policies means emergent themes render with entry_count = 0 -- a
-silent data-loss bug that defeats the whole purpose of Phase 54.
+silent data-loss bug that defeats the whole purpose of the emergent-themes pass.
 }
 \keyword{internal}

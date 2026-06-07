@@ -111,7 +111,7 @@ load_data <- function(db_path, table_name = NULL, query = NULL) {
 #' so the loading code path is canonically identical whether the
 #' corpus is consumed by \code{run_analysis} or by \code{run_mode1}.
 #'
-#' Pre-Phase-59 users had to call the internal trio
+#' Previously users had to call the internal trio
 #' (\code{pakhom:::load_and_combine_tables} +
 #' \code{pakhom:::detect_columns} + \code{pakhom:::preprocess_text})
 #' to construct a Mode 1 \code{data} argument from a YAML config,
@@ -263,15 +263,15 @@ load_and_combine_tables <- function(db_path, table_names, source_type = "reddit"
 
   if (length(standardized) == 0) stop("No data loaded from any table")
 
-  # Phase 58 Tier 0 C-9: union-then-NA-fill, not intersect-then-drop.
+  # union-then-NA-fill, not intersect-then-drop.
   #
-  # The pre-Phase-58 path used `Reduce(intersect, lapply(standardized, names))`
+  # The earlier path used `Reduce(intersect, lapply(standardized, names))`
   # and dropped any column not shared across every input table. For the
   # canonical Reddit shape (posts table has num_comments + upvote_ratio;
   # comments table doesn't) this silently dropped two of the three metric
-  # columns from the analytic data, so Phase 55 paper-style subtheme
+  # columns from the analytic data, so paper-style subtheme
   # tables and correlations were only ever scored on `score`. dplyr's
-  # `bind_rows()` already does NA-fill for missing columns; we just need
+  # `bind_rows()` already does NA-fill for missing columns; all that's needed is
   # to stop pre-filtering. Log columns that were NA-filled so the user
   # has explicit signal about partial coverage.
   per_table_cols <- lapply(standardized, names)
@@ -286,7 +286,7 @@ load_and_combine_tables <- function(db_path, table_names, source_type = "reddit"
   }
   combined <- bind_rows(standardized)
 
-  # Defense-in-depth (phase 39): downstream callers (coding_state,
+  # Defense-in-depth: downstream callers (coding_state,
   # fabrication log, per-theme exports, quote provenance) all use
   # std_id as a primary key. If duplicates slip through (e.g., a
   # column-mapping misconfiguration that pulls a non-unique field, or
@@ -320,7 +320,7 @@ load_and_combine_tables <- function(db_path, table_names, source_type = "reddit"
           ), n_dup2), call. = FALSE)
         }
       } else {
-        # No source_table column means we can't prefix safely. Refuse
+        # No source_table column means prefixing isn't safe. Refuse
         # rather than ship corruption.
         stop(sprintf(paste0(
           "%d duplicate std_id value(s) after combining and no ",

@@ -23,7 +23,7 @@ When NULL or no fabrications occurred, no link is rendered.}
 \item{config}{ThematicConfig object (or NULL) used for the
 Citations API bypass footnote.}
 
-\item{fabrication_log_path}{Phase 58 Tier 4 V-5: absolute path to
+\item{fabrication_log_path}{absolute path to
 \code{fabrication_log.csv}. When supplied, the dashboard counts
 pre-rejection fabrications from this file (the surviving
 population in \code{stats} is post-rejection, so it always
@@ -31,7 +31,7 @@ reports 0 caught fabrications by itself). Pass \code{NULL} on
 legacy callers that don't have the path; the dashboard falls
 back to the surviving-population count.}
 
-\item{n_fabricated_caught}{Phase 58 Tier 4 V-5: explicit count of
+\item{n_fabricated_caught}{explicit count of
 pre-rejection fabrications (from
 \code{FabricationLog$state$n_logged}). Overrides
 \code{fabrication_log_path} when supplied. Pass \code{NULL} to
@@ -55,6 +55,6 @@ transparency dimension of Jowsey et al. 2025's critique. When no
 verification was run (pre-T0.1 runs, or runs that skipped coding), the
 dashboard renders a "Verification not available" notice rather than
 silently omitting -- absence of the badge would be its own integrity
-signal that we don't want to send.
+signal that should not be sent.
 }
 \keyword{internal}

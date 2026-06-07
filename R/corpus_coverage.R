@@ -1,5 +1,5 @@
 # ==============================================================================
-# Corpus Coverage Assertion (Sprint-4 T0.3)
+# Corpus Coverage Assertion
 # ==============================================================================
 # Third Tier-0 universal requirement (after T0.1 quote provenance and T0.2
 # participant spread). Empirical answer to Jowsey et al. 2025's
@@ -80,7 +80,7 @@ compute_corpus_coverage <- function(coding_state, data,
   # Duplicate std_ids would silently corrupt the headline assertion: an
   # intersect-based match would dedupe duplicates, making n_processed
   # appear to equal n_unique_ids when actually some duplicate-id entries
-  # were never seen. Refuse rather than affirm coverage we can't verify.
+  # were never seen. Refuse rather than affirm coverage that cannot be verified.
   n_dup <- sum(duplicated(data$std_id))
   if (n_dup > 0L) {
     stop(sprintf(
@@ -138,11 +138,11 @@ compute_corpus_coverage <- function(coding_state, data,
                           na.rm = TRUE)
   words_processed <- sum(.count_words_safe(text_processed), na.rm = TRUE)
 
-  # Phase 56 awareness of saturation-triggered early stop. The pre-Phase-56
+  # Awareness of saturation-triggered early stop. The earlier
   # headline assertion (every input entry has a matching entry_result)
   # would render as FALSE whenever the AI saturation arbiter stops coding
   # early -- exactly the methodologically intentional case T0.3 is supposed
-  # to celebrate, not flag as silent truncation. Phase 56 audit CRITICAL-1
+  # to celebrate, not flag as silent truncation. The coverage logic
   # disentangles the two: saturation-triggered tail is INTENTIONAL coverage
   # (n_unprocessed should equal n - reached_at_entry); any OTHER gap is
   # still silent truncation.
@@ -190,7 +190,7 @@ compute_corpus_coverage <- function(coding_state, data,
     words_processed          = as.integer(words_processed),
     coverage_rate            = coverage_rate,
     no_silent_truncation     = no_silent_truncation,
-    # Phase 56: distinguishes saturation-triggered intentional early-stop
+    # distinguishes saturation-triggered intentional early-stop
     # from genuine silent truncation. Consumers (report renderer + audit
     # log) gate language on this. "all_entries_processed" = entire corpus
     # reached the LLM; "saturation_arbiter_reached" = AI arbiter judged
@@ -343,7 +343,7 @@ render_tier0_coverage_card.default <- function(x, ...) {
 
 #' Persist a CorpusCoverage / ProvocationCoverage object to disk
 #'
-#' Phase 58 Tier 8 H-10: pre-Tier-8 the CorpusCoverage S3 was computed
+#' An earlier version computed the CorpusCoverage S3
 #' in memory and rendered as HTML but never written to disk as
 #' machine-readable data. A reproducibility audit couldn't read
 #' coverage state without re-running the pipeline. This writer
@@ -380,12 +380,12 @@ write_corpus_coverage <- function(coverage, output_dir,
   if (!is.null(cov_list$skip_reasons)) {
     cov_list$skip_reasons <- as.list(cov_list$skip_reasons)
   }
-  # Phase 58 Tier 8 H-10: schema_version is populated by
+  # schema_version is populated by
   # compute_corpus_coverage() at the source (R/corpus_coverage.R:204
   # via .CORPUS_COVERAGE_SCHEMA_VERSION) and rides on the coverage
   # object. Defensive fill-in only when the source object predates
-  # that field (e.g. a pre-Phase-58 cached coverage object loaded
-  # from an older run). Tier 8 audit followup HIGH-1: pre-followup
+  # that field (e.g. an earlier cached coverage object loaded
+  # from an older run). An earlier version of
   # this line unconditionally overwrote with "1.0.0", which would
   # silently lie if .CORPUS_COVERAGE_SCHEMA_VERSION ever bumps.
   if (is.null(cov_list$schema_version)) {

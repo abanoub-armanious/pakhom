@@ -2,7 +2,7 @@
 % Please edit documentation in R/metric_primitives.R
 \name{.metric_primitive_small_n_sensitive}
 \alias{.metric_primitive_small_n_sensitive}
-\title{Is a primitive a small-n-sensitive spread/shape estimator? (Phase 62.5d)}
+\title{Is a primitive a small-n-sensitive spread/shape estimator?}
 \usage{
 .metric_primitive_small_n_sensitive(primitive)
 }

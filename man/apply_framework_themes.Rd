@@ -36,7 +36,7 @@ pass's AI calls.}
 
 \item{live_tracker}{Optional \code{LiveTracker} threaded through.}
 
-\item{config}{Optional \code{ThematicConfig} (Phase 56). When supplied
+\item{config}{Optional \code{ThematicConfig}. When supplied
 and the framework spec's anomaly_handling is \code{"extend"} or
 \code{"revise"}, the inductive emergent-themes pass receives a
 methodology rules override (the inductive-pass variant of the Mode 3
@@ -45,8 +45,8 @@ rule, computed via \code{generate_methodology_rules(config,
 "Do NOT generate new framework constructs" rule from the deductive
 default. NULL (the default) falls through to the provider's default
 rules -- safe for legacy/test callers; the inductive pass will see
-the deductive rule alongside its inductive prompt (the Phase 54
-deferral iii contradiction the override resolves).}
+the deductive rule alongside its inductive prompt (the
+contradiction the override resolves).}
 }
 \value{
 A \code{ThemeSet} S3 object with framework themes and (under
@@ -67,9 +67,9 @@ by \code{generate_themes_iterative()}, so all downstream consumers
 (cascade_theme_assignments, aggregate_theme_statistics, report
 rendering) work without modification.
 
-\strong{Anomaly policy dispatch} (Phase 54):
+\strong{Anomaly policy dispatch}:
 \itemize{
-\item \code{"bracket"}: legacy pre-Phase-54 behavior. Appends a single
+\item \code{"bracket"}: legacy behavior. Appends a single
 "Anomaly (non-fitting)" theme containing all non-fitting segments.
 \item \code{"extend"} (default): runs an abductive inductive pass on the
 anomaly segments, producing a section of \strong{emergent themes}

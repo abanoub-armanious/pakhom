@@ -15,7 +15,7 @@ A single character string.
 }
 \description{
 Groups the catalog by family and renders each primitive as a labeled bullet,
-for injection into the Methodology Assistant's prompt (Phase 61.2). Pure
+for injection into the Methodology Assistant's prompt. Pure
 formatting over \code{\link[=metric_catalog]{metric_catalog()}}.
 }
 \keyword{internal}

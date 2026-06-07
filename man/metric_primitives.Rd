@@ -164,7 +164,7 @@ A length-1 numeric for scalar primitives, or a named numeric vector
 for distribution primitives.
 }
 \description{
-A flat catalog of small, deterministic statistics the Phase 61 Methodology
+A flat catalog of small, deterministic statistics the Methodology
 Assistant can request by name (see \code{\link[=metric_catalog]{metric_catalog()}} and
 \code{\link[=compute_metric_stat]{compute_metric_stat()}}). Each scalar primitive returns a length-1 numeric
 (NA on empty / all-NA / insufficient input); each distribution primitive

@@ -64,7 +64,7 @@ constructs and the AI is constrained to apply them verbatim
 (no NEW: prefix path). Anomaly segments go to a dedicated
 "anomaly" key. NULL preserves Mode 2 (free-form codebook) behavior.}
 
-\item{live_tracker}{Optional \code{LiveTracker} (Phase 53; from
+\item{live_tracker}{Optional \code{LiveTracker} (from
 \code{\link{init_live_tracker}}). When provided, every coded
 segment streams to \code{outputs/<run>/live/code_assignments.jsonl}
 and \code{codebook_live.json} is rewritten after every entry so a

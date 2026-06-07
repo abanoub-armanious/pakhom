@@ -137,7 +137,7 @@ test_that(".truncate_quote_word_boundary single-pathed branch (Phase 59 dedupe)"
 
 
 # ==========================================================================
-# Fix 5: 18_pipeline.R:1207 -- .warn_pre_tier7_coding_resume probed only
+# Fix 5: 18_pipeline.R:1207 -- .warn_legacy_coding_resume probed only
 # the FIRST QuoteProvenance; mixed-vintage checkpoints (modern QP first,
 # legacy QP later) silently skipped the warning. Now walks all QPs.
 # ==========================================================================
@@ -147,7 +147,7 @@ test_that(".truncate_quote_word_boundary single-pathed branch (Phase 59 dedupe)"
   capture.output(force(expr), type = "message")
 }
 
-test_that(".warn_pre_tier7_coding_resume warns when ANY legacy QP is present (mixed-vintage)", {
+test_that(".warn_legacy_coding_resume warns when ANY legacy QP is present (mixed-vintage)", {
   # Build a synthetic coding_state whose FIRST QP is modern (has the field)
   # and the SECOND QP is legacy (missing the field). Pre-Phase-59 behaviour
   # would return after the first probe and silently skip the warning.
@@ -179,7 +179,7 @@ test_that(".warn_pre_tier7_coding_resume warns when ANY legacy QP is present (mi
   )
 
   out <- .capture_log_warn(
-    pakhom:::.warn_pre_tier7_coding_resume(coding_state)
+    pakhom:::.warn_legacy_coding_resume(coding_state)
   )
   all_out <- paste(out, collapse = "\n")
   # Warning must fire, AND must report 1 of 2 (so the consumer can see the
@@ -188,7 +188,7 @@ test_that(".warn_pre_tier7_coding_resume warns when ANY legacy QP is present (mi
   expect_match(all_out, "older progressive_coding")
 })
 
-test_that(".warn_pre_tier7_coding_resume silent on all-modern checkpoint", {
+test_that(".warn_legacy_coding_resume silent on all-modern checkpoint", {
   modern_qp <- structure(
     list(
       schema_version = "1.1.0",
@@ -203,14 +203,14 @@ test_that(".warn_pre_tier7_coding_resume silent on all-modern checkpoint", {
   )
 
   out <- .capture_log_warn(
-    pakhom:::.warn_pre_tier7_coding_resume(coding_state)
+    pakhom:::.warn_legacy_coding_resume(coding_state)
   )
   expect_false(any(grepl("older progressive_coding", out)))
 })
 
-test_that(".warn_pre_tier7_coding_resume silent on NULL coding_state (fresh run)", {
+test_that(".warn_legacy_coding_resume silent on NULL coding_state (fresh run)", {
   out <- .capture_log_warn(
-    pakhom:::.warn_pre_tier7_coding_resume(NULL)
+    pakhom:::.warn_legacy_coding_resume(NULL)
   )
   # No legacy QPs to find; no warning.
   expect_false(any(grepl("older progressive_coding", out)))

@@ -20,7 +20,7 @@ Sorted by total count, descending.
 AI-generated skip reasons (\code{coding_state$entry_results[[id]]$skip_reason})
 are short free-text justifications produced by the coding model when it
 judges an entry off-topic / non-applicable. On a 5,000-entry run the
-Phase 57 audit observed 580 distinct reason strings, almost all
+A large run produced 580 distinct reason strings, almost all
 paraphrases of "the entry does not contain..." in slightly different
 wording. Rendering one HTML bullet per distinct string produced an
 unreadable 580-bullet list AND contributed measurably to pandoc OOM

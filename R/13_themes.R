@@ -46,20 +46,20 @@
 #' Generate themes by grouping codes into AI-judged clusters
 #'
 #' Dispatches to the configured theme algorithm. The default
-#' (\code{algorithm = "v2"}, Phase 60) is an embedding-free, multi-pass AI
+#' (\code{algorithm = "v2"}) is an embedding-free, multi-pass AI
 #' clustering: the model sees all codes at once, proposes a partition into
 #' clusters, and on each further pass either groups clusters again or
 #' declares the partition converged. There are no hardcoded pass counts or
 #' size thresholds, and clustering depth is the AI's dynamic call (C1).
 #' Codes are grouped, never combined into new codes (C2); theme and subtheme
 #' names are assigned in a dedicated labeling pass after convergence. The
-#' earlier \code{algorithm = "v1"} (Phase 52) -- code-name embeddings,
+#' earlier \code{algorithm = "v1"} -- code-name embeddings,
 #' hierarchical agglomerative clustering (ward.D2), and an AI-judged
 #' dendrogram walk -- has been removed; pinning \code{algorithm = "v1"} (or
 #' any value other than \code{"v2"}) is honored as v2 with a one-time
 #' deprecation notice.
 #'
-#' The function name retains its pre-Phase-52 form for back-compat with
+#' The function name retains its earlier form for back-compat with
 #' the single production caller (R/18_pipeline.R) and existing test
 #' fixtures. A future cleanup phase may rename to \code{generate_themes()}.
 #'
@@ -72,12 +72,12 @@
 #' @param concepts Optional character vector of core research concepts
 #' @param audit_log Optional \code{AuditLog} for recording each AI decision
 #' @param response_cache Optional \code{ResponseCache} for raw response capture
-#' @param live_tracker Optional \code{LiveTracker} (Phase 53). When provided,
+#' @param live_tracker Optional \code{LiveTracker}. When provided,
 #'   the cluster snapshot is rewritten after every AI decision so a
 #'   researcher can `cat outputs/<run>/live/code_to_cluster.json` mid-run.
-#' @param methodology_override Optional character (Phase 56). When non-NULL,
+#' @param methodology_override Optional character. When non-NULL,
 #'   replaces the provider's default methodology rules in every internal
-#'   \code{ai_complete} call for this walk. Used by the Phase 54
+#'   \code{ai_complete} call for this walk. Used by the
 #'   emergent-themes pass to inject the Mode 3 inductive variant; NULL
 #'   for normal Mode 2 + Mode 3 deductive callers.
 #' @return \code{ThemeSet} S3 object. Its \code{merge_history} records the
@@ -150,7 +150,7 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
   # come from Mode 3 framework constructs where the construct exists in
   # the spec but no entry was coded with it -- already filtered upstream
   # by apply_framework_themes(); for Mode 2 they don't normally occur but
-  # we filter defensively.
+  # filter defensively.
   keep <- vapply(out, function(c) c$frequency > 0L, logical(1))
   out[keep]
 }
@@ -167,7 +167,7 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
 
 
 # ==============================================================================
-# Deterministic code-path cascading (kept from pre-Phase-52)
+# Deterministic code-path cascading (kept from the earlier algorithm)
 # ==============================================================================
 
 #' Cascade theme assignments from codes to entries deterministically
@@ -201,12 +201,12 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
   code_to_subtheme <- merge_history$code_to_subtheme_map %||% list()
   valid_themes <- theme_names(theme_set)
 
-  # Phase 54: Mode 3 emergent themes need per-segment routing. The
+  # Mode 3 emergent themes need per-segment routing. The
   # standard code_to_theme_map can map at most ONE theme to the
   # "anomaly" code key, but under anomaly_handling=extend|revise each
   # anomaly segment may be in a different emergent theme. The
   # apply_framework_themes stashes a (entry_id|start|end) -> theme_name
-  # map on theme_set; we consult it below for entries that have
+  # map on theme_set; consulted below for entries that have
   # "anomaly" in their codes_assigned.
   anomaly_seg_to_theme <- theme_set$mode3_anomaly_segment_to_theme %||% list()
   has_emergent_routing <- length(anomaly_seg_to_theme) > 0L
@@ -256,7 +256,7 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
       }
     }
 
-    # Phase 54 / Mode 3 emergent fan-out (CRITICAL-8 fix): if this
+    # Mode 3 emergent fan-out: if this
     # entry has any "anomaly" segments AND the ThemeSet carries an
     # emergent routing map, look up each segment's emergent theme.
     # Without this branch, every anomaly-bearing entry would either be
@@ -314,12 +314,12 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
 }
 
 # ==============================================================================
-# Phase 54: Emergent themes from anomaly segments (Mode 3 extend/revise)
+# Emergent themes from anomaly segments (Mode 3 extend/revise)
 # ==============================================================================
 # When a Mode 3 run produces anomaly segments (text the AI couldn't fit any
 # framework construct during deductive coding), the anomaly_handling policy
 # decides what happens next:
-#   "bracket"     -> single Anomaly catch-all theme (pre-Phase-54 behavior)
+#   "bracket"     -> single Anomaly catch-all theme (earlier behavior)
 #   "extend"      -> abductive inductive pass over the anomaly segments,
 #                     producing emergent themes parallel to framework themes
 #   "revise"      -> same as extend + framework_review.csv artifact for the
@@ -334,8 +334,8 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
 #   (b) Build a synthetic ProgressiveCodingState whose codebook contains
 #       these inductive codes (each carrying the segments it labels) and
 #       whose entry_results map original entry_ids to these codes.
-#   (c) Run generate_themes_iterative() on the synthetic state. As of
-#       Phase 60 the default algorithm is v2 (multi-pass clustering +
+#   (c) Run generate_themes_iterative() on the synthetic state. The
+#       default algorithm is v2 (multi-pass clustering +
 #       label-after-clustering); the dispatch in generate_themes_iterative
 #       routes here automatically. The resulting themes are "emergent" --
 #       patterns the framework didn't anticipate, surfaced inductively
@@ -379,7 +379,7 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
   segs <- anomaly_entry$coded_segments %||% list()
   if (length(segs) == 0L) return(list())
 
-  log_info("Phase 54 / anomaly_handling=extend|revise: generating emergent themes from {length(segs)} anomaly segment(s)")
+  log_info("anomaly_handling=extend|revise: generating emergent themes from {length(segs)} anomaly segment(s)")
   tic("Emergent theme generation")
 
   # Edge case: 1 segment -> single-code emergent theme, no AI call needed.
@@ -430,11 +430,11 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
   )
 
   # Step (c): run the standard theme-generation pipeline on the synthetic
-  # state. As of Phase 60 the default algorithm is v2 (multi-pass
+  # state. The default algorithm is v2 (multi-pass
   # clustering + label-after-clustering); the dispatch lives in
   # generate_themes_iterative() so anomaly emergent themes automatically
-  # benefit from C-tenets 3+5 the same way Mode 2 themes do. We don't need
-  # the resulting ThemeSet wrapper -- we need the inner theme records so
+  # benefit from C-tenets 3+5 the same way Mode 2 themes do. The
+  # resulting ThemeSet wrapper isn't needed -- only the inner theme records, so
   # apply_framework_themes can merge them with theme_kind = "emergent".
   emergent_ts <- generate_themes_iterative(
     coding_state         = synth_state,
@@ -574,7 +574,7 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
     # comes back as a data.frame rather than a list-of-lists. Normalize to
     # a row-wise list iterator so the placement loop works in all shapes:
     # data.frame (most common; multi-element arrays), list-of-lists (when
-    # simplifier punts), and a NAMED scalar list (Phase 54 audit HIGH-14:
+    # simplifier punts), and a NAMED scalar list (a known edge case:
     # single-element arrays collapse to a scalar named list under jsonlite
     # auto-simplification; without this branch the placement loop iterates
     # over the values 1, "Code name", "Description" -- each missing the
@@ -594,7 +594,7 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
 
     # Place each coded segment back into the global `out` slot via the
     # chunk-local segment_index + chunk start offset.
-    # Phase 58 Tier 0 C-4 audit HIGH-1: normalize AI-returned code names
+    # Normalize AI-returned code names
     # here too. This admission path doesn't inject a numbered codebook
     # menu so the specific C-4 trigger is absent, but the normalizer is
     # the package's general contract for AI-name hygiene -- apply it on
@@ -629,7 +629,7 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
   state <- create_coding_state()
 
   # Group segments by (consolidated) code_name. The AI was prompted to
-  # reuse names; here we honor that by treating duplicates as one code.
+  # reuse names; here that is honored by treating duplicates as one code.
   # Slug each code_name to a safe codebook key.
   by_name <- list()
   for (i in seq_along(anomaly_segments)) {
@@ -830,10 +830,10 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
 #' route the entries whose anomaly segments landed in each emergent
 #' theme into the correct \code{theme_membership_*} columns.
 #'
-#' Phase 54 audit CRITICAL-8: without this map the cascade can only
+#' Without this map the cascade can only
 #' route "anomaly" once (to a single theme), which under extend/revise
 #' policies means emergent themes render with entry_count = 0 -- a
-#' silent data-loss bug that defeats the whole purpose of Phase 54.
+#' silent data-loss bug that defeats the whole purpose of the emergent-themes pass.
 #'
 #' @keywords internal
 .build_anomaly_segment_to_theme_map <- function(emergent_themes_raw) {
@@ -858,7 +858,7 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
 }
 
 # ==============================================================================
-# Mode 3 framework dispatch (Phase 54: dispatches on anomaly_handling)
+# Mode 3 framework dispatch (dispatches on anomaly_handling)
 # ==============================================================================
 
 #' Apply framework constructs as themes + handle anomalies (Mode 3)
@@ -874,9 +874,9 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
 #' (cascade_theme_assignments, aggregate_theme_statistics, report
 #' rendering) work without modification.
 #'
-#' \strong{Anomaly policy dispatch} (Phase 54):
+#' \strong{Anomaly policy dispatch}:
 #' \itemize{
-#'   \item \code{"bracket"}: legacy pre-Phase-54 behavior. Appends a single
+#'   \item \code{"bracket"}: legacy behavior. Appends a single
 #'     "Anomaly (non-fitting)" theme containing all non-fitting segments.
 #'   \item \code{"extend"} (default): runs an abductive inductive pass on the
 #'     anomaly segments, producing a section of \strong{emergent themes}
@@ -918,7 +918,7 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
 #'   pass's AI calls.
 #' @param response_cache Optional \code{ResponseCache} threaded through.
 #' @param live_tracker Optional \code{LiveTracker} threaded through.
-#' @param config Optional \code{ThematicConfig} (Phase 56). When supplied
+#' @param config Optional \code{ThematicConfig}. When supplied
 #'   and the framework spec's anomaly_handling is \code{"extend"} or
 #'   \code{"revise"}, the inductive emergent-themes pass receives a
 #'   methodology rules override (the inductive-pass variant of the Mode 3
@@ -927,8 +927,8 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
 #'   "Do NOT generate new framework constructs" rule from the deductive
 #'   default. NULL (the default) falls through to the provider's default
 #'   rules -- safe for legacy/test callers; the inductive pass will see
-#'   the deductive rule alongside its inductive prompt (the Phase 54
-#'   deferral iii contradiction the override resolves).
+#'   the deductive rule alongside its inductive prompt (the
+#'   contradiction the override resolves).
 #' @return A \code{ThemeSet} S3 object with framework themes and (under
 #'   "extend"/"revise") emergent themes. Themes carry a \code{theme_kind}
 #'   field of \code{"framework"} | \code{"emergent"} | \code{"anomaly_bracket"}
@@ -944,7 +944,7 @@ apply_framework_themes <- function(coding_state, framework_spec,
   validate_class(coding_state, "ProgressiveCodingState")
   validate_class(framework_spec, "FrameworkSpec")
 
-  # Phase 56 (Phase 54 deferral iii): under anomaly_handling = extend/revise
+  # Under anomaly_handling = extend/revise
   # the inductive emergent-themes pass needs to see the inductive variant of
   # the Mode 3 methodology rule (which permits new-code generation on the
   # anomaly residuals). The default deductive Mode 3 rule says "do NOT
@@ -989,7 +989,7 @@ apply_framework_themes <- function(coding_state, framework_spec,
     next_id <- next_id + 1L
   }
 
-  # Anomaly policy dispatch (Phase 54). The original kitchen-sink
+  # Anomaly policy dispatch. The original kitchen-sink
   # "Anomaly (non-fitting)" catch-all theme is the BRACKET path; EXTEND
   # and REVISE both produce emergent themes via inductive clustering of
   # the anomaly segments.
@@ -1049,7 +1049,7 @@ apply_framework_themes <- function(coding_state, framework_spec,
 
       } else {
         # Generate emergent themes from the anomaly segments via batch
-        # inductive coding + Phase 52 HAC + AI-judged tree walk.
+        # inductive coding + AI-judged clustering.
         emergent_themes_raw <- .generate_emergent_themes_from_anomalies(
           coding_state         = coding_state,
           framework_spec       = framework_spec,
@@ -1067,8 +1067,8 @@ apply_framework_themes <- function(coding_state, framework_spec,
           next_id <- next_id + 1L
         }
 
-        # Build segment-identity -> emergent-theme-name map (Phase 54
-        # audit CRITICAL-8). Entry results in Mode 3 record only the
+        # Build segment-identity -> emergent-theme-name map.
+        # Entry results in Mode 3 record only the
         # "anomaly" code key, not the per-segment inductive codes the
         # emergent pass produced, so the standard code_to_theme_map
         # cascade can't reach emergent themes. Stash this map on the
@@ -1097,16 +1097,16 @@ apply_framework_themes <- function(coding_state, framework_spec,
     }
   }
 
-  # Phase 58 Tier 8 M-27/P54-(iv): emit a live cluster snapshot after
+  # Emit a live cluster snapshot after
   # framework themes are assembled so a researcher cat'ing the
   # code_to_cluster.json mid-run sees the deductive Mode 3 theme
-  # construction. Pre-Tier-8 only Mode 2 + Mode 3 emergent HAC walks
+  # construction. Earlier only Mode 2 + Mode 3 emergent walks
   # snapshotted; the deductive framework pass was invisible to live
   # tracking. The snapshot fires once at the end of the deductive
   # pass (multiple emergent walks already snapshot inside the
   # walk_for_themes machinery; this is the orthogonal deductive
   # surface). NULL tracker is a no-op (matches the rest of the file).
-  # Tier 8 audit followup HIGH-2: the snapshot reader at
+  # The snapshot reader at
   # R/live_tracking.R:291-298 expects field names `name`,
   # `description`, `decision_origin`, `n_codes` (from code_indices),
   # `code_keys` (unlist of all subtheme keys). Pre-followup this
@@ -1152,12 +1152,12 @@ apply_framework_themes <- function(coding_state, framework_spec,
   ts$mode3_n_emergent_themes <- sum(vapply(themes,
     function(t) identical(t$theme_kind, "emergent"), logical(1)))
 
-  # Phase 54 audit CRITICAL-8: cascade_theme_assignments routes entries
+  # cascade_theme_assignments routes entries
   # via code_to_theme_map keyed by code_key. In Mode 3 the only key
   # written into entry_results$codes_assigned for anomaly segments is
   # the literal "anomaly" -- the per-segment inductive codes are not
   # reflected in coding_state, so the standard cascade reaches at most
-  # ONE theme for ALL anomaly entries. Under extend/revise we have a
+  # ONE theme for ALL anomaly entries. Under extend/revise there is a
   # per-segment mapping (via .build_anomaly_segment_to_theme_map); stash
   # it on the ThemeSet so cascade can fan entries out into the correct
   # emergent themes (one entry can contribute to multiple emergent
@@ -1171,7 +1171,7 @@ apply_framework_themes <- function(coding_state, framework_spec,
 }
 
 # ==============================================================================
-# Theme enrichment (kept from pre-Phase-52)
+# Theme enrichment (kept from the earlier algorithm)
 # ==============================================================================
 
 #' Enrich themes with entry counts, sentiment, and quotes
@@ -1223,8 +1223,8 @@ enrich_themes <- function(theme_set, data, coding_state = NULL,
       # T0.2 spread-aware sentiment-positioned quote selection. The previous
       # approach was random sampling -- which (a) didn't match the
       # most-negative / median / most-positive labels the report renders, and
-      # (b) would happily return three quotes from one heavy poster. Now we
-      # call .select_representative_quotes (which is spread-aware and
+      # (b) would happily return three quotes from one heavy poster. It now
+      # calls .select_representative_quotes (which is spread-aware and
       # respects sentiment positions), then preserve the ordered
       # character-vector shape that aggregate_theme_statistics expects.
       selected <- .select_representative_quotes(theme_entries,
@@ -1235,7 +1235,7 @@ enrich_themes <- function(theme_set, data, coding_state = NULL,
       )
       qtexts <- vapply(
         ordered_labels,
-        # Phase 62.3: word-boundary truncation (reuses the Phase 58 Tier 9 V-8
+        # word-boundary truncation (reuses the shared
         # helper) so display quotes don't sever mid-word; visible " ..." marker.
         # Keep the `%||% ""` guard -- the helper's is.na() check errors on NULL.
         function(lbl) .truncate_quote_word_boundary(selected[[lbl]]$text %||% "",
@@ -1245,7 +1245,7 @@ enrich_themes <- function(theme_set, data, coding_state = NULL,
       qtexts <- qtexts[nchar(qtexts) > 0]
       if (length(qtexts) > 0L) {
         theme_set$themes[[i]]$supporting_quotes <- unname(qtexts)
-        # Phase 58 Tier 7 M-25/AF-34: parallel structured records so a
+        # parallel structured records so a
         # downstream consumer can trace each quote text back to its
         # source entry. The bare-string supporting_quotes field is
         # preserved verbatim for back-compat with any consumer that
@@ -1255,7 +1255,7 @@ enrich_themes <- function(theme_set, data, coding_state = NULL,
           s <- selected[[lbl]]
           if (is.null(s) || is.null(s$text) || !nzchar(s$text)) return(NULL)
           list(
-            # Phase 62.3: word-boundary truncation (same call as the bare-string
+            # word-boundary truncation (same call as the bare-string
             # supporting_quotes above, so the two fields stay consistent). These
             # are DISPLAY strings only -- no offsets, never re-verified against
             # source (T0.1 runs on the separate coded_segments path), so changing
@@ -1283,9 +1283,9 @@ enrich_themes <- function(theme_set, data, coding_state = NULL,
     # detect Mode 3 themes via the framework_construct_id marker and
     # preserve their keywords. Mode 2 keeps a SUBSET of the codes.
     if (is.null(theme_set$themes[[i]]$framework_construct_id)) {
-      # Phase 58 Tier 8 H-26/AF-31: pre-Tier-8 this assignment copied
+      # an earlier version of this assignment copied
       # ALL codes (a verbatim duplicate of codes_included) into the
-      # keywords field. Phase 57 audit measured every theme's keywords
+      # keywords field. An audit measured every theme's keywords
       # = codes_included verbatim, including the 237-code mega-theme
       # carrying 237 keywords. Payload bloat + misleading field name
       # (users reasonably expect 5-15 representative terms, not the
@@ -1302,9 +1302,9 @@ enrich_themes <- function(theme_set, data, coding_state = NULL,
         # Rank by frequency: pull from coding_state$codebook when
         # available; otherwise fall back to identity order.
         if (!is.null(coding_state$codebook)) {
-          # Tier 8 audit followup MEDIUM-1: use the canonical
+          # Use the canonical
           # theme_code_keys() helper rather than tolower(name)
-          # round-trip. Phase 51's code key IS lowercase(name) for
+          # round-trip. The code key IS lowercase(name) for
           # ASCII names but may diverge for unicode / normalized
           # names; the canonical accessor returns the keys directly
           # without re-deriving.

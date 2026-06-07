@@ -15,7 +15,7 @@ the \code{system.file()} resolution at load time.}
 
 \item{run_id}{Optional character: run id used for the AC4
 methodology stamp prepended to the archive (YAML/JSON comment).
-Phase 37 audit added the stamp; \code{run_id = NULL} omits the
+The stamp was added later; \code{run_id = NULL} omits the
 \verb{| run: <id>} portion of the stamp.}
 }
 \value{
@@ -28,7 +28,7 @@ supplied), \code{name} (framework$name), \code{epistemic_stance},
 suitable to splat into \code{init_run_state(...)}.
 }
 \description{
-Phase 32 (audit H1 + H2): a Mode 3 run loads
+A Mode 3 run loads
 \code{config$methodology$framework_spec_path} into a typed
 \code{FrameworkSpec} but never copies the source spec into the run
 outputs. The HTML report's methodology stamp says "M3 - Framework

@@ -35,11 +35,11 @@ For each pair of themes, tests whether co-occurrence is significantly different
 from expected by chance.
 }
 \details{
-Phase 58 Tier 6 H-16: applies the same \code{min_theme_entries} filter
+applies the same \code{min_theme_entries} filter
 that \code{prepare_correlation_data} and \code{compare_theme_groups}
 use, so the three statistical layers report counts over a consistent
-theme cohort. Pre-Phase-58 this function admitted every theme
+theme cohort. An earlier version admitted every theme
 regardless of frequency, which produced thousands of degenerate
-Fisher tests on rare themes (the Phase 57 audit found 99.1\% of
+Fisher tests on rare themes (a large run found 99.1\% of
 Fisher pairs had \code{observed_both = 0}).
 }

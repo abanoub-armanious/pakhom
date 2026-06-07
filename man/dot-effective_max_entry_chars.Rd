@@ -15,7 +15,7 @@
 Integer character cap.
 }
 \description{
-Phase 50f replacement for the hardcoded \code{.MAX_ENTRY_CHARS = 8000L}.
+Replacement for the hardcoded \code{.MAX_ENTRY_CHARS = 8000L}.
 Resolution order:
 \enumerate{
 \item If \code{config$ai$max_entry_chars} is a positive integer, use
@@ -25,7 +25,7 @@ tokens) by reserving ~60\\% for system prompt + codebook + LLM
 completion and assigning the remaining ~40\\% to per-entry text.
 Convert tokens to chars at ~4 chars/token (English averages
 4.0-4.5 chars per BPE token; 4 is a conservative under-estimate
-so we don't over-fill context).
+so context isn't over-filled).
 \item Floor at 8000L (the legacy default) so behavior is never
 worse than the prior hardcode for very-small-context models.
 }

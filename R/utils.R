@@ -90,8 +90,7 @@ truncate_text <- function(text, max_length = 200) {
 #' Generate a unique run ID based on timestamp (UTC).
 #'
 #' Always emitted in UTC so two researchers in different timezones running the
-#' same analysis at the same wall-clock moment produce comparable run IDs
-#' (Phase 59 meta-audit M4 / Tier 9 L-15).
+#' same analysis at the same wall-clock moment produce comparable run IDs.
 #'
 #' @return Character string like "run_2026-02-23_143052"
 generate_run_id <- function() {
@@ -103,7 +102,7 @@ generate_run_id <- function() {
 #' When R runs without a terminal (e.g., background jobs), the progress
 #' package can hang. This returns a no-op progress bar in that case.
 #'
-#' Phase 36 (CRAN prep): the \code{progress} package is now Suggests
+#' For CRAN, the \code{progress} package is now Suggests
 #' rather than Imports. When it isn't installed (or the session is
 #' non-interactive), this falls through to a logger-based progress
 #' indicator -- no functional regression, just no spinning bar.

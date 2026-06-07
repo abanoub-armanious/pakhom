@@ -7,7 +7,7 @@
 .read_reflection_log_json(path)
 }
 \description{
-Audit A H3 (phase 31): a previous version used
+Audit A H3: a previous version used
 \code{simplifyVector = TRUE}, which collapsed
 \code{provocations} (a list of uniform-shape objects) into a row-frame
 AND stripped the \code{Provocation} / \code{QuoteProvenance} S3 class

@@ -111,13 +111,13 @@ framework's path + sha256 hash. When provided alongside
 \code{framework_spec}, the Framework Declaration section
 includes the sha256 fingerprint and a link to the archived spec.}
 
-\item{metric_interpretation}{Optional \code{MetricInterpretation} (Phase 61.2
+\item{metric_interpretation}{Optional \code{MetricInterpretation} (from the
 Methodology Assistant). Threaded to \code{aggregate_theme_statistics} so
 per-subtheme stats are computed via the AI's chosen primitives (per-column,
 matched by name) with the legacy battery as fallback. NULL -> legacy only.}
 
 \item{methodology_articulations}{Optional \code{MethodologyArticulations}
-bundle (Phase 61.4). Drives the report's "Methodology Setup" section
+bundle. Drives the report's "Methodology Setup" section
 (relevance criterion + per-metric interpretations + per-theme temporal
 panel). When NULL, the renderer falls back to reading the archived
 \code{rules/methodology_articulations.json} under the output dir if present;
@@ -125,8 +125,8 @@ when neither is available the section is omitted. When supplied and
 \code{metric_interpretation} is NULL, the metric interpretation is derived
 from this bundle.}
 
-\item{research_coverage}{Optional \code{ResearchCoverage} object (Phase 63;
-Mode 2). Drives the "Research-question coverage" section -- where each named
+\item{research_coverage}{Optional \code{ResearchCoverage} object (Mode 2
+only). Drives the "Research-question coverage" section -- where each named
 focus facet landed across the themes. When NULL, the renderer falls back to
 the archived \code{rules/research_coverage.json} under the output dir if
 present; when neither is available (or no separable facets were found) the

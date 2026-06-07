@@ -20,8 +20,8 @@ A list with elements:
 \item{prevalence_over_time}{Tibble: period, theme_name, n_entries,
 pct_of_period, total_in_period}
 \item{emergence_timeline}{Tibble: theme_name, first_appearance_date,
-first_code_date, n_codes_at_emergence, n_entries (Phase 58
-Tier 5 AH-8/V-2 -- cumulative entry count per theme, used by
+first_code_date, n_codes_at_emergence, n_entries (cumulative
+entry count per theme, used by
 the temporal_emergence.png top-N filter)}
 \item{period_type}{Character: "daily", "weekly", "monthly", or
 "quarterly"}

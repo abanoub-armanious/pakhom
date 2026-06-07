@@ -392,9 +392,9 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
   per_study_cb_budget <- max_codebook_chars / studies$n_studies
   per_study_ms_budget <- max_manuscript_chars / studies$n_studies
 
-  # Phase 58 Tier 3 AH-3 (audit MEDIUM-4): hash-based deterministic
+  # Hash-based deterministic
   # ordering of studies so no single study is consistently in the
-  # first-iterated position. Pre-Phase-58 iteration used `for (study
+  # first-iterated position. Earlier iteration used `for (study
   # in studies$studies)`, which always put the first-registered
   # study (e.g. Dayvigo) first. Plain alphabetical sort would not
   # help if alphabetical order happens to match registration order
@@ -633,7 +633,7 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
     }
 
     # Add example codes
-    # Phase 58 Tier 0 C-4 audit MEDIUM-5: bare-bullet format (was
+    # Bare-bullet format (was
     # `  - "code-name" (freq: ...)`). The wrapping quotes mirror the
     # codebook-summary prompt format C-4 removed, and the AI may echo
     # the quoted name back as a new-code label.
@@ -671,7 +671,7 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
   }
 
   # Build entry-level examples text
-  # Phase 58 Tier 0 C-4 audit MEDIUM-5: bare format (was wrapped in
+  # Bare format (was wrapped in
   # quotes). The text excerpt KEEPS its quotes -- it's verbatim and
   # short-snippet display, where the AI is unlikely to confuse it with
   # a code label -- but the code name no longer carries echo-able
@@ -694,9 +694,9 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
     for_coding_style = paste(coding_style_parts, collapse = "\n\n"),
     for_coding_discards = paste(coding_discard_parts, collapse = "\n\n"),
     for_coding_examples = entry_examples_text,
-    # Phase 58 Tier 3 AH-3: prepend a STUDY ROSTER to the theming
+    # prepend a STUDY ROSTER to the theming
     # context so every prior study appears equally prominent at the
-    # TOP of the AI's prompt context. Pre-Phase-58 the per-study
+    # TOP of the AI's prompt context. Earlier the per-study
     # chunks were concatenated in iteration order; the AI's attention
     # disproportionately referenced whichever study was first
     # (Dayvigo named 3x in the audit's calibration reflection;
@@ -737,12 +737,12 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
 # Internal helpers
 # ==============================================================================
 
-#' Phase 58 Tier 3 AH-3: prominent equal-weight roster of prior studies
+#' prominent equal-weight roster of prior studies
 #'
 #' Returns a markdown-formatted listing of every study with a brief
 #' one-line characterization (n_codes, top theme count). Prepended to
 #' \code{ctx$for_theming} so every study name appears at the TOP of the
-#' AI's context window with equal prominence. Phase 57 audit found
+#' AI's context window with equal prominence. An audit found
 #' that without this, the AI's "synthesis reflection" referenced
 #' whichever study was iterated first (Dayvigo, 3x) and never named
 #' Ozempic or Vyvanse despite all three being in the context.

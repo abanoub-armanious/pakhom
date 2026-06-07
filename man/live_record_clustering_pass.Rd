@@ -2,7 +2,7 @@
 % Please edit documentation in R/live_tracking.R
 \name{live_record_clustering_pass}
 \alias{live_record_clustering_pass}
-\title{Record one clustering-pass snapshot to the live tracker (Phase 60 / C3)}
+\title{Record one clustering-pass snapshot to the live tracker (C3)}
 \usage{
 live_record_clustering_pass(tracker, pass_n, leaves, proposal, codes = NULL)
 }

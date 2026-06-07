@@ -1,5 +1,5 @@
 # ==============================================================================
-# Provocateur Architecture (Sprint-4 M1.1 + M1.2)
+# Provocateur Architecture
 # ==============================================================================
 # Mode 1 (Reflexive Scaffold) implements Sarkar's "AI as Socratic gadfly"
 # (CACM Oct 2024, arXiv 2411.02263) as a shipping qualitative-research
@@ -50,10 +50,10 @@
 
 #' Current ResearcherReflectionLog schema version
 #'
-#' 1.0.0 -- initial schema (phase 30): provocations + memos +
+#' 1.0.0 -- initial schema: provocations + memos +
 #'   positionality_history + reflexivity_collapse_flags +
 #'   researcher_authored_codes + researcher_authored_themes.
-#' 1.1.0 -- phase 31 (run_mode1 orchestrator): add provocation_attempts
+#' 1.1.0 -- add provocation_attempts
 #'   and skipped_themes data.frames so Mode 1 can honestly assert T0.3
 #'   coverage. provocation_attempts records one row per (theme, category)
 #'   attempt regardless of how many provocations the AI emitted; the
@@ -64,7 +64,7 @@
 #'   bypassed (e.g., zero supporting entries) with an explicit reason,
 #'   so the coverage card distinguishes "silent skip" from "explicit
 #'   skip with stated reason."
-#' 1.2.0 -- phase 33 (M1.3 reflexive memos): the memos slot now holds
+#' 1.2.0 -- M1.3 reflexive memos: the memos slot now holds
 #'   a list of typed \code{Memo} S3 objects rather than an unstructured
 #'   list. The Memo schema (id, timestamp, author, type, linked_codes,
 #'   linked_themes, linked_entries, linked_prior_memo, body) supports
@@ -125,7 +125,7 @@ create_reflection_log <- function(config_hash = NULL) {
     reflexivity_collapse_flags = list(),
     researcher_authored_codes  = list(),
     researcher_authored_themes = list(),
-    # T0.3 attempt tracking (phase 31). One row per (theme x category)
+    # T0.3 attempt tracking. One row per (theme x category)
     # attempt the orchestrator made, regardless of whether the AI emitted
     # provocations. Lets compute_mode1_coverage assert "every theme was
     # challenged across every requested category" without conflating
@@ -137,7 +137,7 @@ create_reflection_log <- function(config_hash = NULL) {
       attempted_at = character(0),
       stringsAsFactors = FALSE
     ),
-    # T0.3 explicit-skip tracking (phase 31). Themes the orchestrator
+    # T0.3 explicit-skip tracking. Themes the orchestrator
     # bypassed with a stated reason (e.g., zero supporting entries). A
     # silent skip -- a theme that should have been processed but wasn't
     # -- is a coverage failure; an explicit skip with a stated reason is
@@ -530,11 +530,10 @@ print.Provocation <- function(x, ...) {
   if (identical(q$verification_status, "fabricated")) {
     log_fabrication(fabrication_log, q)
     if (!is.null(audit_log)) {
-      # Tier 7 audit followup H-T7-2: Mode 1 provocateur fabrications
-      # now thread failure_reason through the audit decision, matching
-      # the Mode 2 + Mode 3 coding fabrication-attribution behavior
-      # introduced by Tier 7 M-13/E-19. Pre-followup provocateur
-      # fabrications were indistinguishable from Phase-57 records.
+      # Mode 1 provocateur fabrications now thread failure_reason
+      # through the audit decision, matching the Mode 2 + Mode 3
+      # coding fabrication-attribution behavior. Earlier, provocateur
+      # fabrications were indistinguishable from other records.
       log_ai_decision(audit_log, "quote_verification", "quote_fabricated",
                       entry_id   = entry_id,
                       theme_name = theme_name,
@@ -768,7 +767,7 @@ provoke_alternative_interpretation <- function(theme_name, theme_entries, data,
   )
 
   # Each alternative becomes a Provocation; the shared quotes anchor all
-  # of them. We attach the first verifiable shared_quote as the
+  # of them. Attach the first verifiable shared_quote as the
   # provenance for each alternative (so each Provocation has at least
   # one cited piece of evidence).
   anchor <- NULL
@@ -1096,7 +1095,7 @@ run_provocateur_questioning <- function(data, theme_set, provider,
 
   log_info("Provocateur: running {length(categories)} categor(ies) across {length(theme_set$themes)} theme(s)")
 
-  # Phase 40 finding: Mode 1's contract is that the supplied data
+  # Mode 1's contract is that the supplied data
   # carries entries-to-themes mapping in EITHER (a) one or more
   # theme_membership_<safe_name> indicator columns or (b) an
   # emerged_themes character column with semicolon-separated theme

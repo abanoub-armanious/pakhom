@@ -2,7 +2,7 @@
 % Please edit documentation in R/16_report_helpers.R
 \name{.pretty_primitive_name}
 \alias{.pretty_primitive_name}
-\title{Pretty-print a primitive name for a report header (Phase 61.4)}
+\title{Pretty-print a primitive name for a report header}
 \usage{
 .pretty_primitive_name(p)
 }

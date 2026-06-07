@@ -2,7 +2,7 @@
 % Please edit documentation in R/17_report.R
 \name{.metric_provenance_group}
 \alias{.metric_provenance_group}
-\title{Classify a metric column as substantive vs source/platform metadata (Phase 62.1)}
+\title{Classify a metric column as substantive vs source/platform metadata}
 \usage{
 .metric_provenance_group(rec)
 }

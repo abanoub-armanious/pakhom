@@ -2,17 +2,16 @@
 % Please edit documentation in R/01_config.R
 \name{.warn_deprecated_config_knobs}
 \alias{.warn_deprecated_config_knobs}
-\title{Warn about deprecated config knobs (Phase 58 Tier 3 AH-5)}
+\title{Warn about deprecated config knobs}
 \usage{
 .warn_deprecated_config_knobs(config)
 }
 \description{
-Walks the user's config for keys that the package no longer reads.
-The full list (15 knobs total) spans three cleanup waves:
-Phase 52/53 sequential-merge removal (4 knobs), Phase 53 theme-
-count cleanup (5 knobs), Phase 56 saturation-arbiter migration
-(6 knobs). Each surviving stale knob in a user's personal
-config.yaml is logged as a warn with the cleanup phase that
-removed it.
+Walks the user's config for keys that the package no longer reads
+(18 knobs total: the sequential-merge theme knobs, the theme-count
+knobs, the theme-membership knobs, and the pre-arbiter saturation
+knobs -- all removed before the 1.0.0 release). Each surviving stale
+knob in a user's personal config.yaml is logged as a warning so it
+can be cleaned up.
 }
 \keyword{internal}

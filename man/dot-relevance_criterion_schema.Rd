@@ -2,7 +2,7 @@
 % Please edit documentation in R/structured_schemas.R
 \name{.relevance_criterion_schema}
 \alias{.relevance_criterion_schema}
-\title{Schema for the AI's articulated relevance criterion (Phase 61.2)}
+\title{Schema for the AI's articulated relevance criterion}
 \usage{
 .relevance_criterion_schema()
 }

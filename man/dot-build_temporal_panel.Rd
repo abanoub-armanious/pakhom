@@ -2,12 +2,12 @@
 % Please edit documentation in R/17_report.R
 \name{.build_temporal_panel}
 \alias{.build_temporal_panel}
-\title{Render the per-theme temporal panel (Phase 61.4)}
+\title{Render the per-theme temporal panel}
 \usage{
 .build_temporal_panel(ts)
 }
 \arguments{
-\item{ts}{Per-theme stats object (carries \code{temporal_panel}, Phase 61.4).}
+\item{ts}{Per-theme stats object (carries \code{temporal_panel}).}
 }
 \value{
 Character HTML string for the panel block.

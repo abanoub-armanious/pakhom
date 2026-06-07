@@ -2,7 +2,7 @@
 % Please edit documentation in R/01_config.R
 \name{.warn_empty_reflexivity}
 \alias{.warn_empty_reflexivity}
-\title{Warn when the reflexivity scaffold is empty (Phase 58 Tier 3 AH-4)}
+\title{Warn when the reflexivity scaffold is empty}
 \usage{
 .warn_empty_reflexivity(config)
 }

@@ -108,7 +108,7 @@ make_memo <- function(body,
   if (!is.character(body) || length(body) != 1L) {
     stop("make_memo: body must be a single character string", call. = FALSE)
   }
-  # Phase 33 audit H1: canonicalize body by stripping trailing whitespace
+  # Canonicalize body by stripping trailing whitespace
   # at construction time. The serializer (memo_to_markdown) emits the
   # body verbatim plus a single trailing newline; the parser
   # (markdown_to_memo) returns the body without any post-processing.
@@ -176,7 +176,7 @@ print.Memo <- function(x, ...) {
                 paste(head(x$linked_entries, 3L), collapse = ", "),
                 if (length(x$linked_entries) > 3L) ", ..." else ""))
   }
-  # Phase 33 audit H2: NULL-safe check. is.na(NULL) returns
+  # NULL-safe check. is.na(NULL) returns
   # logical(0) which makes `if` error with "argument is of length
   # zero". A Memo coming back from .read_reflection_log_json could
   # have NULL here when the YAML/JSON serialized "null" without
@@ -414,7 +414,7 @@ memo_to_markdown <- function(memo,
             if (is.na(memo$linked_prior_memo)) "null"
             else .yaml_quote(memo$linked_prior_memo))
   )
-  # Phase 37 audit (AC4 MEDIUM): persist methodology + run_id on every
+  # Per AC4, persist methodology + run_id on every
   # memo so a memo file lifted out of its run dir still self-identifies.
   if (!is.null(methodology_mode) && nzchar(methodology_mode)) {
     yaml_lines <- c(yaml_lines,
@@ -490,7 +490,7 @@ markdown_to_memo <- function(md_text) {
   body <- paste(body_lines, collapse = "\n")
   # Trailing-whitespace handling lives in make_memo (called below) --
   # the constructor canonicalizes body so the round-trip is byte-
-  # equivalent without this parser doing extra work. Phase 33 audit H1.
+  # equivalent without this parser doing extra work.
 
   fm <- yaml::yaml.load(yaml_block)
   if (!is.list(fm)) {
@@ -635,8 +635,8 @@ load_memos <- function(run_dir) {
                        })
     if (!is.null(memo)) out[[length(out) + 1L]] <- memo
   }
-  # Order by timestamp so the timeline view is chronological. Phase 33
-  # audit M1: secondary sort by id when timestamps tie. Without the
+  # Order by timestamp so the timeline view is chronological.
+  # Secondary sort by id when timestamps tie. Without the
   # secondary key, order() falls back to position-in-input which
   # depends on list.files() return order (alphabetical on most
   # filesystems but not contractually so). The secondary id sort

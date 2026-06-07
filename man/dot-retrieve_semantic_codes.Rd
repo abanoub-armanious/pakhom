@@ -2,7 +2,7 @@
 % Please edit documentation in R/09_coding.R
 \name{.retrieve_semantic_codes}
 \alias{.retrieve_semantic_codes}
-\title{Phase 58 Tier 0 C-6: per-entry semantic top-K retrieval against codebook}
+\title{per-entry semantic top-K retrieval against codebook}
 \usage{
 .retrieve_semantic_codes(state, code_data, entry_text, provider, top_k)
 }

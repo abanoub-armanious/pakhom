@@ -31,11 +31,11 @@ Convenience wrapper around \code{\link{log_ai_decision}} that records an
 model, finish_reason, prompt_hash, request_id, and per-record token usage.
 }
 \details{
-If a \code{ResponseCache} is provided (Sprint-4 T1.4), the
+If a \code{ResponseCache} is provided, the
 \code{raw_response} is also written to the cache (content-addressable by
 \code{prompt_hash}) and the cache path is recorded in the audit log entry.
 This separation keeps the JSONL file lightweight while preserving the full
-API response for replay (OS.5).
+API response for replay.
 
 Silently no-ops on \code{NULL ai_result} (e.g., when \code{ai_complete}
 threw and the caller's tryCatch returned NULL) so callers can wrap calls in

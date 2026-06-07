@@ -36,14 +36,14 @@
 #' @param config Optional ThematicConfig or config list. When supplied,
 #'   \code{config$data$column_mappings$metric_columns} is used as the
 #'   explicit metric allowlist for the per-subtheme paper-style tables
-#'   (Phase 55). When NULL or empty, metrics auto-detect from the data
+#' When NULL or empty, metrics auto-detect from the data
 #'   via \code{\link{.detect_metric_columns}}.
-#' @param metric_interpretation Optional \code{MetricInterpretation} (Phase 61.2
+#' @param metric_interpretation Optional \code{MetricInterpretation} (from the
 #'   Methodology Assistant), threaded to \code{.compute_subtheme_statistics} so
 #'   each interpreted column additionally gets the AI's requested primitives.
 #'   NULL (legacy / Mode 1) -> only the legacy Median(MAD)+Mean(SD) battery.
 #' @return Named list of theme stats (one per theme). Each theme entry
-#'   carries a \code{subtheme_stats} list (Phase 55) with one element
+#'   carries a \code{subtheme_stats} list with one element
 #'   per real subtheme: n, per-metric Median(MAD) + Mean(SD), and
 #'   metric-tagged example quotes -- the paper-style per-subtheme rows
 #'   the report renders into a table inside each theme's card.
@@ -57,7 +57,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
   theme_stats <- list()
   total <- nrow(data)
 
-  # Phase 55: dataset-agnostic metric column detection. Used for paper-
+  # dataset-agnostic metric column detection. Used for paper-
   # style per-subtheme summary tables + metric-tagged example quotes.
   metric_cols <- .detect_metric_columns(data, config)
 
@@ -75,7 +75,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
     }
     n <- nrow(entries)
 
-    # Phase 51: subthemes are first-class Subtheme S3 objects under the
+    # subthemes are first-class Subtheme S3 objects under the
     # new hierarchy. The report renderer wants only named (non-virtual)
     # subthemes, so filter out NA-named virtual wrappers here at the
     # aggregation boundary.
@@ -84,7 +84,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
       inherits(s, "Subtheme") && !is.na(s$name) && nchar(s$name %||% "") > 0L
     }, t$subthemes %||% list())
 
-    # Phase 54: preserve theme_kind from apply_framework_themes so the
+    # preserve theme_kind from apply_framework_themes so the
     # report renderer can section framework themes vs emergent themes vs
     # the bracket-policy Anomaly catch-all. Default to "framework" for
     # Mode 2 themes (which don't carry the field).
@@ -107,7 +107,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
         subthemes_structured = real_subtheme_objs,
         subtheme_stats = list(),
         metric_cols = metric_cols,
-        temporal_panel = NULL,   # Phase 61.4: no entries -> no temporal panel
+        temporal_panel = NULL,   # no entries -> no temporal panel
         prevalence = t$prevalence %||% "unknown",
         theme_kind = theme_kind,
         quotes_with_context = list()
@@ -187,7 +187,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
       quotes <- .select_representative_quotes(entries, n_quotes = quotes_per_theme)
     }
 
-    # Phase 55: per-subtheme paper-style statistics. For each REAL
+    # per-subtheme paper-style statistics. For each REAL
     # (non-virtual) subtheme of this theme, compute n + Median(MAD) +
     # Mean(SD) for each auto-detected metric column + metric-tagged
     # example quotes. The renderer turns this list into a table inside
@@ -210,21 +210,21 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
       intensity = intensity,
       emotions = emotions,
       participant_spread = participant_spread,
-      # Tier 8 H-26/AF-31 caps theme$keywords at 8 frequency-ranked codes
-      # upstream. The fallback fires only when a cached pre-Tier-8 theme_set
-      # is resumed (no $keywords on the object). In that case we cannot
-      # recover frequency ranking (codebook not in scope here), so we cap
-      # at 8 to match the modern count contract and leave the order as the
-      # theme's HAC-leaf order. The pre-Tier-7 resume warner
-      # (.warn_pre_tier7_coding_resume) covers the corresponding QuoteProvenance
-      # case; cached theme_sets without $keywords are a separate Phase-50e
+      # theme$keywords is capped at 8 frequency-ranked codes upstream.
+      # The fallback fires only when a cached legacy theme_set
+      # is resumed (no $keywords on the object). In that case frequency
+      # ranking cannot be recovered (codebook not in scope here), so it caps
+      # at 8 to match the modern count contract and leaves the order as the
+      # theme's leaf order. The legacy resume warner
+      # (.warn_legacy_coding_resume) covers the corresponding QuoteProvenance
+      # case; cached theme_sets without $keywords are a separate older
       # vintage that this fallback documents rather than silently degrades.
       keywords = t$keywords %||% theme_codes(t)[seq_len(min(8L, length(theme_codes(t))))],
       subthemes = real_subtheme_names,
       subthemes_structured = real_subtheme_objs,
       subtheme_stats = subtheme_stats,
       metric_cols = metric_cols,
-      # Phase 61.4: per-theme posting-time patterns over this theme's entry
+      # per-theme posting-time patterns over this theme's entry
       # timestamps, driven by the AI's temporal interpretations (NULL when no
       # temporal column was interpreted / Mode 1 / legacy).
       temporal_panel = .compute_theme_temporal_panel(entries, metric_interpretation),
@@ -238,12 +238,12 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
 }
 
 # ==============================================================================
-# Phase 55: dataset-agnostic metric helpers + per-subtheme stats
+# dataset-agnostic metric helpers + per-subtheme stats
 # ==============================================================================
 # The paper-style per-theme tables in dayvigo / ozempic / vyvanse-quality
 # analyses show one row per subtheme with: n, Median(MAD) <metric>,
 # Mean(SD) <metric>, Examples of comments tagged [metric: value; ...].
-# Phase 55 implements that surface in pakhom while staying dataset-
+# pakhom implements that surface while staying dataset-
 # agnostic: metrics auto-detect from any column_map$metrics override or
 # fall back to "any numeric column the package didn't engineer."
 
@@ -261,7 +261,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
 #' \code{detect_columns()} mapping path in \code{R/07_data_loading.R}.
 #'
 #' Mirrors (and consolidates) the inline detection in
-#' \code{compute_correlations} (R/14_correlations.R:82-106; Phase 50b).
+#' \code{compute_correlations} (R/14_correlations.R:82-106).
 #' Future cleanup: refactor that site to call this helper.
 #'
 #' @param data tibble with the analytical data (post-cascade)
@@ -322,10 +322,10 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
 
 #' Find the Methodology Assistant's interpretation record for a metric column
 #'
-#' Phase 61.3b. Looks up the AI's per-metric interpretation (from
+#' Looks up the AI's per-metric interpretation (from
 #' \code{MetricInterpretation$metrics}) by exact \code{column_name}. Only numeric
 #' metric columns are matched here; timestamp columns are handled by the
-#' per-theme temporal panel (Phase 61.4). Returns NULL when no record exists --
+#' per-theme temporal panel. Returns NULL when no record exists --
 #' the per-column fallback to the legacy stats battery (audit notes N1/N2).
 #'
 #' @keywords internal
@@ -343,11 +343,11 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
 
 #' Compute the AI's requested primitives for one column's values
 #'
-#' Phase 61.3b. Dispatches each requested primitive through the allowlist
+#' Dispatches each requested primitive through the allowlist
 #' \code{compute_metric_stat()} (which fails honestly on an unknown name and
 #' parses datetime-string timestamps), returning the interpretation note
-#' alongside the per-primitive results for the report renderer (Phase 61.4).
-#' Phase 61.4 (Step 3.5): each primitive's \code{args} (a named list) is threaded
+#' alongside the per-primitive results for the report renderer.
+#' Step 3.5: each primitive's \code{args} (a named list) is threaded
 #' to \code{compute_metric_stat()}. The live discovery schema is args-free, so
 #' discovery records carry no args (empty list -> unchanged behavior); a pinned
 #' record can carry e.g. \code{list(q = 0.9)} for \code{prim_quantile} or
@@ -361,14 +361,14 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
   list(
     column_description  = rec$column_description %||% "",
     interpretation_note = rec$interpretation_note %||% "",
-    # Phase 62.5d: carry the AI's per-column reliability floor so the renderer can
+    # Carry the AI's per-column reliability floor so the renderer can
     # MARK (not hide) spread/shape cells computed on fewer entries than this.
     min_reliable_n      = rec$min_reliable_n %||% NA_integer_,
     requested           = stats_list
   )
 }
 
-# ---- Phase 61.4 (Step 3): per-theme temporal panel ---------------------------
+# ---- Step 3: per-theme temporal panel ----------------------------------------
 # The AI's temporal interpretations (metric_interpretation$temporal_columns) had
 # ZERO consumers before 61.4 -- recorded and archived, never computed. The panel
 # applies each requested temporal primitive to THIS theme's entry timestamps, so
@@ -400,7 +400,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
   # bin. If the reconstructed continuous grid fails to contain every observed
   # label -- which can happen if the grid arithmetic ever diverges from the
   # primitive's own bin arithmetic (a fractional bin_width_days, a Date-space vs
-  # POSIXct-space rounding edge, a locale surprise) -- we abandon the zero-fill
+  # POSIXct-space rounding edge, a locale surprise) -- the zero-fill is abandoned
   # and return the primitive's value verbatim. Better an un-densified but
   # complete panel than a continuous-looking one that silently lost a real bin.
   tryCatch({
@@ -428,7 +428,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
   }, error = function(e) value)
 }
 
-#' Compute the per-theme temporal panel (Phase 61.4)
+#' Compute the per-theme temporal panel
 #'
 #' For each timestamp column the Methodology Assistant interpreted, applies the
 #' AI's requested temporal primitives to \code{entries[[column_name]]} (this
@@ -496,7 +496,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
 #' Membership: an entry belongs to subtheme S if its
 #' \code{subtheme_assignments} column (populated by
 #' \code{cascade_theme_assignments}) contains S's name. When that
-#' column is absent we fall back to "every entry in the theme is in
+#' column is absent the fallback is "every entry in the theme is in
 #' every subtheme" (degenerate but non-fatal -- the table still renders,
 #' just without entry-level filtering).
 #'
@@ -506,13 +506,13 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
 #' @param metric_cols Character vector of metric column names
 #'   (from \code{.detect_metric_columns})
 #' @param quotes_per_subtheme Integer; default 3
-#' @param metric_interpretation Optional \code{MetricInterpretation} (Phase 61.2
+#' @param metric_interpretation Optional \code{MetricInterpretation} (from the
 #'   Methodology Assistant). When supplied, each interpreted column ALSO gets the
 #'   AI's requested primitives computed into \code{ai_metric_stats}; the legacy
 #'   \code{metric_stats} battery is always computed (renderer fallback). NULL
 #'   (legacy / Mode 1) -> only the legacy battery.
 #' @return Named list (one per real subtheme) of stat records. Each record adds
-#'   \code{ai_metric_stats} (Phase 61.3b): a list keyed by metric column name
+#'   \code{ai_metric_stats}: a list keyed by metric column name
 #'   (only for interpreted columns) of \code{column_description},
 #'   \code{interpretation_note}, and \code{requested} (per-primitive
 #'   \code{compute_metric_stat()} results).
@@ -543,7 +543,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
     snm <- s$name %||% NA_character_
     if (is.na(snm) || nchar(snm %||% "") == 0L) next  # virtual wrapper
 
-    # Phase 58 Tier 1 audit MEDIUM-2 followup: this loop iterates only
+    # This loop iterates only
     # depth-1 subthemes (theme$subthemes). Nested sub-subthemes
     # (introduced by C-12) are NOT broken out as separate rows in the
     # paper-style summary table -- their codes contribute to the
@@ -567,8 +567,8 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
     n_sub <- nrow(sub_entries)
 
     # Per-metric stats. The legacy Median(MAD)+Mean(SD) battery is ALWAYS
-    # computed (the current renderer reads it; Phase 61.4 prefers the AI stats
-    # when present). Phase 61.3b ALSO computes the Methodology Assistant's
+    # computed (the current renderer reads it; the report prefers the AI stats
+    # when present). The report ALSO computes the Methodology Assistant's
     # requested primitives for any column it interpreted (matched by name);
     # columns with no interpretation record keep ONLY the legacy battery
     # (per-column fallback, audit notes N1/N2).
@@ -640,7 +640,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
   if (is.na(text_col)) return(character(0))
 
   # Sentiment-positioned selection when sentiment_score is available and
-  # there are enough entries to span the range; else first-N. We pick
+  # there are enough entries to span the range; else first-N. Pick
   # ROW INDICES (not just text) so the metric-tag can read the source
   # row's metric columns alongside the text -- something the existing
   # .select_representative_quotes helper doesn't preserve.
@@ -664,10 +664,10 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
   vapply(picked_idx, function(i) {
     if (is.na(i)) return(NA_character_)
     row <- entries[i, , drop = FALSE]
-    # Phase 58 Tier 9 V-8: word-boundary-aware truncation with
-    # visible ellipsis instead of a bare substr cut. Pre-Tier-9 the
+    # word-boundary-aware truncation with
+    # visible ellipsis instead of a bare substr cut. An earlier version
     # quote was cut at exactly 280 chars even mid-word, then the
-    # metric tag was butted up against the partial word (Phase 57
+    # metric tag was butted up against the partial word (real
     # examples: "I've gained 7 pounds since Ma[score: 5]"). Now:
     # truncate to <= 280 chars, back off to the last whitespace
     # boundary if necessary, append " ..." marker.
@@ -681,7 +681,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
 
 #' Word-boundary-aware quote truncation with visible ellipsis
 #'
-#' Phase 58 Tier 9 V-8: a quote longer than \code{max_chars} is cut
+#' a quote longer than \code{max_chars} is cut
 #' back to the LAST whitespace character before the limit, then a
 #' " ..." marker is appended so the reader sees the truncation. Falls
 #' back to a hard substr cut + "..." when the entry contains no
@@ -704,17 +704,17 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
   cut <- substr(text, 1L, budget)
   last_ws <- regexpr("\\s\\S*$", cut, perl = TRUE)
   if (last_ws > 0L) {
-    # Cut at the last whitespace so we don't break a word. The
+    # Cut at the last whitespace so a word isn't broken. The
     # boundary-equality case (last_ws + match.length - 1 == budget) used to
-    # have a separate branch with identical behaviour -- collapsed in
-    # Phase 59 to keep the contract single-pathed.
+    # have a separate branch with identical behaviour -- collapsed
+    # to keep the contract single-pathed.
     cut <- substr(cut, 1L, last_ws - 1L)
   }
   cut <- trimws(cut)
   if (nchar(cut) == 0L) {
     # Hard-cut fall-through (no whitespace in budget, e.g. a long URL).
     # Use the same " ..." marker as the normal path so the docstring's
-    # 4-char budget invariant is honoured (Phase 59 code review).
+    # 4-char budget invariant is honoured.
     return(paste0(substr(text, 1L, budget), " ..."))
   }
   paste0(cut, " ...")
@@ -767,7 +767,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
           format(round(as.numeric(spread), digits), nsmall = digits))
 }
 
-# ---- Phase 61.4: render the AI analyst's chosen primitives -------------------
+# ---- Render the AI analyst's chosen primitives ---------------------------------
 # These render a compute_metric_stat() record (the AI's chosen primitive +
 # result) into report cells. They are shared by the per-subtheme summary table
 # (.build_subtheme_summary_table) and the per-theme temporal panel. The catalog
@@ -775,7 +775,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
 # recorded decision (the primitive it named + its free-form interpretation note),
 # never a fixed taxonomy imposed on the researcher.
 
-#' Pretty-print a primitive name for a report header (Phase 61.4)
+#' Pretty-print a primitive name for a report header
 #'
 #' Strips the \code{prim_} prefix and turns underscores into spaces, so
 #' \code{prim_hour_of_day_distribution} reads as "hour of day distribution".
@@ -790,7 +790,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
   gsub("_+", " ", sub("^prim_", "", as.character(p)[1] %||% ""))
 }
 
-#' Format one compute_metric_stat() record as an HTML table cell (Phase 61.4)
+#' Format one compute_metric_stat() record as an HTML table cell
 #'
 #' Renders a single primitive result for the per-subtheme + temporal tables:
 #' \itemize{
@@ -842,7 +842,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
 }
 
 # ==============================================================================
-# Participant spread (Sprint-4 T0.2)
+# Participant spread
 # ==============================================================================
 # T0.2 answers Jowsey et al. 2025's empirical finding that "none of the
 # Copilot outputs reported the participant spread." Per-theme metrics:
@@ -900,7 +900,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
   total_entries <- sum(counts)
 
   # Gini is undefined for n_contrib == 0; conventionally 0 for n_contrib == 1
-  # (no inequality possible with one value). We return NA in both cases so
+  # (no inequality possible with one value). NA is returned in both cases so
   # the dashboard distinguishes "1 contributor (Gini meaningless)" from
   # "many contributors, perfectly even (Gini = 0)".
   gini <- if (n_contrib >= 2L) .gini_coefficient(counts) else NA_real_
@@ -973,13 +973,13 @@ aggregate_overall_statistics <- function(data, theme_set, consolidated = NULL,
   total <- nrow(data)
 
   # Theme distribution — count from multi-label membership columns.
-  # Phase 58 Tier 4 C-11: iterate the ORIGINAL theme_set$themes names
+  # iterate the ORIGINAL theme_set$themes names
   # instead of round-tripping membership column names through
   # make.names(). The pre-fix path used `sub("^theme_membership_",
   # "", ...)` + `gsub("\\.", " ", ...)` which only recovered space
   # characters. make.names() also collapses hyphens, apostrophes,
   # slashes, colons, commas, and parentheses to periods, so 71 of
-  # 417 themes in the Phase 57 run were never named correctly in the
+  # 417 themes in a large run were never named correctly in the
   # dashboard or Appendix B (every missing theme had a non-period
   # special character in its name).
   membership_cols <- grep("^theme_membership_", names(data), value = TRUE)
@@ -1020,7 +1020,7 @@ aggregate_overall_statistics <- function(data, theme_set, consolidated = NULL,
     # Fallback: parse semicolon-separated emerged_themes
     all_themes <- unlist(strsplit(data$emerged_themes[!is.na(data$emerged_themes)], ";\\s*"))
     theme_tbl <- table(trimws(all_themes))
-    # Phase 34 e2e fix: names(table(character(0))) returns NULL, and
+    # names(table(character(0))) returns NULL, and
     # tibble(theme_name = NULL, ...) drops the column entirely --
     # which then made the downstream `pull(theme_name)` in
     # generate_report() error with "object 'theme_name' not found".
@@ -1225,7 +1225,7 @@ interpret_correlations <- function(correlations_df, theme_stats) {
 
   n_total <- nrow(correlations_df)
 
-  # Detect whether this is a post-OS.2 result (has meaningful_effect + p_raw)
+  # Detect whether this is a newer result (has meaningful_effect + p_raw)
   # or a legacy / fixture-generated result (no meaningful_effect column).
   has_meaningful <- "meaningful_effect" %in% names(correlations_df)
   has_p_raw <- "p_raw" %in% names(correlations_df)
@@ -1235,9 +1235,9 @@ interpret_correlations <- function(correlations_df, theme_stats) {
   if (has_meaningful) {
     n_meaningful <- sum(correlations_df$meaningful_effect, na.rm = TRUE)
     n_sig <- sum(correlations_df$significant, na.rm = TRUE)
-    # Phase 58 Tier 6 H-15: the publication-relevant headline is the
+    # the publication-relevant headline is the
     # intersection -- pairs that are BOTH statistically distinguishable
-    # AND large enough to matter substantively. Pre-Phase-58 the report
+    # AND large enough to matter substantively. An earlier report
     # quoted just `significant` (Bonferroni), which on a 5,000-entry
     # corpus passes hundreds of trivial-magnitude pairs (|r| < 0.10)
     # along with the substantive ones. The intersection number is the
@@ -1300,7 +1300,7 @@ interpret_correlations <- function(correlations_df, theme_stats) {
         ""
       }
 
-      # Tiered p-values when post-OS.2 result; single p for legacy
+      # Tiered p-values for newer results; single p for legacy
       p_text <- if (has_p_raw) {
         sprintf(" (p_raw = %.3f, p_BH = %.3f, p_Bonf = %.3f)",
                 r$p_raw, r$p_bh, r$p_bonferroni)
@@ -1485,7 +1485,7 @@ generate_downloads_section <- function(export_files, theme_stats) {
 
   if (nrow(valid) == 0) return(list())
 
-  # Phase 63 (#8) analytic fit: representative quotes should be drawn from entries
+  # Analytic fit: representative quotes should be drawn from entries
   # CHARACTERISTIC of this theme, not from diffuse posts coded into many themes. A
   # heavily multi-coded extreme-sentiment post is the "most negative" (or "most
   # positive") member of MANY themes at once, so pure sentiment-extremity selection
@@ -1532,7 +1532,7 @@ generate_downloads_section <- function(export_files, theme_stats) {
 
     # T0.2 spread-aware selection: prefer a row whose author is not already
     # represented in this theme's quotes. Search expands outward from the
-    # target sentiment position so we keep the "most negative / median /
+    # target sentiment position so it keeps the "most negative / median /
     # most positive" framing as close as possible while diversifying. Falls
     # back to target_idx when no alternative exists (single-contributor
     # theme, no author data, all unique authors already taken).
@@ -1552,10 +1552,10 @@ generate_downloads_section <- function(export_files, theme_stats) {
     emotion_val <- if ("all_emotions" %in% names(q)) {
       q$all_emotions %||% NA_character_
     } else NA_character_
-    # Phase 58 Tier 7 M-25/AF-34: record entry_id + source_table +
+    # record entry_id + source_table +
     # author alongside text + sentiment so a downstream consumer can
     # reconstruct the link from quote-text back to its source entry.
-    # Pre-Tier-7 this was a bare text string -- T0.2 provenance was
+    # An earlier version had this as a bare text string -- T0.2 provenance was
     # partially missing because the renderer couldn't trace a published
     # quote back to its row in the data tibble.
     entry_id_val <- if ("std_id" %in% names(q)) {
@@ -1590,9 +1590,9 @@ generate_downloads_section <- function(export_files, theme_stats) {
 #' Pick a row near a sentiment-target index, preferring a new contributor
 #'
 #' Search order: target_idx, then expanding outward (target-1, target+1,
-#' target-2, target+2, ...) until we find a row that (a) hasn't been taken
+#' target-2, target+2, ...) until finding a row that (a) hasn't been taken
 #' already by index, AND (b) is from an author not yet represented (or has
-#' no author data, which we treat as "neutral" and accept). When no winner
+#' no author data, which is treated as "neutral" and accepted). When no winner
 #' is found, falls back to target_idx so the caller still gets SOMETHING --
 #' single-contributor or no-author-data themes degrade to the original
 #' behavior. This is the per-slot half of T0.2 spread-aware quote selection.
@@ -1602,7 +1602,7 @@ generate_downloads_section <- function(export_files, theme_stats) {
   n <- nrow(valid_df)
   if (target_idx < 1L || target_idx > n) return(target_idx)
 
-  # When there's no author data we just want the first non-taken-by-index
+  # When there's no author data, take the first non-taken-by-index
   # row (preserves the old behavior for datasets without author columns).
   is_acceptable <- function(idx) {
     if (idx %in% taken_indices) return(FALSE)
@@ -1670,7 +1670,7 @@ generate_downloads_section <- function(export_files, theme_stats) {
 
 #' Count pre-rejection fabrications for the T0.1 dashboard (V-5 helper)
 #'
-#' Phase 58 Tier 4 audit MEDIUM #4 followup: counts fabrication-log
+#' Counts fabrication-log
 #' entries using readr's RFC-4180 parser instead of `readLines() +
 #' length(lines) - 1L`. Coded segments routinely contain newlines
 #' (Reddit posts), and the FabricationLog writes the exact_text field
@@ -1700,7 +1700,7 @@ generate_downloads_section <- function(export_files, theme_stats) {
 }
 
 # ==============================================================================
-# Tier-0 Data Integrity Dashboard (Sprint-4 T0.1 part 3)
+# Tier-0 Data Integrity Dashboard
 # ==============================================================================
 
 #' Build the Tier-0 data integrity dashboard markdown for the report
@@ -1718,7 +1718,7 @@ generate_downloads_section <- function(export_files, theme_stats) {
 #' verification was run (pre-T0.1 runs, or runs that skipped coding), the
 #' dashboard renders a "Verification not available" notice rather than
 #' silently omitting -- absence of the badge would be its own integrity
-#' signal that we don't want to send.
+#' signal that should not be sent.
 #'
 #' @param stats Named list returned by
 #'   \code{\link{compute_quote_provenance_stats}}.
@@ -1727,14 +1727,14 @@ generate_downloads_section <- function(export_files, theme_stats) {
 #'   When NULL or no fabrications occurred, no link is rendered.
 #' @param config ThematicConfig object (or NULL) used for the
 #'   Citations API bypass footnote.
-#' @param fabrication_log_path Phase 58 Tier 4 V-5: absolute path to
+#' @param fabrication_log_path absolute path to
 #'   \code{fabrication_log.csv}. When supplied, the dashboard counts
 #'   pre-rejection fabrications from this file (the surviving
 #'   population in \code{stats} is post-rejection, so it always
 #'   reports 0 caught fabrications by itself). Pass \code{NULL} on
 #'   legacy callers that don't have the path; the dashboard falls
 #'   back to the surviving-population count.
-#' @param n_fabricated_caught Phase 58 Tier 4 V-5: explicit count of
+#' @param n_fabricated_caught explicit count of
 #'   pre-rejection fabrications (from
 #'   \code{FabricationLog$state$n_logged}). Overrides
 #'   \code{fabrication_log_path} when supplied. Pass \code{NULL} to
@@ -1746,7 +1746,7 @@ generate_downloads_section <- function(export_files, theme_stats) {
                                     config = NULL,
                                     fabrication_log_path = NULL,
                                     n_fabricated_caught = NULL) {
-  # Phase 58 Tier 4 audit HIGH #2 fix: when fabrications were caught
+  # When fabrications were caught
   # AND every attribution was dropped (stats$total == 0L because the
   # surviving population is empty), the pre-fix early-return rendered
   # "verification did not run" -- a strictly worse lie than V-5's
@@ -1760,8 +1760,8 @@ generate_downloads_section <- function(export_files, theme_stats) {
   )
   if ((is.null(stats) || identical(stats$total, 0L)) &&
       (is.null(pre_caught) || pre_caught == 0L)) {
-    # Audit H1 follow-up (phase 32): even on the empty-stats path we
-    # still render the Mode-3-bypass footnote when applicable, so a
+    # Even on the empty-stats path the dashboard
+    # still renders the Mode-3-bypass footnote when applicable, so a
     # reviewer reading the dashboard for a Mode 3 + Anthropic run with
     # zero verbatim claims sees the architectural reason for the
     # absence (the Citations API is precluded by the tool_use schema)
@@ -1823,7 +1823,7 @@ generate_downloads_section <- function(export_files, theme_stats) {
     "n/a"
   }
 
-  # Phase 58 Tier 4 V-5: compute PRE-rejection fabrication count via
+  # compute PRE-rejection fabrication count via
   # the shared helper. See .count_pre_rejection_fabrications below.
   n_caught_resolved <- .count_pre_rejection_fabrications(
     fabrication_log_path = fabrication_log_path,
@@ -1834,7 +1834,7 @@ generate_downloads_section <- function(export_files, theme_stats) {
   # Fabrication line: only render the CSV link when there ARE fabrications
   # (most runs will have zero -- that's the goal). Path is relative because
   # the report HTML and the CSV both live in the same run output directory.
-  # Phase 58 Tier 4 audit MEDIUM #3: survivor count uses n_verified
+  # Survivor count uses n_verified
   # (exact + fuzzy), NOT total. `total` includes drifted + unverified
   # entries which are NOT verified-against-source -- claiming them as
   # "verified" was a small instance of the same lie V-5 fixed.
@@ -1991,7 +1991,7 @@ generate_downloads_section <- function(export_files, theme_stats) {
 
 #' Footnote explaining the Mode 3 + Anthropic Citations API silent bypass
 #'
-#' Phase 32 (audit MEDIUM #5 / C3): when \code{config$methodology$mode}
+#' When \code{config$methodology$mode}
 #' is \code{"framework_applied"} (Mode 3) AND
 #' \code{config$ai$provider} is \code{"anthropic"}, the Citations API
 #' path in \code{R/02_ai_providers.R} is deliberately dropped. The

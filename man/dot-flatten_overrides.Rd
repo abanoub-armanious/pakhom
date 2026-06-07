@@ -29,8 +29,8 @@ treated a nested list as an atomic leaf, so passing
 \code{list(study = list(researcher_positionality = "..."))} silently
 clobbered the entire \code{study} block -- dropping
 \code{research_focus} (and every other field) and surfacing as the
-misleading error "study.research_focus is required". Caught Phase 59
-Stage 2 Round 3 during the Mode 1 smoke test.
+misleading error "study.research_focus is required". This was
+caught during the Mode 1 smoke test.
 
 Recursion rule: a value is recursed into when it is a non-empty
 named list (\code{is.list} TRUE, \code{length > 0}, has

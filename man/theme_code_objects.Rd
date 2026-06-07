@@ -13,7 +13,7 @@ theme_code_objects(theme)
 List of Code S3 objects
 }
 \description{
-Phase 58 Tier 1 C-12: now recurses through nested Subthemes so codes
-in sub-subthemes are included. Pre-Phase-58 ThemeSets without
+now recurses through nested Subthemes so codes
+in sub-subthemes are included. Earlier ThemeSets without
 nesting are unaffected (the recursion bottoms out at depth 1).
 }

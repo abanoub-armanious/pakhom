@@ -16,7 +16,7 @@
 #'       study = list(research_focus = "x"))}
 #'   }
 #'   Both styles deep-merge: sibling fields under the same parent key
-#'   are preserved, not clobbered. (Pre-Phase-59 the nested style
+#'   are preserved, not clobbered. (Previously the nested style
 #'   silently replaced the entire parent block -- e.g., passing
 #'   \code{list(study = list(researcher_positionality = "..."))} would
 #'   drop \code{study$research_focus} and surface as the misleading
@@ -40,7 +40,7 @@ load_config <- function(config_path, overrides = list()) {
   # Apply overrides. Accept both dot-path keys
   # (list("study.research_focus" = "x")) AND nested named lists
   # (list(study = list(research_focus = "x"))) -- the nested style was
-  # a silent foot-gun pre-Phase-59-Stage-2-Round-3 because the loop
+  # a silent foot-gun in an earlier version because the loop
   # walked names() and used .set_nested at the top key, which
   # clobbered the entire study block. .flatten_overrides() recurses
   # into named lists and emits dot-paths so both styles deep-merge.
@@ -103,7 +103,7 @@ load_config <- function(config_path, overrides = list()) {
 #'   underlying validator.
 #' @export
 default_config <- function(methodology = NULL) {
-  # Phase 37 audit (AC HIGH): the previous behavior here violated AC3
+  # The previous behavior here violated AC3
   # ("no default mode; explicit declaration mandatory") -- a NULL
   # methodology argument would warn-and-default to
   # codebook_collaborative, exactly the silent-default failure mode
@@ -139,7 +139,7 @@ default_config <- function(methodology = NULL) {
 validate_config <- function(config) {
   errors <- character(0)
 
-  # Required top-level sections (methodology added in Sprint-4 / T1.3)
+  # Required top-level sections (methodology added per T1.3)
   for (section in c("study", "ai", "data", "analysis", "output", "methodology")) {
     if (is.null(config[[section]])) {
       errors <- c(errors, sprintf("Missing required config section: '%s'", section))
@@ -226,17 +226,18 @@ validate_config <- function(config) {
     errors <- c(errors, "output.results_dir is required")
   }
 
-  # Phase 58 Tier 3 AH-5: warn about deprecated knobs the user still
-  # carries in their personal config.yaml. The audit found four
-  # surviving knobs from the pre-Phase-53 sequential-merge algorithm
+  # warn about deprecated knobs the user still
+  # carries in their personal config.yaml. A user's project-root
+  # config.yaml was found to carry four
+  # surviving knobs from the earlier sequential-merge algorithm
   # in the user's project-root config.yaml. The package no longer
   # reads them but they confuse anyone who edits the file later.
   .warn_deprecated_config_knobs(config)
 
-  # Phase 58 Tier 3 AH-4: warn about empty reflexivity scaffold.
+  # warn about empty reflexivity scaffold.
   # Olmos-Vega AMEE Guide 149 recommends positionality + paradigm +
   # reflexive notes be present in every turn of qualitative analysis.
-  # The audit found a Phase 57 run where all three were NULL ->
+  # A run was observed where all three were NULL ->
   # silent reflexivity gap in the AI prompts. Warn (not error) so
   # users on small / exploratory runs aren't blocked, but the
   # methodology paper can no longer claim reflexive practice.
@@ -249,75 +250,57 @@ validate_config <- function(config) {
   invisible(config)
 }
 
-#' Warn about deprecated config knobs (Phase 58 Tier 3 AH-5)
+#' Warn about deprecated config knobs
 #'
-#' Walks the user's config for keys that the package no longer reads.
-#' The full list (15 knobs total) spans three cleanup waves:
-#' Phase 52/53 sequential-merge removal (4 knobs), Phase 53 theme-
-#' count cleanup (5 knobs), Phase 56 saturation-arbiter migration
-#' (6 knobs). Each surviving stale knob in a user's personal
-#' config.yaml is logged as a warn with the cleanup phase that
-#' removed it.
+#' Walks the user's config for keys that the package no longer reads
+#' (18 knobs total: the sequential-merge theme knobs, the theme-count
+#' knobs, the theme-membership knobs, and the pre-arbiter saturation
+#' knobs -- all removed before the 1.0.0 release). Each surviving stale
+#' knob in a user's personal config.yaml is logged as a warning so it
+#' can be cleaned up.
 #'
 #' @keywords internal
 .warn_deprecated_config_knobs <- function(config) {
   deprecated <- list(
-    # Pre-Phase-52 sequential-merge algorithm knobs (removed Phase 52 / 53):
+    # Sequential-merge theme algorithm knobs (the merge step was removed):
     list(path = c("analysis", "themes", "merge_strategy"),
-         removed_in = "Phase 52/53",
-         reason = "HAC + AI-judged divisive tree walk replaced the sequential merge."),
+         reason = "AI-judged clustering replaced the sequential merge."),
     list(path = c("analysis", "themes", "max_merge_passes"),
-         removed_in = "Phase 52/53",
-         reason = "Same as merge_strategy: no merge passes in the new algorithm."),
+         reason = "Same as merge_strategy: no merge passes in the current algorithm."),
     list(path = c("analysis", "themes", "stopping_criterion"),
-         removed_in = "Phase 52/53",
-         reason = "AI decides at each HAC node (C1: no count thresholds)."),
+         reason = "The AI decides cluster structure (C1: no count thresholds)."),
     list(path = c("analysis", "themes", "min_merges_to_continue"),
-         removed_in = "Phase 52/53",
          reason = "No merge-pass loop to gate."),
-    # Phase 52/53 also removed these theme knobs:
-    list(path = c("analysis", "themes", "min_themes"),       removed_in = "Phase 53",
+    # Theme-count knobs (C1: the AI decides how many themes emerge):
+    list(path = c("analysis", "themes", "min_themes"),
          reason = "C1: no count thresholds."),
-    list(path = c("analysis", "themes", "max_themes"),       removed_in = "Phase 53",
+    list(path = c("analysis", "themes", "max_themes"),
          reason = "C1: no count thresholds."),
     list(path = c("analysis", "themes", "max_theme_proportion"),
-         removed_in = "Phase 53",
          reason = "C1: no count thresholds."),
     list(path = c("analysis", "themes", "multi_label_assignment"),
-         removed_in = "Phase 53",
          reason = "Cascade always produces multi-label assignments."),
-    list(path = c("analysis", "themes", "ai_batch_size"),    removed_in = "Phase 53",
-         reason = "Theming is one AI call per HAC node, not batched."),
-    # Phase 50e removed three more theme knobs (Phase 59 code review caught
-    # that these were missing from the warner -- live foot-gun because
-    # docs/articles/getting-started.html:625 still recommended one of them):
+    list(path = c("analysis", "themes", "ai_batch_size"),
+         reason = "Theming is AI-judged per cluster, not batched."),
+    # Theme-membership knobs (the cascade is deterministic):
     list(path = c("analysis", "themes", "membership_threshold"),
-         removed_in = "Phase 50e",
          reason = "Cascade is deterministic; no membership-score gate."),
     list(path = c("analysis", "themes", "max_rebalance_iterations"),
-         removed_in = "Phase 50e",
-         reason = "No rebalance loop; HAC + AI divisive tree walk converges in one pass."),
+         reason = "No rebalance loop; the clustering algorithm converges on its own."),
     list(path = c("analysis", "themes", "review_iterations"),
-         removed_in = "Phase 50e",
          reason = "Researcher review is pause-based, not a fixed-iteration loop (`review_points.max_iterations` is the live knob)."),
-    # Phase 56 removed all six pre-Phase-56 saturation knobs:
+    # Pre-arbiter saturation knobs (replaced by the AI saturation arbiter):
     list(path = c("analysis", "coding", "saturation_enabled"),
-         removed_in = "Phase 56",
          reason = "Replaced by AI saturation arbiter (no user knob)."),
     list(path = c("analysis", "coding", "saturation_window"),
-         removed_in = "Phase 56",
          reason = "AI arbiter judges saturation; no window threshold."),
     list(path = c("analysis", "coding", "saturation_threshold"),
-         removed_in = "Phase 56",
          reason = "AI arbiter judges saturation; no count threshold."),
     list(path = c("analysis", "coding", "saturation_confirmations"),
-         removed_in = "Phase 56",
          reason = "AI arbiter judges saturation; no confirmation count."),
     list(path = c("analysis", "coding", "min_coded_before_saturation"),
-         removed_in = "Phase 56",
          reason = "AI arbiter has its own cadence (.saturation_cadence)."),
     list(path = c("analysis", "coding", "ai_assessment_interval"),
-         removed_in = "Phase 56",
          reason = "AI arbiter has its own cadence (.saturation_cadence).")
   )
 
@@ -337,8 +320,7 @@ validate_config <- function(config) {
   for (d in deprecated) {
     if (has_path(config, d$path)) {
       stale_found <- c(stale_found, paste0(
-        paste(d$path, collapse = "."), " (removed ", d$removed_in,
-        "; ", d$reason, ")"
+        paste(d$path, collapse = "."), " (no longer used; ", d$reason, ")"
       ))
     }
   }
@@ -389,7 +371,7 @@ validate_config <- function(config) {
   invisible(stale_found)
 }
 
-#' Warn when the reflexivity scaffold is empty (Phase 58 Tier 3 AH-4)
+#' Warn when the reflexivity scaffold is empty
 #'
 #' Olmos-Vega et al. (AMEE Guide 149) recommend positionality +
 #' paradigm + reflexive notes be present in every turn of qualitative
@@ -471,10 +453,10 @@ print.ThematicConfig <- function(x, ...) {
       mode_changed_from = NULL        # set if methodology was changed mid-pipeline (audit)
     ),
 
-    # Audit configuration (T1.4 / OS.5 -- raw-response capture for replay_run).
+    # Audit configuration (T1.4 -- raw-response capture for replay_run).
     # Defaults are conservative; users running in cost-sensitive environments
     # can disable raw response capture but forfeit the cached responses the
-    # planned replay_run() (OS.5) will need.
+    # planned replay_run() will need.
     audit = list(
       capture_raw_responses = TRUE,
       response_cache_dir = "api_responses"
@@ -498,7 +480,7 @@ print.ThematicConfig <- function(x, ...) {
       researcher_positionality = NULL,  # e.g., "Organizational psychologist studying remote-work practices"
       research_paradigm = NULL,  # e.g., "critical realist", "social constructionist", "pragmatist"
       reflexive_notes = NULL,  # Free-text researcher reflections on their approach and assumptions
-      # Phase 61: replay-pin for the Methodology Assistant (Step 2.5). NULL =
+      # replay-pin for the Methodology Assistant (Step 2.5). NULL =
       # the AI articulates the relevance criterion + per-metric interpretations
       # live; a non-NULL block (copied from a prior run's
       # methodology_articulations.json) skips those Step-2.5 AI calls and
@@ -509,7 +491,7 @@ print.ThematicConfig <- function(x, ...) {
 
     ai = list(
       provider = "openai",
-      # Phase 50f: per-entry text character cap. NULL = auto (derive
+      # per-entry text character cap. NULL = auto (derive
       # from provider$context_window: ~40% of context, ~4 chars/token,
       # floored at 8000). Positive integer = explicit override.
       # Replaces the legacy hardcoded .MAX_ENTRY_CHARS = 8000L which
@@ -568,7 +550,7 @@ print.ThematicConfig <- function(x, ...) {
     ),
 
     data = list(
-      # Phase 59 Stage 2 audit: default source_type changed from "reddit"
+      # default source_type changed from "reddit"
       # to "generic" per C4 (dataset-agnostic). Previously the runtime
       # fallback assumed Reddit shape, which silently mis-detected column
       # mappings on non-Reddit corpora when users forgot to set
@@ -596,7 +578,7 @@ print.ThematicConfig <- function(x, ...) {
           # `comment_id` (the row's own id) AND `post_id` (the parent
           # post's id). If `post_id` came first, every comment under the
           # same parent would collapse onto a single std_id, silently
-          # corrupting coding_state$entry_results. Phase 39 finding.
+          # corrupting coding_state$entry_results.
           id = c("comment_id", "post_id", "id"),
           text = c("text", "comment_body", "body", "selftext"),
           author = c("author", "username"),
@@ -653,7 +635,7 @@ print.ThematicConfig <- function(x, ...) {
         batch_size = 15
       ),
       coding = list(
-        # Phase 50e: removed 5 dead config knobs that were declared but
+        # Removed 5 dead config knobs that were declared but
         # never read by any R/ code path: min_code_frequency,
         # code_style, use_fallback_extraction, fallback_keyword_patterns,
         # clean_excerpts. Audit confirmed each had zero non-declaration
@@ -666,7 +648,7 @@ print.ThematicConfig <- function(x, ...) {
         segment_length_max = NULL,   # Max coded segment length in characters (default: 200)
         code_label_min_words = NULL,  # Min code label length in words (default: 3)
         code_label_max_words = NULL,  # Max code label length in words (default: 8)
-        # Phase 58 Tier 2 C-5: description-refresh pass cadence + filter.
+        # description-refresh pass cadence + filter.
         # Every `description_refresh_interval` new codes admitted, the
         # AI re-describes every code with `frequency >=
         # description_refresh_min_freq` using
@@ -675,7 +657,7 @@ print.ThematicConfig <- function(x, ...) {
         description_refresh_interval        = 100L,
         description_refresh_min_freq        = 50L,
         description_refresh_sample_segments = 5L
-        # Phase 56: removed six pre-Phase-56 saturation knobs
+        # removed the six earlier saturation knobs
         # (saturation_enabled, saturation_window, saturation_threshold,
         # saturation_confirmations, min_coded_before_saturation,
         # ai_assessment_interval). Per C1 ("AI decides when to stop"),
@@ -684,24 +666,22 @@ print.ThematicConfig <- function(x, ...) {
         # .saturation_cadence(). No user-facing knobs.
       ),
       themes = list(
-        # Phase 60: algorithm selector. "v2" (the default) uses the
+        # algorithm selector. "v2" (the default) uses the
         # multi-pass clustering + label-after-clustering implementation
-        # in R/theme_algorithm_v2.R. "v1" uses the legacy Phase 52 HAC +
-        # tree-walk in R/13_themes.R, kept for back-compat with
-        # calibrated test fixtures only. The v1 path is broken in
-        # production (87-92% single-code themes on the Phase 59 Stage 2
-        # smoke campaign) and is scheduled for deletion after Phase 60.8
-        # empirical re-validation. NEW USERS: leave as "v2".
+        # in R/theme_algorithm_v2.R. The earlier "v1" HAC + tree-walk
+        # algorithm has been removed (it produced 87-92% single-code
+        # themes at scale); pinning algorithm = "v1" now falls back to
+        # v2 with a deprecation warning. NEW USERS: leave as "v2".
         algorithm = "v2",
-        # Phase 53 cleanup of Phase 52 audit deferral: removed five more
-        # dead theme knobs (min_themes, max_themes, max_theme_proportion,
-        # multi_label_assignment, ai_batch_size). Per C1 (AI decides when
-        # to stop) the count + proportion knobs were never gating real
-        # algorithm behavior -- they were display-only in the methodology
-        # appendix and validation glue. multi_label_assignment had no
-        # effect (cascade_theme_assignments always produces multi-label).
-        # ai_batch_size was never read (theming is one AI call per HAC
-        # node, not a batched task). Phase 50e removed the prior 8 dead
+        # Five dead theme knobs were removed (min_themes, max_themes,
+        # max_theme_proportion, multi_label_assignment, ai_batch_size).
+        # Per C1 (AI decides when to stop) the count + proportion knobs
+        # were never gating real algorithm behavior -- they were
+        # display-only in the methodology appendix and validation glue.
+        # multi_label_assignment had no effect (cascade_theme_assignments
+        # always produces multi-label). ai_batch_size was never read
+        # (theming is one AI call per cluster, not a batched task). An
+        # earlier cleanup removed the prior 8 dead
         # knobs (min_subthemes_per_theme, max_subthemes_per_theme,
         # review_iterations, auto_split_dominant, enrich_missing_fields,
         # strict_assignment_validation, max_rebalance_iterations,
@@ -710,19 +690,15 @@ print.ThematicConfig <- function(x, ...) {
         include_quotes = TRUE,
         quotes_per_theme = 3,
         approach = "inductive",
-        # Phase 58 Tier 1 C-12: HAC walker recursion depth. The walker
-        # descends through theme -> subtheme -> sub-subtheme ... up to
-        # max_subtheme_depth levels, triggered when a subtheme exceeds
-        # max_codes_per_subtheme codes. Default 3 produces at most
-        # depth-3 nesting (theme + 2 nested subtheme levels). 1
-        # reproduces pre-Phase-58 single-level subtheme behavior.
+        # Legacy subtheme-nesting depth knob (read only by the removed
+        # v1 HAC walker). Under v2 subtheme depth is derived from the
+        # multi-pass clustering tree, so this knob is inert; it is kept
+        # at its default so existing configs stay quiet.
         max_subtheme_depth     = 3L,
-        # Phase 58 Tier 1 AF-8: when an AI-judged-coherent subtheme has
-        # more codes than this, recurse one level deeper to break it
-        # into sub-subthemes. 25 prevents kitchen-sink subthemes that
-        # absorb most of a parent theme's codes.
+        # Legacy companion to max_subtheme_depth (also read only by the
+        # removed v1 walker); inert under v2 and kept at its default.
         max_codes_per_subtheme = 25L,
-        # Phase 58 Tier 5 C-3: cap on the number of themes rendered as
+        # cap on the number of themes rendered as
         # full inline cards in the main HTML report. Themes ranked
         # beyond this cap render as compact one-line rows linking to
         # per-theme detail HTMLs. Without this cap a >400-theme run
@@ -731,13 +707,12 @@ print.ThematicConfig <- function(x, ...) {
         # full provenance + entry data on its own page. Set very high
         # (e.g. 10000L) to disable on small corpora.
         max_inline_themes = 30L,
-        # Phase 58 Tier 5 AH-8/V-2: cap on themes shown on the
-        # temporal_emergence.png lollipop chart. Pre-Phase-58 the
-        # plot rendered EVERY theme (Phase 57 audit observed 4,059
-        # codes / 417 themes -> 2.8 MB vertical wall of text). The
-        # filter selects the top-N themes by cumulative entry count;
-        # the n_entries column is added to emergence_timeline in
-        # Phase 58 to enable this ranking.
+        # cap on themes shown on the
+        # temporal_emergence.png lollipop chart. An earlier version
+        # rendered EVERY theme (a large run produced 4,059 codes /
+        # 417 themes -> a 2.8 MB vertical wall of text). The filter
+        # selects the top-N themes by cumulative entry count; the
+        # n_entries column on emergence_timeline enables this ranking.
         max_inline_themes_temporal = 30L
       ),
       correlations = list(
@@ -747,17 +722,17 @@ print.ThematicConfig <- function(x, ...) {
         min_observations = 30,
         min_theme_entries = 5,
         use_multi_label = TRUE,
-        # Phase 58 Tier 5 C-10: variable-count threshold above which
+        # variable-count threshold above which
         # correlation_plot.png renders as a top-N effect-size lollipop
         # (ranking pairs by |r|) instead of a full corrplot heatmap.
-        # The pre-Phase-58 unconditional heatmap scaled to 14,280x14,280
-        # pixels on the 228-variable Phase 57 saturation run -- 4.8 MB
-        # and browser-illegible. Lollipop stays publication-readable
-        # regardless of variable count.
+        # An earlier unconditional heatmap scaled to 14,280x14,280
+        # pixels on a 228-variable run -- 4.8 MB and browser-illegible.
+        # Lollipop stays publication-readable regardless of variable
+        # count.
         max_inline_vars = 30L,
-        # Phase 58 Tier 5 AH-9/V-1: node-count threshold above which
+        # node-count threshold above which
         # theme_network.png is filtered to the top-N most-connected
-        # themes before plotting. The pre-Phase-58 plot rendered 417
+        # themes before plotting. An earlier plot rendered 417
         # themes as an unreadable hairball with no legend; filtering
         # to top-30 + adding a legend restores publication quality.
         max_inline_themes_network = 30L
@@ -882,8 +857,8 @@ print.ThematicConfig <- function(x, ...) {
 #' \code{list(study = list(researcher_positionality = "..."))} silently
 #' clobbered the entire \code{study} block -- dropping
 #' \code{research_focus} (and every other field) and surfacing as the
-#' misleading error "study.research_focus is required". Caught Phase 59
-#' Stage 2 Round 3 during the Mode 1 smoke test.
+#' misleading error "study.research_focus is required". This was
+#' caught during the Mode 1 smoke test.
 #'
 #' Recursion rule: a value is recursed into when it is a non-empty
 #' named list (\code{is.list} TRUE, \code{length > 0}, has
@@ -978,7 +953,7 @@ print.ThematicConfig <- function(x, ...) {
 #' Create a minimal configuration file
 #'
 #' Generates a valid YAML config with sensible defaults and writes it to disk.
-#' Per T1.3 (phase 25-27) the \code{methodology} block is mandatory in
+#' Per T1.3 the \code{methodology} block is mandatory in
 #' every config -- this helper writes it for you given the
 #' \code{methodology} argument.
 #'
@@ -1051,7 +1026,7 @@ create_config <- function(methodology = "codebook_collaborative",
                           output_dir = "outputs",
                           provider = "openai",
                           ...) {
-  # Phase 37 audit (CRITICAL #1): the previous signature had no
+  # The previous signature had no
   # methodology arg, so create_config() produced configs that failed
   # validation immediately (T1.3 requires methodology$mode + structured
   # methodology block). The README + vignette Quick Start docs already

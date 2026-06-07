@@ -13,7 +13,7 @@ subtheme_n_codes(subtheme)
 Integer; direct-code count (depth-0).
 }
 \description{
-Phase 58 Tier 1 audit LOW-3/6 documentation: returns the count of
+Returns the count of
 codes attached DIRECTLY to this Subtheme. Codes in nested
 sub-subthemes are NOT counted. Use \code{subtheme_n_codes_total()}
 for the depth-recursive count.

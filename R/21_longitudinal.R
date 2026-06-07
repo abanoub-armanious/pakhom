@@ -297,7 +297,7 @@
 
     if (!is.null(coding_state) && inherits(coding_state, "ProgressiveCodingState")) {
       # Get codes belonging to this theme from the ThemeSet.
-      # Phase 51 audit M1: code_birth_log is keyed by codebook KEYS, not
+      # code_birth_log is keyed by codebook KEYS, not
       # display names. Use theme_code_keys() (canonical) rather than the
       # denormalised codes_included (which holds display names) so birth
       # lookups don't silently miss when key != name.
@@ -353,9 +353,9 @@
         if (!is.na(first_code_date)) as.Date(first_code_date) else NA
       ),
       n_codes_at_emergence = n_codes_at_emergence,
-      # Phase 58 Tier 5 AH-8/V-2: cumulative entry count per theme so
+      # cumulative entry count per theme so
       # the temporal_emergence plot can filter to a top-N slice by
-      # prevalence (the pre-Phase-58 plot rendered all themes, producing
+      # prevalence (an earlier plot rendered all themes, producing
       # an unreadable vertical wall at scale).
       n_entries            = as.integer(nrow(theme_rows))
     )
@@ -384,8 +384,8 @@
 #'     \item{prevalence_over_time}{Tibble: period, theme_name, n_entries,
 #'       pct_of_period, total_in_period}
 #'     \item{emergence_timeline}{Tibble: theme_name, first_appearance_date,
-#'       first_code_date, n_codes_at_emergence, n_entries (Phase 58
-#'       Tier 5 AH-8/V-2 -- cumulative entry count per theme, used by
+#'       first_code_date, n_codes_at_emergence, n_entries (cumulative
+#'       entry count per theme, used by
 #'       the temporal_emergence.png top-N filter)}
 #'     \item{period_type}{Character: "daily", "weekly", "monthly", or
 #'       "quarterly"}
@@ -479,7 +479,7 @@ analyze_temporal_patterns <- function(data, theme_set, coding_state = NULL) {
       first_appearance_date = character(0),
       first_code_date       = character(0),
       n_codes_at_emergence  = integer(0),
-      # Phase 58 Tier 5 AH-8/V-2: matches the active-path schema so
+      # matches the active-path schema so
       # top-N filtering doesn't crash on empty-stub inputs.
       n_entries             = integer(0)
     ),
@@ -509,8 +509,8 @@ analyze_temporal_patterns <- function(data, theme_set, coding_state = NULL) {
 #' @param run_id Optional character: run identifier.
 #' @param max_inline_themes Integer; the temporal emergence chart filters
 #'   to the top-N themes by entry count when more themes than this exist.
-#'   Phase 58 Tier 5 AH-8/V-2: pre-Phase-58 the chart rendered every
-#'   theme (4,059 codes on the Phase 57 saturation run -> 2.8 MB
+#'   an earlier version of the chart rendered every
+#'   theme (4,059 codes on a large run -> 2.8 MB
 #'   vertical wall of text). Default 30L. Set very high (e.g. 10000L)
 #'   to disable filtering.
 #' @return Invisible character vector of file paths written
@@ -607,9 +607,9 @@ generate_temporal_plots <- function(temporal_results, output_dir,
   if (nrow(emerg) > 0) {
     emerg_path <- file.path(output_dir, "temporal_emergence.png")
 
-    # Phase 58 Tier 5 AH-8/V-2: top-N filter by entry count keeps the
+    # top-N filter by entry count keeps the
     # chart legible at scale. n_entries was added to emergence_timeline
-    # in Phase 58 to enable this filter; pre-Phase-58 fixtures fall back
+    # to enable this filter; earlier fixtures fall back
     # to "show all" since the column won't exist (back-compat for
     # comparison runs against historical themes.json).
     top_n <- as.integer(max_inline_themes %||% 30L)

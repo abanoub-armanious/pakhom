@@ -1,8 +1,8 @@
 # ==============================================================================
-# Backend catalog of computational metric primitives (Phase 61.1)
+# Backend catalog of computational metric primitives
 # ==============================================================================
 #
-# Phase 61's architecture is "AI as analyst with calculator". This file is the
+# The architecture is "AI as analyst with calculator". This file is the
 # CALCULATOR: a flat catalog of small, deterministic, well-defined statistics
 # the AI can request by name. The AI -- not the researcher and not a hardcoded
 # taxonomy -- inspects each metric column plus the research focus and decides
@@ -23,7 +23,7 @@
 #    in the registry; it NEVER calls get()/match.fun()/eval() on a model-supplied
 #    string. An AI (or a typo in a pinned replay config) cannot reach an
 #    arbitrary R function. This is a deliberate security boundary -- AI-generated
-#    R code is explicitly deferred to Phase 62 behind sandboxing.
+#    R code is explicitly deferred (a future feature) behind sandboxing.
 #  * FAIL HONESTLY (design requirement R4). When a requested primitive is not in
 #    the catalog, the dispatcher returns a structured `available = FALSE` record
 #    naming the gap -- it NEVER silently substitutes a different statistic. The
@@ -61,7 +61,7 @@
 # vector, epoch-seconds (numeric), OR a formatted datetime STRING -- the last is
 # what the package's std_timestamp column actually holds (R/07_data_loading.R),
 # so temporal primitives must handle it or they silently compute on nothing. The
-# AI does not have to tell us which shape; we accept all three. UTC is fixed so
+# The AI does not have to declare which shape; all three are accepted. UTC is fixed so
 # reports are reproducible across machine locales.
 .prim_clean_time <- function(t) {
   if (inherits(t, "POSIXct")) {
@@ -95,7 +95,7 @@
 
 #' Backend metric primitives (catalog functions)
 #'
-#' A flat catalog of small, deterministic statistics the Phase 61 Methodology
+#' A flat catalog of small, deterministic statistics the Methodology
 #' Assistant can request by name (see [metric_catalog()] and
 #' [compute_metric_stat()]). Each scalar primitive returns a length-1 numeric
 #' (NA on empty / all-NA / insufficient input); each distribution primitive
@@ -682,7 +682,7 @@ prim_shapiro_p <- function(x) {
 }
 
 # ------------------------------------------------------------------------------
-# Phase 62.5d: small-n reliability classification (backend; NOT user config)
+# Small-n reliability classification (backend; NOT user config)
 # ------------------------------------------------------------------------------
 # Which primitives are dispersion / distribution-shape ESTIMATORS whose
 # reliability degrades at small n. This is a STATISTICAL property of the
@@ -701,7 +701,7 @@ prim_shapiro_p <- function(x) {
   "prim_shapiro_p"                                                     # normality test
 )
 
-#' Is a primitive a small-n-sensitive spread/shape estimator? (Phase 62.5d)
+#' Is a primitive a small-n-sensitive spread/shape estimator?
 #'
 #' Backend predicate for the per-subtheme reliability flag: TRUE for the
 #' dispersion / distribution-shape estimators in
@@ -719,7 +719,7 @@ prim_shapiro_p <- function(x) {
 
 #' List the available metric primitives (the AI's catalog)
 #'
-#' The machine-readable catalog of computational primitives the Phase 61
+#' The machine-readable catalog of computational primitives the
 #' Methodology Assistant may request. Returned as a tibble (one row per
 #' primitive) so it can be inspected, tested, and rendered. Use
 #' [format_metric_catalog()] for the human/AI-prompt text form and
@@ -760,7 +760,7 @@ metric_catalog_names <- function() {
 #' Render the metric catalog as prompt text
 #'
 #' Groups the catalog by family and renders each primitive as a labeled bullet,
-#' for injection into the Methodology Assistant's prompt (Phase 61.2). Pure
+#' for injection into the Methodology Assistant's prompt. Pure
 #' formatting over [metric_catalog()].
 #'
 #' @param catalog Optional pre-fetched catalog tibble (defaults to
@@ -814,7 +814,7 @@ format_metric_catalog <- function(catalog = metric_catalog()) {
 #'   \code{n_observed} is the count of values the primitive actually used (after
 #'   dropping NA/NaN/Inf and coercion failures), not the raw input length.
 #'
-#'   Serialization note for Phase 61.4: a distribution \code{value} is a named
+#'   Serialization note: a distribution \code{value} is a named
 #'   numeric vector, and \code{jsonlite::toJSON(..., auto_unbox = TRUE)} drops
 #'   the names (turning \code{c("09" = 2)} into \code{[2]}). Wrap distribution
 #'   values in \code{as.list()} before JSON encoding to preserve the labels (the
@@ -845,7 +845,7 @@ compute_metric_stat <- function(primitive, x, args = list()) {
   # n_observed must reflect the values the primitive actually USES, not the raw
   # input length: the cleaners drop NA/NaN/Inf and coercion failures, so counting
   # via the matching cleaner keeps n_observed honest (it is a load-bearing
-  # transparency field the rest of Phase 61 reports). "circular" inputs are
+  # transparency field the rest of the pipeline reports). "circular" inputs are
   # numeric radians, so they clean as numeric like everything except "temporal".
   n_obs <- if (identical(entry$input_kind, "temporal")) {
     length(.prim_clean_time(x))

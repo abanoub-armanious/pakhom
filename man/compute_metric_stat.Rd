@@ -27,7 +27,7 @@ primitives, and is \code{NA} / an empty named numeric on degenerate input.
 \code{n_observed} is the count of values the primitive actually used (after
 dropping NA/NaN/Inf and coercion failures), not the raw input length.
 
-Serialization note for Phase 61.4: a distribution \code{value} is a named
+Serialization note: a distribution \code{value} is a named
 numeric vector, and \code{jsonlite::toJSON(..., auto_unbox = TRUE)} drops
 the names (turning \code{c("09" = 2)} into \code{[2]}). Wrap distribution
 values in \code{as.list()} before JSON encoding to preserve the labels (the

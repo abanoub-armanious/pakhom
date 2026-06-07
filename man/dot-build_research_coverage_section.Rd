@@ -2,7 +2,7 @@
 % Please edit documentation in R/research_coverage.R
 \name{.build_research_coverage_section}
 \alias{.build_research_coverage_section}
-\title{Render the Research-Question Coverage report section (Phase 63)}
+\title{Render the Research-Question Coverage report section}
 \usage{
 .build_research_coverage_section(coverage)
 }

@@ -35,13 +35,13 @@ the algorithm has no merge-pass parameters)}
 
 \item{response_cache}{Optional \code{ResponseCache} for raw response capture}
 
-\item{live_tracker}{Optional \code{LiveTracker} (Phase 53). When provided,
+\item{live_tracker}{Optional \code{LiveTracker}. When provided,
 the cluster snapshot is rewritten after every AI decision so a
 researcher can \verb{cat outputs/<run>/live/code_to_cluster.json} mid-run.}
 
-\item{methodology_override}{Optional character (Phase 56). When non-NULL,
+\item{methodology_override}{Optional character. When non-NULL,
 replaces the provider's default methodology rules in every internal
-\code{ai_complete} call for this walk. Used by the Phase 54
+\code{ai_complete} call for this walk. Used by the
 emergent-themes pass to inject the Mode 3 inductive variant; NULL
 for normal Mode 2 + Mode 3 deductive callers.}
 }
@@ -52,21 +52,21 @@ replay / audit.
 }
 \description{
 Dispatches to the configured theme algorithm. The default
-(\code{algorithm = "v2"}, Phase 60) is an embedding-free, multi-pass AI
+(\code{algorithm = "v2"}) is an embedding-free, multi-pass AI
 clustering: the model sees all codes at once, proposes a partition into
 clusters, and on each further pass either groups clusters again or
 declares the partition converged. There are no hardcoded pass counts or
 size thresholds, and clustering depth is the AI's dynamic call (C1).
 Codes are grouped, never combined into new codes (C2); theme and subtheme
 names are assigned in a dedicated labeling pass after convergence. The
-earlier \code{algorithm = "v1"} (Phase 52) -- code-name embeddings,
+earlier \code{algorithm = "v1"} -- code-name embeddings,
 hierarchical agglomerative clustering (ward.D2), and an AI-judged
 dendrogram walk -- has been removed; pinning \code{algorithm = "v1"} (or
 any value other than \code{"v2"}) is honored as v2 with a one-time
 deprecation notice.
 }
 \details{
-The function name retains its pre-Phase-52 form for back-compat with
+The function name retains its earlier form for back-compat with
 the single production caller (R/18_pipeline.R) and existing test
 fixtures. A future cleanup phase may rename to \code{generate_themes()}.
 }

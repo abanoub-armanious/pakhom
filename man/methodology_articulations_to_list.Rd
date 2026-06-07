@@ -2,7 +2,7 @@
 % Please edit documentation in R/methodology_assistant.R
 \name{methodology_articulations_to_list}
 \alias{methodology_articulations_to_list}
-\title{Serialize a MethodologyArticulations to a plain list (Phase 61.2)}
+\title{Serialize a MethodologyArticulations to a plain list}
 \usage{
 methodology_articulations_to_list(art)
 }

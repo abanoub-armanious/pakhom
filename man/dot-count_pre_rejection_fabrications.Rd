@@ -19,7 +19,7 @@ FabricationLog$state$n_logged); takes priority when supplied.}
 Integer N caught, or NULL if neither source is available.
 }
 \description{
-Phase 58 Tier 4 audit MEDIUM #4 followup: counts fabrication-log
+Counts fabrication-log
 entries using readr's RFC-4180 parser instead of \code{readLines() + length(lines) - 1L}. Coded segments routinely contain newlines
 (Reddit posts), and the FabricationLog writes the exact_text field
 as RFC-4180 quoted-with-embedded-newlines via .csv_quote

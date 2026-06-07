@@ -39,7 +39,7 @@ ai_complete(
 \item{max_retries}{Number of retry attempts on failure}
 
 \item{response_schema}{Optional JSON Schema (as an R list) for the response
-shape. When provided (Sprint-4 T1.2), the providers enforce the schema
+shape. When provided, the providers enforce the schema
 server-side: OpenAI via \code{response_format = list(type = "json_schema",
   strict = TRUE, ...)}, Anthropic via a forced tool-use call whose
 \code{input_schema} is the schema. The returned \code{$content} is a JSON
@@ -52,7 +52,7 @@ the six task schemas the in-package callers use). Reasoning models
 support strict json_schema as of writing.}
 
 \item{documents}{Optional list of source documents to enable Anthropic's
-Citations API (Sprint-4 T0.1 part 3b). Each element is a named list with
+Citations API. Each element is a named list with
 \code{$id} (character, internal pakhom identifier preserved on the
 returned citations for downstream bridging), \code{$text} (character,
 the document content), and optional \code{$title} (character, becomes
@@ -70,13 +70,13 @@ Citations API is incompatible with the newer Structured Outputs
 incompatible but produces no text blocks for citations to attach to.
 When both are passed the request is sent as-is and \code{$citations}
 will typically be empty -- callers should choose one mode or the other
-per the architecture (phase 21c uses citations alone for Anthropic).}
+per the architecture (the Anthropic path uses citations alone).}
 
-\item{methodology_override}{Optional character (Phase 56; default NULL).
+\item{methodology_override}{Optional character (default NULL).
 When NULL, the call uses \code{provider$methodology_rules} as the
 system-prompt prefix (AC9 default). When a non-NULL string is
 supplied, it replaces that prefix for this single call only --
-used by the Phase 54 inductive emergent-themes pass to swap in the
+used by the inductive emergent-themes pass to swap in the
 inductive variant of the Mode 3 rule (\code{generate_methodology_rules
   (config, inductive_pass = TRUE)}) instead of the default deductive
 rule that forbids new-construct generation. Empty string (\code{""})
@@ -100,7 +100,7 @@ OpenAI-style names; total is computed when missing.
 \code{end_turn}/\code{max_tokens}/\code{stop_sequence}/\code{tool_use}
 are remapped).
 \item \code{raw_response}: list. Full parsed API response body, for
-replay (OS.5) and debugging.
+replay and debugging.
 \item \code{prompt_hash}: character. SHA-256 hex digest of the request
 inputs (prompt + system_prompt + model + temperature + max_tokens +
 json_mode + response_schema + documents). Used as the cache key for
@@ -120,7 +120,7 @@ citation schema (\code{type}, \code{cited_text}, \code{document_index},
 \code{start_page_number}/\code{end_page_number} for page_location,
 \code{start_block_index}/\code{end_block_index} for
 content_block_location). Empty list when \code{documents} was NULL
-or no citations were returned. Phase 21b's
+or no citations were returned. The
 \code{make_quotes_from_citations()} converts these to
 \code{QuoteProvenance} objects with
 \code{citation_source = "anthropic_citations_api"}.
@@ -131,14 +131,14 @@ Returns a structured list with the response \code{$content} alongside
 provenance metadata (model, usage, raw_response, finish_reason,
 prompt_hash, request_id). Callers that only need the response text should
 extract \code{$content}; downstream audit-log capture (T1.4) and
-\code{replay_run()} (OS.5) consume the other fields.
+\code{replay_run()} consume the other fields.
 }
 \details{
-Note: This is a Sprint-4 T1.1 refactor. Prior to T1.1 this function
+Note: This is the T1.1 refactor. Prior to T1.1 this function
 returned a bare character string; the structured-list return is the
-single most leveraged change in Sprint-4 because it unblocks T1.4
+single most leveraged change because it unblocks T1.4
 (audit log raw-response capture), T1.2 (Structured Outputs migration),
-and OS.5 (replay_run from cached responses) simultaneously. The function
+and replay (replay_run from cached responses) simultaneously. The function
 is internal (not exported), so the change touches only in-package callers.
 }
 \keyword{internal}

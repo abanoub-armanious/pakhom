@@ -2,7 +2,7 @@
 % Please edit documentation in R/structured_schemas.R
 \name{.theme_labeling_schema}
 \alias{.theme_labeling_schema}
-\title{Schema for the post-convergence theme + subtheme labeling pass (Phase 60)}
+\title{Schema for the post-convergence theme + subtheme labeling pass}
 \usage{
 .theme_labeling_schema()
 }

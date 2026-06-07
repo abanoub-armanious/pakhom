@@ -2,7 +2,7 @@
 % Please edit documentation in R/structured_schemas.R
 \name{.code_description_refresh_schema}
 \alias{.code_description_refresh_schema}
-\title{Schema for the code-description refresh response (Phase 58 Tier 2 C-5)}
+\title{Schema for the code-description refresh response}
 \usage{
 .code_description_refresh_schema()
 }

@@ -37,7 +37,7 @@ prepare_correlation_data <- function(data, theme_set, config = list()) {
   # artifact of prompt design, not a finding about the data. Confidence is
   # retained in the exported sentiment_scores.csv as a per-entry diagnostic
   # but is not a substantive variable for correlation analysis.
-  # Phase 59 Stage 2 audit (C4 dataset-agnostic): include EVERY numeric
+  # C4 (dataset-agnostic): include EVERY numeric
   # metric column from the corpus in the correlation matrix, not just
   # the two pakhom-engineered sentiment columns. .detect_metric_columns()
   # honors explicit config$data$column_mappings$metric_columns first,
@@ -60,14 +60,14 @@ prepare_correlation_data <- function(data, theme_set, config = list()) {
     available_membership <- membership_cols[membership_cols %in% names(data)]
 
     if (length(available_membership) > 0) {
-      # Phase 58 Tier 6 H-16: apply min_theme_entries filter consistently
+      # apply min_theme_entries filter consistently
       # with compare_theme_groups + test_theme_cooccurrence so the three
       # statistical layers all denominate against the same theme cohort.
-      # Pre-Phase-58 the multi-label path admitted ANY membership column
+      # An earlier multi-label path admitted ANY membership column
       # (frequency filter only fired on the emerged-themes fallback path),
       # so the correlation matrix and theme-group / co-occurrence tibbles
       # reported counts over slightly different denominators on the
-      # Phase 57 saturation run. The fallback path (lines 62-79 below)
+      # large saturation run. The fallback path (lines 62-79 below)
       # already applies the same filter.
       kept <- 0L
       excluded <- 0L
@@ -111,8 +111,8 @@ prepare_correlation_data <- function(data, theme_set, config = list()) {
     }
   }
 
-  # Phase 50b: dataset-agnostic metric detection. The original site had
-  # a hardcoded allowlist that broke novel corpora. Phase 55 consolidated
+  # Dataset-agnostic metric detection. The original site had
+  # a hardcoded allowlist that broke novel corpora. A later refactor consolidated
   # the detection helper into R/16_report_helpers.R so correlations +
   # the per-subtheme paper-style table share one definition of "what
   # counts as a metric." Pass the local `config$metric_columns` as the
@@ -167,9 +167,9 @@ prepare_correlation_data <- function(data, theme_set, config = list()) {
 #' (a) the VADER-shaped sentiment scale \code{[-1, 1]} quantized at 0.1
 #' (21 distinct levels), (b) the Likert-style 5/7/9/11-point scales
 #' common in survey research, and (c) AI-elicited intensity / confidence
-#' scores on a small integer grid. The pre-Phase-58 threshold of 7
+#' scores on a small integer grid. The earlier threshold of 7
 #' silently classified VADER sentiment as \emph{continuous} on the
-#' Phase 57 run, which then dispatched to Pearson (point-biserial for
+#' large run, which then dispatched to Pearson (point-biserial for
 #' binary x quantized-sentiment pairs) -- methodologically wrong for an
 #' ordinal support. Spearman is correct when either variable is
 #' rank-orderable but not interval-scaled (H-13).
@@ -196,9 +196,9 @@ detect_variable_types <- function(corr_data, ordinal_max = 21L) {
 
 #' Select appropriate correlation method for a variable pair
 #'
-#' Phase 58 Tier 6 H-13 hardening: binary x ordinal pairs now route
+#' Hardening: binary x ordinal pairs now route
 #' through Spearman (which yields the rank-biserial coefficient in that
-#' degenerate case). Pre-Phase-58 they routed to Pearson via the
+#' degenerate case). They previously routed to Pearson via the
 #' general binary+non-binary rule, which produces point-biserial -- a
 #' coefficient that assumes the non-binary side is interval-scaled. For
 #' AI-elicited sentiment / intensity / Likert scores the support is
@@ -492,8 +492,8 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
       r <- cm[i, j]
       p <- pa[i, j]
       if (!is.na(r) && !is.na(p)) {
-        # Phase 58 Tier 6 H-14: add "negligible" tier below Cohen's
-        # small-effect threshold (|r| < 0.10). Pre-Phase-58 the
+        # add "negligible" tier below Cohen's
+        # small-effect threshold (|r| < 0.10). An earlier version
         # classifier labeled trivially small effects (e.g. |r| = 0.04
         # with N > 5,000 passing Bonferroni) as "small", misleading
         # readers about substantive magnitude.
@@ -569,7 +569,7 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
   }
   df <- bind_rows(pairs) |> arrange(desc(abs(.data$correlation)))
 
-  # Phase 63 (#2b): FLAG analyst-internal / circular correlation pairs as
+  # FLAG analyst-internal / circular correlation pairs as
   # `excluded_from_findings` rather than DROPPING them. Two artifact classes:
   #  (1) within-AI-sentiment-instrument -- sentiment_score / emotion_intensity /
   #      confidence are elicited in ONE AI sentiment call (R/10_sentiment.R), so
@@ -580,9 +580,9 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
   #      the #1 "Key Finding" on a real run while every INDEPENDENT-measure pair
   #      was non-significant; the per-theme sentiment_tendency already reports
   #      affect-by-theme descriptively, so nothing substantive is hidden).
-  # We KEEP these rows (with their real correlation + p-values + an
+  # KEEP these rows (with their real correlation + p-values + an
   # exclusion_reason) so the exported correlations.csv is a COMPLETE, auditable
-  # matrix a reviewer can inspect -- and we zero BOTH finding-flags (significant,
+  # matrix a reviewer can inspect -- and zero BOTH finding-flags (significant,
   # meaningful_effect) for them so every downstream findings/insights/section
   # consumer (which all key off those flags) excludes them with NO consumer
   # changes and no leak. Substantive pairs (engagement-metadata x theme,
@@ -608,7 +608,7 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
                       df$exclusion_reason[df$excluded_from_findings]), collapse = ", ")))
     }
   }
-  # Phase 63 hardening (M2): re-scope the multiple-comparison family to the
+  # Hardening: re-scope the multiple-comparison family to the
   # SUBSTANTIVE (non-excluded) pairs. calculate_correlations runs the
   # BH/Bonferroni adjustment over the FULL matrix, BEFORE the circular /
   # within-instrument pairs are flagged above; those artifact pairs carry
@@ -653,7 +653,7 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
 #'
 #' Returned by [extract_significant()] when no pairwise correlation was
 #' computable (every off-diagonal r was NA). Carries every column the
-#' populated path emits -- including the Phase 63 (#2b) `exclusion_reason`
+#' populated path emits -- including the `exclusion_reason`
 #' and `excluded_from_findings` flags -- so the CSV export, the report
 #' consumers, and compare_runs see a consistent schema on degenerate corpora.
 #'
@@ -750,10 +750,10 @@ generate_insights <- function(correlations_df, theme_set, provider,
 #' Create correlation plot
 #'
 #' Renders a correlation heatmap for small matrices, OR a top-N
-#' effect-size lollipop chart for large matrices (Phase 58 Tier 5 C-10).
-#' Pre-Phase-58 the corrplot heatmap was unconditional, producing a
-#' 14,280x14,280 PNG (4.8 MB, browser-illegible) on the 228-variable
-#' Phase 57 saturation run. Above the \code{max_inline_vars} threshold
+#' effect-size lollipop chart for large matrices.
+#' An earlier corrplot heatmap was unconditional, producing a
+#' 14,280x14,280 PNG (4.8 MB, browser-illegible) on a 228-variable
+#' run. Above the \code{max_inline_vars} threshold
 #' the function now switches to a ggplot2 horizontal lollipop showing
 #' the top-N pairs ranked by absolute correlation, with significance
 #' encoded by point color.
@@ -788,7 +788,7 @@ create_correlation_plot <- function(results, output_path,
     return(invisible(NULL))
   }
 
-  # Phase 63 (#2b consistency): flag analyst-internal / circular pairs
+  # For consistency: flag analyst-internal / circular pairs
   # (excluded_from_findings upstream) so neither the heatmap nor the lollipop
   # presents them as a significant finding. Built on the ORIGINAL variable
   # names but index-aligned to cm/pa, so it survives the name-humanizing below.
@@ -816,14 +816,14 @@ create_correlation_plot <- function(results, output_path,
 
   n_vars <- ncol(cm)
   top_n <- as.integer(max_inline_vars %||% 30L)
-  # Tier 5 audit followup H3: cross-knob consistency. max_inline_themes
+  # Cross-knob consistency. max_inline_themes
   # uses `< 1L` (a 0 / negative / NA value falls back to default 30L);
   # match that here. A user value of 1 dispatches to the lollipop on a
   # 2+ variable matrix, which renders 1 pair (still useful for the
   # degenerate case).
   if (is.na(top_n) || top_n < 1L) top_n <- 30L
 
-  # Phase 58 Tier 5 C-10: large-matrix branch. The corrplot heatmap
+  # large-matrix branch. The corrplot heatmap
   # is illegible (and crashes browsers) above ~30 variables; switch
   # to a top-N effect-size lollipop chart. Heatmap path remains for
   # small matrices where it remains the best visualization.
@@ -837,7 +837,7 @@ create_correlation_plot <- function(results, output_path,
     return(invisible(NULL))
   }
 
-  # Phase 36 (CRAN prep): corrplot moved to Suggests. Skip the plot
+  # For CRAN, corrplot moved to Suggests. Skip the plot
   # (with a friendly log line) when the package isn't installed,
   # rather than crashing -- the rest of the pipeline produces full
   # correlation results in correlations.csv regardless.
@@ -900,7 +900,7 @@ create_correlation_plot <- function(results, output_path,
 
 #' Top-N effect-size lollipop chart for large correlation matrices
 #'
-#' Phase 58 Tier 5 C-10 fallback: when the variable count exceeds the
+#' Fallback: when the variable count exceeds the
 #' heatmap legibility threshold (\code{max_inline_vars}), render the
 #' top-N unique pairs by \code{|r|} as a horizontal lollipop. Pairs
 #' are extracted from the upper triangle of the correlation matrix
@@ -1143,8 +1143,8 @@ create_correlation_plot <- function(results, output_path,
 #' co-occurrence strength (entries assigned to both themes). Requires
 #' multi-label assignment columns (\code{theme_membership_*}).
 #'
-#' Phase 58 Tier 5 AH-9/V-1: at scale the unfiltered network was an
-#' unreadable hairball (Phase 57 audit observed 417 themes plotted at
+#' at scale the unfiltered network was an
+#' unreadable hairball (a large run plotted 417 themes at
 #' once with no legend). The \code{max_inline_themes} parameter caps
 #' the visible network at the top-N most-connected themes (ranked by
 #' weighted degree) and adds an inline legend explaining node size +
@@ -1216,9 +1216,9 @@ create_theme_network <- function(data, theme_set, output_path = "theme_network.p
     return(invisible(cooccur))
   }
 
-  # Phase 58 Tier 5 AH-9/V-1: top-N filter by weighted degree (sum of
-  # incident edge weights). At 400+ themes the pre-Phase-58 plot was
-  # an unreadable hairball with no legend. We keep the most-connected
+  # top-N filter by weighted degree (sum of
+  # incident edge weights). At 400+ themes an earlier plot was
+  # an unreadable hairball with no legend. Keep the most-connected
   # subgraph and report what was filtered in the subtitle so the
   # reader knows this isn't the full network.
   top_n <- as.integer(max_inline_themes %||% 30L)
@@ -1256,7 +1256,7 @@ create_theme_network <- function(data, theme_set, output_path = "theme_network.p
   max_weight <- max(edge_weights, na.rm = TRUE)
   edge_widths <- if (max_weight > 0) 1 + 4 * (edge_weights / max_weight) else rep(1, length(edge_weights))
 
-  # Per Phase 58 Tier 5 V-1: build a real legend explaining node size
+  # Build a real legend explaining node size
   # + edge width encoding so the chart is interpretable without
   # external documentation. Three representative node-size + edge-
   # weight markers anchor the visual scale.
@@ -1267,9 +1267,9 @@ create_theme_network <- function(data, theme_set, output_path = "theme_network.p
     "Theme Co-occurrence Network"
   }
 
-  # Phase 58 Tier 5 cross-tier audit J2: seed the Fruchterman-Reingold
+  # Seed the Fruchterman-Reingold
   # layout RNG so identical inputs produce byte-identical PNGs across
-  # runs (AC10 replay-equivalence). The pre-Phase-58 implementation
+  # runs (AC10 replay-equivalence). An earlier implementation
   # called layout_with_fr() with no seed control, so even on identical
   # data the network plot rendered with different node positions.
   # withr::with_seed pattern matches R/06_manuscript_learning.R:237
@@ -1296,7 +1296,7 @@ create_theme_network <- function(data, theme_set, output_path = "theme_network.p
     )
 
     # Legend: top-left, transparent background. Explains the visual
-    # encoding directly on the chart (Phase 58 Tier 5 V-1 -- pre-Phase-58
+    # encoding directly on the chart (an earlier version of
     # the chart had no legend at all).
     legend_lines <- c(
       "Node size: # entries in theme",
@@ -1398,7 +1398,7 @@ compare_theme_groups <- function(data, theme_set, config = list()) {
   # call), so any 'confidence differs across themes' result is contaminated
   # by the underlying emotion_intensity difference.
   #
-  # Phase 59 Stage 2 audit (C4 dataset-agnostic): test EVERY numeric
+  # C4 (dataset-agnostic): test EVERY numeric
   # metric column for theme-group differences via Mann-Whitney U, not
   # just the two pakhom-engineered sentiment columns. A clinical
   # researcher with a `medication_dose` column now sees "Theme X has
@@ -1447,9 +1447,9 @@ compare_theme_groups <- function(data, theme_set, config = list()) {
 
       test_result <- tryCatch({
         wt <- wilcox.test(vals_members, vals_non, exact = FALSE)
-        # Phase 58 Tier 6 M-8 + M-9: replace the pre-Phase-58
+        # Replace the earlier
         # z-from-p-value derivation with a direct rank-biserial
-        # computation. Pre-Phase-58 effect_r was `abs(qnorm(p/2)) /
+        # computation. The earlier effect_r was `abs(qnorm(p/2)) /
         # sqrt(n_total)`, which (a) loses sign and (b) blows up to
         # +/-Inf when p < 1e-300 (qnorm returns -Inf). Rank-biserial
         # is `(U_members / (n_m * n_n)) - (U_non / (n_m * n_n))` =
@@ -1463,11 +1463,11 @@ compare_theme_groups <- function(data, theme_set, config = list()) {
 
         mean_m <- round(mean(vals_members), 3)
         mean_n <- round(mean(vals_non), 3)
-        # Tier 6 audit followup H-1: derive direction from the
+        # Derive direction from the
         # rank-biserial sign rather than mean comparison. On skewed
         # distributions mean and rank centroid can disagree (e.g.
-        # outliers move the mean opposite the median), which pre-
-        # Tier-6-followup would render as "Higher in theme, r =
+        # outliers move the mean opposite the median), which an earlier
+        # version would render as "Higher in theme, r =
         # -0.9" -- internally contradictory. Mann-Whitney IS a rank
         # test, so the rank-based direction is the methodologically
         # consistent one.
@@ -1498,9 +1498,9 @@ compare_theme_groups <- function(data, theme_set, config = list()) {
 
   if (length(results) == 0) return(tibble::tibble())
 
-  # Phase 58 Tier 6 H-17: emit n_members + n_non_members. The internal
+  # emit n_members + n_non_members. The internal
   # results list already carried these (computed at lines above) but
-  # the tibble construction dropped them pre-Phase-58. Without them
+  # the tibble construction dropped them earlier. Without them
   # consumers couldn't tell whether an effect_r = 0.05 came from
   # n_members = 5 (low power) or n_members = 500 (substantively
   # negligible) -- a 100x power variation invisible to the consumer.
@@ -1527,7 +1527,7 @@ compare_theme_groups <- function(data, theme_set, config = list()) {
   df$p_adjusted <- df$p_bonferroni                   # back-compat
   df$significant <- df$p_adjusted < 0.05             # back-compat
   df$meaningful_effect <- abs(df$effect_r) >= 0.10   # Cohen's small-effect threshold (M-9: sign-aware)
-  # Phase 58 Tier 6 H-14: explicit effect-size label parallel to the
+  # explicit effect-size label parallel to the
   # correlation tibble's effect_size column. negligible / small /
   # medium / large lets the report headline + downstream consumers
   # filter / annotate consistently across statistical methods.
@@ -1556,12 +1556,12 @@ compare_theme_groups <- function(data, theme_set, config = list()) {
 #' For each pair of themes, tests whether co-occurrence is significantly different
 #' from expected by chance.
 #'
-#' Phase 58 Tier 6 H-16: applies the same \code{min_theme_entries} filter
+#' applies the same \code{min_theme_entries} filter
 #' that \code{prepare_correlation_data} and \code{compare_theme_groups}
 #' use, so the three statistical layers report counts over a consistent
-#' theme cohort. Pre-Phase-58 this function admitted every theme
+#' theme cohort. An earlier version admitted every theme
 #' regardless of frequency, which produced thousands of degenerate
-#' Fisher tests on rare themes (the Phase 57 audit found 99.1% of
+#' Fisher tests on rare themes (a large run found 99.1% of
 #' Fisher pairs had \code{observed_both = 0}).
 #'
 #' @param data Tibble with theme_membership_* columns
@@ -1635,8 +1635,8 @@ test_theme_cooccurrence <- function(data, theme_set, min_expected = 5,
     observed_both <- ct[2, 2]
     expected_both <- round(sum(a == 1) * sum(b == 1) / n, 1)
 
-    # Phase 58 Tier 6 M-10: skip pairs with too-low observed co-occurrence.
-    # On the Phase 57 saturation run, 93.2% of Fisher pairs had
+    # skip pairs with too-low observed co-occurrence.
+    # On a large saturation run, 93.2% of Fisher pairs had
     # observed_both = 0 -- the tests are vacuous and clog the output
     # tibble with thousands of uninterpretable rows.
     if (observed_both < min_observed_both) next
@@ -1648,10 +1648,10 @@ test_theme_cooccurrence <- function(data, theme_set, min_expected = 5,
     test_result <- tryCatch({
       if (use_fisher) {
         ft <- fisher.test(ct)
-        # Phase 58 Tier 6 H-18: compute Cramer's V (= phi coefficient
+        # compute Cramer's V (= phi coefficient
         # for a 2x2 table) directly from the contingency table when
         # Fisher dispatches, so the Fisher path doesn't emit NA effect
-        # size. Pre-Phase-58 99.1% of Fisher tests had NA Cramer's V,
+        # size. Earlier, 99.1% of Fisher tests had NA Cramer's V,
         # giving the audit no way to rank them by magnitude.
         # phi = (ad - bc) / sqrt((a+b)(c+d)(a+c)(b+d))
         a11 <- as.numeric(ct[1, 1]); a12 <- as.numeric(ct[1, 2])
@@ -1666,7 +1666,7 @@ test_theme_cooccurrence <- function(data, theme_set, min_expected = 5,
         # chi_equiv as the test statistic for downstream consumers that
         # expect a chi-square-shaped statistic; cramers_v derives from
         # the absolute phi directly to skip the chi-square round-trip.
-        # Tier 6 audit followup L-4: dropped phi_signed (was created in
+        # Dropped phi_signed (was created in
         # the internal list but never carried into the output tibble,
         # so consumers couldn't use it). Future sign-aware reporting
         # can derive sign from a^ad-bc^>0 directly when needed.
@@ -1726,7 +1726,7 @@ test_theme_cooccurrence <- function(data, theme_set, min_expected = 5,
   df$p_adjusted <- df$p_bonferroni                   # back-compat
   df$significant <- df$p_adjusted < 0.05             # back-compat
   df$meaningful_effect <- abs(df$cramers_v) >= 0.10  # Cohen's small-effect threshold
-  # Phase 58 Tier 6 H-14: explicit effect-size label aligned with the
+  # explicit effect-size label aligned with the
   # correlation + theme-group tibbles. NA when Cramer's V is NA (still
   # possible for some Fisher edge cases; H-18 closes the common path).
   df$effect_size <- vapply(df$cramers_v, function(v) {

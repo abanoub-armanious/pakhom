@@ -23,7 +23,7 @@ subtheme_assignments columns}
 
 \item{quotes_per_subtheme}{Integer; default 3}
 
-\item{metric_interpretation}{Optional \code{MetricInterpretation} (Phase 61.2
+\item{metric_interpretation}{Optional \code{MetricInterpretation} (from the
 Methodology Assistant). When supplied, each interpreted column ALSO gets the
 AI's requested primitives computed into \code{ai_metric_stats}; the legacy
 \code{metric_stats} battery is always computed (renderer fallback). NULL
@@ -31,7 +31,7 @@ AI's requested primitives computed into \code{ai_metric_stats}; the legacy
 }
 \value{
 Named list (one per real subtheme) of stat records. Each record adds
-\code{ai_metric_stats} (Phase 61.3b): a list keyed by metric column name
+\code{ai_metric_stats}: a list keyed by metric column name
 (only for interpreted columns) of \code{column_description},
 \code{interpretation_note}, and \code{requested} (per-primitive
 \code{compute_metric_stat()} results).
@@ -59,7 +59,7 @@ back to the theme-level summary in that case.
 Membership: an entry belongs to subtheme S if its
 \code{subtheme_assignments} column (populated by
 \code{cascade_theme_assignments}) contains S's name. When that
-column is absent we fall back to "every entry in the theme is in
+column is absent the fallback is "every entry in the theme is in
 every subtheme" (degenerate but non-fatal -- the table still renders,
 just without entry-level filtering).
 }

@@ -2,8 +2,8 @@
 # Main Pipeline Orchestrator -- run_analysis()
 # ==============================================================================
 # Inductive-first pipeline: codebook-first learning -> progressive sequential
-# coding -> code-aware sentiment -> HAC + AI-judged divisive tree walk for
-# theme generation (Phase 52) -> deterministic code-path cascading ->
+# coding -> code-aware sentiment -> multi-pass AI clustering for
+# theme generation -> deterministic code-path cascading ->
 # correlations -> report.
 # ==============================================================================
 
@@ -201,7 +201,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
 
   # (Mode 1 dispatch was hoisted above output_dir creation so a Mode 1
   # invocation doesn't leave a stranded empty run dir; see audit
-  # phase 30.5 finding H3.)
+  # finding H3.)
 
   # Mode 3 (Framework Applied): load the researcher's framework spec.
   # Validation already ensured framework_spec_path is non-empty when
@@ -223,14 +223,14 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     )
     log_info("Mode 3 framework loaded: '{framework_spec$name}' ({length(framework_spec$constructs)} constructs)")
 
-    # Phase 32 (audit H1 + H2): archive the framework spec verbatim
+    # Archive the framework spec verbatim
     # under outputs/<run>/framework_applied.{yaml|json} and capture the
     # sha256 hash + identity metadata for stamping into
     # run_metadata.json. Per AC4 the archive is mandatory for Mode 3 --
     # without it a reviewer cannot reconstruct WHICH framework was
     # used.
     #
-    # Phase 32 audit (M1 + M2): the previous version wrapped this call
+    # The previous version wrapped this call
     # in a tryCatch that absorbed archive errors into a warning,
     # letting the run finalize with no framework_name / framework_hash
     # in run_metadata.json AND no archived spec on disk. AC4 requires
@@ -255,7 +255,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   # also carries the generated rules so ai_complete() injects them as a
   # system-prompt prefix on every call (per AC9 -- rules in the model's
   # context-window every turn). create_ai_provider() handles the prefix
-  # injection; here we additionally archive the rules text under the run
+  # injection; here the rules text is additionally archived under the run
   # output directory so the methodology paper can reference exactly which
   # rules were in force during this run.
   tryCatch(write_methodology_rules(config, output_dir),
@@ -292,16 +292,16 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   # T1.5: also stamps methodology_mode + parent_run_id + mode_changed_from
   # + mode_locked_at + is_finalized so the run carries its REDCap-style
   # state record. The init_run_state helper in R/run_state.R is the
-  # canonical writer; here we extend the helper's output with the
+  # canonical writer; here the helper's output is extended with the
   # provider/model fields the pipeline carries.
-  # Phase 32 (audit H1 + H2): when Mode 3, splat the framework archive
+  # When Mode 3, splat the framework archive
   # metadata into run_metadata.json so cross-run comparisons + replay
   # can route off the framework's identity (name + sha256). Mode 1 and
   # Mode 2 runs leave these fields out (init_run_state writes only the
   # fields supplied via ...). framework_archive may be NULL on Mode 3
   # if the archive call failed; downstream verify_run_integrity
   # surfaces the gap.
-  # Audit L2 (phase 32): jsonlite::write_json with auto_unbox=TRUE
+  # Audit L2: jsonlite::write_json with auto_unbox=TRUE
   # collapses length-1 character vectors into JSON scalars. For a
   # single-construct framework that would mean
   # framework_construct_ids serializes as a string instead of an
@@ -338,7 +338,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   ), framework_extras))
 
   # Initialize AI decision audit log (T1.4: methodology_mode auto-stamped on
-  # every record because we pass config; pre-T1.4 callers without config still
+  # every record because config is passed; pre-T1.4 callers without config still
   # work, just without methodology stamping).
   audit_log <- tryCatch(
     init_audit_log(output_dir, config = config),
@@ -346,7 +346,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   )
   on.exit(if (!is.null(audit_log)) tryCatch(close_audit_log(audit_log), error = function(e) NULL), add = TRUE)
 
-  # Initialize content-addressable response cache (T1.4 / OS.5 prep). When
+  # Initialize content-addressable response cache (T1.4; replay prep). When
   # config$audit$capture_raw_responses is FALSE the cache is created in
   # disabled mode (no directory, no writes) so caller code is unconditional.
   response_cache <- tryCatch(
@@ -363,7 +363,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     error = function(e) { log_warn("Fabrication log init failed: {e$message}"); NULL }
   )
 
-  # Phase 53 / C3: initialize the live tracker. Writes three streamed/snapshot
+  # C3: initialize the live tracker. Writes three streamed/snapshot
   # artifacts under outputs/<run>/live/ -- code_assignments.jsonl (append-only
   # event log), codebook_live.json (atomic-rewrite snapshot of the current
   # codebook), code_to_cluster.json (atomic-rewrite snapshot of theme/subtheme
@@ -412,7 +412,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     log_info("\n[STEP 1] Loading previous analyses (codebook-first)...")
     tryCatch({
       studies <- load_previous_studies(config$learning$base_dir, config$learning)
-      # Phase 50c: thread the user's config-set limits through.
+      # Thread the user's config-set limits through.
       # Previously this call took function defaults, which stuck
       # max_manuscript_chars at .MAX_ENTRY_CHARS=8000 -- ignoring the
       # user's config$learning$max_manuscript_chars (12000 default).
@@ -441,26 +441,26 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     data <- load_checkpoint(checkpoint, "data_loaded")
   } else {
     log_info("\n[STEP 2] Loading and preparing data...")
-    # Phase 59 Stage 2 Round 3 (Mode 1 ergonomics): the load + standardize
+    # Mode 1 ergonomics: the load + standardize
     # + preprocess + test_mode-sampling sequence is now the exported
     # load_corpus_from_config() so Mode 1 users have a single public-API
     # entry point matching the path run_analysis uses internally. Keeping
     # one canonical code path prevents the silent divergence that bit
-    # phase 38 (min_text_length vs min_char field-name drift) and phase 58
-    # Tier 0 C-9 (intersect-vs-union NA-fill across tables).
+    # an earlier field-name drift (min_text_length vs min_char) and the
+    # intersect-vs-union NA-fill across tables.
     data <- load_corpus_from_config(config)
     save_checkpoint(checkpoint, "data_loaded", data)
   }
 
   # ========================================================================
-  # STEP 2.5: Methodology Assistant (Phase 61)
+  # STEP 2.5: Methodology Assistant
   # ========================================================================
   # Before coding, the AI articulates (once) a relevance criterion + per-metric
   # interpretations from the research focus + a corpus sample + the metric-
   # primitive catalog. The relevance criterion is injected into the coding
   # prompt below (replacing loose "applicable" framing -- the upstream fix for
   # focus drift); the metric interpretations drive the report's per-subtheme
-  # statistics (Phase 61.3b). Skipped -- pinned articulations loaded, NO AI
+  # statistics. Skipped -- pinned articulations loaded, NO AI
   # calls -- when config$study$inferred_methodology is set (replay
   # equivalence, AC10/R7). Mode 1 (run_mode1) codes via the provocateur loop,
   # not inductively, and never reaches this path.
@@ -469,11 +469,11 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     methodology_articulations <- load_checkpoint(checkpoint, "methodology_setup")
   } else if ("progressive_coding" %in% completed) {
     # Legacy/edge resume: coding was completed before Step 2.5 existed (a
-    # pre-Phase-61.3 checkpoint). The relevance criterion cannot retroactively
+    # an earlier checkpoint). The relevance criterion cannot retroactively
     # shape the already-cached codes, so do NOT spend AI calls re-articulating
     # it. Metric interpretations are unavailable on this path -> the report
-    # falls back to the legacy per-column stats battery (Phase 61.3b).
-    log_info("\n[STEP 2.5] Coding already complete (pre-Phase-61 checkpoint); skipping Methodology Assistant.")
+    # falls back to the legacy per-column stats battery.
+    log_info("\n[STEP 2.5] Coding already complete (older checkpoint); skipping Methodology Assistant.")
     methodology_articulations <- NULL
   } else {
     log_info("\n[STEP 2.5] Methodology Assistant: articulating relevance criterion + metric interpretations...")
@@ -504,16 +504,14 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   if ("progressive_coding" %in% completed) {
     log_info("\n[STEP 3] Loading coding state from checkpoint...")
     coding_state <- load_checkpoint(checkpoint, "progressive_coding")
-    # Phase 58 Tier 7 cross-tier audit (paralleling the Tier 6
-    # resume warning at line 851): a pre-Tier-7 coding checkpoint
-    # carries QuoteProvenance objects produced before the
-    # V-6/L-3 offset-reference fix and the M-13/E-19 failure-reason
+    # A legacy coding checkpoint carries QuoteProvenance objects
+    # produced before the offset-reference fix and the failure-reason
     # field. Detect the schema gap via the first quote's field set
     # and warn so a researcher reading the published report knows
     # the verification numbers and prose may straddle methodology
-    # eras (cached quotes are Phase-57-style; fresh quotes on a
-    # rerun would be Tier-7-style).
-    .warn_pre_tier7_coding_resume(coding_state)
+    # eras (cached quotes are the older style; fresh quotes on a
+    # rerun would be the current style).
+    .warn_legacy_coding_resume(coding_state)
   } else {
     log_info("\n[STEP 3] Running progressive sequential coding...")
     log_info("  Processing {nrow(data)} entries one at a time (no batching)...")
@@ -566,7 +564,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   # T0.3 corpus coverage assertion: compute the funnel from preprocessed
   # data to LLM-processed entries to coded entries, plus the headline
   # "no silent truncation" claim. Computed once after coding completes;
-  # the report renders it as a Tier-0 transparency card. We don't have
+  # the report renders it as a Tier-0 transparency card. There are no
   # pre-preprocessing counts threaded through the pipeline yet (the
   # data_loaded checkpoint already represents post-preprocess data), so
   # those fields are NA -- the headline claim doesn't depend on them.
@@ -601,9 +599,9 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     }
   )
 
-  # Phase 58 Tier 8 H-10: persist the CorpusCoverage as
+  # persist the CorpusCoverage as
   # coverage_card.json so a reproducibility audit can read coverage
-  # state without re-running the pipeline. Pre-Tier-8 the S3 lived
+  # state without re-running the pipeline. An earlier version kept the S3
   # only in memory + rendered HTML.
   if (!is.null(coverage)) {
     tryCatch(
@@ -699,13 +697,13 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     if (review_iteration == 1L && "sentiment_done" %in% completed) {
       log_info("\n[STEP 4] Loading sentiment data from checkpoint...")
       analytic_data <- load_checkpoint(checkpoint, "sentiment_done")
-      # Phase 58 Tier 4 H-12: re-emit the sentiment summary from the
+      # re-emit the sentiment summary from the
       # LOADED checkpoint data so the on-screen log header matches the
       # actual final data. Pre-fix the resume path skipped
       # analyze_sentiment entirely, which is also where the summary
       # log lines live (R/10_sentiment.R:199-201), so the user only
       # ever saw the PRE-resume summary -- often from a 250-entry
-      # sample run, with stale numbers like the Phase 57 audit's
+      # sample run, with stale numbers like a large run's
       # -0.139 vs actual -0.0917 mismatch.
       if ("sentiment_score" %in% names(analytic_data)) {
         success_rate <- mean(!is.na(analytic_data$sentiment_score)) * 100
@@ -728,7 +726,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     }
 
     # ------------------------------------------------------------------
-    # STEP 5: Theme generation (HAC + AI-judged divisive tree walk; Phase 52)
+    # STEP 5: Theme generation (AI-judged multi-pass clustering)
     # ------------------------------------------------------------------
     if (review_iteration == 1L && "themes_generated" %in% completed) {
       log_info("\n[STEP 5] Loading themes from checkpoint...")
@@ -736,7 +734,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     } else if (!is.null(framework_spec)) {
       # AC2 / AC8 mode dispatch: Mode 3 uses the framework's constructs
       # AS the themes. No iterative merging -- the framework IS the theme
-      # structure, fixed at run start. Phase 54: anomaly_handling drives
+      # structure, fixed at run start. anomaly_handling drives
       # what happens to non-fitting segments (bracket / extend / revise).
       log_info("\n[STEP 5] Mapping framework constructs to themes (Mode 3, anomaly_handling='{framework_spec$anomaly_handling}')...")
       theme_set <- apply_framework_themes(
@@ -755,7 +753,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
       save_checkpoint(checkpoint, "themes_generated", theme_set)
     } else {
       algorithm_label <- if (identical(as.character(config$analysis$themes$algorithm %||% "v2"), "v1")) {
-        "Phase 52 HAC + AI-judged divisive tree walk (legacy v1)"
+        "HAC + AI-judged divisive tree walk (legacy v1)"
       } else {
         "multi-pass AI clustering with label-after-clustering (v2)"
       }
@@ -851,7 +849,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   valid_names <- theme_names(theme_set)
 
   # ========================================================================
-  # STEP 5c: Research-question coverage (Phase 63; Mode 2). A late, post-hoc AI
+  # STEP 5c: Research-question coverage (Mode 2). A late, post-hoc AI
   # pass: where did each named focus facet land across the final themes? It
   # REPORTS the AI's read of the emergent grouping; it never changes it (C1/C2).
   # Dispersion across themes is a valid inductive outcome (the section frames it
@@ -890,13 +888,13 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   theme_group_tests <- NULL
   cooccurrence_tests <- NULL
 
-  # Phase 58 Tier 4 C-7 (audit CRITICAL #1 fix): persist EFFECTIVE config
+  # Persist the EFFECTIVE config
   # values back to the config object UNCONDITIONALLY -- before the
   # checkpoint-resume branch. The pre-followup version mutated config
   # only in the cold-load `else` branch, so a resumed run that hit the
   # `correlations` checkpoint skipped the mutation entirely and the
   # report renderer at R/17_report.R:2551 then read the raw (unresolved)
-  # config, reproducing the same lie C-7 was supposed to fix. Phase 57's
+  # config, reproducing the same lie this was supposed to fix. A large
   # full-corpus rerun is the canonical resume-from-checkpoint case;
   # placing the mutation here means both cold runs and resumes see the
   # same effective config.
@@ -915,7 +913,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     insights <- corr_result$insights
     theme_group_tests <- corr_result$theme_group_tests
     cooccurrence_tests <- corr_result$cooccurrence_tests
-    # Phase 58 Tier 6 cross-tier audit I: a pre-Tier-6 checkpoint
+    # An older checkpoint
     # carries correlation tibbles that predate the H-13/H-17/H-18
     # methodology rewrite -- the renderer's presence guards keep the
     # report from crashing, but the cached numbers were produced by
@@ -923,14 +921,14 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     # now fire, NA Cramer's V on Fisher pairs, no n_members column,
     # 3-tier effect_size without "negligible"). Detect the schema
     # gap via the n_members column on theme_group_tests and warn the
-    # user that the published prose will describe Tier 6 methods
+    # user that the published prose will describe the current methods
     # while the numbers come from the older pipeline. The user can
     # recompute by deleting outputs/<run>/checkpoint.rds step 6.
     if (!is.null(theme_group_tests) && is.data.frame(theme_group_tests) &&
         nrow(theme_group_tests) > 0L &&
         !"n_members" %in% names(theme_group_tests)) {
       log_warn(paste0(
-        "Resuming from a pre-Phase-58-Tier-6 checkpoint: cached correlation ",
+        "Resuming from an older checkpoint: cached correlation ",
         "tibbles were produced by the older statistical pipeline (pre-",
         "rank-biserial effect_r, pre-negligible effect tier, pre-Fisher ",
         "Cramer's V). The published report's methodology prose describes ",
@@ -999,7 +997,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
                                   methodology_mode = config$methodology$mode)
 
   if (isTRUE(config$output$generate_correlation_plot)) {
-    # Phase 58 Tier 5 C-10: max_inline_vars threshold above which the
+    # max_inline_vars threshold above which the
     # correlation plot switches from heatmap to top-N lollipop chart.
     max_inline_vars <- as.integer(
       config$analysis$correlations$max_inline_vars %||% 30L
@@ -1011,7 +1009,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
                              excluded_pairs = correlations_df)
   }
 
-  # Theme network plot. Phase 58 Tier 5 AH-9/V-1: top-N filter +
+  # Theme network plot. Top-N filter +
   # legend keep the chart readable at scale.
   network_file <- file.path(output_dir, "theme_network.png")
   network_max <- as.integer(
@@ -1082,20 +1080,20 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
       audit_log = audit_log,
       response_cache = response_cache,
       coverage = coverage,
-      # Phase 32: pass framework_spec + archive metadata so the Mode 3
+      # pass framework_spec + archive metadata so the Mode 3
       # report renders the Framework Declaration section + the
       # Citations API silent-bypass footnote in the Tier-0 dashboard.
       framework_spec    = framework_spec,
       framework_archive = framework_archive,
-      # Phase 61.3b: the AI's per-metric interpretations drive per-subtheme
+      # The AI's per-metric interpretations drive per-subtheme
       # stats (NULL on the legacy-resume path -> legacy battery).
       metric_interpretation = if (is.null(methodology_articulations)) NULL
                               else methodology_articulations$metric_interpretation,
-      # Phase 61.4: the full bundle drives the Methodology Setup section +
+      # the full bundle drives the Methodology Setup section +
       # per-theme temporal panel (NULL on the legacy-resume path -> the
       # renderer falls back to the archived JSON, else omits the section).
       methodology_articulations = methodology_articulations,
-      # Phase 63: where each named focus facet landed across the themes
+      # where each named focus facet landed across the themes
       # (Mode 2; NULL on Mode 3 / legacy resume -> the section is omitted).
       research_coverage = research_coverage
     )
@@ -1124,7 +1122,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     temporal_results <- tryCatch({
       tr <- analyze_temporal_patterns(analytic_data, theme_set, coding_state)
       if (isTRUE(tr$has_temporal_data)) {
-        # Phase 58 Tier 5 AH-8/V-2: cap themes shown on temporal
+        # cap themes shown on temporal
         # emergence chart for legibility.
         temporal_max <- as.integer(
           config$analysis$themes$max_inline_themes_temporal %||% 30L
@@ -1264,12 +1262,11 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
 }
 
 
-#' Warn when resuming from a pre-Tier-7 coding checkpoint
+#' Warn when resuming from a legacy coding checkpoint
 #'
-#' Phase 58 Tier 7 cross-tier audit (paralleling the Tier 6 helper at
-#' the correlations checkpoint): a pre-Tier-7 coding state carries
-#' \code{QuoteProvenance} objects produced before the V-6/L-3 offset
-#' fix (JSON-escape bug) and the M-13/E-19 failure-reason field.
+#' A legacy coding state carries
+#' \code{QuoteProvenance} objects produced before the offset
+#' fix (JSON-escape bug) and the failure-reason field.
 #' Detect by inspecting the first quote's field set. Emit a
 #' \code{log_warn} explaining the methodology-era drift and how to
 #' realign (delete progressive_coding from checkpoint.rds and re-run
@@ -1278,14 +1275,14 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
 #' @param coding_state A loaded ProgressiveCodingState, possibly NULL.
 #' @return Invisible NULL.
 #' @keywords internal
-.warn_pre_tier7_coding_resume <- function(coding_state) {
+.warn_legacy_coding_resume <- function(coding_state) {
   if (is.null(coding_state)) return(invisible(NULL))
   # Walk every QuoteProvenance in every coded segment looking for the
   # schema gap (absence of `verification_failure_reason`). A mixed-vintage
-  # checkpoint can hold both pre- and post-Tier-7 QPs (e.g., a partial
-  # run that was interrupted and resumed under the Tier-7 prompt); a
-  # first-QP-only probe (pre-Phase-59 behaviour) would miss the warning
-  # when the first probed QP is the modern one. Phase 59 code review
+  # checkpoint can hold both legacy and modern QPs (e.g., a partial
+  # run that was interrupted and resumed under the new prompt); a
+  # first-QP-only probe would miss the warning
+  # when the first probed QP is the modern one. A code review
   # caught this gap.
   codebook <- coding_state$codebook %||% list()
   n_total <- 0L

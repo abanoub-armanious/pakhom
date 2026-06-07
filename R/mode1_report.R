@@ -1,10 +1,10 @@
 # ==============================================================================
-# Mode 1 (Reflexive Scaffold) Report Renderer -- Sprint-4 phase 31
+# Mode 1 (Reflexive Scaffold) Report Renderer
 # ==============================================================================
 # Mode 1's analog of generate_report() in R/17_report.R. The existing report
 # is wired to coding_state + sentiment + correlations + AI synthesis -- none
 # of which exist in Mode 1. Rather than balloon the existing function with
-# mode-conditional branching (option B from the phase 31 design discussion),
+# mode-conditional branching (option B from the design discussion),
 # this file builds a Mode 1-specific Rmd that:
 #
 #   - stamps the methodology declaration at the top (AC4) -- via
@@ -120,7 +120,7 @@ compute_provocation_provenance_stats <- function(reflection_log) {
   } else "none"
 
   # Concentration warnings from participant spread. Audit B test gap
-  # (phase 31): theme names can contain HTML-active characters
+  # theme names can contain HTML-active characters
   # (researcher-supplied input). Route every theme-name interpolation
   # through .html_esc so the rendered Rmd doesn't smuggle a script tag
   # via the exec summary -- the test-mode1-report.R XSS test pinned this.
@@ -144,7 +144,7 @@ compute_provocation_provenance_stats <- function(reflection_log) {
     )
   } else ""
 
-  # Fabrication line. Audit B (phase 31): distinguish three cases
+  # Fabrication line. Audit B: distinguish three cases
   # honestly:
   #   (a) verbatim claims existed AND fabrications were dropped --
   #       report the count
@@ -259,7 +259,7 @@ compute_provocation_provenance_stats <- function(reflection_log) {
               if (ts$provocations$total == 1L) "" else "s")
     )
 
-    # Phase 55: per-theme metric stats line (Mode 1 light touch). One
+    # per-theme metric stats line (Mode 1 light touch). One
     # Median(MAD) + Mean(SD) per auto-detected metric column. Mode 1
     # themes are researcher-supplied + flat (no AI subthemes), so
     # there's no per-subtheme table -- just a one-liner per theme.
@@ -322,7 +322,7 @@ compute_provocation_provenance_stats <- function(reflection_log) {
 }
 
 # ==============================================================================
-# Researcher Reflexive Memos section (Phase 33 / M1.3)
+# Researcher Reflexive Memos section (M1.3)
 # ==============================================================================
 
 #' Build the Researcher Reflexive Memos section of the Mode 1 report
@@ -438,7 +438,7 @@ compute_provocation_provenance_stats <- function(reflection_log) {
 
   # Body is researcher-supplied Markdown -- escape the raw text and
   # emit it inside a <pre>-like wrapper so the Markdown renderer
-  # treats it as a literal block. We don't render the Markdown to HTML
+  # treats it as a literal block. The Markdown is not rendered to HTML
   # here because the researcher's content might use formatting that
   # collides with the surrounding Rmd structure (e.g., a "## Heading"
   # would create a duplicate level-2 heading in the report TOC). The
@@ -594,7 +594,7 @@ compute_provocation_provenance_stats <- function(reflection_log) {
     .build_mode1_provocation_section(theme_stats, reflection_log)
   )
 
-  # Phase 33 (M1.3): Researcher Reflexive Memos section. Renders the
+  # M1.3: Researcher Reflexive Memos section. Renders the
   # researcher's memo timeline (chronological by timestamp). Per AC6
   # (symmetric obligations across modes), memos are Mode 1's burden-
   # parity counterpart to Modes 2/3's codebook + theme review pause-

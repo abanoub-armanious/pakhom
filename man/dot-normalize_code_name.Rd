@@ -13,7 +13,7 @@
 Cleaned code name with all known prefix/quote noise removed.
 }
 \description{
-Phase 58 Tier 0 C-4: strips numbered-list prefixes (\code{321. }), \verb{NEW:}
+strips numbered-list prefixes (\code{321. }), \verb{NEW:}
 markers, and surrounding ASCII or Unicode smart quotes that the AI may
 echo back from the codebook-summary prompt format. Applied once at code
 admission so the codebook key is canonical regardless of which prefix

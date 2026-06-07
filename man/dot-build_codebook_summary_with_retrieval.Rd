@@ -2,7 +2,7 @@
 % Please edit documentation in R/09_coding.R
 \name{.build_codebook_summary_with_retrieval}
 \alias{.build_codebook_summary_with_retrieval}
-\title{Phase 58 Tier 0 C-6: codebook summary with additive semantic retrieval}
+\title{codebook summary with additive semantic retrieval}
 \usage{
 .build_codebook_summary_with_retrieval(
   state,

@@ -2,7 +2,7 @@
 % Please edit documentation in R/methodology_assistant.R
 \name{run_methodology_assistant}
 \alias{run_methodology_assistant}
-\title{Run the Methodology Assistant (Step 2.5 orchestrator, Phase 61.2)}
+\title{Run the Methodology Assistant (Step 2.5 orchestrator)}
 \usage{
 run_methodology_assistant(
   data,
@@ -22,7 +22,7 @@ Either loads PINNED articulations from \code{config$study$inferred_methodology}
 (replay mode -- no AI calls, fully deterministic) or makes the two AI calls
 (discovery mode). Archives the result to
 \code{run_dir/rules/methodology_articulations.\{md,json\}} when \code{run_dir}
-is given. Returns a \code{MethodologyArticulations} bundle that Phase 61.3
-attaches to the coding state.
+is given. Returns a \code{MethodologyArticulations} bundle that the
+coding step attaches to the coding state.
 }
 \keyword{internal}

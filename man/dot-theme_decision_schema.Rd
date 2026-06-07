@@ -8,10 +8,9 @@
 }
 \description{
 Used by the v2 multi-pass clustering engine (R/theme_algorithm_v2.R),
-reached via generate_themes_iterative(). Replaces the pre-Phase-52 sequential-
+reached via generate_themes_iterative(). Replaces the earlier sequential-
 merge schema (action = merge|standalone). The new shape enforces
-three load-bearing bias mitigations (Phase 49 audit + Phase 52
-design):
+three load-bearing bias mitigations:
 }
 \details{
 (a) Articulation requirement -- the AI must write the central

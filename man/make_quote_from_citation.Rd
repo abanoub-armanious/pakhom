@@ -64,7 +64,7 @@ as \code{exact_text}; the verification ladder confirms it matches
 inputs aren't part of pakhom's current data model. Errors with a
 clear message rather than silently producing a malformed quote.
 \item \code{content_block_location} (custom_content source) -- not
-yet supported for the same reason. Phase 21a uses plain_text source
+yet supported for the same reason. The Anthropic path uses plain_text source
 exclusively; if a future caller switches to custom_content, the
 bridge needs a block-index-to-char-offset mapping (caller would
 supply per-document block boundaries).

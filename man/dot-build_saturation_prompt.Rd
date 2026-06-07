@@ -11,7 +11,7 @@ Self-contained string. Includes:
 \itemize{
 \item the research focus (so the AI judges saturation in context)
 \item the recent saturation-curve trajectory (new-codes-per-window
-+ reuse density) -- this is the EVIDENCE the pre-Phase-56
++ reuse density) -- this is the EVIDENCE the earlier
 heuristic signals computed; now passed to the AI as data
 \item codebook composition summary (top-N codes by frequency)
 \item n_coded / n_corpus progress

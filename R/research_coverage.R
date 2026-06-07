@@ -1,5 +1,5 @@
 # ==============================================================================
-# Research-question coverage (Phase 63)
+# Research-question coverage
 # ==============================================================================
 #
 # A late, post-hoc AI pass that answers the question a researcher most cares
@@ -20,7 +20,7 @@
 
 .RESEARCH_COVERAGE_SCHEMA_VERSION <- "1.0.0"
 
-#' Construct a ResearchCoverage S3 object (Phase 63)
+#' Construct a ResearchCoverage S3 object
 #'
 #' @param facets List of per-facet coverage records (each: facet, coverage_level,
 #'   supporting_codes, landed_in_themes, coverage_note).
@@ -54,7 +54,7 @@ new_research_coverage <- function(facets = list(), overall_note = "",
   if (!lvl %in% .RESEARCH_COVERAGE_LEVELS) {
     # Defensive: strict mode enforces the enum, but never trust the wire. An
     # unrecognised level is treated as the most conservative descriptive bucket
-    # rather than dropped (we never silently invent a stronger claim).
+    # rather than dropped (the package never silently invents a stronger claim).
     lvl <- if (length(.as_char_vec(rec$landed_in_themes)) > 0L) "dispersed" else "peripheral"
   }
   list(
@@ -97,7 +97,7 @@ new_research_coverage <- function(facets = list(), overall_note = "",
   paste(blocks, collapse = "\n\n")
 }
 
-#' Assess research-question coverage over the final themes (Phase 63)
+#' Assess research-question coverage over the final themes
 #'
 #' One AI call. Reads the named facets / sub-questions out of the researcher's own
 #' \code{research_focus} + \code{concepts} and judges, per facet, where its
@@ -194,7 +194,7 @@ assess_research_coverage <- function(research_focus, concepts, theme_set, provid
 
 # ---- serialization + archive -------------------------------------------------
 
-#' Serialize a ResearchCoverage to a plain list (Phase 63)
+#' Serialize a ResearchCoverage to a plain list
 #' @keywords internal
 research_coverage_to_list <- function(coverage) {
   stopifnot(inherits(coverage, "ResearchCoverage"))
@@ -255,7 +255,7 @@ archive_research_coverage <- function(coverage, run_dir) {
   invisible(NULL)
 }
 
-#' Load a ResearchCoverage from run_dir/rules/research_coverage.json (Phase 63)
+#' Load a ResearchCoverage from run_dir/rules/research_coverage.json
 #'
 #' Fallback for a direct \code{generate_report()} / resume render that did not
 #' thread the in-memory object (parallel to
@@ -289,7 +289,7 @@ archive_research_coverage <- function(coverage, run_dir) {
     lvl)
 }
 
-#' Render the Research-Question Coverage report section (Phase 63)
+#' Render the Research-Question Coverage report section
 #'
 #' Returns an HTML block: a short framing preamble + one row per named facet
 #' (facet, coverage level, the themes it landed in, the AI's note) + the overall

@@ -2,7 +2,7 @@
 % Please edit documentation in R/16_report_helpers.R
 \name{.compute_theme_temporal_panel}
 \alias{.compute_theme_temporal_panel}
-\title{Compute the per-theme temporal panel (Phase 61.4)}
+\title{Compute the per-theme temporal panel}
 \usage{
 .compute_theme_temporal_panel(entries, metric_interpretation)
 }

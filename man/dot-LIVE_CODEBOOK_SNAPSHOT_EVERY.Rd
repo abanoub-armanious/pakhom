@@ -13,7 +13,7 @@ An object of class \code{integer} of length 1.
 \description{
 How many entries between codebook_live.json rewrites. Set to 1 for "after
 every entry"; default to 1 because the snapshot is small enough that
-atomic rewrite is cheap (10ms even for a 500-code codebook). Phase 56's
+atomic rewrite is cheap (10ms even for a 500-code codebook). A future
 performance pass may revisit this.
 }
 \keyword{datasets}

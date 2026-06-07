@@ -25,7 +25,7 @@ returns an \code{AuditLog} S3 object that can be passed to
 If the file already exists it is opened in append mode so that resumed runs
 continue the same log.
 
-Sprint-4 T1.4 additions:
+T1.4 additions:
 \itemize{
 \item Accepts \code{config} so methodology metadata can flow into every
 audit record. When \code{config$methodology$mode} is set,

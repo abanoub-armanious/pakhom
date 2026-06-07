@@ -2,7 +2,7 @@
 % Please edit documentation in R/structured_schemas.R
 \name{.clustering_schema}
 \alias{.clustering_schema}
-\title{Schema for the per-pass clustering proposal (Phase 60)}
+\title{Schema for the per-pass clustering proposal}
 \usage{
 .clustering_schema()
 }
@@ -22,7 +22,7 @@ The AI cannot leak name pressure into the structural decision.
 (b) Per-cluster \code{rationale} field. The AI must justify EACH proposed
 grouping in its own words, naming the codes it's grouping and why.
 This is the "look at each code carefully" property without falling
-into the pre-Phase-52 sequential-pairwise cascade. The AI still sees
+into the earlier sequential-pairwise cascade. The AI still sees
 ALL leaves at once -- the "full picture" -- but is forced to write a
 justification per cluster.
 

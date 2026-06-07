@@ -1,5 +1,5 @@
 # ==============================================================================
-# Output Stamping (Sprint-4 T1.7)
+# Output Stamping
 # ==============================================================================
 # Methodology mode appears in EVERY output artifact. Per AC4 (methodology
 # stamped on every output), absence of the stamp is itself a transparency
@@ -128,7 +128,7 @@ stamp_methodology_html <- function(mode, run_id = NULL) {
 
 #' Tiny HTML escaper used by the stamping API
 #'
-#' We have a bigger \code{.html_esc} elsewhere but this module is
+#' A bigger \code{.html_esc} exists elsewhere but this module is
 #' self-contained -- defining a safe local escaper avoids cross-file
 #' load-order coupling.
 #' @keywords internal

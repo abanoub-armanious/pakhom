@@ -1,5 +1,5 @@
 # ==============================================================================
-# Methodology Decision Aid -- T1.3 (Sprint-4 multi-mode architecture)
+# Methodology Decision Aid -- T1.3
 # ==============================================================================
 # Helps researchers choose a methodology mode appropriate for their study
 # design. Per the multi-mode investigation (Stream 6 finding), mode choice
@@ -30,7 +30,7 @@
 #'     researcher to read; returns NULL invisibly.
 #' }
 #'
-#' Per Sprint-4 design (AC3), there is no default methodology mode in
+#' Per AC3, there is no default methodology mode in
 #' \code{validate_config()}; this function exists so users can make an
 #' informed choice rather than picking arbitrarily.
 #'
@@ -248,7 +248,7 @@ methodology_decision_aid <- function(interactive = base::interactive(),
 }
 
 # ==============================================================================
-# Phase 60.10 -- configuration_selection_aid
+# configuration_selection_aid
 # ==============================================================================
 # Companion to methodology_decision_aid(). Once a researcher has picked a
 # methodology mode (Mode 1/2/3), this aid helps them set the right
@@ -261,15 +261,14 @@ methodology_decision_aid <- function(interactive = base::interactive(),
 # from 40-150 codes") is derived from those three runs.
 # ==============================================================================
 
-#' Configuration-selection aid (Phase 60.10)
+#' Configuration-selection aid
 #'
 #' Once you've picked a methodology mode via
 #' \code{methodology_decision_aid()}, this function helps you set
 #' \code{config.yaml} knobs based on your corpus shape. It encodes the
-#' empirical evidence from the Phase 60.8 re-validation: three Mode 2
-#' runs at different scales (40, 47, 157 codes) and different research
-#' foci (medication x sleep, medication review-path, emotional triggers)
-#' produced 6, 10, and 7 themes respectively -- all in the
+#' empirical evidence from re-validation: three Mode 2 runs at
+#' different scales (40, 47, 157 codes) and different research-focus
+#' breadths produced 6, 10, and 7 themes respectively -- all in the
 #' publication-quality 4-10 range with 0% single-code themes.
 #'
 #' The function returns a list with: \code{expected_themes} (range),
@@ -285,8 +284,8 @@ methodology_decision_aid <- function(interactive = base::interactive(),
 #' @param estimated_codebook_size Integer; approximate number of codes
 #'   you expect after saturation. If NULL, the function estimates from
 #'   \code{corpus_size} (typical ratio: 1 code per 1.5-4 entries
-#'   depending on focus breadth, observed in Phase 60.8 at 40 codes
-#'   from 60 coded entries and 157 codes from 140 coded entries).
+#'   depending on focus breadth, e.g. 40 codes from 60 coded entries
+#'   up to 157 codes from 140 coded entries).
 #' @param focus_shape One of \code{"narrow_intersection"} (e.g.,
 #'   "medication x sleep x binge"), \code{"single_focal"} (e.g.,
 #'   "medication adherence"), or \code{"broad"} (e.g., "emotional
@@ -374,7 +373,7 @@ configuration_selection_aid <- function(mode,
   }
 
   # Mode 2: estimate codebook size, then theme range from v2 empirical evidence.
-  # Phase 60.8 ratios:
+  # Observed ratios:
   #   - narrow_intersection: ~40-47 codes from 60-67 coded entries (~0.7-0.8 codes/coded)
   #   - broad (emotional triggers): ~157 codes from 140 coded entries (~1.1 codes/coded)
   # Coded entries are typically 25-60% of corpus size (saturation kicks in around the 25% mark
@@ -396,7 +395,7 @@ configuration_selection_aid <- function(mode,
     estimated_codebook_size <- as.integer(estimated_codebook_size[1])
   }
 
-  # Empirical bracket from Phase 60.8:
+  # Empirical bracket:
   # Themes: low end mean(6,10,7)-1sd, high end mean+1sd; rounded to [4, 12].
   # Passes scale with log2(codebook size): 40 codes -> 1 pass; 157 codes -> 3 passes.
   expected_passes <- if (estimated_codebook_size <= 60L) 1L
@@ -421,14 +420,14 @@ configuration_selection_aid <- function(mode,
   notes_str <- if (estimated_codebook_size < 40L) {
     paste0(
       "Estimated codebook (", estimated_codebook_size, " codes) is below ",
-      "the empirically-validated bracket (40-157 codes from Phase 60.8). ",
+      "the empirically-validated bracket (40-157 codes). ",
       "v2 should still work but the theme range is extrapolated; consider ",
       "running a smoke first."
     )
   } else if (estimated_codebook_size > 200L) {
     paste0(
       "Estimated codebook (", estimated_codebook_size, " codes) is above ",
-      "the empirically-validated bracket (Phase 60.8 tested up to 157). ",
+      "the empirically-validated bracket (tested up to 157 codes). ",
       "v2's single-call-per-pass should scale to ~500 codes within ",
       "OpenAI gpt-4o's context window, but quality at that scale is ",
       "unknown; smoke first."
@@ -436,7 +435,7 @@ configuration_selection_aid <- function(mode,
   } else {
     paste0(
       "Estimated codebook (", estimated_codebook_size, " codes) is within ",
-      "the empirically-validated bracket (Phase 60.8: 40-157 codes). ",
+      "the empirically-validated bracket (40-157 codes). ",
       "Expect ", expected_passes, " substantive clustering pass(es) before ",
       "AI-declared convergence."
     )
@@ -459,7 +458,7 @@ configuration_selection_aid <- function(mode,
 #' Estimate wall-time for a run based on corpus size + mode
 #' @keywords internal
 .config_wall_time_estimate <- function(corpus_size, mode) {
-  # Phase 60.8 timings: 250-entry sample -> 6-12 min for Mode 2.
+  # Observed timings: 250-entry sample -> 6-12 min for Mode 2.
   # Scaling: dominated by progressive coding (one AI call per entry).
   # Approx: corpus_size * 0.04 min per entry + 1 min fixed overhead.
   if (mode == "reflexive_scaffold") {
@@ -472,7 +471,7 @@ configuration_selection_aid <- function(mode,
 #' Estimate OpenAI gpt-4o API spend for a run
 #' @keywords internal
 .config_api_spend_estimate <- function(corpus_size, mode) {
-  # Phase 60.8 actual costs on 250-entry runs: ~$1-3 per Mode 2 run.
+  # Observed costs on 250-entry runs: ~$1-3 per Mode 2 run.
   # Scaling: corpus_size * $0.01 per entry (one coding call + overhead).
   # This is a rough order-of-magnitude; OpenAI billing dashboard is
   # authoritative.

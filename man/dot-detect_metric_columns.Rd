@@ -33,7 +33,7 @@ columns to avoid referencing missing fields). This matches the explicit
 \code{detect_columns()} mapping path in \code{R/07_data_loading.R}.
 
 Mirrors (and consolidates) the inline detection in
-\code{compute_correlations} (R/14_correlations.R:82-106; Phase 50b).
+\code{compute_correlations} (R/14_correlations.R:82-106).
 Future cleanup: refactor that site to call this helper.
 }
 \section{Caveat -- sentiment_score collision}{

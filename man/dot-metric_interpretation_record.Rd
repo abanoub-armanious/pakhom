@@ -7,10 +7,10 @@
 .metric_interpretation_record(metric_interpretation, column_name)
 }
 \description{
-Phase 61.3b. Looks up the AI's per-metric interpretation (from
+Looks up the AI's per-metric interpretation (from
 \code{MetricInterpretation$metrics}) by exact \code{column_name}. Only numeric
 metric columns are matched here; timestamp columns are handled by the
-per-theme temporal panel (Phase 61.4). Returns NULL when no record exists --
+per-theme temporal panel. Returns NULL when no record exists --
 the per-column fallback to the legacy stats battery (audit notes N1/N2).
 }
 \keyword{internal}

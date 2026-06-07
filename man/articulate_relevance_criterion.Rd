@@ -2,7 +2,7 @@
 % Please edit documentation in R/methodology_assistant.R
 \name{articulate_relevance_criterion}
 \alias{articulate_relevance_criterion}
-\title{Articulate the study's relevance criterion (Phase 61.2)}
+\title{Articulate the study's relevance criterion}
 \usage{
 articulate_relevance_criterion(
   research_focus,

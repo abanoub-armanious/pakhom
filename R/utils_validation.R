@@ -55,7 +55,7 @@ validate_class <- function(x, cls, caller = NULL) {
 
 #' Validate a methodology mode declaration
 #'
-#' Sprint-4 multi-mode architecture: every run must declare its
+#' Multi-mode architecture: every run must declare its
 #' methodological posture (reflexive_scaffold / codebook_collaborative /
 #' framework_applied). The declaration determines which AI behaviors are
 #' permitted, which artifacts are mandatory, and which report sections are

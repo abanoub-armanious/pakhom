@@ -56,7 +56,7 @@ create_ai_provider <- function(provider = "openai", config = NULL) {
       if (provider == "openai") 128000L else 200000L),
     # T1.6 (AC9): methodology rules generated from the config and injected
     # as a system-prompt prefix on every ai_complete() call. When `config`
-    # is a full ThematicConfig with a methodology block we generate them
+    # is a full ThematicConfig with a methodology block they are generated
     # eagerly; otherwise this stays empty (legacy / test contexts continue
     # to work bit-for-bit). Rules are stable for the lifetime of the
     # provider object -- the run is the unit of methodology declaration.
@@ -94,13 +94,13 @@ create_ai_provider <- function(provider = "openai", config = NULL) {
 #' provenance metadata (model, usage, raw_response, finish_reason,
 #' prompt_hash, request_id). Callers that only need the response text should
 #' extract \code{$content}; downstream audit-log capture (T1.4) and
-#' \code{replay_run()} (OS.5) consume the other fields.
+#' \code{replay_run()} consume the other fields.
 #'
-#' Note: This is a Sprint-4 T1.1 refactor. Prior to T1.1 this function
+#' Note: This is the T1.1 refactor. Prior to T1.1 this function
 #' returned a bare character string; the structured-list return is the
-#' single most leveraged change in Sprint-4 because it unblocks T1.4
+#' single most leveraged change because it unblocks T1.4
 #' (audit log raw-response capture), T1.2 (Structured Outputs migration),
-#' and OS.5 (replay_run from cached responses) simultaneously. The function
+#' and replay (replay_run from cached responses) simultaneously. The function
 #' is internal (not exported), so the change touches only in-package callers.
 #'
 #' @param provider AIProvider object
@@ -113,7 +113,7 @@ create_ai_provider <- function(provider = "openai", config = NULL) {
 #' @param json_mode Logical: request JSON response format
 #' @param max_retries Number of retry attempts on failure
 #' @param response_schema Optional JSON Schema (as an R list) for the response
-#'   shape. When provided (Sprint-4 T1.2), the providers enforce the schema
+#'   shape. When provided, the providers enforce the schema
 #'   server-side: OpenAI via \code{response_format = list(type = "json_schema",
 #'   strict = TRUE, ...)}, Anthropic via a forced tool-use call whose
 #'   \code{input_schema} is the schema. The returned \code{$content} is a JSON
@@ -125,7 +125,7 @@ create_ai_provider <- function(provider = "openai", config = NULL) {
 #'   (o1/o3/o4) silently fall back to \code{json_mode} because they don't
 #'   support strict json_schema as of writing.
 #' @param documents Optional list of source documents to enable Anthropic's
-#'   Citations API (Sprint-4 T0.1 part 3b). Each element is a named list with
+#'   Citations API. Each element is a named list with
 #'   \code{$id} (character, internal pakhom identifier preserved on the
 #'   returned citations for downstream bridging), \code{$text} (character,
 #'   the document content), and optional \code{$title} (character, becomes
@@ -143,12 +143,12 @@ create_ai_provider <- function(provider = "openai", config = NULL) {
 #'   incompatible but produces no text blocks for citations to attach to.
 #'   When both are passed the request is sent as-is and \code{$citations}
 #'   will typically be empty -- callers should choose one mode or the other
-#'   per the architecture (phase 21c uses citations alone for Anthropic).
-#' @param methodology_override Optional character (Phase 56; default NULL).
+#'   per the architecture (the Anthropic path uses citations alone).
+#' @param methodology_override Optional character (default NULL).
 #'   When NULL, the call uses \code{provider$methodology_rules} as the
 #'   system-prompt prefix (AC9 default). When a non-NULL string is
 #'   supplied, it replaces that prefix for this single call only --
-#'   used by the Phase 54 inductive emergent-themes pass to swap in the
+#'   used by the inductive emergent-themes pass to swap in the
 #'   inductive variant of the Mode 3 rule (\code{generate_methodology_rules
 #'   (config, inductive_pass = TRUE)}) instead of the default deductive
 #'   rule that forbids new-construct generation. Empty string (\code{""})
@@ -170,7 +170,7 @@ create_ai_provider <- function(provider = "openai", config = NULL) {
 #'       \code{end_turn}/\code{max_tokens}/\code{stop_sequence}/\code{tool_use}
 #'       are remapped).
 #'     \item \code{raw_response}: list. Full parsed API response body, for
-#'       replay (OS.5) and debugging.
+#'       replay and debugging.
 #'     \item \code{prompt_hash}: character. SHA-256 hex digest of the request
 #'       inputs (prompt + system_prompt + model + temperature + max_tokens +
 #'       json_mode + response_schema + documents). Used as the cache key for
@@ -190,7 +190,7 @@ create_ai_provider <- function(provider = "openai", config = NULL) {
 #'       \code{start_page_number}/\code{end_page_number} for page_location,
 #'       \code{start_block_index}/\code{end_block_index} for
 #'       content_block_location). Empty list when \code{documents} was NULL
-#'       or no citations were returned. Phase 21b's
+#'       or no citations were returned. The
 #'       \code{make_quotes_from_citations()} converts these to
 #'       \code{QuoteProvenance} objects with
 #'       \code{citation_source = "anthropic_citations_api"}.
@@ -221,9 +221,9 @@ ai_complete <- function(provider, prompt, system_prompt = NULL,
   # come FIRST so they "frame" the call before any task-specific
   # instruction can pull the model toward mode-violating behavior.
   #
-  # Phase 56 (Phase 54 deferral iii): methodology_override is an
+  # methodology_override is an
   # opt-in per-call replacement of the provider's default rules.
-  # The Phase 54 inductive emergent-themes pass uses this to swap in
+  # The inductive emergent-themes pass uses this to swap in
   # the inductive variant of the Mode 3 rule (which permits new code
   # generation on anomaly residuals) instead of the default deductive
   # rule (which forbids it). NULL = use provider default; non-NULL
@@ -348,7 +348,7 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
     body$max_tokens <- max_tokens
   }
 
-  # Phase 59 Stage 2 audit: pass OpenAI's `seed` field for best-effort
+  # Pass OpenAI's `seed` field for best-effort
   # determinism. OpenAI's docs say `seed` is best-effort given a stable
   # `system_fingerprint`; that fingerprint is preserved inside the cached
   # raw_response (when capture_raw_responses is on), where a divergent
@@ -422,7 +422,7 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
                                           response_schema = response_schema,
                                           documents = NULL),
     request_id    = request_id,
-    # OpenAI doesn't have a Citations API; we error earlier when documents is
+    # OpenAI doesn't have a Citations API; this errors earlier when documents is
     # non-NULL. Always-present empty list keeps the canonical shape.
     citations     = list()
   )
@@ -453,17 +453,17 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
       "downgrade to citation_source = 'model_freeform'. Choose one mode: ",
       "use `documents` alone (JSON-mode prompt) for the prevention layer, ",
       "or `response_schema` alone (without documents) for the schema-only ",
-      "path. Phase 21c's .code_entry_progressive dispatch picks the right ",
+      "path. The .code_entry_progressive dispatch picks the right ",
       "one per provider.",
       call. = FALSE
     )
   }
 
   # Anthropic uses 'system' as a top-level parameter, not in messages.
-  # When documents are supplied (Sprint-4 T0.1 part 3b), the user message
+  # When documents are supplied, the user message
   # content becomes a content array of one document block per source
   # (citations.enabled=TRUE) followed by a text block carrying the prompt.
-  # When documents is NULL/empty, we keep the legacy string-content shape
+  # When documents is NULL/empty, the legacy string-content shape is kept
   # bit-for-bit so existing callers' request bodies don't change.
   user_content <- .anthropic_build_user_content(prompt, documents)
   messages <- list(list(
@@ -530,12 +530,12 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
     stop("Anthropic API returned empty content array")
   }
 
-  # T1.2: when response_schema is set we forced tool_use, so extract the
+  # T1.2: when response_schema is set tool_use was forced, so extract the
   # tool input and JSON-stringify it into $content (caller's contract is
   # "content is a string"; downstream parse_json_safely round-trips it).
   # When no schema, take the first text block as before.
   #
-  # T0.1 part 3b: in either case we walk the full content array for any
+  # T0.1 part 3b: in either case walk the full content array for any
   # citations attached to text blocks. Forced tool_use produces no text
   # blocks (so citations is empty) -- callers that want citations must
   # avoid response_schema. Free-text responses with documents enabled
@@ -553,7 +553,7 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
       stop("Anthropic API: forced tool_use returned no record_analysis call")
     }
     content <- as.character(jsonlite::toJSON(tool_block$input, auto_unbox = TRUE))
-    # We forced tool_use so stop_reason is always "tool_use" -- map to "stop"
+    # tool_use was forced so stop_reason is always "tool_use" -- map to "stop"
     # because semantically this was a normal completion, not the model
     # choosing to invoke an external tool.
     finish_reason <- "stop"
@@ -599,10 +599,10 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 }
 
 # ==============================================================================
-# Internal Helpers -- Response Structuring (Sprint-4 T1.1)
+# Internal Helpers -- Response Structuring
 # ==============================================================================
 # These helpers shape the structured return value of ai_complete(). The goal
-# is to give the audit log (T1.4) and replay_run() (OS.5) deterministic,
+# is to give the audit log (T1.4) and replay_run() deterministic,
 # provider-agnostic access to provenance metadata while keeping the bare
 # content extraction trivial for existing callers (response$content).
 
@@ -613,9 +613,9 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 #' serialization-format changes. The set of fields hashed is exactly those
 #' that determine the response: prompt + system_prompt + model + temperature
 #' + max_tokens + json_mode + response_schema + documents. Used as the cache
-#' key for replay_run() (OS.5).
+#' key for replay_run().
 #'
-#' Sprint-4 T1.2 added response_schema; T0.1 part 3b added documents. Pre-
+#' T1.2 added response_schema; T0.1 part 3b added documents. Pre-
 #' addition callers (NULL for the new arg) produce the same hashes as
 #' before because NULL serializes to "null" and the field was implicitly
 #' absent.
@@ -719,7 +719,7 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 }
 
 # ==============================================================================
-# Citations API helpers (Sprint-4 T0.1 part 3b)
+# Citations API helpers
 # ==============================================================================
 # T0.1 anti-fabrication has two layers: DETECTION (verification ladder in
 # R/quote_provenance.R, shipped phases 17-19) and PREVENTION (Anthropic
@@ -728,8 +728,8 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 # model literally cannot return a span that doesn't exist in the source.
 # This module provides the provider-side primitives; the bridge from
 # Anthropic citations to pakhom's QuoteProvenance schema lives in
-# R/quote_provenance.R (phase 21b) and the caller wiring in R/09_coding.R
-# (phase 21c).
+# R/quote_provenance.R and the caller wiring in R/09_coding.R
+#
 
 #' Validate and normalize the documents argument
 #'
@@ -791,7 +791,7 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 #' Anthropic accepts plain-text source via
 #' \code{source = list(type="text", media_type="text/plain", data=text)}
 #' and chunks it into sentences; returned citations carry char_location
-#' indices into the original text. Phase 21a uses this mode exclusively;
+#' indices into the original text. The Anthropic path uses this mode exclusively;
 #' custom_content / PDF / file-id sources can be added later by extending
 #' this helper without breaking callers.
 #'

@@ -1,7 +1,7 @@
 # ==============================================================================
-# Mode 1 (Reflexive Scaffold) Orchestrator -- Sprint-4 phase 31
+# Mode 1 (Reflexive Scaffold) Orchestrator
 # ==============================================================================
-# Closes audit findings C1 + C2 from phase 30 wrap-up: Mode 1's
+# Closes audit findings C1 + C2: Mode 1's
 # run_provocateur_questioning is operational but lacks the AC4 + AC7
 # scaffolding Modes 2 + 3 have. This file builds:
 #
@@ -47,8 +47,8 @@
 
 #' ProvocationCoverage schema version
 #'
-#' 1.0.0 -- initial phase 31 release.
-#' 2.0.0 -- phase 31 audit fixes (audit C: C1 + H1 + H2 + H3 + M3):
+#' 1.0.0 -- initial release.
+#' 2.0.0 -- audit fixes (C1 + H1 + H2 + H3 + M3):
 #'   * \code{explicit_skip_reasons} and \code{attempts_per_category}
 #'     stored as named lists (not named integer vectors) so they
 #'     serialize faithfully via \code{jsonlite::write_json} (the
@@ -69,7 +69,7 @@
 #'     (TRUE -- the data tibble IS passed) and
 #'     \code{llm_prompt_includes_full_corpus} (FALSE -- current
 #'     prompts only embed supporting-entry text).
-#' 2.1.0 -- phase 33 (M1.3 reflexive memos): added \code{n_memos}
+#' 2.1.0 -- M1.3 reflexive memos: added \code{n_memos}
 #'   and \code{memos_by_type} informational fields. Memo writing is
 #'   a researcher activity, not a pipeline gate -- the headline
 #'   \code{no_silent_skip} boolean is unchanged. The fields exist so
@@ -195,7 +195,7 @@ compute_mode1_coverage <- function(reflection_log, theme_set, data,
   n_themes_input <- length(theme_names_all)
   n_categories_requested <- length(requested_categories)
 
-  # H1 (audit C, phase 31): partition attempts into in-scope vs
+  # H1: partition attempts into in-scope vs
   # out-of-scope WRT requested_categories. An attempt against a category
   # outside the requested subset is itself a coverage anomaly worth
   # surfacing (it could only happen if the orchestrator and the coverage
@@ -203,7 +203,7 @@ compute_mode1_coverage <- function(reflection_log, theme_set, data,
   # exactly the kind of silent drift the Tier-0 commitment is meant to
   # surface). Counting them under n_attempts_recorded while filtering
   # them OUT of attempts_per_category produced contradictory recorded >
-  # expected values; the audit caught this. Now we partition explicitly
+  # expected values; the audit caught this. Now they are partitioned explicitly
   # and surface the unexpected count as its own field.
   in_scope_mask <- attempts$category %in% requested_categories
   attempts_in_scope <- attempts[in_scope_mask, , drop = FALSE]
@@ -237,11 +237,11 @@ compute_mode1_coverage <- function(reflection_log, theme_set, data,
   # Silently-skipped themes are NOT counted as expected attempts because
   # their absence is the silent-skip signal -- counting them here would
   # let attempts_complete pretend they were processed.
-  # L2 (audit C, phase 31): clamp at zero. If a future orchestrator bug
+  # L2: clamp at zero. If a future orchestrator bug
   # caused a theme to appear in BOTH attempts and skipped_themes,
   # the subtraction below could go negative; the existing run loop's
   # `next` after the explicit-skip rbind prevents this on the live
-  # path, but we defend the invariant explicitly.
+  # path, but the invariant is defended explicitly.
   expected_attempts <- max(0L, as.integer(
     (n_themes_input - n_themes_explicit_skip - n_themes_silently_skipped) *
       n_categories_requested
@@ -272,12 +272,12 @@ compute_mode1_coverage <- function(reflection_log, theme_set, data,
     sum(attempts_in_scope$n_emitted == 0L) else 0L
   n_attempts_with_emit <- n_attempts_recorded - n_attempts_with_zero_emit
 
-  # M3 (audit C, phase 31): the per-category prompts (R/provocateur.R
+  # M3: the per-category prompts (R/provocateur.R
   # provoke_*) instruct the LLM to "search the FULL corpus" but the
   # prompt builders include only the theme's supporting entries (via
   # .build_theme_supporting_entries) -- the rest of the corpus is NOT
   # in the prompt. Asserting "no silent corpus truncation = TRUE"
-  # would overclaim. We instead surface the prompt-context shape: the
+  # would overclaim. Instead surface the prompt-context shape: the
   # corpus IS available to the per-category functions (passed as the
   # `data` argument), but the LLM only sees a subset. Future phases
   # may add corpus-search via embeddings + k-nearest neighbors; until
@@ -285,12 +285,12 @@ compute_mode1_coverage <- function(reflection_log, theme_set, data,
   # cannot see, so any counter-evidence it returns is drawn from
   # training data -- which the verification ladder catches as
   # fabrication unless the model happens to know the entry_id space.
-  # Phase 31 keeps the field for future use but explicitly downgrades
+  # The field is kept for future use but explicitly downgrades
   # its semantics in the rendered card; see render method.
   corpus_provided_to_per_category_fns <- TRUE
   llm_prompt_includes_full_corpus     <- FALSE  # current architecture
 
-  # Phase 33 (M1.3): count typed memos. Informational only -- memo
+  # M1.3: count typed memos. Informational only -- memo
   # writing is a researcher activity, not an AI-pipeline gate, so
   # n_memos does NOT enter the no_silent_skip headline. But the
   # coverage card surfaces the count so the methodology paper KPI
@@ -325,7 +325,7 @@ compute_mode1_coverage <- function(reflection_log, theme_set, data,
     n_themes_input                = as.integer(n_themes_input),
     n_themes_attempted            = as.integer(n_themes_attempted),
     n_themes_explicit_skip        = as.integer(n_themes_explicit_skip),
-    # C1 (audit C, phase 31): named integer vectors lose their names
+    # C1: named integer vectors lose their names
     # when serialized via jsonlite::write_json with auto_unbox=TRUE
     # (the audit caught coverage_mode1.json having anonymous arrays).
     # Store explicit_skip_reasons + attempts_per_category as named
@@ -675,7 +675,7 @@ render_tier0_coverage_card.ProvocationCoverage <- function(x, ...) {
 #'   select per theme. Wired through from
 #'   \code{config$analysis$themes$quotes_per_theme}; defaults to 3.
 #' @param config Optional ThematicConfig (or config list). When supplied
-#'   (Phase 55), \code{config$data$column_mappings$metric_columns} is
+#' \code{config$data$column_mappings$metric_columns} is
 #'   used to detect dataset-specific metric columns for the per-theme
 #'   Median(MAD) + Mean(SD) summary line in the Mode 1 report. When NULL
 #'   or empty, metrics auto-detect from the data via
@@ -684,7 +684,7 @@ render_tier0_coverage_card.ProvocationCoverage <- function(x, ...) {
 #'   \code{n_entries}, \code{participant_spread}, \code{provocations}
 #'   (count by category + total), \code{quotes} (raw representative
 #'   quotes -- NOT sentiment-sorted because Mode 1 has no sentiment),
-#'   plus Phase 55 fields: \code{metric_cols} (character vector) and
+#'   plus the metric fields: \code{metric_cols} (character vector) and
 #'   \code{metric_stats} (named list of per-metric Median/MAD/Mean/SD/
 #'   n_observed records).
 #' @export
@@ -699,9 +699,9 @@ compute_mode1_theme_stats <- function(data, theme_set, reflection_log,
          call. = FALSE)
   }
 
-  # Phase 55: dataset-agnostic metric column detection (Mode 1 light
+  # dataset-agnostic metric column detection (Mode 1 light
   # touch). Mode 1 themes are researcher-supplied + flat (no AI sub-
-  # themes), so we compute the same per-metric Median(MAD) + Mean(SD)
+  # themes), so it computes the same per-metric Median(MAD) + Mean(SD)
   # at the THEME level (not per-subtheme).
   metric_cols <- .detect_metric_columns(data, config)
 
@@ -743,7 +743,7 @@ compute_mode1_theme_stats <- function(data, theme_set, reflection_log,
     spread <- .compute_participant_spread(entries)
 
     # Raw representative quotes -- first-N excerpts from the supporting
-    # entries. Mode 1 has no sentiment to sort by, so we use entry order.
+    # entries. Mode 1 has no sentiment to sort by, so entry order is used.
     n_quotes_to_show <- min(quotes_per_theme, nrow(entries))
     text_col <- if ("std_text" %in% names(entries)) "std_text"
                 else if ("original_text" %in% names(entries)) "original_text"
@@ -764,7 +764,7 @@ compute_mode1_theme_stats <- function(data, theme_set, reflection_log,
       items = list()
     )
 
-    # Phase 55: per-metric Median(MAD) + Mean(SD) for each auto-detected
+    # per-metric Median(MAD) + Mean(SD) for each auto-detected
     # metric column. Mode 1 has no subthemes (researcher-supplied flat
     # themes), so these stats live at the THEME level.
     metric_stats <- list()
@@ -845,13 +845,13 @@ compute_mode1_theme_stats <- function(data, theme_set, reflection_log,
   present <- expected[file.exists(file.path(run_dir, expected))]
   missing <- setdiff(expected, present)
 
-  # Phase 33 (M1.3): the memos/ directory is conditionally expected --
+  # M1.3: the memos/ directory is conditionally expected --
   # when at least one .md file lives under memos/, the directory MUST
   # be present (it's the canonical persistence layer for researcher
   # memos per AC4). Empty memo state is a valid Mode 1 outcome (a
   # researcher might have used the run only for AI provocations
   # without authoring memos), so memos/ is NOT expected unconditionally.
-  # We surface the count separately so the report's integrity card
+  # The count is surfaced separately so the report's integrity card
   # shows it.
   memos_dir <- file.path(run_dir, "memos")
   memo_files <- if (dir.exists(memos_dir))
@@ -913,7 +913,7 @@ compute_mode1_theme_stats <- function(data, theme_set, reflection_log,
   rl_path <- file.path(output_dir, "reflection_log.json")
   tryCatch({
     # Provocations carry QuoteProvenance objects which jsonlite handles
-    # via their list shape; we write the whole reflection_log directly.
+    # via their list shape; the whole reflection_log is written directly.
     jsonlite::write_json(reflection_log, rl_path,
                           pretty = TRUE, auto_unbox = TRUE,
                           force = TRUE)
@@ -1158,7 +1158,7 @@ run_mode1 <- function(data, theme_set,
   }
   meth_mode <- .config_methodology_mode(config)
   if (!identical(meth_mode, "reflexive_scaffold")) {
-    # Audit A H1 (phase 31): use a single multi-line message for parity
+    # Audit A H1: use a single multi-line message for parity
     # with run_analysis()'s Mode 1 refusal -- a reviewer hitting either
     # error should get the same shape of guidance.
     stop(paste0(
@@ -1221,7 +1221,7 @@ run_mode1 <- function(data, theme_set,
         log_info("Latest run is not Mode 1 ('{cand_meta$methodology_mode %||% \"<no metadata>\"}'); starting fresh.")
       }
     } else {
-      # Audit A H2 (phase 31): parity with run_analysis()'s "no previous
+      # Audit A H2: parity with run_analysis()'s "no previous
       # run found" log so a resume=TRUE invocation against an empty
       # results_dir doesn't fall through silently.
       log_info("No previous run found in {results_base}; starting fresh.")
@@ -1260,10 +1260,10 @@ run_mode1 <- function(data, theme_set,
   }
 
   # ---- AI provider (hoisted above init_run_state for L4 parity) -----------
-  # Audit A L4 (phase 31): create_ai_provider was previously called AFTER
+  # Audit A L4: create_ai_provider was previously called AFTER
   # init_run_state, which left the run_metadata.json without
   # model_primary / model_fast fields that Mode 2/3 carry. Hoisting the
-  # call up here lets us pass the model fields into init_run_state for
+  # call up here passes the model fields into init_run_state for
   # cross-mode comparability of run_metadata.json.
   provider <- create_ai_provider(config$ai$provider, config)
 
@@ -1324,7 +1324,7 @@ run_mode1 <- function(data, theme_set,
         log_info("Resuming with {length(resume_log$provocations)} prior provocation(s)")
       }
     }
-    # Phase 33 (M1.3): hydrate memos from on-disk Markdown files even
+    # M1.3: hydrate memos from on-disk Markdown files even
     # if the reflection_log.json is unavailable (memos have their own
     # canonical persistence layer per AC4 -- the Markdown files are
     # the source of truth, not the JSON copy). This keeps
@@ -1336,7 +1336,7 @@ run_mode1 <- function(data, theme_set,
                                   list()
                                 })
     if (length(on_disk_memos) > 0L) {
-      # Phase 33 audit (resume disagreement): if the JSON had memos
+      # Resume disagreement: if the JSON had memos
       # AND the on-disk count differs, log a warning so the divergence
       # is visible in the run log rather than silent. The on-disk
       # version always wins (per AC4 the .md files are canonical), but
@@ -1399,7 +1399,7 @@ run_mode1 <- function(data, theme_set,
                                              methodology_mode = meth_mode)
               else NA_character_
 
-  # Phase 33 (M1.3): persist any memos in the reflection log to
+  # M1.3: persist any memos in the reflection log to
   # outputs/<run>/memos/<id>.md. Idempotent + safe-on-empty (returns
   # immediately when no memos). The memos directory is the canonical
   # source of truth for memo content; the reflection_log.json carries
@@ -1477,7 +1477,7 @@ run_mode1 <- function(data, theme_set,
 
 #' Read a reflection_log.json back into a ResearcherReflectionLog
 #'
-#' Audit A H3 (phase 31): a previous version used
+#' Audit A H3: a previous version used
 #' \code{simplifyVector = TRUE}, which collapsed
 #' \code{provocations} (a list of uniform-shape objects) into a row-frame
 #' AND stripped the \code{Provocation} / \code{QuoteProvenance} S3 class
@@ -1512,7 +1512,7 @@ run_mode1 <- function(data, theme_set,
     raw$provocations <- list()
   }
 
-  # Phase 33 audit C1: re-class each Memo on read. Without this,
+  # Re-class each Memo on read. Without this,
   # downstream consumers gating on inherits(m, "Memo")
   # (.build_mode1_memo_section, persist_memos, the n_memos counter on
   # ProvocationCoverage, etc.) silently treat the resumed run as

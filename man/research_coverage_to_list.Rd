@@ -2,11 +2,11 @@
 % Please edit documentation in R/research_coverage.R
 \name{research_coverage_to_list}
 \alias{research_coverage_to_list}
-\title{Serialize a ResearchCoverage to a plain list (Phase 63)}
+\title{Serialize a ResearchCoverage to a plain list}
 \usage{
 research_coverage_to_list(coverage)
 }
 \description{
-Serialize a ResearchCoverage to a plain list (Phase 63)
+Serialize a ResearchCoverage to a plain list
 }
 \keyword{internal}

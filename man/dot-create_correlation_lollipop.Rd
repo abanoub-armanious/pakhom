@@ -38,7 +38,7 @@ marking analyst-internal / circular pairs (or NULL). Such pairs are
 labelled "excluded (circular)" instead of being shown as a finding.}
 }
 \description{
-Phase 58 Tier 5 C-10 fallback: when the variable count exceeds the
+Fallback: when the variable count exceeds the
 heatmap legibility threshold (\code{max_inline_vars}), render the
 top-N unique pairs by \code{|r|} as a horizontal lollipop. Pairs
 are extracted from the upper triangle of the correlation matrix

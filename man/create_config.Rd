@@ -62,7 +62,7 @@ The path to the created config file (invisibly).
 }
 \description{
 Generates a valid YAML config with sensible defaults and writes it to disk.
-Per T1.3 (phase 25-27) the \code{methodology} block is mandatory in
+Per T1.3 the \code{methodology} block is mandatory in
 every config -- this helper writes it for you given the
 \code{methodology} argument.
 }

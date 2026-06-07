@@ -18,7 +18,7 @@ object from \code{\link{compute_corpus_coverage}}.}
 Invisible path to the written JSON.
 }
 \description{
-Phase 58 Tier 8 H-10: pre-Tier-8 the CorpusCoverage S3 was computed
+An earlier version computed the CorpusCoverage S3
 in memory and rendered as HTML but never written to disk as
 machine-readable data. A reproducibility audit couldn't read
 coverage state without re-running the pipeline. This writer

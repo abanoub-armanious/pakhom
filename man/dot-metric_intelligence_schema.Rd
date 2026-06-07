@@ -2,7 +2,7 @@
 % Please edit documentation in R/structured_schemas.R
 \name{.metric_intelligence_schema}
 \alias{.metric_intelligence_schema}
-\title{Schema for the AI's per-metric interpretation + primitive requests (Phase 61.2)}
+\title{Schema for the AI's per-metric interpretation + primitive requests}
 \usage{
 .metric_intelligence_schema()
 }

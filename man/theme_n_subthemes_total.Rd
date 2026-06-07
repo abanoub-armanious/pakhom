@@ -13,7 +13,7 @@ theme_n_subthemes_total(theme)
 Integer; named-subtheme count across all depths.
 }
 \description{
-Phase 58 Tier 1 AF-3: with C-12's recursive walker, subthemes can
+with C-12's recursive walker, subthemes can
 nest. This getter counts every named subtheme regardless of depth so
 downstream consumers can report the "true" decomposition size of a
 theme.

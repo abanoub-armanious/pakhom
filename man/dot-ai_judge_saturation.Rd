@@ -2,7 +2,7 @@
 % Please edit documentation in R/saturation_arbiter.R
 \name{.ai_judge_saturation}
 \alias{.ai_judge_saturation}
-\title{Phase 56: AI saturation arbiter}
+\title{AI saturation arbiter}
 \usage{
 .ai_judge_saturation(
   state,
@@ -42,7 +42,7 @@ articulation, rationale, and a success flag (FALSE on parse/API failure).
 }
 \details{
 Articulations under 30 chars downgrade "reached" to "not_yet" --
-Phase 52's anti-vacuous pattern. Failures are NOT counted against the
+The anti-vacuous pattern. Failures are NOT counted against the
 verdict (the caller's circuit breaker tracks failures separately).
 }
 \keyword{internal}

@@ -45,7 +45,7 @@ before invoking the provocateur loop. \code{\link{run_analysis}}
 so the loading code path is canonically identical whether the
 corpus is consumed by \code{run_analysis} or by \code{run_mode1}.
 
-Pre-Phase-59 users had to call the internal trio
+Previously users had to call the internal trio
 (\code{pakhom:::load_and_combine_tables} +
 \code{pakhom:::detect_columns} + \code{pakhom:::preprocess_text})
 to construct a Mode 1 \code{data} argument from a YAML config,

@@ -16,7 +16,7 @@
 
 #' Compute the effective per-entry character cap given a provider + config
 #'
-#' Phase 50f replacement for the hardcoded \code{.MAX_ENTRY_CHARS = 8000L}.
+#' Replacement for the hardcoded \code{.MAX_ENTRY_CHARS = 8000L}.
 #' Resolution order:
 #' \enumerate{
 #'   \item If \code{config$ai$max_entry_chars} is a positive integer, use
@@ -26,7 +26,7 @@
 #'     completion and assigning the remaining ~40\% to per-entry text.
 #'     Convert tokens to chars at ~4 chars/token (English averages
 #'     4.0-4.5 chars per BPE token; 4 is a conservative under-estimate
-#'     so we don't over-fill context).
+#'     so context isn't over-filled).
 #'   \item Floor at 8000L (the legacy default) so behavior is never
 #'     worse than the prior hardcode for very-small-context models.
 #' }
@@ -113,7 +113,7 @@ create_coding_state <- function(learning_context = NULL, config_hash = NULL) {
       reached_at_entry = NA_integer_,
       reached_at_coded = NA_integer_,
       total_entries_at_saturation = NA_integer_,
-      # Phase 56: collapsed the pre-Phase-56 signals$ sub-list (code_creation_rate /
+      # collapsed the earlier signals$ sub-list (code_creation_rate /
       # slope_ratio / ai_self_assessment) into a single ai_self_assessment field.
       # The two heuristic signals are gone (their thresholds were the hardcoded
       # gates C1 rejects). Kept as a list (not a scalar) so audit_log records
@@ -122,22 +122,22 @@ create_coding_state <- function(learning_context = NULL, config_hash = NULL) {
       signals = list(
         ai_self_assessment = FALSE
       ),
-      # Phase 56: AI saturation arbiter (R/saturation_arbiter.R) records its
+      # AI saturation arbiter (R/saturation_arbiter.R) records its
       # 2-4 sentence articulation + 1-2 sentence rationale here when it
       # declares saturation. Both are NA_character_ on a non-saturated run
-      # (Phase 56 audit MEDIUM-2: pre-init so any future report-side reader
+      # (pre-init so any future report-side reader
       # can rely on the field's presence without %||% gymnastics).
       ai_articulation = NA_character_,
       ai_rationale = NA_character_,
       saturation_ratio = NA_real_,
-      # Phase 58 Tier 8 H-9 audit followup MEDIUM-3: pre-init the
+      # pre-init the
       # dedupe field so a freshly created ProgressiveCodingState has
       # the same schema as a post-arbiter state. -1L means "no
       # arbiter call has fired yet" (the modulo gate's `!= -1L`
       # check accepts the first valid n_coded).
       last_arbiter_n_coded = -1L
     ),
-    # Phase 58 Tier 0 C-6: per-code embedding cache for additive semantic
+    # per-code embedding cache for additive semantic
     # retrieval. code_embeddings is keyed by code_key; each value is a
     # numeric vector matching the embedding model's dimensionality
     # (text-embedding-3-small => 1536 dims). Populated on demand the
@@ -146,7 +146,7 @@ create_coding_state <- function(learning_context = NULL, config_hash = NULL) {
     semantic_cache = list(
       code_embeddings = list()
     ),
-    # Phase 58 Tier 2 C-5: codebook size at the most recent
+    # codebook size at the most recent
     # description-refresh attempt. Drives the every-N-new-codes
     # refresh cadence in .maybe_refresh_high_freq_descriptions.
     # 0L initial value means the first refresh check fires once the
@@ -198,7 +198,7 @@ create_coding_state <- function(learning_context = NULL, config_hash = NULL) {
 #'   constructs and the AI is constrained to apply them verbatim
 #'   (no NEW: prefix path). Anomaly segments go to a dedicated
 #'   "anomaly" key. NULL preserves Mode 2 (free-form codebook) behavior.
-#' @param live_tracker Optional \code{LiveTracker} (Phase 53; from
+#' @param live_tracker Optional \code{LiveTracker} (from
 #'   \code{\link{init_live_tracker}}). When provided, every coded
 #'   segment streams to \code{outputs/<run>/live/code_assignments.jsonl}
 #'   and \code{codebook_live.json} is rewritten after every entry so a
@@ -219,11 +219,11 @@ run_progressive_coding <- function(data, provider, config = list(),
                                     live_tracker = NULL) {
   config$max_retries_per_entry <- config$max_retries_per_entry %||% 1L
   config$include_in_vivo <- config$include_in_vivo %||% TRUE
-  # Phase 50e: removed `config$code_style %||% "descriptive"` --
+  # Removed `config$code_style %||% "descriptive"` --
   # the value was set but never read.
   config$checkpoint_interval <- config$checkpoint_interval %||% .PARTIAL_CHECKPOINT_INTERVAL
 
-  # Phase 56: all six pre-Phase-56 hardcoded saturation knobs
+  # all six earlier hardcoded saturation knobs
   # (saturation_enabled / saturation_window / saturation_threshold /
   # saturation_confirmations / min_coded_before_saturation /
   # ai_assessment_interval) removed per C1 ("AI decides when to stop;
@@ -348,9 +348,9 @@ run_progressive_coding <- function(data, provider, config = list(),
 
   batch_delay <- provider$rate_limits$delay_between_batches %||% 0.5
 
-  # Phase 56: saturation tracking state
+  # saturation tracking state
   # saturation_cadence: AI arbiter check cadence, auto-scaled by corpus
-  # size per .saturation_cadence(). Replaces the pre-Phase-56
+  # size per .saturation_cadence(). Replaces the earlier
   # ai_assessment_interval / saturation_window / etc. knobs.
   saturation_cadence <- .saturation_cadence(n)
   # Consecutive AI-call failures; resets on any successful call.
@@ -409,7 +409,7 @@ run_progressive_coding <- function(data, provider, config = list(),
       framework_prompt_text = framework_prompt_text
     )
 
-    # Phase 58 Tier 2 C-5: every-N-new-codes description refresh pass.
+    # every-N-new-codes description refresh pass.
     # Skips silently when conditions aren't met (cheap O(N codes)
     # filter). Mode 3 skips entirely because framework constructs
     # carry researcher-authored descriptions that shouldn't be
@@ -443,19 +443,19 @@ run_progressive_coding <- function(data, provider, config = list(),
                         entry_id = entry_id, reason = er$skip_reason %||% "no_relevant_content")
       }
     } else {
-      # Phase 53 / C3: stream every (entry, code, segment) assignment to
+      # C3: stream every (entry, code, segment) assignment to
       # the live tracker so a researcher can `tail -F` the artifact during
       # a long run. Done in the same loop as audit-log emission so the
       # two stay in lockstep. The is_new_code flag is computed against
       # codes_before; codebook_snapshot is rewritten at end-of-entry below.
       if (!is.null(audit_log) || !is.null(live_tracker)) {
         codes_before_set <- if (!is.null(live_tracker)) {
-          # Snapshot of codebook keys BEFORE this entry, so we can flag
+          # Snapshot of codebook keys BEFORE this entry, to flag
           # newly-created codes as is_new_code = TRUE in the live event log.
           if (codes_before == 0L) character(0L) else
             head(names(state$codebook), codes_before)
         } else NULL
-        # Phase 58 Tier 8 M-12/E-9: dedupe is_new_code emission. Pre-Tier-8
+        # dedupe is_new_code emission. An earlier version
         # if an entry contributed multiple segments under a single NEW code,
         # every segment received is_new_code=TRUE in the live tracker
         # (audit_log fires new_code_created once correctly; the live event
@@ -490,7 +490,7 @@ run_progressive_coding <- function(data, provider, config = list(),
       }
     }
 
-    # Phase 53 / C3: rewrite codebook_live.json after every entry (cadence
+    # C3: rewrite codebook_live.json after every entry (cadence
     # configurable via init_live_tracker(codebook_snapshot_every = N); the
     # default 1 = after every entry).
     if (!is.null(live_tracker)) {
@@ -545,13 +545,13 @@ run_progressive_coding <- function(data, provider, config = list(),
                "{length(state$codebook)} codes, {n_coded} coded, {n_skipped_total} skipped")
     }
 
-    # Phase 56: saturation curve + AI arbiter check.
+    # saturation curve + AI arbiter check.
     # Curve cadence: min(50, saturation_cadence) -- on small corpora the
-    # arbiter fires more often than 50 ticks so we tighten the curve
-    # cadence to match (otherwise the arbiter would see "no curve data
-    # yet" on its first check). For large corpora cadence > 50 and we
-    # keep the 50-tick cadence so the saturation plot stays smooth.
-    # Phase 56 audit MEDIUM-1 fix: pre-Phase-56-audit code had a
+    # arbiter fires more often than 50 ticks so the curve cadence is
+    # tightened to match (otherwise the arbiter would see "no curve data
+    # yet" on its first check). For large corpora cadence > 50 and the
+    # 50-tick cadence is kept so the saturation plot stays smooth.
+    # An earlier version had a
     # hardcoded 50 here that drifted out of sync with the arbiter
     # cadence on mid-sized corpora.
     curve_cadence <- min(50L, saturation_cadence)
@@ -576,7 +576,7 @@ run_progressive_coding <- function(data, provider, config = list(),
       # Inductive Thematic Saturation (ITS) ratio per De Paoli & Mathis
       # 2024: unique_codes / total_assignments. Recorded in the curve
       # for the AI arbiter's prompt evidence + the saturation plot.
-      # Pre-Phase-56 used a hardcoded 0.05 stopping threshold; that's
+      # An earlier version used a hardcoded 0.05 stopping threshold; that's
       # gone -- the AI judges the trajectory directly.
       total_assignments <- sum(vapply(state$codebook,
                                         function(cb) cb$frequency,
@@ -595,21 +595,21 @@ run_progressive_coding <- function(data, provider, config = list(),
       ))
     }
 
-    # Phase 56: AI saturation arbiter (C1: AI decides when to stop).
+    # AI saturation arbiter (C1: AI decides when to stop).
     # Fires every `saturation_cadence` coded entries -- no min-entries
     # gate, no kill switch. The AI can output "uncertain" when the
     # evidence is too thin to judge, so an early check is harmless.
-    # Phase 58 Tier 8 H-9: dedupe arbiter calls when an entry is
+    # dedupe arbiter calls when an entry is
     # SKIPPED right after a coded entry whose n_coded hit the cadence
-    # multiple. Pre-Tier-8 the modulo gate would re-fire on every
+    # multiple. An earlier modulo gate would re-fire on every
     # skipped iteration that followed (since n_coded was unchanged),
     # producing 26 duplicate arbiter calls at 9 distinct n_coded
-    # values on the Phase 57 run (~$0.30 wasted). last_arbiter_n_coded
+    # values on a large run (~$0.30 wasted). last_arbiter_n_coded
     # is the n_coded value the arbiter last evaluated; only re-fire
     # when it advances. NULL on fresh runs (first arbiter call
     # naturally falls through).
     last_arbiter_n <- state$saturation$last_arbiter_n_coded %||% -1L
-    # Phase 59 Stage 2 audit: gate the saturation arbiter on
+    # Gate the saturation arbiter on
     # is.null(framework_spec). In Mode 3 the codebook is pre-populated
     # with framework constructs (R/09_coding.R:285-319 above) and the
     # AI saturation arbiter's prompt (R/saturation_arbiter.R:215) is
@@ -704,7 +704,7 @@ run_progressive_coding <- function(data, provider, config = list(),
     log_info("  Saturation:        not reached (all entries processed)")
   }
 
-  # Phase 53 / C3: force a final codebook_live.json snapshot regardless of
+  # C3: force a final codebook_live.json snapshot regardless of
   # cadence so the on-disk state always reflects post-coding reality.
   if (!is.null(live_tracker)) {
     live_snapshot_codebook(live_tracker, state$codebook, force = TRUE)
@@ -754,10 +754,10 @@ run_progressive_coding <- function(data, provider, config = list(),
       fpt
     )
   } else {
-    # Phase 58 Tier 0 C-6: additive retrieval. Frequency + recency
+    # additive retrieval. Frequency + recency
     # (legacy behavior) plus per-entry semantic top-K cosine retrieval
     # against cached code embeddings. With 4,059-code codebooks the
-    # pre-Phase-58 top-80 window made every entry past ~entry 1000 see
+    # an earlier top-80 window made every entry past ~entry 1000 see
     # only 2% of the existing codebook, so re-encounters looked new.
     # max_codes raised 80 -> 150; semantic top-K added; embeddings
     # cached per code key in state$semantic_cache$code_embeddings.
@@ -791,7 +791,7 @@ run_progressive_coding <- function(data, provider, config = list(),
     )
   }
 
-  # Phase 50f: auto-context-aware per-entry truncation. Was previously
+  # Auto-context-aware per-entry truncation. Was previously
   # hardcoded at .MAX_ENTRY_CHARS = 8000L, which used only ~1.5% of
   # gpt-4o's 128K-token context; long-form entries (interviews,
   # essays, multi-paragraph Reddit posts) lost everything past
@@ -955,8 +955,8 @@ run_progressive_coding <- function(data, provider, config = list(),
 
 #' Decide whether to use the Anthropic Citations API path for this provider
 #'
-#' Returns TRUE for Anthropic providers; FALSE otherwise. Future Sprint-4
-#' phases may add a config opt-out (\code{config$data_integrity$use_citations_api}),
+#' Returns TRUE for Anthropic providers; FALSE otherwise. A future
+#' release may add a config opt-out (\code{config$data_integrity$use_citations_api}),
 #' but the default-on-for-Anthropic stance is load-bearing -- the Citations
 #' API is the package's primary anti-fabrication PREVENTION layer (T0.1
 #' part 3b) and disabling it weakens the architectural commitment to AC1
@@ -986,7 +986,7 @@ run_progressive_coding <- function(data, provider, config = list(),
 
 #' Build the schema-path user prompt (existing T1.2 flow)
 #'
-#' Phase 58 Tier 7 V-6 / L-3: the pre-Tier-7 implementation JSON-escaped
+#' An earlier implementation JSON-escaped
 #' the entry text via \code{jsonlite::toJSON(truncated_text, auto_unbox =
 #' TRUE)} then stripped the outer quotes and wrapped the result in
 #' literal quote marks. This made embedded \code{"} / \code{\\}
@@ -996,7 +996,7 @@ run_progressive_coding <- function(data, provider, config = list(),
 #' UN-escaped source and tries to match at the same indices. Every
 #' entry with a single \code{"} silently produced an off-by-one
 #' verification failure that Step 3 substring-search papered over,
-#' driving the Phase 57 run to 99.89% verified_fuzzy / 0.11%
+#' driving a large run to 99.89% verified_fuzzy / 0.11%
 #' verified_exact. Fenced fence the entry text with explicit XML-style
 #' delimiters and pass the text verbatim, so the AI sees exactly the
 #' same character offsets that the verifier will check.
@@ -1012,7 +1012,7 @@ run_progressive_coding <- function(data, provider, config = list(),
   # post-process the prompt without a real XML parser.)
   open_tag  <- paste0("<", "entry_text", ">")
   close_tag <- paste0("</", "entry_text", ">")
-  # Tier 7 audit followup H-T7-3: defensive escape for the rare case
+  # Defensive escape for the rare case
   # where the entry text literally contains the closing-tag sentinel
   # (e.g. tutorial snippets, HTML fragments). The pre-followup version
   # would render an unbalanced fence; the AI could read the inner
@@ -1036,13 +1036,13 @@ run_progressive_coding <- function(data, provider, config = list(),
 
 #' Defensive escape for the entry-text fence
 #'
-#' Phase 58 Tier 7 audit followup H-T7-3: when the entry text literally
+#' When the entry text literally
 #' contains \code{</entry_text>}, the prompt fence is unbalanced and the
 #' AI may compute offsets against a truncated view of the entry. This
 #' helper replaces the closing-tag sentinel inside the entry text with
 #' an unambiguous escape that parsers see as literal text.
 #' The offsets the AI emits will then be against the ESCAPED text, which
-#' is what \code{verify_quote} also sees (we don't un-escape before
+#' is what \code{verify_quote} also sees (no un-escaping before
 #' verification; the escape is a deterministic 1:1 character mapping
 #' that preserves character-position arithmetic for the relevant range).
 #' For typical Reddit posts this is a no-op; only adversarial / tutorial
@@ -1067,11 +1067,11 @@ run_progressive_coding <- function(data, provider, config = list(),
 #' @keywords internal
 .build_progressive_framework_user_prompt <- function(truncated_text,
                                                        framework_spec) {
-  # Phase 58 Tier 7 V-6 / L-3: same offset-correctness fix as
+  # Same offset-correctness fix as
   # .build_progressive_schema_user_prompt. Tags constructed at
   # runtime so a parser scanning the prompt matches only the actual
-  # fence, not a description of the tags. Tier 7 audit followup
-  # H-T7-3: defensive escape for adversarial inputs that contain the
+  # fence, not a description of the tags. A
+  # defensive escape for adversarial inputs that contain the
   # closing-tag sentinel verbatim.
   open_tag  <- paste0("<", "entry_text", ">")
   close_tag <- paste0("</", "entry_text", ">")
@@ -1207,7 +1207,7 @@ run_progressive_coding <- function(data, provider, config = list(),
     # Post-normalization empty guard (C-4 audit MEDIUM-3): inputs like
     # "321." or bare "NEW:" collapse to "" once prefixes strip. The
     # pre-norm guard at the top of the function only catches the
-    # nchar(seg_code) == 0 case. Without this we'd write a codebook entry
+    # nchar(seg_code) == 0 case. Without this it would write a codebook entry
     # under the empty-string key.
     if (is.na(code_name) || nchar(code_name) == 0L) {
       log_warn(paste0(
@@ -1229,8 +1229,8 @@ run_progressive_coding <- function(data, provider, config = list(),
   # - Citations path: pair this segment with the corresponding citation by
   #   emission order, validated by string match. If pairing succeeds the
   #   quote carries citation_source = "anthropic_citations_api"; otherwise
-  #   we fall back to model_freeform (the model returned a `text` claim
-  #   without an attached citation, so we treat it like the schema path).
+  #   it falls back to model_freeform (the model returned a `text` claim
+  #   without an attached citation, so it is treated like the schema path).
   # - Schema path: classic make_quote with model-supplied offsets.
   quote_partial <- if (isTRUE(use_citations)) {
     .build_quote_from_citations_path(
@@ -1256,7 +1256,7 @@ run_progressive_coding <- function(data, provider, config = list(),
     # ai_call_ids.
     log_fabrication(fabrication_log, quote)
     if (!is.null(audit_log)) {
-      # Phase 58 Tier 7 M-13/E-19: emit failure_reason so audit
+      # emit failure_reason so audit
       # log readers can attribute fabrications to specific ladder
       # failure modes without joining against fabrication_log.csv.
       log_ai_decision(audit_log, "quote_verification", "quote_fabricated",
@@ -1274,10 +1274,10 @@ run_progressive_coding <- function(data, provider, config = list(),
   if (identical(quote$verification_status, "drifted")) {
     # Source corpus changed between attribution and verification time
     # (source_text_sha256 mismatch AND ladder failed). Per spec the quote
-    # is excluded from rendering pending researcher review; we log it to
+    # is excluded from rendering pending researcher review; it is logged to
     # the audit trail so cross-run analysis can attribute drifts.
     if (!is.null(audit_log)) {
-      # Tier 7 audit followup H-T7-1: thread failure_reason for
+      # Thread failure_reason for
       # drifted quotes too (only fabricated had the kwarg
       # pre-followup, leaving drifted records without attribution
       # for downstream cross-run analysis).
@@ -1305,22 +1305,22 @@ run_progressive_coding <- function(data, provider, config = list(),
   )
 
   if (is_new || !(code_key %in% names(state$codebook))) {
-    # Phase 58 Tier 2 D-7: backfill empty descriptions on new code
+    # backfill empty descriptions on new code
     # admission. The AI's schema is told "code_description required for
     # NEW codes" but doesn't always comply -- and when it matches a
     # learning-context name without re-stating the description, the
     # field arrives empty. Without backfill, downstream consumers see
     # codes with NA descriptions. The fallback uses the first segment's
     # text as a "first observed" snippet so reviewers have at least
-    # one anchor for what the code captured. A subsequent Phase 58
-    # Tier 2 C-5 refresh pass (.maybe_refresh_high_freq_descriptions,
+    # one anchor for what the code captured. A subsequent
+    # refresh pass (.maybe_refresh_high_freq_descriptions,
     # selects by frequency >= min_freq, NOT by matching this text)
     # replaces it once the code accumulates enough segments to support
     # a real description.
-    # Phase 58 Tier 2 audit LOW F2: also guard against NA. jsonlite
+    # Also guard against NA. jsonlite
     # parses JSON `null` to NA_character_ which would crash the
     # subsequent if-condition ("missing value where TRUE/FALSE needed").
-    # Phase 62.2: dropped the "[D-7 placeholder; awaiting refresh]"
+    # dropped the "[D-7 placeholder; awaiting refresh]"
     # engineering marker -- it shipped verbatim into themes.json (an
     # internal artifact masquerading as a code description) AND, because
     # the description feeds the clustering embedding input
@@ -1450,10 +1450,10 @@ run_progressive_coding <- function(data, provider, config = list(),
   # Successful pairing: build via the citations bridge with the document type
   # carried through (so source_doc_type stays meaningful for QDPX export and
   # report rendering). The bridge stores source_text_sha256 over the source
-  # text we pass it; later verify_quote re-hashes the FULL entry text and
+  # text passed to it; later verify_quote re-hashes the FULL entry text and
   # compares. To keep these in sync (and avoid spurious "drifted" status on
   # long entries where the prompt was truncated to .MAX_ENTRY_CHARS but the
-  # verifier sees the full text), we substitute the full text into the
+  # verifier sees the full text), the full text is substituted into the
   # documents copy passed to the bridge. Anthropic's citation indices are
   # computed against the truncated prompt text, but since the truncation is
   # a strict prefix of the full text, indices remain valid pointers.
@@ -1512,12 +1512,12 @@ run_progressive_coding <- function(data, provider, config = list(),
     prompt <- paste0(prompt, reflexivity)
   }
 
-  # Phase 61: inject the AI-articulated relevance criterion (Methodology
+  # inject the AI-articulated relevance criterion (Methodology
   # Assistant, Step 2.5). It operationalizes what is on-focus for THIS study,
   # replacing the loose "applicable to the research question" framing with a
   # study-specific inclusion/exclusion criterion -- the upstream fix for focus
   # drift. Empty when no criterion was articulated -> the task framing below
-  # falls back to the prior wording (byte-identical to pre-Phase-61 behavior).
+  # falls back to the prior wording (byte-identical to the earlier behavior).
   relevance <- config$relevance_block %||% ""
   if (nchar(relevance) > 0) {
     prompt <- paste0(prompt, "\n", relevance, "\n")
@@ -1674,9 +1674,9 @@ run_progressive_coding <- function(data, provider, config = list(),
 
 #' AI-driven refresh of a single high-frequency code's description
 #'
-#' Phase 58 Tier 2 C-5: re-prompts the AI with a sample of the segments
+#' re-prompts the AI with a sample of the segments
 #' the code has accumulated and asks for a description that captures the
-#' SHARED conceptual core across them. The pre-Phase-58 codebook anchored
+#' SHARED conceptual core across them. The earlier codebook anchored
 #' each description to the FIRST segment that created the code, so
 #' high-frequency codes (e.g. Compulsive Eating Behavior, freq=1127)
 #' carried descriptions that described only one of many distinct meanings
@@ -1739,7 +1739,7 @@ run_progressive_coding <- function(data, provider, config = list(),
     parse_json_safely(ai_result$content)
   }, error = function(e) {
     log_warn(paste0(
-      "Phase 58 C-5: description refresh failed for code '",
+      "Description refresh failed for code '",
       code_name, "': ", conditionMessage(e)
     ))
     NULL
@@ -1753,7 +1753,7 @@ run_progressive_coding <- function(data, provider, config = list(),
 
 #' Walk the codebook for high-frequency codes due for description refresh
 #'
-#' Phase 58 Tier 2 C-5: every \code{refresh_interval} new codes admitted
+#' every \code{refresh_interval} new codes admitted
 #' to the codebook, scan for codes with \code{frequency >= min_freq}
 #' that haven't been refreshed in this cycle, sample
 #' \code{sample_segments} of their coded_segments, and ask the AI to
@@ -1773,7 +1773,7 @@ run_progressive_coding <- function(data, provider, config = list(),
   current_size <- length(cb)
   if (current_size == 0L) return(state)
 
-  # Phase 58 Tier 2 audit LOW F4: explicit disable when interval <= 0.
+  # Explicit disable when interval <= 0.
   # Without this guard, interval=0 makes (current_size - last_attempt
   # < 0) always FALSE -> dispatcher fires on every entry instead of
   # never. The commit / config docs promise interval=0 disables; this
@@ -1799,7 +1799,7 @@ run_progressive_coding <- function(data, provider, config = list(),
   if (length(needs_refresh) == 0L) return(state)
 
   log_info(paste0(
-    "Phase 58 Tier 2 C-5: description refresh pass for ",
+    "Description refresh pass for ",
     length(needs_refresh), " code(s) (freq >= ", min_freq,
     "; codebook = ", current_size, " codes)"
   ))
@@ -1813,7 +1813,7 @@ run_progressive_coding <- function(data, provider, config = list(),
       next
     }
 
-    # Phase 58 Tier 2 audit MEDIUM F1: deterministic sampling for
+    # Deterministic sampling for
     # replay-equivalence (AC10). Pre-fix `sample()` produced different
     # segment indices on every rerun, persisting different refreshed
     # descriptions in state -- the only stochastic R-side decision in
@@ -1846,7 +1846,7 @@ run_progressive_coding <- function(data, provider, config = list(),
 
 #' Defensive code-name normalization
 #'
-#' Phase 58 Tier 0 C-4: strips numbered-list prefixes (`321. `), `NEW:`
+#' strips numbered-list prefixes (`321. `), `NEW:`
 #' markers, and surrounding ASCII or Unicode smart quotes that the AI may
 #' echo back from the codebook-summary prompt format. Applied once at code
 #' admission so the codebook key is canonical regardless of which prefix
@@ -1887,7 +1887,7 @@ run_progressive_coding <- function(data, provider, config = list(),
   name
 }
 
-#' Phase 58 Tier 0 C-6: per-entry semantic top-K retrieval against codebook
+#' per-entry semantic top-K retrieval against codebook
 #'
 #' Computes cosine similarity between the current entry's embedding and
 #' each code's `name: description` embedding, returning the top-K indices.
@@ -1916,7 +1916,7 @@ run_progressive_coding <- function(data, provider, config = list(),
   entry_mat <- tryCatch(
     compute_embeddings(provider, as.character(entry_text)[1]),
     error = function(e) {
-      log_debug("Phase 58 C-6: entry embedding failed: {e$message}")
+      log_debug("entry embedding failed: {e$message}")
       NULL
     }
   )
@@ -1947,7 +1947,7 @@ run_progressive_coding <- function(data, provider, config = list(),
     new_mat <- tryCatch(
       compute_embeddings(provider, needs_text),
       error = function(e) {
-        log_debug("Phase 58 C-6: code embedding batch failed: {e$message}")
+        log_debug("code embedding batch failed: {e$message}")
         NULL
       }
     )
@@ -1986,7 +1986,7 @@ run_progressive_coding <- function(data, provider, config = list(),
   list(indices = ordered, new_embeddings = new_embeddings)
 }
 
-#' Phase 58 Tier 0 C-6: codebook summary with additive semantic retrieval
+#' codebook summary with additive semantic retrieval
 #'
 #' Variant of \code{.build_codebook_summary} that performs additional
 #' top-K semantic retrieval against the current entry's text on top of
@@ -2021,7 +2021,7 @@ run_progressive_coding <- function(data, provider, config = list(),
   freqs <- vapply(code_data, function(x) x$freq, integer(1))
   sorted_idx <- order(-freqs)
 
-  # Phase 58 C-6: budget the max_codes cap across THREE selection cohorts
+  # budget the max_codes cap across THREE selection cohorts
   # (frequency / recency / semantic) so the semantic slots aren't silently
   # truncated when frequency + recency already fill the cap. desired_top
   # falls back to legacy behavior when top_k_semantic = 0 (the back-compat
@@ -2046,7 +2046,7 @@ run_progressive_coding <- function(data, provider, config = list(),
   selected <- unique(c(top_idx, recent_idx, semantic_result$indices))
   selected <- selected[seq_len(min(max_codes, length(selected)))]
 
-  # Bare bullet format (Phase 58 C-4): no numeric prefix, no quotes.
+  # Bare bullet format: no numeric prefix, no quotes.
   lines <- vapply(selected, function(i) {
     d <- code_data[[i]]
     desc_str <- if (!is.null(d$desc) && !is.na(d$desc) && nchar(d$desc) > 0) {
@@ -2066,7 +2066,7 @@ run_progressive_coding <- function(data, provider, config = list(),
 #' Back-compat wrapper around .build_codebook_summary_with_retrieval that
 #' returns just the summary string. Used by existing tests and any caller
 #' that doesn't have an entry_text / provider to do semantic retrieval.
-#' Default \code{max_codes = 80} preserves the pre-Phase-58 behavior for
+#' Default \code{max_codes = 80} preserves the earlier behavior for
 #' callers that don't override it; the production callsite in
 #' \code{.code_entry_progressive} uses the with_retrieval variant directly
 #' with \code{max_codes = 150}.
@@ -2082,7 +2082,7 @@ run_progressive_coding <- function(data, provider, config = list(),
 # ==============================================================================
 # Saturation detection helpers
 # ==============================================================================
-# Phase 56: the legacy .ai_saturation_check() (binary novel_patterns_remaining
+# the legacy .ai_saturation_check() (binary novel_patterns_remaining
 # yes/no) was replaced by .ai_judge_saturation() (3-valued verdict +
 # articulation requirement) in R/saturation_arbiter.R. The helper below
 # (generate_saturation_plot) is unchanged.

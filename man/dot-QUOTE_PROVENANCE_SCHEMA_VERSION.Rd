@@ -12,14 +12,14 @@ An object of class \code{character} of length 1.
 }
 \description{
 \itemize{
-\item 1.0.0 (pre-Phase-58-Tier-7): base schema -- quote_id,
+\item 1.0.0: base schema -- quote_id,
 source_doc_id, source_doc_type, source_text_sha256,
 start_char, end_char, exact_text, ai_paraphrase,
 attributed_theme_id, attributed_code_id, ai_model,
 ai_call_id, citation_source, verification_status,
 verification_method, verification_score, verified_at,
 schema_version.
-\item 1.1.0 (Phase 58 Tier 7 M-13/E-19): adds
+\item 1.1.0: adds
 \code{verification_failure_reason} -- structured attribution
 for fabricated / drifted quotes naming the deepest failed
 ladder step (step1_offset_mismatch, step2_normalized_mismatch,

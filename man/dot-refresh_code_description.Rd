@@ -15,9 +15,9 @@
 )
 }
 \description{
-Phase 58 Tier 2 C-5: re-prompts the AI with a sample of the segments
+re-prompts the AI with a sample of the segments
 the code has accumulated and asks for a description that captures the
-SHARED conceptual core across them. The pre-Phase-58 codebook anchored
+SHARED conceptual core across them. The earlier codebook anchored
 each description to the FIRST segment that created the code, so
 high-frequency codes (e.g. Compulsive Eating Behavior, freq=1127)
 carried descriptions that described only one of many distinct meanings

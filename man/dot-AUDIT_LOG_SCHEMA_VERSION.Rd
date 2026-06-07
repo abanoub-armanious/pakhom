@@ -11,16 +11,16 @@ An object of class \code{character} of length 1.
 .AUDIT_LOG_SCHEMA_VERSION
 }
 \description{
-Phase 58 Tier 8 H-11: every audit record stamps this version so a
+every audit record stamps this version so a
 downstream replayer / cross-run comparator can detect schema drift.
-Pre-Tier-8 the ai_decisions.jsonl was the only first-class artifact
+An earlier design had ai_decisions.jsonl as the only first-class artifact
 lacking a version stamp (live tracker artifacts all carry
 schema_version="1.0.0"). Bump this constant when the record schema
 changes incompatibly.
 }
 \details{
 \itemize{
-\item 1.0.0 (Phase 58 Tier 8): initial stamping. Schema includes
+\item 1.0.0: initial stamping. Schema includes
 timestamp, step, decision_type, methodology_mode (when set),
 plus arbitrary user-supplied \code{...} fields.
 }

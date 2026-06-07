@@ -7,7 +7,7 @@
 relevance_criterion_prompt_block(relevance)
 }
 \description{
-Phase 61.3 inserts this in place of the coding prompt's loose "applicable"
+The coding step inserts this in place of the coding prompt's loose "applicable"
 language. Returns "" when no usable criterion is present (caller keeps its
 prior wording).
 }

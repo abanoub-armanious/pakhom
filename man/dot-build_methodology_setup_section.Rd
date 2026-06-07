@@ -2,7 +2,7 @@
 % Please edit documentation in R/17_report.R
 \name{.build_methodology_setup_section}
 \alias{.build_methodology_setup_section}
-\title{Render the Methodology Setup section (Phase 61.4)}
+\title{Render the Methodology Setup section}
 \usage{
 .build_methodology_setup_section(art)
 }

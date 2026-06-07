@@ -37,10 +37,10 @@ reproduces the pre-#2b plot exactly.}
 }
 \description{
 Renders a correlation heatmap for small matrices, OR a top-N
-effect-size lollipop chart for large matrices (Phase 58 Tier 5 C-10).
-Pre-Phase-58 the corrplot heatmap was unconditional, producing a
-14,280x14,280 PNG (4.8 MB, browser-illegible) on the 228-variable
-Phase 57 saturation run. Above the \code{max_inline_vars} threshold
+effect-size lollipop chart for large matrices.
+An earlier corrplot heatmap was unconditional, producing a
+14,280x14,280 PNG (4.8 MB, browser-illegible) on a 228-variable
+run. Above the \code{max_inline_vars} threshold
 the function now switches to a ggplot2 horizontal lollipop showing
 the top-N pairs ranked by absolute correlation, with significance
 encoded by point color.

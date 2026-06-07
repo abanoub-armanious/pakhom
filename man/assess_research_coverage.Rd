@@ -2,7 +2,7 @@
 % Please edit documentation in R/research_coverage.R
 \name{assess_research_coverage}
 \alias{assess_research_coverage}
-\title{Assess research-question coverage over the final themes (Phase 63)}
+\title{Assess research-question coverage over the final themes}
 \usage{
 assess_research_coverage(
   research_focus,

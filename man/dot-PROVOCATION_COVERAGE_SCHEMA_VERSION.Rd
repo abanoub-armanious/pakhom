@@ -11,8 +11,8 @@ An object of class \code{character} of length 1.
 .PROVOCATION_COVERAGE_SCHEMA_VERSION
 }
 \description{
-1.0.0 -- initial phase 31 release.
-2.0.0 -- phase 31 audit fixes (audit C: C1 + H1 + H2 + H3 + M3):
+1.0.0 -- initial release.
+2.0.0 -- audit fixes (C1 + H1 + H2 + H3 + M3):
 \itemize{
 \item \code{explicit_skip_reasons} and \code{attempts_per_category}
 stored as named lists (not named integer vectors) so they
@@ -34,7 +34,7 @@ two honest fields: \code{corpus_provided_to_per_category_fns}
 (TRUE -- the data tibble IS passed) and
 \code{llm_prompt_includes_full_corpus} (FALSE -- current
 prompts only embed supporting-entry text).
-2.1.0 -- phase 33 (M1.3 reflexive memos): added \code{n_memos}
+2.1.0 -- M1.3 reflexive memos: added \code{n_memos}
 and \code{memos_by_type} informational fields. Memo writing is
 a researcher activity, not a pipeline gate -- the headline
 \code{no_silent_skip} boolean is unchanged. The fields exist so

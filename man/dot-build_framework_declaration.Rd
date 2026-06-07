@@ -20,7 +20,7 @@ the rendered section will lack the file-link + sha256 fingerprint.}
 Character HTML/markdown string for the section.
 }
 \description{
-Phase 32 (audit H1 + H2): Mode 3 reports previously stamped the
+Mode 3 reports previously stamped the
 methodology mode at the top ("M3 - Framework Applied") but never
 surfaced WHICH theoretical framework was applied. A reviewer reading
 a report could not reconstruct whether the analysis used the Theory

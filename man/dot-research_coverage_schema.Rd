@@ -2,7 +2,7 @@
 % Please edit documentation in R/structured_schemas.R
 \name{.research_coverage_schema}
 \alias{.research_coverage_schema}
-\title{Research-question coverage schema (Phase 63)}
+\title{Research-question coverage schema}
 \usage{
 .research_coverage_schema()
 }

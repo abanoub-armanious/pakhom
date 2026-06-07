@@ -20,7 +20,7 @@ is parsed. Two equivalent styles are supported and may be mixed:
       study = list(research_focus = "x"))}
 }
 Both styles deep-merge: sibling fields under the same parent key
-are preserved, not clobbered. (Pre-Phase-59 the nested style
+are preserved, not clobbered. (Previously the nested style
 silently replaced the entire parent block -- e.g., passing
 \code{list(study = list(researcher_positionality = "..."))} would
 drop \code{study$research_focus} and surface as the misleading

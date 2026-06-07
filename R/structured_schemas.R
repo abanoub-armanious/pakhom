@@ -1,5 +1,5 @@
 # ==============================================================================
-# Structured Output Schemas (Sprint-4 T1.2)
+# Structured Output Schemas
 # ==============================================================================
 # JSON Schemas for the six AI tasks that previously relied on prompt-based
 # JSON-mode coercion. With T1.2 the providers enforce these schemas
@@ -154,21 +154,21 @@
   )
 }
 
-#' Schema for the Phase 56 AI saturation arbiter response
+#' Schema for the AI saturation arbiter response
 #'
 #' Used by \code{.ai_judge_saturation()} during progressive coding to ask
 #' the model whether thematic saturation has been reached. Replaces the
-#' pre-Phase-56 binary \code{.saturation_schema()} (novel_patterns_remaining
-#' + reasoning). The new shape mirrors the Phase 52 theme-decision schema:
+#' earlier binary \code{.saturation_schema()} (novel_patterns_remaining
+#' + reasoning). The new shape mirrors the theme-decision schema:
 #'
 #' (a) Articulation requirement -- the model must FIRST describe what it
 #'     observes (code growth pattern, codebook composition, reuse density)
 #'     before committing to a verdict. Vacuous articulations (<30 chars)
 #'     force a downgrade from "reached" -> "not_yet" so the AI can't
 #'     declare saturation without substantive reasoning. Same anti-vacuous
-#'     pattern Phase 52 uses for theme decisions.
+#'     pattern used for theme decisions.
 #'
-#' (b) Three-valued verdict instead of boolean -- the pre-Phase-56 path
+#' (b) Three-valued verdict instead of boolean -- the earlier path
 #'     forced a binary novel_patterns_remaining: yes/no. The new shape adds
 #'     "uncertain" so the AI can decline to judge when the evidence is
 #'     insufficient (e.g., very early in coding). Per C1 ("AI decides when
@@ -226,7 +226,7 @@
   )
 }
 
-#' Schema for the code-description refresh response (Phase 58 Tier 2 C-5)
+#' Schema for the code-description refresh response
 #'
 #' \preformatted{
 #'   {
@@ -316,10 +316,9 @@
 #' Schema for AI-judged cluster evaluation (coherent / split / outlier)
 #'
 #' Used by the v2 multi-pass clustering engine (R/theme_algorithm_v2.R),
-#' reached via generate_themes_iterative(). Replaces the pre-Phase-52 sequential-
+#' reached via generate_themes_iterative(). Replaces the earlier sequential-
 #' merge schema (action = merge|standalone). The new shape enforces
-#' three load-bearing bias mitigations (Phase 49 audit + Phase 52
-#' design):
+#' three load-bearing bias mitigations:
 #'
 #' (a) Articulation requirement -- the AI must write the central
 #'     organizing concept BEFORE its decision. If forcing one feels
@@ -393,7 +392,7 @@
   )
 }
 
-#' Schema for the per-pass clustering proposal (Phase 60)
+#' Schema for the per-pass clustering proposal
 #'
 #' Used by \code{ai_propose_clustering()} during the multi-pass theme-
 #' clustering algorithm in \code{generate_themes_multipass()}. Replaces (for the
@@ -409,7 +408,7 @@
 #' (b) Per-cluster \code{rationale} field. The AI must justify EACH proposed
 #'     grouping in its own words, naming the codes it's grouping and why.
 #'     This is the "look at each code carefully" property without falling
-#'     into the pre-Phase-52 sequential-pairwise cascade. The AI still sees
+#'     into the earlier sequential-pairwise cascade. The AI still sees
 #'     ALL leaves at once -- the "full picture" -- but is forced to write a
 #'     justification per cluster.
 #'
@@ -500,7 +499,7 @@
   )
 }
 
-#' Schema for the post-convergence theme + subtheme labeling pass (Phase 60)
+#' Schema for the post-convergence theme + subtheme labeling pass
 #'
 #' Used by \code{ai_label_theme_set()} in a single AI call after multi-pass
 #' clustering has converged. The AI sees the FULL converged tree
@@ -633,14 +632,14 @@
   )
 }
 
-#' Schema for batch inductive coding of Mode 3 anomaly segments (Phase 54)
+#' Schema for batch inductive coding of Mode 3 anomaly segments
 #'
 #' Used by .inductive_code_anomaly_segments() to turn the segments that
 #' didn't fit a framework into named inductive codes. The AI sees a batch
 #' of anomaly segment texts and generates a code_name + code_description
 #' per segment. Codes can naturally repeat across segments (the AI is
 #' prompted to reuse code names for segments expressing the same concept);
-#' Phase 52's HAC + AI tree walk then consolidates near-duplicates into
+#' The multi-pass clustering then consolidates near-duplicates into
 #' emergent themes.
 #'
 #' This schema is intentionally per-segment (rather than cross-referenced
@@ -757,10 +756,10 @@
 }
 
 # ==============================================================================
-# Phase 61: Methodology Assistant schemas
+# Methodology Assistant schemas
 # ==============================================================================
 
-#' Schema for the AI's articulated relevance criterion (Phase 61.2)
+#' Schema for the AI's articulated relevance criterion
 #'
 #' Used by \code{articulate_relevance_criterion()} at the start of the
 #' pipeline (Step 2.5). The AI restates the research focus and articulates, in
@@ -817,7 +816,7 @@
   )
 }
 
-#' Schema for the AI's per-metric interpretation + primitive requests (Phase 61.2)
+#' Schema for the AI's per-metric interpretation + primitive requests
 #'
 #' Used by \code{interpret_metrics()} at Step 2.5. For each numeric metric
 #' column and each timestamp column, the AI reads the sampled values, describes
@@ -890,7 +889,7 @@
           "focus -- shown alongside the numbers in the report."
         )
       ),
-      # Phase 62.1: free-form provenance/relevance judgment (NOT an enum, NOT a
+      # free-form provenance/relevance judgment (NOT an enum, NOT a
       # fixed taxonomy -- the AI reasons in prose, same as column_description).
       metric_provenance = list(
         type        = "string",
@@ -910,7 +909,7 @@
           "metadata pending researcher confirmation."
         )
       ),
-      # Phase 62.5d: AI-judged numeric reliability floor for THIS column's
+      # AI-judged numeric reliability floor for THIS column's
       # spread/shape summaries (NOT a package hardcode -- the AI's per-run number;
       # the report MARKS, never hides, cells computed on fewer entries than this).
       min_reliable_n = list(
@@ -957,10 +956,10 @@
 }
 
 # ==============================================================================
-# Research-question coverage (Phase 63)
+# Research-question coverage
 # ==============================================================================
 
-#' Research-question coverage schema (Phase 63)
+#' Research-question coverage schema
 #'
 #' One AI judgement of where each named research facet (read off the researcher's
 #' OWN focus + concepts) landed across the final themes. \code{coverage_level} is
@@ -1057,7 +1056,7 @@
 # Schema validation helper (lightweight; used in tests + sanity checks)
 # ==============================================================================
 
-#' Lightweight check that a list looks like a valid JSON Schema for our use
+#' Lightweight check that a list looks like a valid JSON Schema for internal use
 #'
 #' Not a full JSON Schema validator -- just enough to catch the OpenAI
 #' strict-mode pitfalls at package-load / test time so a malformed schema

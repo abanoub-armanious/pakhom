@@ -291,7 +291,7 @@ run_human_verification <- function(data, coding_state,
   # number of distinct codes grows -- is NOT distorted by codebook size.
   alpha    <- .set_krippendorff_alpha(human_sets, ai_sets)
   alpha_ci <- .bootstrap_alpha_ci(human_sets, ai_sets, n_boot = n_boot, seed = seed)
-  # Cohen's kappa is a single-label coefficient; for multi-label data we report
+  # Cohen's kappa is a single-label coefficient; for multi-label data the code reports
   # the MEAN per-code kappa (each canonical code scored as its own binary
   # present/absent problem across entries). Computed per code, it is likewise
   # immune to the flattening inflation. Supplementary to the set-based alpha.

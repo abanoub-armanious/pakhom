@@ -2,7 +2,7 @@
 % Please edit documentation in R/17_report.R
 \name{export_theme_subtheme_summary_csvs}
 \alias{export_theme_subtheme_summary_csvs}
-\title{Export per-theme paper-style subtheme-summary CSVs (Phase 55)}
+\title{Export per-theme paper-style subtheme-summary CSVs}
 \usage{
 export_theme_subtheme_summary_csvs(
   theme_stats,
@@ -12,7 +12,7 @@ export_theme_subtheme_summary_csvs(
 }
 \arguments{
 \item{theme_stats}{Per-theme stats list from
-\code{aggregate_theme_statistics()} (Phase 55+: must carry
+\code{aggregate_theme_statistics()} (must carry
 \code{subtheme_stats} + \code{metric_cols}).}
 
 \item{output_dir}{Run directory.}

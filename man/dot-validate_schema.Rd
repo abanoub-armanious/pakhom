@@ -2,7 +2,7 @@
 % Please edit documentation in R/structured_schemas.R
 \name{.validate_schema}
 \alias{.validate_schema}
-\title{Lightweight check that a list looks like a valid JSON Schema for our use}
+\title{Lightweight check that a list looks like a valid JSON Schema for internal use}
 \usage{
 .validate_schema(schema, path = "$")
 }

@@ -42,10 +42,10 @@ programmatically for cross-run analyses (the methodology paper's KPIs
 draw from the same shape).
 }
 \details{
-Sprint-4 T0.1 part 3b adds the \code{by_citation_source} breakdown
+T0.1 part 3b adds the \code{by_citation_source} breakdown
 and \code{verification_rate_by_source} so the dashboard can distinguish
 Anthropic Citations API quotes (server-side-grounded by Anthropic plus
-client-verified by our ladder) from model-freeform quotes (client-
+client-verified by the ladder) from model-freeform quotes (client-
 verified only). Both are valid; the citations source is strictly
 stronger.
 }

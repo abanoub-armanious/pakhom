@@ -20,7 +20,7 @@ allow_null = FALSE)}
 \item{caller}{Name of the calling function (for error messages)}
 }
 \description{
-Sprint-4 multi-mode architecture: every run must declare its
+Multi-mode architecture: every run must declare its
 methodological posture (reflexive_scaffold / codebook_collaborative /
 framework_applied). The declaration determines which AI behaviors are
 permitted, which artifacts are mandatory, and which report sections are

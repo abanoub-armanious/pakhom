@@ -71,7 +71,7 @@ run the four-step verification ladder.
 \code{quote_id} is computed deterministically as
 \code{paste0("qte_", sha1(source_doc_id + start_char + end_char + exact_text))}
 so the same quote always has the same ID across runs -- critical for
-replay (OS.5) and cross-run comparison.
+replay and cross-run comparison.
 
 \code{source_text_sha256} is a hash of the FULL source document text at
 attribution time. If the source corpus changes between runs (researcher

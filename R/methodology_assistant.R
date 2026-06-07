@@ -1,5 +1,5 @@
 # ==============================================================================
-# Methodology Assistant (Phase 61.2)
+# Methodology Assistant
 # ==============================================================================
 #
 # Step 2.5 of the pipeline: once, before coding, the AI inspects the research
@@ -23,7 +23,7 @@
 # pinned via config$study$inferred_methodology for replay-equivalent
 # confirmatory runs (R7).
 #
-# All functions @keywords internal: the pipeline (Phase 61.3) calls them; the
+# All functions @keywords internal: the pipeline calls them; the
 # researcher never does.
 # ==============================================================================
 
@@ -74,14 +74,14 @@
 }
 
 # Coerce one parsed column record (metric or temporal) into the canonical shape.
-# Phase 61.4 (Step 3.5): a primitive record may carry `args` -- a named list of
+# Step 3.5: a primitive record may carry `args` -- a named list of
 # parameters for a parameterized primitive (e.g. prim_quantile needs q;
 # prim_entries_over_time needs bin_width_days). The live discovery schema is
 # args-free by design (zero-arg variants only; honors strict-mode + no-menu), so
 # discovery responses never set args and `args` stays an empty list. The
 # pinned-replay block (config$study$inferred_methodology, NOT schema-constrained)
 # CAN set args, and they must survive coercion or replay silently loses them.
-# Phase 62.5d: coerce the AI's per-column reliability floor to a non-negative
+# Coerce the AI's per-column reliability floor to a non-negative
 # integer, or NA when absent/invalid (a pre-62.5d pinned block, or a non-number).
 .coerce_reliable_floor <- function(x) {
   v <- suppressWarnings(as.integer(x %||% NA))
@@ -101,12 +101,12 @@
     column_description  = as.character(rec$column_description %||% "")[1],
     requested_primitives = prims,
     interpretation_note = as.character(rec$interpretation_note %||% "")[1],
-    # Phase 62.1: free-form provenance/relevance judgment. The `%||% ""` default
+    # free-form provenance/relevance judgment. The `%||% ""` default
     # is the R7 replay back-compat hinge: an old inferred_methodology block
     # (pinned from a pre-62 run) lacks this field and must still load + replay
     # deterministically, defaulting to "" (no provenance framing rendered).
     metric_provenance   = as.character(rec$metric_provenance %||% "")[1],
-    # Phase 62.5d: the AI's per-column reliability floor (NA when absent, e.g. a
+    # The AI's per-column reliability floor (NA when absent, e.g. a
     # pre-62.5d pinned block -> the report simply won't mark any cell as small-n).
     min_reliable_n      = .coerce_reliable_floor(rec$min_reliable_n)
   )
@@ -206,9 +206,9 @@ new_methodology_articulations <- function(relevance,
   paste(sprintf("%d. %s", seq_along(picked), picked), collapse = "\n")
 }
 
-# Per-column block: name + a deterministic spread of raw sample values. We show
-# RAW values (not pre-computed stats) so the AI reasons about shape itself --
-# pre-summarizing would be us doing the analysis for it.
+# Per-column block: name + a deterministic spread of raw sample values. Showing
+# RAW values (not pre-computed stats) lets the AI reason about shape itself --
+# pre-summarizing would do the analysis for it.
 .build_metric_columns_block <- function(data, metric_cols, temporal_cols,
                                         n_values = 12L) {
   n_rows <- nrow(data)
@@ -248,9 +248,9 @@ new_methodology_articulations <- function(relevance,
 }
 
 # Warn (loudly, by name) about any requested primitive the catalog lacks. Used
-# on BOTH the discovery and pinned paths -- consistent with R4 fail-honest: we
-# surface the gap (for the report + maintainers) but do NOT drop the request or
-# substitute a different statistic. A WARN (not stop) because an unknown name is
+# on BOTH the discovery and pinned paths -- consistent with R4 fail-honest: the
+# gap is surfaced (for the report + maintainers) but the request is NOT dropped
+# and no different statistic is substituted. A WARN (not stop) because an unknown name is
 # a legitimate fail-honest signal, not necessarily a config error.
 .warn_unknown_primitives <- function(metric_interpretation, context = "") {
   available <- metric_catalog_names()
@@ -270,7 +270,7 @@ new_methodology_articulations <- function(relevance,
 
 # ---- AI callers --------------------------------------------------------------
 
-#' Articulate the study's relevance criterion (Phase 61.2)
+#' Articulate the study's relevance criterion
 #'
 #' One AI call. Given the research focus + a corpus sample, the AI articulates a
 #' free-form relevance criterion (+ on/off-focus examples) that the coding step
@@ -334,7 +334,7 @@ articulate_relevance_criterion <- function(research_focus, corpus_sample, provid
   )
 }
 
-#' Interpret each metric / timestamp column (Phase 61.2)
+#' Interpret each metric / timestamp column
 #'
 #' One AI call (skipped entirely when there are no metric or timestamp columns).
 #' For each column the AI reads sampled raw values, describes it in free form,
@@ -395,7 +395,7 @@ interpret_metrics <- function(data, research_focus, metric_cols = NULL,
     "anyway: the pipeline records the gap honestly rather than substituting a ",
     "misleading statistic."
   )
-  # Phase 62.5: pass the researcher's OWN research_context (e.g. "Reddit posts
+  # pass the researcher's OWN research_context (e.g. "Reddit posts
   # and comments from ...") so the AI can ground each column's provenance
   # judgment in the dataset's source. Without it, a column literally named
   # "score" with small sampled values reads as a rating scale (substantive)
@@ -449,14 +449,14 @@ interpret_metrics <- function(data, research_focus, metric_cols = NULL,
 
 # ---- orchestrator ------------------------------------------------------------
 
-#' Run the Methodology Assistant (Step 2.5 orchestrator, Phase 61.2)
+#' Run the Methodology Assistant (Step 2.5 orchestrator)
 #'
 #' Either loads PINNED articulations from \code{config$study$inferred_methodology}
 #' (replay mode -- no AI calls, fully deterministic) or makes the two AI calls
 #' (discovery mode). Archives the result to
 #' \code{run_dir/rules/methodology_articulations.\{md,json\}} when \code{run_dir}
-#' is given. Returns a \code{MethodologyArticulations} bundle that Phase 61.3
-#' attaches to the coding state.
+#' is given. Returns a \code{MethodologyArticulations} bundle that the
+#' coding step attaches to the coding state.
 #'
 #' @return A \code{MethodologyArticulations} S3 object.
 #' @keywords internal
@@ -511,7 +511,7 @@ run_methodology_assistant <- function(data, config, provider,
 
 # ---- replay path -------------------------------------------------------------
 
-#' Load pinned methodology articulations from a config block (Phase 61.2)
+#' Load pinned methodology articulations from a config block
 #'
 #' Reconstructs a \code{MethodologyArticulations} from a
 #' \code{config$study$inferred_methodology} block (copied from a prior run's
@@ -557,7 +557,7 @@ load_pinned_methodology <- function(inferred_block, research_focus = NULL) {
     column_description   = rec$column_description,
     requested_primitives = lapply(rec$requested_primitives, function(p) {
       pr <- list(primitive = p$primitive, rationale = p$rationale)
-      # Phase 61.4 (Step 3.5): only serialize args when non-empty, so a
+      # Step 3.5: only serialize args when non-empty, so a
       # discovery archive (no args) is byte-identical to the pre-61.4 form and
       # an existing pinned block round-trips its parameters. (Args are a named
       # list, JSON-safe; jsonlite preserves the names with auto_unbox.)
@@ -566,14 +566,14 @@ load_pinned_methodology <- function(inferred_block, research_focus = NULL) {
     }),
     interpretation_note  = rec$interpretation_note
   )
-  # Phase 62.1: serialize metric_provenance only when non-empty -- same
+  # serialize metric_provenance only when non-empty -- same
   # discipline as args, so a pre-62 archive (no provenance) round-trips
   # byte-identically and a populated one carries the judgment into the
   # copy-pasteable inferred_methodology block.
   if (nzchar(rec$metric_provenance %||% "")) {
     out$metric_provenance <- rec$metric_provenance
   }
-  # Phase 62.5d: serialize the reliability floor only when set, so a pre-62.5d
+  # Serialize the reliability floor only when set, so an earlier
   # archive round-trips byte-identically and a populated one carries the floor
   # into the copy-pasteable inferred_methodology block.
   if (!is.na(rec$min_reliable_n %||% NA_integer_)) {
@@ -582,7 +582,7 @@ load_pinned_methodology <- function(inferred_block, research_focus = NULL) {
   out
 }
 
-#' Serialize a MethodologyArticulations to a plain list (Phase 61.2)
+#' Serialize a MethodologyArticulations to a plain list
 #'
 #' The list shape is the canonical \code{inferred_methodology} block: flat
 #' relevance fields + \code{metrics} + \code{temporal_columns}. JSON-encode with
@@ -610,7 +610,7 @@ methodology_articulations_to_list <- function(art) {
   )
 }
 
-#' Reconstruct a MethodologyArticulations from a plain list (Phase 61.2)
+#' Reconstruct a MethodologyArticulations from a plain list
 #' @keywords internal
 methodology_articulations_from_list <- function(lst, default_source = "pinned") {
   src <- lst$source %||% default_source
@@ -632,7 +632,7 @@ methodology_articulations_from_list <- function(lst, default_source = "pinned") 
     research_focus = lst$research_focus %||% "", source = src)
 }
 
-#' Render methodology articulations as human-readable markdown (Phase 61.2)
+#' Render methodology articulations as human-readable markdown
 #' @keywords internal
 format_methodology_articulations_md <- function(art) {
   stopifnot(inherits(art, "MethodologyArticulations"))
@@ -654,7 +654,7 @@ format_methodology_articulations_md <- function(art) {
       "**Interpretation:** ", rec$interpretation_note, "\n")
   }
   lines <- c(
-    "# Methodology Articulations (Phase 61 Methodology Assistant)",
+    "# Methodology Articulations",
     "",
     sprintf("- Source: **%s** (%s)", art$source,
             if (identical(art$source, "ai")) "AI-articulated at run start"
@@ -692,7 +692,7 @@ format_methodology_articulations_md <- function(art) {
   paste(lines, collapse = "\n")
 }
 
-#' Archive methodology articulations under \code{run_dir/rules/} (Phase 61.2)
+#' Archive methodology articulations under \code{run_dir/rules/}
 #'
 #' Writes \code{methodology_articulations.md} (human/peer-review record) and
 #' \code{methodology_articulations.json} (machine-readable; copyable into
@@ -722,11 +722,11 @@ archive_methodology_articulations <- function(art, run_dir) {
   })
 }
 
-# ---- coding-prompt injection (consumed by Phase 61.3) ------------------------
+# ---- coding-prompt injection (consumed by the coding step) -------------------
 
 #' Build the relevance-criterion block injected into the coding system prompt
 #'
-#' Phase 61.3 inserts this in place of the coding prompt's loose "applicable"
+#' The coding step inserts this in place of the coding prompt's loose "applicable"
 #' language. Returns "" when no usable criterion is present (caller keeps its
 #' prior wording).
 #'

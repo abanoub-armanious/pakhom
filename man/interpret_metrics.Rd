@@ -2,7 +2,7 @@
 % Please edit documentation in R/methodology_assistant.R
 \name{interpret_metrics}
 \alias{interpret_metrics}
-\title{Interpret each metric / timestamp column (Phase 61.2)}
+\title{Interpret each metric / timestamp column}
 \usage{
 interpret_metrics(
   data,

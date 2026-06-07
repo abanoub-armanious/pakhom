@@ -1,7 +1,7 @@
 # ==============================================================================
 # Theme Hierarchy S3 Classes — Themes -> Subthemes -> Codes -> Segments
 # ==============================================================================
-# Phase 51 rewrite. Themes own first-class Subthemes which own Code objects;
+# Themes own first-class Subthemes which own Code objects;
 # each Code carries its own coded_segments inline so a saved themes.json is
 # self-contained for reproducibility (no coding_state companion file required).
 #
@@ -20,15 +20,15 @@
   prevalence = "medium",
   sentiment_tendency = "neutral",
   supporting_quotes = character(0),
-  # Phase 58 Tier 7 M-25/AF-34: parallel structured records carrying
+  # parallel structured records carrying
   # text + entry_id + source_table + std_author + sentiment_score +
   # position label. Empty list() default; populated by enrich_themes
   # when representative quotes are selected.
   supporting_quote_records = list(),
   keywords = character(0),
-  # Phase 58 Tier 8 M-22/AF-30 DEPRECATION NOTICE: the `narrative`
+  # DEPRECATION NOTICE: the `narrative`
   # field was intended for a per-theme AI-synthesized narrative blurb
-  # but was never wired up. On every Phase 57 run all 417 themes had
+  # but was never wired up. On a large run all 417 themes had
   # narrative = "". Field preserved here for back-compat with consumers
   # that read the older themes.json schema; writer continues to emit
   # an empty string. Future tier: either implement the synthesis pass
@@ -120,8 +120,8 @@ print.Code <- function(x, ...) {
 #' @param codes List of Code S3 objects (or character vector of code names —
 #'   coerced to stub Codes for use in tests / non-coding-state contexts)
 #' @param subthemes List of nested Subtheme S3 objects (or raw lists
-#'   coerced via recursive create_subtheme call). Phase 58 Tier 1 C-12
-#'   added nested subthemes to support depth-N hierarchical decomposition.
+#'   coerced via recursive create_subtheme call). Nested subthemes
+#'   support depth-N hierarchical decomposition.
 #'   Empty list = leaf Subtheme (no nested children).
 #' @return Subtheme S3 object
 #' @export
@@ -152,7 +152,7 @@ create_subtheme <- function(name = NA_character_, description = "",
     stop("Subtheme codes must be a list or character vector")
   }
 
-  # Phase 58 Tier 1 C-12: subthemes can now nest. Empty list when the
+  # subthemes can now nest. Empty list when the
   # Subtheme is a leaf in the hierarchy (no further decomposition).
   # Coerce nested Subtheme records (raw list form from walker output)
   # into Subtheme S3 objects recursively.
@@ -184,7 +184,7 @@ create_subtheme <- function(name = NA_character_, description = "",
 
 #' Number of DIRECT codes in a Subtheme (excludes nested sub-subthemes)
 #'
-#' Phase 58 Tier 1 audit LOW-3/6 documentation: returns the count of
+#' Returns the count of
 #' codes attached DIRECTLY to this Subtheme. Codes in nested
 #' sub-subthemes are NOT counted. Use \code{subtheme_n_codes_total()}
 #' for the depth-recursive count.
@@ -199,7 +199,7 @@ subtheme_n_codes <- function(subtheme) {
 
 #' Number of codes in a Subtheme INCLUDING nested sub-subthemes
 #'
-#' Phase 58 Tier 1 audit LOW-3 addition: depth-recursive code count.
+#' Depth-recursive code count.
 #' Walks the Subtheme tree and sums direct-code counts at every depth.
 #' Use \code{subtheme_n_codes()} for the depth-0 (direct only) count.
 #'
@@ -233,7 +233,7 @@ subtheme_code_keys <- function(subtheme) {
 
 #' Number of nested subthemes within a Subtheme
 #'
-#' Phase 58 Tier 1 C-12 introduced nested Subthemes so the theme algorithm
+#' Nested Subthemes were introduced so the theme algorithm
 #' can produce hierarchical decomposition (e.g. a large subtheme
 #' broken into sub-subthemes). Returns 0 for
 #' leaf Subthemes.
@@ -262,7 +262,7 @@ print.Subtheme <- function(x, ...) {
 
 #' Collect Code S3 objects from a Subtheme AND all its nested sub-subthemes
 #'
-#' Phase 58 Tier 1 C-12 introduced nested Subthemes. This helper walks
+#' With nested Subthemes, this helper walks
 #' the depth-N tree so callers that want a flat list of every Code under
 #' a Subtheme don't have to recurse manually.
 #'
@@ -278,8 +278,8 @@ print.Subtheme <- function(x, ...) {
 
 #' Flatten Code S3 objects across all subthemes (and sub-subthemes) of a theme
 #'
-#' Phase 58 Tier 1 C-12: now recurses through nested Subthemes so codes
-#' in sub-subthemes are included. Pre-Phase-58 ThemeSets without
+#' now recurses through nested Subthemes so codes
+#' in sub-subthemes are included. Earlier ThemeSets without
 #' nesting are unaffected (the recursion bottoms out at depth 1).
 #'
 #' @param theme A theme list (one element of theme_set$themes)
@@ -333,7 +333,7 @@ theme_segments <- function(theme) {
 
 #' Number of TOP-LEVEL real subthemes in a theme (excludes virtual wrappers)
 #'
-#' Phase 58 Tier 1 AF-3: this counter is unchanged from Phase 51 -- it
+#' this counter is unchanged -- it
 #' counts only the immediate (depth-1) named subthemes of the theme.
 #' Virtual (NA-named) subthemes are excluded; nested sub-subthemes are
 #' NOT counted. For "all real subthemes at every depth" use
@@ -354,7 +354,7 @@ theme_n_subthemes <- function(theme) {
 
 #' Total real (named) subthemes across every depth of a theme
 #'
-#' Phase 58 Tier 1 AF-3: with C-12's recursive walker, subthemes can
+#' with C-12's recursive walker, subthemes can
 #' nest. This getter counts every named subtheme regardless of depth so
 #' downstream consumers can report the "true" decomposition size of a
 #' theme.
@@ -608,7 +608,7 @@ theme_set_to_tibble <- function(theme_set) {
     sentiment_tendency = vapply(theme_set$themes, function(t) t$sentiment_tendency, character(1)),
     entry_count = vapply(theme_set$themes, function(t) as.integer(t$entry_count), integer(1)),
     n_codes = vapply(theme_set$themes, function(t) length(theme_codes(t)), integer(1)),
-    # Phase 58 Tier 1 audit MEDIUM-1 followup: CSV form now exposes
+    # CSV form now exposes
     # BOTH counters so consumers reading the tibble see the full
     # decomposition shape, not just the depth-1 count. JSON form is
     # canonical (see R/17_report.R) but the CSV is the most common
@@ -738,7 +738,7 @@ rebuild_code_to_theme_map <- function(theme_set, coding_state) {
   code_to_theme    <- list()
   code_to_subtheme <- list()
 
-  # Phase 58 Tier 1 C-12: subthemes can now nest. The cascade attributes
+  # subthemes can now nest. The cascade attributes
   # each code to its TOP-LEVEL subtheme name (the immediate child of
   # the theme) regardless of how deep the code lives. This preserves
   # the legacy code_to_subtheme_map contract -- downstream consumers

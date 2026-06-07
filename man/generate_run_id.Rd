@@ -11,6 +11,5 @@ Character string like "run_2026-02-23_143052"
 }
 \description{
 Always emitted in UTC so two researchers in different timezones running the
-same analysis at the same wall-clock moment produce comparable run IDs
-(Phase 59 meta-audit M4 / Tier 9 L-15).
+same analysis at the same wall-clock moment produce comparable run IDs.
 }

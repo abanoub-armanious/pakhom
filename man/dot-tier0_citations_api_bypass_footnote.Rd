@@ -7,7 +7,7 @@
 .tier0_citations_api_bypass_footnote(config = NULL)
 }
 \description{
-Phase 32 (audit MEDIUM #5 / C3): when \code{config$methodology$mode}
+When \code{config$methodology$mode}
 is \code{"framework_applied"} (Mode 3) AND
 \code{config$ai$provider} is \code{"anthropic"}, the Citations API
 path in \code{R/02_ai_providers.R} is deliberately dropped. The

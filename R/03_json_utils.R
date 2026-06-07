@@ -13,7 +13,7 @@
 #' @return Parsed R object (list/data.frame) or NULL on failure
 parse_json_safely <- function(response, expected_key = NULL,
                               max_repair_attempts = 3) {
-  # Phase 59 coverage followup: handle vector inputs FIRST (the length-1
+  # Handle vector inputs FIRST (the length-1
   # collapse used to happen AFTER `is.na(response)`, which errored on
   # length > 1 with "'length = 2' in coercion to 'logical(1)'" because
   # `||` requires scalar operands. Caught by the new vector-input branch
@@ -193,6 +193,6 @@ parse_json_safely <- function(response, expected_key = NULL,
     }
   }
 
-  # If we couldn't find a complete object, try bracket repair on original
+  # If no complete object was found, try bracket repair on original
   json
 }

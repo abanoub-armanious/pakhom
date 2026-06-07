@@ -270,9 +270,9 @@ find_latest_run <- function(results_base) {
   all_dirs <- list.dirs(results_base, full.names = FALSE, recursive = FALSE)
   # Only match timestamped run folders (exclude "latest" symlink). The
   # optional _M[123] tail accommodates the T1.7 mode-suffixed run dirs
-  # introduced in phase 25-27 (run_id_with_mode); without it, resume
+  # introduced with run_id_with_mode; without it, resume
   # silently fails to find the latest run for ANY mode that emits a
-  # mode-suffixed dir name. Phase 31 fix.
+  # mode-suffixed dir name.
   run_dirs <- grep("^run_\\d{4}-\\d{2}-\\d{2}_\\d{6}(_M[123])?$",
                     all_dirs, value = TRUE)
   if (length(run_dirs) == 0) return(NULL)

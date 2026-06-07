@@ -8,7 +8,7 @@
 }
 \description{
 The full pass_history carries large objects (the leaves at each pass).
-For the merge_history record we want a compact summary that fits in
+The merge_history record needs a compact summary that fits in
 themes.json without bloating it. Keeps the partition + rationale +
 counts; drops the leaf payloads.
 }

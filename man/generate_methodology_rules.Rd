@@ -10,7 +10,7 @@ generate_methodology_rules(config, inductive_pass = FALSE)
 \item{config}{A ThematicConfig (or list with the same shape).}
 
 \item{inductive_pass}{Logical. When TRUE, select the inductive-pass
-rule variant (Phase 54 abductive emergent-themes pass). Default
+rule variant (abductive emergent-themes pass). Default
 FALSE.}
 }
 \value{
@@ -23,12 +23,12 @@ prompt. The string includes mode-specific rules + universal Tier-0
 rules. When \code{config$methodology$mode} is NULL or invalid, returns
 the universal-rules-only string with a warning -- this is a soft
 fallback rather than a hard error because legacy/test contexts may
-instantiate ai_complete without a full config and we don't want to
-break those paths.
+instantiate ai_complete without a full config, and those paths must
+not break.
 }
 \details{
-Phase 56: \code{inductive_pass = TRUE} selects an alternate mode rule
-variant for the Phase 54 abductive emergent-themes pass. The default
+\code{inductive_pass = TRUE} selects an alternate mode rule
+variant for the abductive emergent-themes pass. The default
 Mode 3 rule says "Do NOT generate new framework constructs during
 coding"; under the inductive pass that instruction directly
 contradicts the prompt asking the AI to inductively code anomaly

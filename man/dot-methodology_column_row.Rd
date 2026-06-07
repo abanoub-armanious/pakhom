@@ -2,7 +2,7 @@
 % Please edit documentation in R/17_report.R
 \name{.methodology_column_row}
 \alias{.methodology_column_row}
-\title{Render one interpreted-column record as an HTML table row (Phase 61.4)}
+\title{Render one interpreted-column record as an HTML table row}
 \usage{
 .methodology_column_row(rec)
 }

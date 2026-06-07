@@ -24,7 +24,7 @@ neutralize only what enables injection:
 \itemize{
 \item \code{<} -> \code{&lt;} and \code{>} -> \code{&gt;} (no tag can open)
 \item a \emph{bare} \code{&} (not already starting an HTML entity) ->
-\code{&amp;}, so existing entities and our own \code{&bull;}/\code{&mdash;}
+\code{&amp;}, so existing entities and the package's own \code{&bull;}/\code{&mdash;}
 are left intact and not double-escaped.
 \item markdown links/images whose URL scheme is not http/https/mailto/...
 (e.g. \code{javascript:}, \code{data:}, including the entity-obfuscated
@@ -32,7 +32,7 @@ variants pandoc would decode) are defanged: pandoc does not vet link
 schemes, so this stops a clickable \code{javascript:} href in the report.
 }
 \code{**bold**}, safe \code{[text](url)}, lists, and \code{>} blockquote
-markers we prepend ourselves all keep working; an injected \code{<tag>} or
+markers the renderer prepends all keep working; an injected \code{<tag>} or
 \code{javascript:} link cannot.
 }
 \keyword{internal}

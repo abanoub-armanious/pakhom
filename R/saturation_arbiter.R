@@ -1,8 +1,8 @@
 # ==============================================================================
-# Phase 56: AI saturation arbiter
+# AI saturation arbiter
 # ==============================================================================
-# Replaces the pre-Phase-56 multi-signal saturation triangulation
-# (R/09_coding.R lines 470-562 pre-rewrite). The pre-Phase-56 design fired
+# Replaces the earlier multi-signal saturation triangulation
+# (formerly in R/09_coding.R). The earlier design fired
 # three signals -- two heuristic (code creation rate threshold, ITS slope
 # ratio < 0.05) and one AI self-assessment -- and stopped when 2+ fired or
 # after a hardcoded number of consecutive low-creation windows. Six knobs
@@ -24,7 +24,7 @@
 # total). A 100-entry corpus checks every 20 entries (~4 checks).
 #
 # Articulation requirement: the schema mandates a 2-4 sentence
-# articulation BEFORE the verdict (Phase 52's anti-vacuous pattern).
+# articulation BEFORE the verdict (the anti-vacuous pattern).
 # Articulations under 30 chars downgrade "reached" -> "not_yet" so the
 # AI can't declare saturation without substantive reasoning.
 #
@@ -34,7 +34,7 @@
 #
 # Audit trail: decision_type = "saturation_judgment" recorded in
 # ai_decisions.jsonl with verdict, n_coded, articulation excerpt, and
-# rationale. cf. saturation_signal (pre-Phase-56) which carried the
+# rationale. cf. saturation_signal (the earlier design) which carried the
 # raw signal booleans.
 # ==============================================================================
 
@@ -118,7 +118,7 @@
 #' \itemize{
 #'   \item the research focus (so the AI judges saturation in context)
 #'   \item the recent saturation-curve trajectory (new-codes-per-window
-#'     + reuse density) -- this is the EVIDENCE the pre-Phase-56
+#'     + reuse density) -- this is the EVIDENCE the earlier
 #'     heuristic signals computed; now passed to the AI as data
 #'   \item codebook composition summary (top-N codes by frequency)
 #'   \item n_coded / n_corpus progress
@@ -181,14 +181,14 @@
   )
 }
 
-#' Phase 56: AI saturation arbiter
+#' AI saturation arbiter
 #'
 #' Single 3-valued judgment call to the AI. Returns a list with verdict
 #' (one of \code{"reached"}, \code{"not_yet"}, \code{"uncertain"}) plus
 #' articulation, rationale, and a success flag (FALSE on parse/API failure).
 #'
 #' Articulations under 30 chars downgrade "reached" to "not_yet" --
-#' Phase 52's anti-vacuous pattern. Failures are NOT counted against the
+#' The anti-vacuous pattern. Failures are NOT counted against the
 #' verdict (the caller's circuit breaker tracks failures separately).
 #'
 #' @param state ProgressiveCodingState with codebook + curve
@@ -218,18 +218,17 @@
     "valid first-class output when the evidence is insufficient."
   )
 
-  # Phase 56 audit HIGH-1: every ai_complete attempt records an
+  # Every ai_complete attempt records an
   # ai_request audit row regardless of parse outcome -- the failure
   # tail must be reconstructible from the audit log (T1.4 transparency).
-  # We split the tryCatch into two parts: the AI call (audit-logged on
+  # The tryCatch is split into two parts: the AI call (audit-logged on
   # success even if subsequent JSON parsing fails) and the parse step
   # (separate failure mode).
   ai_result <- tryCatch(
     ai_complete(provider, prompt, system_prompt,
                  task = "saturation_check",
-                 # Phase 52 audit CRITICAL-2 pattern: explicit
-                 # temperature=0 for replay-equivalence. Default
-                 # saturation_check temperature is non-zero; pass 0.
+                 # Explicit temperature=0 for replay-equivalence; the
+                 # default saturation_check temperature is non-zero, so pass 0.
                  temperature = 0,
                  response_schema = .saturation_decision_schema()),
     error = function(e) {
@@ -284,7 +283,7 @@
   articulation <- as.character(result$articulation %||% "")
   rationale <- as.character(result$rationale %||% "")
 
-  # Phase 52 anti-vacuous pattern: articulations under 30 chars
+  # Anti-vacuous pattern: articulations under 30 chars
   # downgrade "reached" to "not_yet" so the AI can't declare
   # saturation without substantive reasoning.
   if (identical(verdict, "reached") && nchar(articulation) < 30L) {

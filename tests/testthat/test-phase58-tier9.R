@@ -195,8 +195,8 @@ test_that("audit log record has schema_version as the first field", {
 # Tier 5 M-T7-1 (deferred): prompt_template_version in run_metadata
 # ==========================================================================
 
-test_that(".PROMPT_TEMPLATE_VERSION constant exists and is phase58_tier7", {
-  expect_equal(pakhom:::.PROMPT_TEMPLATE_VERSION, "phase58_tier7")
+test_that(".PROMPT_TEMPLATE_VERSION constant exists and is 1.0.0", {
+  expect_equal(pakhom:::.PROMPT_TEMPLATE_VERSION, "1.0.0")
 })
 
 test_that("init_run_state stamps prompt_template_version into run_metadata.json", {
@@ -207,10 +207,10 @@ test_that("init_run_state stamps prompt_template_version into run_metadata.json"
     methodology_mode = "codebook_collaborative"
   )
   expect_true("prompt_template_version" %in% names(meta))
-  expect_equal(meta$prompt_template_version, "phase58_tier7")
+  expect_equal(meta$prompt_template_version, "1.0.0")
   # Read back from disk to confirm persistence
   back <- jsonlite::fromJSON(file.path(td, "run_metadata.json"))
-  expect_equal(back$prompt_template_version, "phase58_tier7")
+  expect_equal(back$prompt_template_version, "1.0.0")
 })
 
 

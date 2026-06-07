@@ -2,7 +2,7 @@
 % Please edit documentation in R/theme_algorithm_v2.R
 \name{generate_themes_multipass}
 \alias{generate_themes_multipass}
-\title{Generate themes via multi-pass clustering + label-after-clustering (Phase 60)}
+\title{Generate themes via multi-pass clustering + label-after-clustering}
 \usage{
 generate_themes_multipass(
   coding_state,

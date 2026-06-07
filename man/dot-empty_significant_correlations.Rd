@@ -16,7 +16,7 @@ A 0-row tibble with the full extract_significant column set.
 \description{
 Returned by \code{\link[=extract_significant]{extract_significant()}} when no pairwise correlation was
 computable (every off-diagonal r was NA). Carries every column the
-populated path emits -- including the Phase 63 (#2b) \code{exclusion_reason}
+populated path emits -- including the \code{exclusion_reason}
 and \code{excluded_from_findings} flags -- so the CSV export, the report
 consumers, and compare_runs see a consistent schema on degenerate corpora.
 }

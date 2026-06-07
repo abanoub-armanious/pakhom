@@ -22,9 +22,9 @@ ordinal threshold defaults to \code{<=21 unique values}, which covers
 (a) the VADER-shaped sentiment scale \code{[-1, 1]} quantized at 0.1
 (21 distinct levels), (b) the Likert-style 5/7/9/11-point scales
 common in survey research, and (c) AI-elicited intensity / confidence
-scores on a small integer grid. The pre-Phase-58 threshold of 7
+scores on a small integer grid. The earlier threshold of 7
 silently classified VADER sentiment as \emph{continuous} on the
-Phase 57 run, which then dispatched to Pearson (point-biserial for
+large run, which then dispatched to Pearson (point-biserial for
 binary x quantized-sentiment pairs) -- methodologically wrong for an
 ordinal support. Spearman is correct when either variable is
 rank-orderable but not interval-scaled (H-13).

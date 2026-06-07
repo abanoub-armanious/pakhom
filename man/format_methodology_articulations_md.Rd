@@ -2,11 +2,11 @@
 % Please edit documentation in R/methodology_assistant.R
 \name{format_methodology_articulations_md}
 \alias{format_methodology_articulations_md}
-\title{Render methodology articulations as human-readable markdown (Phase 61.2)}
+\title{Render methodology articulations as human-readable markdown}
 \usage{
 format_methodology_articulations_md(art)
 }
 \description{
-Render methodology articulations as human-readable markdown (Phase 61.2)
+Render methodology articulations as human-readable markdown
 }
 \keyword{internal}

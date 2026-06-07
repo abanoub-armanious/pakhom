@@ -27,17 +27,17 @@ select per theme. Wired through from
 \item{config}{Optional ThematicConfig or config list. When supplied,
 \code{config$data$column_mappings$metric_columns} is used as the
 explicit metric allowlist for the per-subtheme paper-style tables
-(Phase 55). When NULL or empty, metrics auto-detect from the data
+When NULL or empty, metrics auto-detect from the data
 via \code{\link{.detect_metric_columns}}.}
 
-\item{metric_interpretation}{Optional \code{MetricInterpretation} (Phase 61.2
+\item{metric_interpretation}{Optional \code{MetricInterpretation} (from the
 Methodology Assistant), threaded to \code{.compute_subtheme_statistics} so
 each interpreted column additionally gets the AI's requested primitives.
 NULL (legacy / Mode 1) -> only the legacy Median(MAD)+Mean(SD) battery.}
 }
 \value{
 Named list of theme stats (one per theme). Each theme entry
-carries a \code{subtheme_stats} list (Phase 55) with one element
+carries a \code{subtheme_stats} list with one element
 per real subtheme: n, per-metric Median(MAD) + Mean(SD), and
 metric-tagged example quotes -- the paper-style per-subtheme rows
 the report renders into a table inside each theme's card.

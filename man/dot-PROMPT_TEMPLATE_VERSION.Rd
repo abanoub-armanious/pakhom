@@ -3,7 +3,7 @@
 \docType{data}
 \name{.PROMPT_TEMPLATE_VERSION}
 \alias{.PROMPT_TEMPLATE_VERSION}
-\title{Prompt-template generation marker (Phase 58 Tier 9, M-T7-1)}
+\title{Prompt-template generation marker}
 \format{
 An object of class \code{character} of length 1.
 }
@@ -12,21 +12,15 @@ An object of class \code{character} of length 1.
 }
 \description{
 Stamped into \code{run_metadata.json$prompt_template_version} so a
-future OS.5 replayer can detect when a loaded cache was produced
-under a different prompt template generation. The value maps 1:1 to
-the most recent Phase 58 tier that materially changed the prompt
-body. Bump whenever a prompt rewrite shifts the AI-visible
-character offsets or the response schema (e.g. Phase 58 Tier 7's
-\code{<entry_text>} fence change).
+future replayer can detect when a loaded cache was produced under a
+different prompt-template generation. Bump this value whenever a
+prompt rewrite shifts the AI-visible character offsets or the
+response schema.
 }
 \details{
-\itemize{
-\item \code{"pre_phase58"}  -- pre-Phase-58 prompt (JSON-escaped
-\code{Entry text:} wrapping)
-\item \code{"phase58_tier7"} -- current generation, post-V-6/L-3
-prompt rewrite (\code{<entry_text>...</entry_text>} fence with
-verbatim text; offset arithmetic preserved through
-\code{.escape_entry_text_fence})
-}
+The current generation wraps entry text in an
+\code{<entry_text>...</entry_text>} fence with verbatim text (offset
+arithmetic preserved through \code{.escape_entry_text_fence}); an
+earlier generation JSON-escaped an \code{Entry text:} wrapping.
 }
 \keyword{internal}

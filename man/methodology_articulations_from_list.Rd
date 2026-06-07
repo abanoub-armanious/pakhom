@@ -2,11 +2,11 @@
 % Please edit documentation in R/methodology_assistant.R
 \name{methodology_articulations_from_list}
 \alias{methodology_articulations_from_list}
-\title{Reconstruct a MethodologyArticulations from a plain list (Phase 61.2)}
+\title{Reconstruct a MethodologyArticulations from a plain list}
 \usage{
 methodology_articulations_from_list(lst, default_source = "pinned")
 }
 \description{
-Reconstruct a MethodologyArticulations from a plain list (Phase 61.2)
+Reconstruct a MethodologyArticulations from a plain list
 }
 \keyword{internal}

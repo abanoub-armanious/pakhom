@@ -136,7 +136,7 @@
 #' \itemize{
 #'   \item \code{<} -> \code{&lt;} and \code{>} -> \code{&gt;} (no tag can open)
 #'   \item a \emph{bare} \code{&} (not already starting an HTML entity) ->
-#'     \code{&amp;}, so existing entities and our own \code{&bull;}/\code{&mdash;}
+#'     \code{&amp;}, so existing entities and the package's own \code{&bull;}/\code{&mdash;}
 #'     are left intact and not double-escaped.
 #'   \item markdown links/images whose URL scheme is not http/https/mailto/...
 #'     (e.g. \code{javascript:}, \code{data:}, including the entity-obfuscated
@@ -144,7 +144,7 @@
 #'     schemes, so this stops a clickable \code{javascript:} href in the report.
 #' }
 #' \code{**bold**}, safe \code{[text](url)}, lists, and \code{>} blockquote
-#' markers we prepend ourselves all keep working; an injected \code{<tag>} or
+#' markers the renderer prepends all keep working; an injected \code{<tag>} or
 #' \code{javascript:} link cannot.
 #' @param x Character string of AI-generated prose (NULL/NA -> "").
 #' @return HTML-tag-neutralized, Markdown-preserving string.
@@ -154,7 +154,7 @@
   x <- as.character(x)
   x[is.na(x)] <- ""
   # Bare & first (a & not already part of a &name; / &#123; / &#xAF; entity),
-  # so the &lt;/&gt; we introduce next aren't themselves re-amped.
+  # so the &lt;/&gt; introduced next aren't themselves re-amped.
   x <- gsub("&(?!#?[A-Za-z0-9]+;)", "&amp;", x, perl = TRUE)
   x <- gsub("<", "&lt;", x, fixed = TRUE)
   x <- gsub(">", "&gt;", x, fixed = TRUE)
@@ -206,7 +206,7 @@ export_results <- function(data, theme_set, correlations_df, insights,
   export_files$sentiment_file <- sentiment_file
   log_info("Exported sentiment scores: {sentiment_file}")
 
-  # --- Codes CSV (Phase 60.6 rename: was "consolidated_codes.csv"; the
+  # --- Codes CSV (renamed from "consolidated_codes.csv"; the
   # old filename violated C-tenet 2 because it implied codes are
   # consolidated/merged, when in fact pakhom preserves codes as atomic
   # leaves throughout clustering. New filename is honest.) ---
@@ -237,10 +237,10 @@ export_results <- function(data, theme_set, correlations_df, insights,
   export_files$correlations_file <- correlations_file
 
   # --- Themes JSON ---
-  # Phase 50a: bypass theme_set_to_tibble() for JSON. The tibble form
+  # Bypass theme_set_to_tibble() for JSON. The tibble form
   # collapses codes_included/subthemes/keywords into ";"-delimited strings
   # (R/12_theme_data.R::theme_set_to_tibble), which is correct for CSV
-  # cells but WRONG for JSON consumers. Phase 48 audit caught this:
+  # cells but WRONG for JSON consumers. An audit caught this:
   # downstream tools (and the plan-comparison agents) saw codes_included
   # as a single string of length 1 and assumed the merge tree had
   # corrupted the codes. The merge tree is fine; the JSON serialization
@@ -249,7 +249,7 @@ export_results <- function(data, theme_set, correlations_df, insights,
   # length-1 vectors to scalars.
   themes_file <- file.path(output_dir, "themes.json")
   themes_json <- lapply(theme_set$themes, function(t) {
-    # Phase 51: walk the canonical Theme -> Subtheme -> Code hierarchy.
+    # walk the canonical Theme -> Subtheme -> Code hierarchy.
     # Flat codes_included + flat subthemes character vectors stay for
     # back-compat with downstream consumers; subthemes_structured carries
     # the full hierarchy with per-code metadata (key, name, desc, freq,
@@ -258,10 +258,10 @@ export_results <- function(data, theme_set, correlations_df, insights,
     flat_code_names <- theme_codes(t)
     flat_subtheme_names <- .subtheme_names_no_virtual(t)
 
-    # Phase 58 Tier 1 C-12: serialize the full subtheme tree (subthemes
+    # serialize the full subtheme tree (subthemes
     # can now nest). Recursive walker emits nested $subthemes alongside
     # the direct $codes at each level; consumers that don't know about
-    # the nesting (pre-Phase-58 readers) still get codes + name + desc.
+    # the nesting (earlier readers) still get codes + name + desc.
     serialize_subtheme <- function(s) {
       if (!inherits(s, "Subtheme")) return(NULL)
       list(
@@ -287,14 +287,14 @@ export_results <- function(data, theme_set, correlations_df, insights,
     structured <- lapply(t$subthemes %||% list(), serialize_subtheme)
     structured <- Filter(Negate(is.null), structured)
 
-    # Phase 58 Tier 1 AF-3: three subtheme counters expose the full
+    # three subtheme counters expose the full
     # decomposition shape to consumers. n_subthemes preserves the
-    # pre-Phase-58 semantics (depth-1 real subthemes only) for back-
+    # earlier semantics (depth-1 real subthemes only) for back-
     # compat. n_subthemes_total counts every named subtheme at every
     # depth (the "true" decomposition size when C-12's nested walker
     # produces sub-subthemes). n_subthemes_structured matches
     # length(subthemes_structured) exactly, including virtual NA-named
-    # wrappers -- the value that surprised the Phase 57 audit when it
+    # wrappers -- the value that surprised an audit when it
     # didn't match n_subthemes.
     list(
       id                       = as.integer(t$id %||% 0L),
@@ -313,7 +313,7 @@ export_results <- function(data, theme_set, correlations_df, insights,
       keywords                 = I(as.character(t$keywords %||% character(0))),
       narrative                = t$narrative %||% "",
       supporting_quotes        = I(as.character(t$supporting_quotes %||% character(0))),
-      # Phase 58 Tier 7 M-25/AF-34 audit followup C-T7-1: persist the
+      # Persist the
       # structured supporting_quote_records to disk so downstream
       # consumers (themes.json readers, comparison runs, cross-run
       # T0.2 audits) can trace each rendered quote back to its source
@@ -358,7 +358,7 @@ export_results <- function(data, theme_set, correlations_df, insights,
 #'   `missing` (expected but not found), `complete` (logical)
 #' @export
 verify_run_integrity <- function(run_dir, config = list()) {
-  # Phase 31: dispatch on methodology mode. Mode 1 (Reflexive Scaffold)
+  # dispatch on methodology mode. Mode 1 (Reflexive Scaffold)
   # produces a different artifact set from Modes 2/3 (no sentiment, no
   # correlations, no theme_entries directory) -- a unified expected
   # list would silently mark every Mode 1 run as incomplete.
@@ -367,7 +367,7 @@ verify_run_integrity <- function(run_dir, config = list()) {
     return(.verify_run_integrity_mode1(run_dir, config))
   }
 
-  # Core files every completed run must have. Phase 34 audit L3:
+  # Core files every completed run must have.
   # analysis_report.Rmd was incorrectly listed as unconditional. The
   # Rmd is produced only when output$generate_report=TRUE (the writer
   # lives inside generate_report's body). Listing it here caused
@@ -375,11 +375,11 @@ verify_run_integrity <- function(run_dir, config = list()) {
   # warnings on every legitimate generate_report=FALSE run.
   expected <- c(
     "sentiment_scores.csv",
-    "codes.csv",  # Phase 60.6: renamed from "consolidated_codes.csv" (C2)
+    "codes.csv",  # renamed from "consolidated_codes.csv" (C2)
     "correlations.csv",
     "themes.json",
     "theme_entries",
-    # Sprint-4 Tier-0 + Tier-1 outputs that MUST be present in any
+    # Tier-0 + Tier-1 outputs that MUST be present in any
     # complete run. Per AC4 (methodology stamped on every output),
     # integrity check must verify these exist -- otherwise a run that
     # silently lost the audit trail would still report complete=TRUE.
@@ -397,7 +397,7 @@ verify_run_integrity <- function(run_dir, config = list()) {
                    "styles.css",
                    "theme_details")
   }
-  # Phase 39: correlation_plot.png is conditionally produced. Even when
+  # correlation_plot.png is conditionally produced. Even when
   # generate_correlation_plot=TRUE, create_correlation_plot legitimately
   # skips when the matrix has <2 variables (small samples / sparse
   # theme-membership). Expecting the file unconditionally surfaces a
@@ -424,7 +424,7 @@ verify_run_integrity <- function(run_dir, config = list()) {
   if (isTRUE(config$audit$capture_raw_responses %||% TRUE)) {
     expected <- c(expected, config$audit$response_cache_dir %||% "api_responses")
   }
-  # Phase 32 (audit H1 + H2): Mode 3 must have an archived framework
+  # Mode 3 must have an archived framework
   # spec at outputs/<run>/framework_applied.{yaml|yml|json}. The extension
   # is dynamic (preserved from the source spec); accept either as
   # satisfying the archive requirement.
@@ -479,9 +479,9 @@ export_theme_entry_csvs <- function(data, theme_set, output_dir,
   # AC4 (methodology stamped on every output), Tier-0-relevant columns
   # propagate to all output artifacts -- silent omission would let a
   # downstream consumer recompute participant spread from the wrong shape.
-  # Phase 58 Tier 1 C-13: subtheme_assignments was missing from this
+  # subtheme_assignments was missing from this
   # export whitelist even though cascade_theme_assignments populates the
-  # column in analytic_data. Downstream consumers (Phase 55 paper-style
+  # column in analytic_data. Downstream consumers (paper-style
   # subtheme tables, researcher manual review) had no way to reconstruct
   # which subtheme each entry belonged to from the per-theme CSV alone.
   # Adding it here makes the per-theme + master CSVs self-describing.
@@ -541,7 +541,7 @@ export_theme_entry_csvs <- function(data, theme_set, output_dir,
   theme_csv_files
 }
 
-#' Export per-theme paper-style subtheme-summary CSVs (Phase 55)
+#' Export per-theme paper-style subtheme-summary CSVs
 #'
 #' Complement to \code{export_theme_entry_csvs}: for each theme, writes
 #' a CSV with ONE ROW PER REAL SUBTHEME with paper-style columns
@@ -561,7 +561,7 @@ export_theme_entry_csvs <- function(data, theme_set, output_dir,
 #' by the per-entry CSVs and the theme card.
 #'
 #' @param theme_stats Per-theme stats list from
-#'   \code{aggregate_theme_statistics()} (Phase 55+: must carry
+#'   \code{aggregate_theme_statistics()} (must carry
 #'   \code{subtheme_stats} + \code{metric_cols}).
 #' @param output_dir Run directory.
 #' @param methodology_mode Optional methodology mode for AC4 stamping.
@@ -695,20 +695,20 @@ export_theme_subtheme_summary_csvs <- function(theme_stats, output_dir,
 #'   framework's path + sha256 hash. When provided alongside
 #'   \code{framework_spec}, the Framework Declaration section
 #'   includes the sha256 fingerprint and a link to the archived spec.
-#' @param metric_interpretation Optional \code{MetricInterpretation} (Phase 61.2
+#' @param metric_interpretation Optional \code{MetricInterpretation} (from the
 #'   Methodology Assistant). Threaded to \code{aggregate_theme_statistics} so
 #'   per-subtheme stats are computed via the AI's chosen primitives (per-column,
 #'   matched by name) with the legacy battery as fallback. NULL -> legacy only.
 #' @param methodology_articulations Optional \code{MethodologyArticulations}
-#'   bundle (Phase 61.4). Drives the report's "Methodology Setup" section
+#'   bundle. Drives the report's "Methodology Setup" section
 #'   (relevance criterion + per-metric interpretations + per-theme temporal
 #'   panel). When NULL, the renderer falls back to reading the archived
 #'   \code{rules/methodology_articulations.json} under the output dir if present;
 #'   when neither is available the section is omitted. When supplied and
 #'   \code{metric_interpretation} is NULL, the metric interpretation is derived
 #'   from this bundle.
-#' @param research_coverage Optional \code{ResearchCoverage} object (Phase 63;
-#'   Mode 2). Drives the "Research-question coverage" section -- where each named
+#' @param research_coverage Optional \code{ResearchCoverage} object (Mode 2
+#'   only). Drives the "Research-question coverage" section -- where each named
 #'   focus facet landed across the themes. When NULL, the renderer falls back to
 #'   the archived \code{rules/research_coverage.json} under the output dir if
 #'   present; when neither is available (or no separable facets were found) the
@@ -735,7 +735,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
                              research_coverage = NULL) {
   validate_class(theme_set, "ThemeSet")
 
-  # Phase 61.4: when the full articulations bundle is supplied but the
+  # when the full articulations bundle is supplied but the
   # metric_interpretation wasn't passed separately, derive it from the bundle
   # so the per-subtheme stats path (61.3b) and the Methodology Setup section
   # (61.4) share one source. Passing metric_interpretation explicitly (the
@@ -754,7 +754,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   log_info("Generating HTML report...")
   tic("Report generation")
 
-  # Aggregate statistics. Phase 50d: thread the user's
+  # Aggregate statistics. Thread the user's
   # quotes_per_theme config through; was previously hardcoded to 3
   # at R/16_report_helpers.R:106 + R/13_themes.R:793 even when the
   # user set a different value in config$analysis$themes$quotes_per_theme.
@@ -775,7 +775,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   # Correlation interpretation
   corr_interpretation <- interpret_correlations(correlations_df, theme_stats)
 
-  # Theme ordering. Phase 54: under Mode 3 the theme_set may contain both
+  # Theme ordering. Under Mode 3 the theme_set may contain both
   # framework themes (deductive, primary) and emergent themes (inductive,
   # derived from anomaly residuals). Order them by kind first
   # (framework -> emergent -> anomaly_bracket) and within each kind by
@@ -821,13 +821,13 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     run_id = basename(output_dir),
     framework_spec = framework_spec,
     framework_archive = framework_archive,
-    # Phase 61.4: the methodology articulations bundle drives the
+    # the methodology articulations bundle drives the
     # "Methodology Setup" section + per-theme temporal panel.
     methodology_articulations = methodology_articulations,
-    # Phase 58 Tier 4 V-5: pass output_dir so the T0.1 dashboard can
+    # pass output_dir so the T0.1 dashboard can
     # find fabrication_log.csv to count pre-rejection fabrications.
     output_dir = output_dir,
-    # Phase 63: research-question coverage section (Mode 2).
+    # research-question coverage section (Mode 2).
     research_coverage = research_coverage
   )
 
@@ -848,7 +848,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     data = data, coding_results = coding_results
   )
 
-  # Phase 55: paper-style per-theme subtheme summary CSVs. One CSV per
+  # paper-style per-theme subtheme summary CSVs. One CSV per
   # theme (one row per subtheme; columns include Median(MAD) + Mean(SD)
   # per auto-detected metric + examples-of-comments) plus a master
   # all_subthemes.csv. Methodology-stamped per AC4 when in a real run.
@@ -1013,10 +1013,10 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   # T0.1 part 3: Tier-0 Data Integrity Dashboard. Renders immediately under
   # the executive summary so reviewers see verification results before
   # reading themes. Reads coding_state's per-segment $provenance fields
-  # (populated by phase 18 wiring); falls back gracefully when coding_state
+  # (populated by pipeline wiring); falls back gracefully when coding_state
   # is missing / pre-T0.1.
   tier0_stats <- compute_quote_provenance_stats(coding_state)
-  # Phase 58 Tier 4 V-5: pass the absolute fabrication-log path so the
+  # pass the absolute fabrication-log path so the
   # dashboard can count pre-rejection fabrications (the surviving
   # population in `tier0_stats` is post-rejection, so it always
   # reports 0 caught fabrications regardless of how many the ladder
@@ -1043,7 +1043,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     render_tier0_coverage_card(coverage)
   )
 
-  # Phase 32 (audit H1 + H2): Framework Declaration section. Renders
+  # Framework Declaration section. Renders
   # ONLY when Mode 3 + the framework_spec is present. Carries the
   # framework's name, citations, epistemic stance, anomaly handling
   # policy, and full constructs list -- so a reviewer reading the
@@ -1058,7 +1058,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     )
   }
 
-  # Phase 61.4: Methodology Setup section. The AI analyst's run-start
+  # Methodology Setup section. The AI analyst's run-start
   # articulations -- the relevance criterion that operationalized "on-focus"
   # for this study, plus the per-metric interpretations (which primitives are
   # honest for each column + how to read them). This is the peer-review
@@ -1068,7 +1068,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   # Source resolution: prefer the in-memory bundle; else fall back to the
   # archived rules/methodology_articulations.json under the run dir (so a
   # resume / direct generate_report() call still surfaces it). Omitted when
-  # neither is available (legacy / Mode 1 / pre-Phase-61 runs).
+  # neither is available (legacy / Mode 1 / earlier runs).
   ms_art <- methodology_articulations
   if (is.null(ms_art) && !is.null(output_dir)) {
     ms_art <- .load_methodology_articulations_from_run_dir(output_dir)
@@ -1077,7 +1077,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     content <- paste0(content, .build_methodology_setup_section(ms_art))
   }
 
-  # Phase 63: Research-question coverage section -- where each named focus facet
+  # Research-question coverage section -- where each named focus facet
   # landed across the themes. Prefer the in-memory object; else the archived
   # rules/research_coverage.json (resume / direct generate_report()). The
   # builder returns "" when there is no object or no separable facets, so this
@@ -1138,7 +1138,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   content <- paste0(content, .build_emotional_landscape(overall_stats, export_files))
 
   # --- Thematic Analysis ---
-  # Phase 58 Tier 5 C-3: pass config so the section honors
+  # pass config so the section honors
   # analysis$themes$max_inline_themes (top-N inline cards + compact
   # rows for the remainder). Prevents pandoc OOM at scale.
   content <- paste0(content, .build_thematic_section(
@@ -1570,7 +1570,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
       "theme comparison is shown because there are no themes to summarize.\n\n"
     ))
   }
-  # Phase 58 Tier 5 C-3: top-N inlining + tabular index for remainder.
+  # top-N inlining + tabular index for remainder.
   # Themes beyond max_inline_themes are rendered as compact one-line
   # rows linking to their per-theme detail HTMLs. Default 30 keeps the
   # main Rmd well under pandoc's working-set limit even on corpora
@@ -1600,7 +1600,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     "} else {\n",
     "  all_themes <- unlist(strsplit(data$emerged_themes[!is.na(data$emerged_themes)], ';\\\\s*'))\n",
     "  theme_tbl <- sort(table(trimws(all_themes)), decreasing = TRUE)\n",
-    "  # Phase 34 audit H1: names(table(character(0))) returns NULL,\n",
+    "  # names(table(character(0))) returns NULL,\n",
     "  # and tibble(theme_name = NULL, ...) drops the column. Coerce\n",
     "  # to character(0) so theme_name always exists (mirrors the\n",
     "  # aggregate_overall_statistics fix in R/16_report_helpers.R).\n",
@@ -1656,15 +1656,15 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     "```\n\n"
   )
 
-  # Theme cards. Phase 54: inject a section header when the theme_kind
+  # Theme cards. Inject a section header when the theme_kind
   # changes (framework -> emergent -> anomaly_bracket). For Mode 2 runs
   # (all theme_kind = "framework") the header injection never fires.
-  # Phase 58 Tier 5 C-3: themes beyond max_inline_themes render compact
+  # themes beyond max_inline_themes render compact
   # (one-line summary + link). The threshold counts across kinds so the
   # cap is a global budget, not per-kind.
-  # Tier 5 audit followup M3: dedupe theme_order so an upstream caller
+  # Dedupe theme_order so an upstream caller
   # that accidentally repeats a name doesn't render the same theme
-  # twice (which would also break the n_compact arithmetic). Phase 51
+  # twice (which would also break the n_compact arithmetic). Pipeline
   # invariants exclude duplicates in practice but defensive dedup
   # cheap insurance.
   theme_order <- unique(theme_order)
@@ -1688,7 +1688,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
       else if (ts$sentiment$mean > .SENTIMENT_POSITIVE_THRESHOLD) "positive"
       else "neutral"
 
-    # Phase 58 Tier 5 C-3 audit followup H1: at the inline-to-compact
+    # At the inline-to-compact
     # boundary, emit the "## Additional themes" header BEFORE the
     # theme_kind transition banner. Pre-followup the two banners
     # stacked with no content in between when framework count exactly
@@ -1705,8 +1705,8 @@ generate_report <- function(data, theme_set, correlations_df, insights,
         n_compact, ' theme(s) ranked beyond the top ',
         max_inline_themes, ' are listed below as compact rows linking ',
         'to their full per-theme detail pages. This keeps the main HTML ',
-        'renderable at scale (pandoc OOMs on inline cards for >400 themes; ',
-        'see Phase 58 Tier 5 C-3). Every theme retains complete provenance, ',
+        'renderable at scale (pandoc OOMs on inline cards for >400 themes). ',
+        'Every theme retains complete provenance, ',
         'entries, and the paper-style subtheme summary on its detail page.',
         '</em></p>\n',
         '</div>\n\n'
@@ -1743,14 +1743,14 @@ generate_report <- function(data, theme_set, correlations_df, insights,
       last_kind <- cur_kind
     }
 
-    # Phase 58 Tier 5 C-3: compact branch. Themes beyond the inline cap
+    # compact branch. Themes beyond the inline cap
     # render a single-line card with badge + name + n + sentiment +
     # detail link + CSV link. The per-theme detail HTML still has the
     # full provenance + entries table + paper-style subtheme table
-    # (Phase 58 Tier 5 H-23). The "## Additional themes" section header
+    # The "## Additional themes" section header
     # was already emitted above (audit followup H1 ordering).
     if (is_compact) {
-      # Tier 5 audit followup M1: format sentiment the same way the
+      # Format sentiment the same way the
       # inline metric card does (rounded by the upstream aggregate but
       # printed without further rounding here). NA falls through to
       # "NA" verbatim, matching inline behavior; pre-followup the
@@ -1803,9 +1803,9 @@ generate_report <- function(data, theme_set, correlations_df, insights,
       '</div>\n\n'
     )
 
-    # Keywords -- Tier 8 H-26/AF-31 caps at 8 frequency-ranked codes
+    # Keywords -- capped at 8 frequency-ranked codes
     # upstream in 13_themes.R (`keyword_cap <- 8L`); renderer respects the
-    # whole curated set rather than truncating again. Pre-Phase-59 bug was
+    # whole curated set rather than truncating again. An earlier bug was
     # `seq_len(min(5, ...))` here, silently dropping 3 of the 8 (caught by
     # the high-effort code review).
     if (!is.null(ts$keywords) && length(ts$keywords) > 0 && !all(is.na(ts$keywords))) {
@@ -1819,7 +1819,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
       )
     }
 
-    # Phase 55: per-subtheme paper-style table. One row per real
+    # per-subtheme paper-style table. One row per real
     # subtheme: name, n, Median(MAD) + Mean(SD) for each auto-detected
     # metric column, examples-of-comments column with quotes tagged
     # [metric: value; ...]. Matches the dayvigo/ozempic/vyvanse paper
@@ -1829,9 +1829,9 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     content <- paste0(content,
       .build_subtheme_summary_table(ts))
 
-    # Phase 61.4: per-theme temporal panel (posting-time rhythms + the AI's
+    # per-theme temporal panel (posting-time rhythms + the AI's
     # temporal interpretation note). Emitted in the non-compact branch, so it
-    # inherits the Tier-5 max_inline_themes gating automatically -- overflow
+    # inherits the max_inline_themes gating automatically -- overflow
     # themes still get the panel on their detail page. Returns "" when this
     # theme carries no temporal panel (Mode 1 / legacy / no temporal column).
     content <- paste0(content,
@@ -1882,8 +1882,8 @@ generate_report <- function(data, theme_set, correlations_df, insights,
       }
     }
 
-    # Detail link (safe_fn already computed at loop top for Phase 58
-    # Tier 5 C-3 compact-row pathway)
+    # Detail link (safe_fn already computed at loop top for the
+    # compact-row pathway)
     content <- paste0(content,
       '<a href="theme_details/theme_', safe_fn, '.html" class="drill-down-link" target="_blank">',
       'View Full Details: ', ts$n_entries, ' Entries</a>\n'
@@ -1904,10 +1904,10 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 }
 
 # ==============================================================================
-# Phase 61.4: Methodology Setup section (AI analyst's run-start articulations)
+# Methodology Setup section (AI analyst's run-start articulations)
 # ==============================================================================
 
-#' Load archived methodology articulations from a run directory (Phase 61.4)
+#' Load archived methodology articulations from a run directory
 #'
 #' Reads \code{<run_dir>/rules/methodology_articulations.json} (written by
 #' \code{archive_methodology_articulations()} at Step 2.5) and reconstructs the
@@ -1934,7 +1934,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   })
 }
 
-#' Render one interpreted-column record as an HTML table row (Phase 61.4)
+#' Render one interpreted-column record as an HTML table row
 #'
 #' Shared by the metric + temporal interpretation tables in the Methodology
 #' Setup section. Shows the column name, the AI's free-form description, the
@@ -1954,7 +1954,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
               if (nzchar(rat)) paste0(" &mdash; ", .html_esc(rat)) else "")
     }, character(1)), collapse = "<br>")
   }
-  # Phase 62.1: the AI's free-form provenance/relevance judgment, shown inline.
+  # the AI's free-form provenance/relevance judgment, shown inline.
   # Empty (pre-62 archives / AI returned nothing) -> an em dash, never fabricated.
   prov <- rec$metric_provenance %||% ""
   prov_html <- if (nzchar(prov)) .html_esc(prov) else "&mdash;"
@@ -1966,7 +1966,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
           prov_html)
 }
 
-#' Classify a metric column as substantive vs source/platform metadata (Phase 62.1)
+#' Classify a metric column as substantive vs source/platform metadata
 #'
 #' Routes the AI's OWN free-form provenance prose into one of two report groups.
 #' This is NOT a hardcoded taxonomy of column "kinds" the researcher configures
@@ -1990,7 +1990,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
                  logical(1)))) "metadata" else "substantive"
 }
 
-#' Render the Methodology Setup section (Phase 61.4)
+#' Render the Methodology Setup section
 #'
 #' The "AI as analyst" transparency artifact: the relevance criterion that
 #' operationalized on-focus coding for this study, the on/off-focus examples and
@@ -2071,7 +2071,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
       paste0("<tbody>", rows, "</tbody>"),
       "</table>")
   }
-  # Phase 62.1: group the metric interpretations by the AI's OWN provenance prose
+  # group the metric interpretations by the AI's OWN provenance prose
   # into "Substantive measures" vs "Source / engagement metadata" -- the grouping
   # IS the methodological signal (the tool refuses to conflate platform reception
   # with the phenomenon). When NO metric carries provenance (pre-62 archives /
@@ -2095,7 +2095,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
                          "reception/salience signals, not prevalence or severity.")))
     }
   }
-  # Phase 62.5: deterministic small-n reliability caveat for the per-subtheme
+  # deterministic small-n reliability caveat for the per-subtheme
   # spread statistics. EXPLAIN, don't gate (parallel to the correlation section's
   # exploratory caveat + the metadata caveat above): no value is ever suppressed,
   # there is no n-floor/threshold, and the n is shown beside every statistic so the
@@ -2118,10 +2118,10 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 }
 
 # ==============================================================================
-# Phase 61.4: per-theme temporal panel (posting-time rhythms)
+# per-theme temporal panel (posting-time rhythms)
 # ==============================================================================
 
-#' Render the per-theme temporal panel (Phase 61.4)
+#' Render the per-theme temporal panel
 #'
 #' Surfaces when a theme's entries were posted, using the temporal primitives the
 #' AI analyst requested (hour/day/month rhythms, span, cadence, volume timeline)
@@ -2131,7 +2131,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 #' the catalog lacks. Returns "" when the theme carries no temporal panel
 #' (NULL on Mode 1 / legacy / no-temporal-interpretation runs).
 #'
-#' @param ts Per-theme stats object (carries \code{temporal_panel}, Phase 61.4).
+#' @param ts Per-theme stats object (carries \code{temporal_panel}).
 #' @return Character HTML string for the panel block.
 #' @keywords internal
 .build_temporal_panel <- function(ts) {
@@ -2173,10 +2173,10 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 }
 
 # ==============================================================================
-# Phase 55: paper-style per-subtheme summary table
+# paper-style per-subtheme summary table
 # ==============================================================================
 
-#' Render the per-theme, per-subtheme summary table (Phase 55)
+#' Render the per-theme, per-subtheme summary table
 #'
 #' Returns an HTML/Markdown block containing a table with one row per
 #' real (non-virtual) subtheme of the theme:
@@ -2194,7 +2194,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 #' Returns the empty string when:
 #' \itemize{
 #'   \item the theme has no real subthemes (only the virtual NA-named
-#'     wrapper from the Phase 51 hierarchy), \emph{OR}
+#'     wrapper from the subtheme hierarchy), \emph{OR}
 #'   \item the dataset has no detectable metric columns AND no real
 #'     subthemes.
 #' }
@@ -2203,7 +2203,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 #' surfacing the hierarchy.
 #'
 #' @param ts Per-theme stats object from \code{aggregate_theme_statistics}
-#'   (must carry \code{subtheme_stats} + \code{metric_cols}, Phase 55+).
+#'   (must carry \code{subtheme_stats} + \code{metric_cols}).
 #' @return Character HTML+markdown string for the table block.
 #' @keywords internal
 .build_subtheme_summary_table <- function(ts) {
@@ -2217,12 +2217,12 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   # column stays canonical. Paper-style convention; dataset-agnostic.
   .pretty_metric <- function(mc) gsub("_+", " ", mc)
 
-  # Phase 61.4: build a per-column rendering plan. A column the Methodology
+  # build a per-column rendering plan. A column the Methodology
   # Assistant interpreted (carries ai_metric_stats with >= 1 requested
   # primitive) renders one column PER chosen primitive plus an interpretation
   # note beneath the table; a column with no AI record (or an empty request)
   # falls back to the legacy Median(MAD)+Mean(SD) battery (per-column, audit
-  # notes N1/N2). The AI request list is global per column, so we read it from
+  # notes N1/N2). The AI request list is global per column, so it is read from
   # the first subtheme that carries it. When NO column has an AI plan the
   # output is byte-identical to the pre-61.4 legacy table (back-compat).
   plan <- list()
@@ -2298,7 +2298,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
         # name -- rather than by raw position -- additionally hardens the table
         # against any future caller whose subthemes differ in primitive order:
         # a value can never land under the wrong header (three independent
-        # Phase-61.4 audits flagged the positional version as a latent
+        # An audit flagged the positional version as a latent
         # transposition risk; this closes it). Duplicate primitive names (e.g. a
         # pinned prim_quantile at two q's) are consumed left-to-right; a plan
         # primitive absent from this subtheme renders "n/a". The cell count
@@ -2313,7 +2313,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
             logical(1)))
           prec <- if (length(hit) > 0L) { used[hit[1]] <- TRUE; reqs[[hit[1]]] } else NULL
           cell <- .format_primitive_result(prec)
-          # Phase 62.5d: MARK a spread/shape statistic computed on fewer entries
+          # MARK a spread/shape statistic computed on fewer entries
           # than the analyst's per-column reliability floor (min_reliable_n). The
           # value + its n stay shown -- this marks, it does not gate/hide. The
           # threshold is the AI's number (not a package cutoff); only dispersion/
@@ -2359,7 +2359,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   # byte-identical to the pre-61.4 output; the AI clause is added only when at
   # least one column shows AI-chosen primitives.
   caption <- paste0(
-    # Phase 55 audit MEDIUM-15: clarify that the bracketed metric tags after
+    # Clarify that the bracketed metric tags after
     # each example quote are the SOURCE ENTRY's metric values, NOT subtheme
     # aggregates. Without this preface a reader could confuse a per-entry
     # "[<metric>: 8]" with an aggregate cell.
@@ -2373,7 +2373,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     "entry's metric values.</em></p>\n\n"
   )
 
-  # Per-column interpretation notes (Phase 61.4): the AI analyst's free-form
+  # Per-column interpretation notes: the AI analyst's free-form
   # reading of each interpreted column, shown beneath the table. Surfaces any
   # fail-honest gap (a requested primitive the catalog lacks) by name.
   notes_html <- ""
@@ -2399,7 +2399,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
         "<ul>", paste(note_items, collapse = ""), "</ul>\n</div>\n")
   }
 
-  # Phase 62.5d: footnote explaining the small-n marker, shown only when at least
+  # Footnote explaining the small-n marker, shown only when at least
   # one spread/shape cell was marked. Explain-don't-gate: nothing is suppressed,
   # and the threshold is the analyst's per-column number, not a fixed cutoff.
   smalln_footnote <- if (any(grepl("class=\"smalln-flag\"", body_rows, fixed = TRUE))) {
@@ -2426,7 +2426,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 }
 
 # ==============================================================================
-# Participant distribution card (Sprint-4 T0.2)
+# Participant distribution card
 # ==============================================================================
 
 #' Render the per-theme Participant Distribution card
@@ -2541,7 +2541,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 
 
 # ==============================================================================
-# Skip-reason taxonomy clustering (Phase 58 Tier 5 V-7)
+# Skip-reason taxonomy clustering
 # ==============================================================================
 
 #' Cluster free-text skip reasons into a coarse taxonomy
@@ -2549,7 +2549,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 #' AI-generated skip reasons (\code{coding_state$entry_results[[id]]$skip_reason})
 #' are short free-text justifications produced by the coding model when it
 #' judges an entry off-topic / non-applicable. On a 5,000-entry run the
-#' Phase 57 audit observed 580 distinct reason strings, almost all
+#' A large run produced 580 distinct reason strings, almost all
 #' paraphrases of "the entry does not contain..." in slightly different
 #' wording. Rendering one HTML bullet per distinct string produced an
 #' unreadable 580-bullet list AND contributed measurably to pandoc OOM
@@ -2641,7 +2641,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 
 
 # ==============================================================================
-# Corpus coverage card (Sprint-4 T0.3)
+# Corpus coverage card
 # ==============================================================================
 
 #' Render the Tier-0 corpus-coverage assertion card
@@ -2661,14 +2661,14 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 #' or coverage computation failed) the card renders an explicit
 #' "coverage data unavailable" notice rather than omitting silently. Per
 #' AC4 (methodology stamped on every output), absence of the card is
-#' itself a failure signal so we say so.
+#' itself a failure signal, so it is shown.
 #'
 #' @param coverage A \code{CorpusCoverage} object from
 #'   \code{\link{compute_corpus_coverage}}, or NULL.
 #' @return Character HTML/markdown string for the card.
 #' @keywords internal
 .build_corpus_coverage_card <- function(coverage) {
-  # Phase 31: this name is preserved as a thin compat wrapper around
+  # this name is preserved as a thin compat wrapper around
   # the new render_tier0_coverage_card generic. Existing tests in
   # test-corpus_coverage.R + test-tier0-smoke.R call this under
   # pakhom:::.build_corpus_coverage_card; routing through the generic
@@ -2682,7 +2682,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   coverage <- x
   ok <- isTRUE(coverage$no_silent_truncation)
-  # Phase 56: distinguish intentional saturation-triggered early-stop
+  # distinguish intentional saturation-triggered early-stop
   # (coverage$stop_reason == "saturation_arbiter_reached") from genuine
   # silent truncation. Both share ok=TRUE only when the unprocessed tail
   # EXACTLY equals the post-saturation tail (verified in
@@ -2722,7 +2722,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     )
   }
 
-  # Funnel rows -- only show pre-coding rows when we have data for them
+  # Funnel rows -- only show pre-coding rows when data is available for them
   funnel_rows <- character(0)
   if (!is.na(coverage$n_raw_loaded)) {
     funnel_rows <- c(funnel_rows, sprintf(
@@ -2774,12 +2774,12 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "AI judged: no applicable content"
   ))
 
-  # Skip-reason breakdown -- only render when we have skips. Phase 58
-  # Tier 5 V-7: free-text reasons are clustered into ~7 broad
+  # Skip-reason breakdown -- only render when skips exist. Free-text
+  # reasons are clustered into ~7 broad
   # categories via keyword matching, then rendered as category +
   # total count + up to 3 verbatim examples (most-frequent first).
-  # Pre-Phase-58 the section emitted one <li> per distinct reason --
-  # the Phase 57 full run produced 580 distinct strings (mostly
+  # An earlier section emitted one <li> per distinct reason --
+  # a large full run produced 580 distinct strings (mostly
   # paraphrases of "the entry does not contain...") and the resulting
   # 580-bullet list was a measurable contributor to HTML render OOM
   # (C-3) and a major reader-cognitive-load issue.
@@ -2812,7 +2812,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
       '<div class="coverage-skip-reasons">\n',
       '<div class="coverage-subheader">Skip reasons (clustered)</div>\n',
       '<p class="coverage-skip-caption"><em>Free-text reasons clustered by ',
-      'keyword into broad categories (Phase 58 Tier 5 V-7); up to 3 verbatim ',
+      'keyword into broad categories; up to 3 verbatim ',
       'examples per category, most-frequent first.</em></p>\n',
       '<ul class="coverage-skip-categories">',
       paste(cat_rows, collapse = ""),
@@ -2849,12 +2849,12 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
 
 
 # ==============================================================================
-# Framework Declaration card (Sprint-4 Mode 3 / phase 32)
+# Framework Declaration card
 # ==============================================================================
 
 #' Render the Mode 3 Framework Declaration section
 #'
-#' Phase 32 (audit H1 + H2): Mode 3 reports previously stamped the
+#' Mode 3 reports previously stamped the
 #' methodology mode at the top ("M3 - Framework Applied") but never
 #' surfaced WHICH theoretical framework was applied. A reviewer reading
 #' a report could not reconstruct whether the analysis used the Theory
@@ -2954,9 +2954,9 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "mixed"           = "applies constructs as primary but tolerates legitimate revision when data demands it",
     "(unknown stance)"
   )
-  # Phase 54: anomaly_handling drives BEHAVIOR. Each policy is a real
+  # anomaly_handling drives BEHAVIOR. Each policy is a real
   # methodological stance toward segments that resist the framework, not
-  # a documentation-only enum as it was pre-Phase-54.
+  # a documentation-only enum as it was earlier.
   anomaly_explainer <- switch(spec$anomaly_handling,
     "extend"  = "anomaly segments are clustered inductively into a section of emergent themes parallel to the framework themes (abductive coding; Vila-Henninger 2024). The framework spec itself is NOT mutated -- the analysis output gains a new section; the framework remains fixed at run start (AC2)",
     "revise"  = "same as `extend` PLUS a `framework_review.csv` artifact is written with one row per anomaly segment and editable columns, so the researcher can decide whether to update the framework spec for a future run",
@@ -3019,7 +3019,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     content <- paste0(content, .sanitize_ai_prose(corr_interpretation$summary), "\n\n")
   }
 
-  # Phase 39: correlation_plot.png is conditionally produced (skipped
+  # correlation_plot.png is conditionally produced (skipped
   # when the correlation matrix has <2 variables, e.g. small samples).
   # Reference the image only when it actually exists on disk; otherwise
   # render a one-line note explaining the absence so the reader doesn't
@@ -3082,7 +3082,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "  sig_corrs$`95% CI` <- sprintf('[%.3f, %.3f]', sig_corrs$ci_lower, sig_corrs$ci_upper)\n",
     "  select_cols <- c(select_cols, '95% CI' = '95% CI')\n",
     "}\n",
-    "# Tiered p-values when post-OS.2 result; single p_value for legacy data.\n",
+    "# Tiered p-values for newer results; single p_value for legacy data.\n",
     "if (all(c('p_raw', 'p_bh', 'p_bonferroni') %in% names(sig_corrs))) {\n",
     "  select_cols <- c(select_cols,\n",
     "    'p (raw)' = 'p_raw', 'p (BH FDR)' = 'p_bh', 'p (Bonf)' = 'p_bonferroni')\n",
@@ -3112,11 +3112,11 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   # --- Theme Group Comparisons (Mann-Whitney U) ---
   if (!is.null(theme_group_tests) && is.data.frame(theme_group_tests) && nrow(theme_group_tests) > 0) {
     has_tiered_p <- all(c("p_raw", "p_bh", "p_bonferroni") %in% names(theme_group_tests))
-    # Phase 58 Tier 6 audit followup M-2: surface n_members +
+    # Surface n_members +
     # n_non_members + effect_size in the rendered table. Pre-followup
     # H-17 emitted these columns in the tibble but the renderer never
     # showed them -- defeating the whole point of H-17. M-1 defensive
-    # guard against resume from pre-Tier-6 checkpoint (tibble without
+    # guard against resume from an older checkpoint (tibble without
     # these columns falls back to the legacy rendered shape).
     has_n_members <- all(c("n_members", "n_non_members") %in%
                             names(theme_group_tests))
@@ -3170,7 +3170,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   # --- Theme Co-occurrence (Chi-square / Fisher's exact) ---
   if (!is.null(cooccurrence_tests) && is.data.frame(cooccurrence_tests) && nrow(cooccurrence_tests) > 0) {
     has_tiered_p <- all(c("p_raw", "p_bh", "p_bonferroni") %in% names(cooccurrence_tests))
-    # Phase 58 Tier 6 audit followup M-2: surface effect_size column
+    # Surface effect_size column
     # when present. M-3: note count of pairs with degenerate (NA)
     # Cramer's V separately, so the reader knows the headline applies
     # to interpretable rows only.
@@ -3314,21 +3314,21 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
       length(coding_state$codebook), "** unique codes.\n\n"
     )
 
-    # Phase 56: saturation is now AI-arbited (R/saturation_arbiter.R).
-    # The pre-Phase-56 triangulation (code_creation_rate + slope_ratio +
+    # saturation is now AI-arbited (R/saturation_arbiter.R).
+    # The earlier triangulation (code_creation_rate + slope_ratio +
     # ai_self_assessment signal booleans) is gone; the report renders
     # the AI's articulation + rationale instead. Fall back to the
     # legacy signal list when reading an older state file that
-    # predates Phase 56 (back-compat: replay of pre-Phase-56 runs).
+    # predates the arbiter (back-compat: replay of earlier runs).
     # Sanitize the AI free-text up front (neutralizes injected <tags> while
-    # preserving Markdown) BEFORE we prepend our own "> " blockquote markers,
+    # preserving Markdown) BEFORE prepending the "> " blockquote markers,
     # so the markers stay literal and the content can't inject HTML.
     articulation <- .sanitize_ai_prose(as.character(sat$ai_articulation %||% ""))
     rationale    <- .sanitize_ai_prose(as.character(sat$ai_rationale %||% ""))
     if (nzchar(articulation) || nzchar(rationale)) {
       content <- paste0(content,
         "## How the AI arbiter judged saturation\n\n",
-        "Per Phase 56's commitment that the AI decides when to stop (no ",
+        "Per the commitment that the AI decides when to stop (no ",
         "hardcoded thresholds), an AI saturation arbiter judged the ",
         "codebook trajectory + composition at every ",
         "`max(20, ceiling(n_corpus / 50))`-entry checkpoint and ",
@@ -3347,9 +3347,9 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     } else if (isTRUE(sat$signals$ai_self_assessment) ||
                isTRUE(sat$signals$code_creation_rate) ||
                isTRUE(sat$signals$slope_ratio)) {
-      # Back-compat: pre-Phase-56 state file -- describe the legacy
+      # Back-compat: earlier state file -- describe the legacy
       # convergent signals that triggered saturation. Not produced by
-      # any Phase 56+ run, but a state file from an older run may have
+      # any current run, but a state file from an older run may have
       # them.
       signals <- c()
       if (isTRUE(sat$signals$code_creation_rate)) {
@@ -3363,7 +3363,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
       }
       content <- paste0(content,
         "Saturation was triggered by the following convergent signals ",
-        "(pre-Phase-56 triangulation): ",
+        "(an earlier triangulation): ",
         paste(signals, collapse = "; "), ".\n\n"
       )
     }
@@ -3450,12 +3450,12 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "> **Suggested text for methods section:** "
   )
 
-  # Phase 58 Tier 4 V-9 + V-10: pre-fix the suggested methods text
+  # Pre-fix the suggested methods text, which
   # (a) said "All 8216 entries were coded" using length(entries_processed)
   # when actually entries_processed includes skipped entries (3182 of
-  # 8216 were skipped in Phase 57; only 5034 coded), and (b) cited
-  # pre-Phase-56 saturation heuristics (Guest 2020 + De Paoli 2024)
-  # instead of the actual Phase 56 AI saturation arbiter. Both
+  # 8216 were skipped on a large run; only 5034 coded), and (b) cited
+  # the earlier saturation heuristics (Guest 2020 + De Paoli 2024)
+  # instead of the actual AI saturation arbiter. Both
   # generate journal-reviewer-misleading methods text.
   n_coded <- length(coding_state$entries_processed) -
               length(coding_state$entries_skipped %||% integer(0))
@@ -3471,7 +3471,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     } else ""
     content <- paste0(content,
       "Thematic saturation was assessed via an AI-judged arbiter ",
-      "(pakhom Phase 56 implementation) that reviewed codebook ",
+      "(pakhom's implementation) that reviewed codebook ",
       "trajectory metrics at a cadence auto-scaled to corpus size. ",
       "At each check the AI was shown the new-codes-in-window trend, ",
       "the reuse density, and a verbal trajectory, and was asked to ",
@@ -3497,7 +3497,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
       n_coded, " of ", n_processed, " entries were coded ",
       "(", n_skipped, " skipped as off-topic or insufficient ",
       "content). Thematic saturation was monitored by an AI-judged ",
-      "arbiter (pakhom Phase 56 implementation) which reviewed the ",
+      "arbiter (pakhom's implementation) which reviewed the ",
       "codebook trajectory at a cadence auto-scaled to corpus size; ",
       "the arbiter did not declare saturation, indicating that novel ",
       "codes continued to emerge through the end of the run.\n\n"
@@ -3509,7 +3509,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
 
 .build_methodology_appendix <- function(stats, export_files, config,
                                          excerpt_verification = NULL) {
-  # Phase 62 (#6): describe the ACTUAL methodology mode -- pakhom is three-mode by
+  # Describe the ACTUAL methodology mode -- pakhom is three-mode by
   # architecture (AC2: M1 reflexive scaffold / M2 codebook collaborative / M3
   # framework applied), so the appendix must NOT hardcode "reflexive thematic
   # analysis" for every run. A Mode-2 run is codebook TA, for which an evolving
@@ -3544,7 +3544,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "This analysis employed ", meth_phrase, ", using a progressive sequential coding pipeline:\n\n",
     "1. **Learning from prior studies** -- codebook structures and coding conventions from previous manual analyses\n",
     "2. **Progressive sequential coding** -- each entry read individually; applicable text coded with existing or novel codes\n",
-    "3. **AI-judged saturation arbitration** -- Phase 56: an AI arbiter reviews codebook trajectory metrics at an auto-scaled cadence and returns a 3-valued verdict; no hardcoded thresholds\n",
+    "3. **AI-judged saturation arbitration** -- an AI arbiter reviews codebook trajectory metrics at an auto-scaled cadence and returns a 3-valued verdict; no hardcoded thresholds\n",
     "4. **Code-aware sentiment analysis** -- sentiment scored on coded entries using assigned codes as context\n",
     "5. ", theme_step_desc, "\n",
     "6. **Deterministic code-path cascading** -- entries mapped to themes through their codes (no AI re-reading)\n",
@@ -3573,7 +3573,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   provider_name <- config$ai$provider %||% "openai"
   model_name <- config$ai[[provider_name]]$models$primary %||% "N/A"
 
-  # Phase 53: theme range / max proportion / multi-label rows replaced by
+  # theme range / max proportion / multi-label rows replaced by
   # the algorithm row. Per C1 (AI decides when to stop) those knobs no
   # longer gate behavior; the methodology appendix now reports the
   # algorithm itself rather than dead config values.
@@ -3612,7 +3612,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   # Token limits table -- restrict to tasks actually used by the v1.0
   # pipeline so legacy keys (consolidation/assignment/relevance from the
   # pre-1.0 architecture) carried over in user configs are not shown.
-  # Phase 58 Tier 4 V-4: callsite-level temperature overrides for the
+  # callsite-level temperature overrides for the
   # tasks that pin temperature for replay-equivalence (AC10). The
   # config-level table previously showed the CONFIG default (e.g.
   # theming = 0.4) but the runtime calls ai_complete with explicit
@@ -3621,8 +3621,8 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   # the config value misleads readers about the effective temperature.
   runtime_temp_overrides <- list(
     theming               = 0,  # R/theme_algorithm_v2.R clustering decisions
-    saturation_check      = 0,  # R/saturation_arbiter.R::.ai_judge_saturation (Phase 56)
-    description_refresh   = 0   # R/09_coding.R::.refresh_code_description (Phase 58 Tier 2 C-5)
+    saturation_check      = 0,  # R/saturation_arbiter.R::.ai_judge_saturation
+    description_refresh   = 0   # R/09_coding.R::.refresh_code_description
   )
   v1_tasks <- c("coding", "theming", "sentiment", "review", "insight", "synthesis")
   max_tokens <- config$ai$max_tokens
@@ -4240,10 +4240,10 @@ sentiment_colors <- c(
       '</div>\n'
     )
 
-    # Subthemes (Phase 51: ts$subthemes_structured is a list of Subtheme S3
+    # Subthemes (ts$subthemes_structured is a list of Subtheme S3
     # objects with virtual NA-named wrappers already filtered out by
     # aggregate_theme_statistics, so this is a clean render).
-    # Phase 58 Tier 1 C-12: nested sub-subthemes render as indented
+    # nested sub-subthemes render as indented
     # children below their parent. Recursive emitter preserves the
     # tree's depth budget (max 3 by default; deeper trees just keep
     # indenting).
@@ -4281,12 +4281,12 @@ sentiment_colors <- c(
       }
     }
 
-    # Phase 58 Tier 5 H-23: render the paper-style per-subtheme summary
+    # render the paper-style per-subtheme summary
     # table (Subtheme | n | Median(MAD) | Mean(SD) per metric | examples
-    # of comments) on each per-theme detail page too. Pre-Phase-58 the
+    # of comments) on each per-theme detail page too. An earlier
     # table only appeared in the main report -- so when a reader clicked
     # "View Full Details" they LOST the paper-style breakdown that's the
-    # most important Phase 55 output. The renderer returns "" when the
+    # most important paper-style output. The renderer returns "" when the
     # theme has no real subthemes (virtual-only) or no detectable
     # metrics, so the section disappears gracefully when not applicable.
     subtheme_table_html <- .build_subtheme_summary_table(ts)
@@ -4298,7 +4298,7 @@ sentiment_colors <- c(
       )
     }
 
-    # Phase 61.4: per-theme temporal panel on the detail page too (so a reader
+    # per-theme temporal panel on the detail page too (so a reader
     # who clicked through keeps the posting-time breakdown). "" when absent.
     temporal_panel_html <- .build_temporal_panel(ts)
     if (nzchar(temporal_panel_html)) {
@@ -4362,9 +4362,9 @@ sentiment_colors <- c(
           row <- theme_entries[ri, ]
           entry_id <- as.character(row$std_id)
           full_text <- as.character(row[[text_col]])
-          # Phase 58 Tier 9 V-8 followup (M-4): use the word-boundary
+          # Use the word-boundary
           # helper so the per-theme entries table doesn't cut mid-word
-          # either (the helper was Tier-9-applied at the metric-tagged
+          # either (the helper was first applied at the metric-tagged
           # quote site in R/16_report_helpers.R; the audit caught that
           # this parallel site at the per-theme detail HTML was still
           # doing a hard substr).

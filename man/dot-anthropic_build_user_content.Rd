@@ -27,7 +27,7 @@ the legacy \code{content = prompt} string shape -- this keeps existing
 Anthropic accepts plain-text source via
 \code{source = list(type="text", media_type="text/plain", data=text)}
 and chunks it into sentences; returned citations carry char_location
-indices into the original text. Phase 21a uses this mode exclusively;
+indices into the original text. The Anthropic path uses this mode exclusively;
 custom_content / PDF / file-id sources can be added later by extending
 this helper without breaking callers.
 }

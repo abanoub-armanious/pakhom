@@ -16,7 +16,7 @@
 )
 }
 \description{
-Phase 58 Tier 2 C-5: every \code{refresh_interval} new codes admitted
+every \code{refresh_interval} new codes admitted
 to the codebook, scan for codes with \code{frequency >= min_freq}
 that haven't been refreshed in this cycle, sample
 \code{sample_segments} of their coded_segments, and ask the AI to

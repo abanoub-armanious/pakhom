@@ -17,6 +17,6 @@ The parsed \code{raw_response} list that was cached, or \code{NULL}
 if the cache is disabled or no matching file exists.
 }
 \description{
-Looks up a previously-cached response. Used by \code{replay_run()} (OS.5,
-future) to reproduce a prior run's AI calls from on-disk artifacts.
+Looks up a previously-cached response. Used by \code{replay_run()}
+(planned) to reproduce a prior run's AI calls from on-disk artifacts.
 }

@@ -16,9 +16,9 @@ source has straight ASCII, model collapses or inserts whitespace
 regex misses), model lowercases.
 }
 \details{
-Phase 58 Tier 7 M-24 + L-2: pre-Tier-7 this helper only did smart-
+Earlier this helper only did smart-
 quote ASCII-fication + standard \code{\\s} whitespace collapse. The
-Phase 57 audit found 8 of 50 sampled verbatim spot-checks failed
+An audit found 8 of 50 sampled verbatim spot-checks failed
 (16\% miss rate) -- mostly because (a) source had typographic
 apostrophes that weren't NFC-normalized to combine with the AI's
 ASCII rendering, and (b) source had U+00A0 NBSP / U+2009 thin-space

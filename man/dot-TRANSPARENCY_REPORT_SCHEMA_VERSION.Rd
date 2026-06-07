@@ -12,7 +12,7 @@ An object of class \code{character} of length 1.
 }
 \description{
 \itemize{
-\item 1.0.0 (Phase 58 / Stage 1A): initial schema. Sections:
+\item 1.0.0: initial schema. Sections:
 run_metadata, lincoln_guba, reflexivity, quote_provenance,
 corpus_coverage, audit_summary, theme_set.
 }

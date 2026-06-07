@@ -2,16 +2,16 @@
 % Please edit documentation in R/structured_schemas.R
 \name{.saturation_decision_schema}
 \alias{.saturation_decision_schema}
-\title{Schema for the Phase 56 AI saturation arbiter response}
+\title{Schema for the AI saturation arbiter response}
 \usage{
 .saturation_decision_schema()
 }
 \description{
 Used by \code{.ai_judge_saturation()} during progressive coding to ask
 the model whether thematic saturation has been reached. Replaces the
-pre-Phase-56 binary \code{.saturation_schema()} (novel_patterns_remaining
+earlier binary \code{.saturation_schema()} (novel_patterns_remaining
 \itemize{
-\item reasoning). The new shape mirrors the Phase 52 theme-decision schema:
+\item reasoning). The new shape mirrors the theme-decision schema:
 }
 }
 \details{
@@ -20,9 +20,9 @@ observes (code growth pattern, codebook composition, reuse density)
 before committing to a verdict. Vacuous articulations (<30 chars)
 force a downgrade from "reached" -> "not_yet" so the AI can't
 declare saturation without substantive reasoning. Same anti-vacuous
-pattern Phase 52 uses for theme decisions.
+pattern used for theme decisions.
 
-(b) Three-valued verdict instead of boolean -- the pre-Phase-56 path
+(b) Three-valued verdict instead of boolean -- the earlier path
 forced a binary novel_patterns_remaining: yes/no. The new shape adds
 "uncertain" so the AI can decline to judge when the evidence is
 insufficient (e.g., very early in coding). Per C1 ("AI decides when

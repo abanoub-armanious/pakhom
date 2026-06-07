@@ -2,13 +2,13 @@
 % Please edit documentation in R/17_report.R
 \name{.build_subtheme_summary_table}
 \alias{.build_subtheme_summary_table}
-\title{Render the per-theme, per-subtheme summary table (Phase 55)}
+\title{Render the per-theme, per-subtheme summary table}
 \usage{
 .build_subtheme_summary_table(ts)
 }
 \arguments{
 \item{ts}{Per-theme stats object from \code{aggregate_theme_statistics}
-(must carry \code{subtheme_stats} + \code{metric_cols}, Phase 55+).}
+(must carry \code{subtheme_stats} + \code{metric_cols}).}
 }
 \value{
 Character HTML+markdown string for the table block.
@@ -31,7 +31,7 @@ each tagged with the source entry's metric values as
 Returns the empty string when:
 \itemize{
 \item the theme has no real subthemes (only the virtual NA-named
-wrapper from the Phase 51 hierarchy), \emph{OR}
+wrapper from the subtheme hierarchy), \emph{OR}
 \item the dataset has no detectable metric columns AND no real
 subthemes.
 }

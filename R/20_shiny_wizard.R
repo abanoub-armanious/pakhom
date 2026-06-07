@@ -425,13 +425,13 @@ config_wizard_app <- function(output_path = "config.yaml") {
 
     shiny::hr(),
 
-    # Thematic saturation (Phase 56: AI-arbited).
+    # Thematic saturation (AI-arbited).
     # Per C1 ("AI decides when to stop"), saturation is judged by an AI
     # arbiter whose cadence auto-scales with corpus size; there are no
     # user-tunable knobs. This help block is informational only.
     shiny::h4("Thematic Saturation"),
     shiny::div(class = "help-text",
-               "Saturation is judged by an AI arbiter (Phase 56). The AI ",
+               "Saturation is judged by an AI arbiter. The AI ",
                "evaluates the recent code-growth trajectory + codebook ",
                "composition every max(20, ceiling(n/50)) coded entries ",
                "and returns one of: reached / not_yet / uncertain. ",
@@ -440,12 +440,12 @@ config_wizard_app <- function(output_path = "config.yaml") {
 
     shiny::hr(),
 
-    # Phase 53: removed the "Theme Generation (Iterative Merge)" UI
-    # block. The pre-Phase-52 sequential pairwise insertion algorithm
+    # removed the "Theme Generation (Iterative Merge)" UI
+    # block. The earlier sequential pairwise insertion algorithm
     # (max_merge_passes / min_merges_continue / merge_strategy) was
-    # replaced by HAC + AI-judged divisive tree walk in Phase 52, which
-    # has no merge-pass parameters. Per C1 the AI decides where to cut
-    # the dendrogram; there's nothing for the wizard to gate.
+    # replaced by AI-judged clustering, which has no merge-pass
+    # parameters. Per C1 the AI decides the clustering; there's
+    # nothing for the wizard to gate.
 
     shiny::hr(),
 
@@ -580,7 +580,7 @@ config_wizard_app <- function(output_path = "config.yaml") {
   ai_block <- list(provider = provider)
   ai_block[[provider]] <- provider_block
 
-  # Methodology block (Sprint-4 / T1.3): mandatory. Without it, the saved
+  # Methodology block: mandatory. Without it, the saved
   # config fails validate_config() with "Missing required config section:
   # 'methodology'". The Methodology step captures the mode; framework_applied
   # (Mode 3) additionally captures framework_spec_path.
@@ -627,17 +627,17 @@ config_wizard_app <- function(output_path = "config.yaml") {
         include_in_vivo = isTRUE(input$include_in_vivo),
         max_retries_per_entry = val("max_retries", 1),
         checkpoint_interval = val("checkpoint_interval", 50)
-        # Phase 56: pre-Phase-56 saturation knobs (saturation_enabled,
+        # the earlier saturation knobs (saturation_enabled,
         # saturation_window, saturation_threshold, saturation_confirmations,
         # min_coded_before_saturation, ai_assessment_interval) removed.
         # The AI saturation arbiter is the sole decision; cadence
         # auto-scales by corpus size.
       ),
       themes = list(
-        # Phase 53: removed dead pre-Phase-52 merge-pass knobs
+        # removed dead merge-pass knobs
         # (merge_strategy, max_merge_passes, min_merges_to_continue).
-        # Phase 52's HAC + AI-judged tree walk has no merge passes;
-        # the AI decides where to cut the dendrogram.
+        # The AI-judged clustering has no merge passes; the AI decides
+        # how codes are grouped.
         include_subthemes = TRUE,
         include_quotes = TRUE
       ),
@@ -675,7 +675,7 @@ config_wizard_app <- function(output_path = "config.yaml") {
   pos <- val("positionality")
   if (!is.null(pos)) config$study$researcher_positionality <- pos
 
-  # Phase 53: theme min/max inputs were dead per C1 (AI decides when to
+  # theme min/max inputs were dead per C1 (AI decides when to
   # stop). The wizard UI may still render them for display; this glue is
   # removed so they don't get wired into the config.
 

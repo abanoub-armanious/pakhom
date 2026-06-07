@@ -2,7 +2,7 @@
 % Please edit documentation in R/methodology_assistant.R
 \name{load_pinned_methodology}
 \alias{load_pinned_methodology}
-\title{Load pinned methodology articulations from a config block (Phase 61.2)}
+\title{Load pinned methodology articulations from a config block}
 \usage{
 load_pinned_methodology(inferred_block, research_focus = NULL)
 }

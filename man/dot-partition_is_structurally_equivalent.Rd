@@ -7,7 +7,7 @@
 .partition_is_structurally_equivalent(pre_leaves, post_leaves)
 }
 \description{
-Phase 60.1 audit M8: \code{.partition_is_identity} only catches
+\code{.partition_is_identity} only catches
 literal-identity partitions (each cluster has one source leaf). An
 AI that proposes the SAME multi-leaf partition on consecutive passes
 (e.g. \code{\{A,B\}+\{C,D\}} then \code{\{A,B\}+\{C,D\}} again) is
@@ -19,6 +19,6 @@ is already \code{\{A,B\}, \{C,D\}}), so the identity check misses it.
 This helper compares two sets of leaves by the SETS of their
 \code{member_code_keys}. If the two leaf-lists carry the same
 code-key buckets (treating cluster order as irrelevant), they are
-structurally equivalent and we can coerce convergence.
+structurally equivalent, so convergence can be coerced.
 }
 \keyword{internal}

@@ -43,7 +43,7 @@ Reads \code{{output_dir}/ai_decisions.jsonl} and produces a summary of all
 recorded decisions. Useful for post-analysis review and reporting.
 }
 \details{
-Sprint-4 T1.4 additions to the returned list: \code{total_ai_requests},
+T1.4 additions to the returned list: \code{total_ai_requests},
 \code{total_tokens_used}, \code{ai_requests_by_model}, and
 \code{methodology_modes_observed}. Older audit logs missing these fields
 return zero/empty values for the new keys; pre-T1.4 records still surface

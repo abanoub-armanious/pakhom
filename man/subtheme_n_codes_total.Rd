@@ -13,7 +13,7 @@ subtheme_n_codes_total(subtheme)
 Integer; total code count across every nested depth.
 }
 \description{
-Phase 58 Tier 1 audit LOW-3 addition: depth-recursive code count.
+Depth-recursive code count.
 Walks the Subtheme tree and sums direct-code counts at every depth.
 Use \code{subtheme_n_codes()} for the depth-0 (direct only) count.
 }

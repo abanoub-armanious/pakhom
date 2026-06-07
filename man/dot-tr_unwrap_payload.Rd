@@ -7,13 +7,13 @@
 .tr_unwrap_payload(x)
 }
 \description{
-Phase 58 audit followup C-T8A-1: \code{stamp_methodology_json}
+\code{stamp_methodology_json}
 (R/output_stamping.R:240-268) wraps the original payload in
 \code{\{"_methodology_stamp": ..., "_payload": <original>\}}. The
 transparency bundler reads disk artifacts that may or may not have
 been stamped (coverage_card.json IS stamped when produced via
-\code{write_corpus_coverage} with a non-null methodology mode; the
-Tier 8 H-10 callsite always stamps). Pre-followup readers accessed
+\code{write_corpus_coverage} with a non-null methodology mode; that
+callsite always stamps). Earlier readers accessed
 fields like \code{cov$n_processed} directly -- which returned NULL
 on every real run because the data was under \code{_payload}. The
 fixture tests passed only because the synthetic stub skipped the

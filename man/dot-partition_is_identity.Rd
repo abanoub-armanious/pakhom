@@ -10,7 +10,7 @@
 An identity partition is one where every cluster contains exactly one
 source leaf, so the post-partition leaves are 1:1 with the pre-partition
 leaves (just renamed). This signals "no useful further grouping" even if
-the AI didn't explicitly say verdict='converged', and we coerce
-convergence to avoid wasted iteration.
+the AI didn't explicitly say verdict='converged', and convergence is
+coerced to avoid wasted iteration.
 }
 \keyword{internal}

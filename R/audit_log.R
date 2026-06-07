@@ -13,15 +13,15 @@
 
 #' Audit log schema version
 #'
-#' Phase 58 Tier 8 H-11: every audit record stamps this version so a
+#' every audit record stamps this version so a
 #' downstream replayer / cross-run comparator can detect schema drift.
-#' Pre-Tier-8 the ai_decisions.jsonl was the only first-class artifact
+#' An earlier design had ai_decisions.jsonl as the only first-class artifact
 #' lacking a version stamp (live tracker artifacts all carry
 #' schema_version="1.0.0"). Bump this constant when the record schema
 #' changes incompatibly.
 #'
 #' \itemize{
-#'   \item 1.0.0 (Phase 58 Tier 8): initial stamping. Schema includes
+#'   \item 1.0.0: initial stamping. Schema includes
 #'     timestamp, step, decision_type, methodology_mode (when set),
 #'     plus arbitrary user-supplied \code{...} fields.
 #' }
@@ -42,14 +42,14 @@
   "mode_change",           # T1.5  : methodology re-declaration with parent_run_id
   "quote_verification",    # T0.1  : Tier-0 quote provenance verification ladder
   "coverage",              # T0.3  : Tier-0 corpus-coverage computation
-  "methodology_assistant"  # Phase 61: Step 2.5 relevance + metric articulation
+  "methodology_assistant"  # Step 2.5 relevance + metric articulation
 )
 
 .valid_decision_types <- c(
   # Pre-T1.4 decision types. "saturation_signal" is retained in the
-  # allowlist for back-compat: audit logs from pre-Phase-56 runs use it,
+  # allowlist for back-compat: audit logs from earlier runs use it,
   # and replay_run() validates each historical line against this
-  # allowlist. Phase 56+ runs emit "saturation_judgment" (see below)
+  # allowlist. Newer runs emit "saturation_judgment" (see below)
   # instead; "saturation_signal" should not be written by new code.
   "code_assignment", "new_code_created", "entry_skipped", "merge_decision",
   "sentiment_assignment", "saturation_signal", "theme_structure",
@@ -74,14 +74,14 @@
   "quote_fabricated",                 # T0.1
   "quote_drifted",                    # T0.1: source corpus changed since attribution
   "coverage_failure",                 # T0.3: corpus-coverage computation failed
-  "cluster_decision",                 # Phase 52: HAC tree-walk per-node verdict
-  "framework_revision_suggested",     # Phase 54: revise policy wrote framework_review.csv
-  "saturation_judgment",              # Phase 56: AI arbiter verdict (reached/not_yet/uncertain)
-  "clustering_proposal",              # Phase 60: v2 per-pass clustering proposal (continue|converged)
-  "label_pass",                       # Phase 60: v2 post-convergence labeling pass
-  "relevance_criterion",              # Phase 61: methodology-assistant relevance articulation
-  "metric_interpretation",            # Phase 61: methodology-assistant per-metric interpretation
-  "research_coverage"                 # Phase 63: research-question coverage assessment
+  "cluster_decision",                 # legacy v1 HAC tree-walk per-node verdict
+  "framework_revision_suggested",     # revise policy wrote framework_review.csv
+  "saturation_judgment",              # AI arbiter verdict (reached/not_yet/uncertain)
+  "clustering_proposal",              # v2 per-pass clustering proposal (continue|converged)
+  "label_pass",                       # v2 post-convergence labeling pass
+  "relevance_criterion",              # methodology-assistant relevance articulation
+  "metric_interpretation",            # methodology-assistant per-metric interpretation
+  "research_coverage"                 # research-question coverage assessment
 )
 
 # -- Constructor ---------------------------------------------------------------
@@ -95,7 +95,7 @@
 #' If the file already exists it is opened in append mode so that resumed runs
 #' continue the same log.
 #'
-#' Sprint-4 T1.4 additions:
+#' T1.4 additions:
 #' \itemize{
 #'   \item Accepts \code{config} so methodology metadata can flow into every
 #'     audit record. When \code{config$methodology$mode} is set,
@@ -196,22 +196,22 @@ log_ai_decision <- function(audit, step, decision_type, ...) {
   }
 
   # ---- Build the record ------------------------------------------------------
-  # Phase 58 Tier 9 L-15: emit timestamps in UTC so cross-file
+  # emit timestamps in UTC so cross-file
   # ordering (ai_decisions.jsonl + live/*.json + fabrication_log.csv)
   # doesn't require parsing each record's TZ offset. The %z format
   # specifier still carries the offset for back-compat with parsers
-  # that expect ISO 8601 with offset. Pre-Tier-9 the audit log used
+  # that expect ISO 8601 with offset. An earlier audit log used
   # the system's local TZ while the live tracker already used UTC
   # -- normalizing both to UTC makes the audit trail mergeable
   # without per-record TZ resolution.
-  # Phase 58 Tier 9 (Tier 8 MEDIUM-2 deferred): schema_version is
+  # schema_version is
   # the FIRST field in every record, matching live tracker
   # convention (see live_record_assignment in R/live_tracking.R).
-  # Pre-Tier-9 the audit log had it as the second field, which
+  # An earlier audit log had it as the second field, which
   # inconsistency surfaced to any downstream consumer that read
   # records positionally.
   base_fields <- list(
-    schema_version = .AUDIT_LOG_SCHEMA_VERSION,  # Phase 58 Tier 8 H-11
+    schema_version = .AUDIT_LOG_SCHEMA_VERSION,
     timestamp      = format(Sys.time(), "%Y-%m-%dT%H:%M:%OS3%z", tz = "UTC"),
     step           = step,
     decision_type  = decision_type
@@ -256,11 +256,11 @@ log_ai_decision <- function(audit, step, decision_type, ...) {
 #' \code{\link{ai_complete}}'s return value (T1.1) into the audit record:
 #' model, finish_reason, prompt_hash, request_id, and per-record token usage.
 #'
-#' If a \code{ResponseCache} is provided (Sprint-4 T1.4), the
+#' If a \code{ResponseCache} is provided, the
 #' \code{raw_response} is also written to the cache (content-addressable by
 #' \code{prompt_hash}) and the cache path is recorded in the audit log entry.
 #' This separation keeps the JSONL file lightweight while preserving the full
-#' API response for replay (OS.5).
+#' API response for replay.
 #'
 #' Silently no-ops on \code{NULL ai_result} (e.g., when \code{ai_complete}
 #' threw and the caller's tryCatch returned NULL) so callers can wrap calls in
@@ -282,7 +282,7 @@ log_ai_request <- function(audit, step, ai_result, response_cache = NULL, ...) {
   if (is.null(ai_result)) return(invisible(audit))
 
   # Cache raw_response if a cache is provided. Returns NA_character_ when the
-  # cache is disabled or the write fails -- either way we still record the
+  # cache is disabled or the write fails -- either way the request is still recorded
   # rest of the audit fields so the request appears in the log.
   cached_path <- NA_character_
   if (!is.null(response_cache)) {
@@ -343,7 +343,7 @@ close_audit_log <- function(audit) {
 #' Reads \code{{output_dir}/ai_decisions.jsonl} and produces a summary of all
 #' recorded decisions. Useful for post-analysis review and reporting.
 #'
-#' Sprint-4 T1.4 additions to the returned list: \code{total_ai_requests},
+#' T1.4 additions to the returned list: \code{total_ai_requests},
 #' \code{total_tokens_used}, \code{ai_requests_by_model}, and
 #' \code{methodology_modes_observed}. Older audit logs missing these fields
 #' return zero/empty values for the new keys; pre-T1.4 records still surface

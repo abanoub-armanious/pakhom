@@ -2,7 +2,7 @@
 % Please edit documentation in R/16_report_helpers.R
 \name{.format_primitive_result}
 \alias{.format_primitive_result}
-\title{Format one compute_metric_stat() record as an HTML table cell (Phase 61.4)}
+\title{Format one compute_metric_stat() record as an HTML table cell}
 \usage{
 .format_primitive_result(prec, max_items = 6L, natural_order = FALSE)
 }

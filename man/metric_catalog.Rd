@@ -11,7 +11,7 @@ A tibble with columns \code{primitive}, \code{family},
 \code{input_kind}, \code{shape}, \code{needs_args}, \code{description}.
 }
 \description{
-The machine-readable catalog of computational primitives the Phase 61
+The machine-readable catalog of computational primitives the
 Methodology Assistant may request. Returned as a tibble (one row per
 primitive) so it can be inspected, tested, and rendered. Use
 \code{\link[=format_metric_catalog]{format_metric_catalog()}} for the human/AI-prompt text form and

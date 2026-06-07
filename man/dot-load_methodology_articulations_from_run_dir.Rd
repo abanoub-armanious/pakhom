@@ -2,7 +2,7 @@
 % Please edit documentation in R/17_report.R
 \name{.load_methodology_articulations_from_run_dir}
 \alias{.load_methodology_articulations_from_run_dir}
-\title{Load archived methodology articulations from a run directory (Phase 61.4)}
+\title{Load archived methodology articulations from a run directory}
 \usage{
 .load_methodology_articulations_from_run_dir(run_dir)
 }

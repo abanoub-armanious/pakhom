@@ -1,5 +1,5 @@
 # ==============================================================================
-# Live Tracking Artifacts (Phase 53; C3 commitment)
+# Live Tracking Artifacts (C3 commitment)
 # ==============================================================================
 # Three streamed/snapshot artifacts written DURING analysis so a researcher can
 # `tail -F` or `cat` files in the run directory and watch the codebook + theme
@@ -31,7 +31,7 @@
 #'
 #' How many entries between codebook_live.json rewrites. Set to 1 for "after
 #' every entry"; default to 1 because the snapshot is small enough that
-#' atomic rewrite is cheap (10ms even for a 500-code codebook). Phase 56's
+#' atomic rewrite is cheap (10ms even for a 500-code codebook). A future
 #' performance pass may revisit this.
 .LIVE_CODEBOOK_SNAPSHOT_EVERY <- 1L
 
@@ -95,7 +95,7 @@ init_live_tracker <- function(output_dir,
 
   # Counters live in an environment so writers can mutate them in place
   # without requiring the caller to reassign. Pass-by-value on a list
-  # would silently lose counter increments (Phase 53 audit CRITICAL-1):
+  # would silently lose counter increments:
   # the on-disk file would still be rewritten -- atomic writes are
   # side-effects -- but tracker$n_assignments / n_codebook_snapshots /
   # n_cluster_snapshots would stay 0 across the whole run, breaking
@@ -138,7 +138,7 @@ print.LiveTracker <- function(x, ...) {
 #' Appends a JSONL line to \code{code_assignments.jsonl}. Safe to call with
 #' \code{tracker = NULL} (no-op).
 #'
-#' Phase 58 Tier 9 L-1/F-6: schema relationship to the audit log.
+#' schema relationship to the audit log.
 #' \code{code_assignment} events live in TWO places by design:
 #' \itemize{
 #'   \item \code{outputs/<run>/live/code_assignments.jsonl} (this writer):
@@ -156,7 +156,7 @@ print.LiveTracker <- function(x, ...) {
 #' intentional: the audit log is the methodology-of-record (provenance,
 #' AC9 stamping, replay) while the live tracker is the researcher's
 #' real-time view (text + offsets + verification status for
-#' \code{tail -F}). Pre-Phase-58-Tier-9 the docstring was silent on
+#' \code{tail -F}). An earlier docstring was silent on
 #' this; downstream consumers had to infer the join from the field
 #' names. Now documented.
 #'
@@ -339,10 +339,10 @@ live_snapshot_clusters <- function(tracker, walk_status,
 }
 
 # ==============================================================================
-# Phase 60: per-pass clustering snapshot (v2 algorithm)
+# per-pass clustering snapshot (v2 algorithm)
 # ==============================================================================
 
-#' Record one clustering-pass snapshot to the live tracker (Phase 60 / C3)
+#' Record one clustering-pass snapshot to the live tracker (C3)
 #'
 #' Writes \code{outputs/<run>/live/clustering_pass_<N>.json} with the AI's
 #' partition proposal for pass N: the input leaves, the proposed cluster

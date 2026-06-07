@@ -30,6 +30,6 @@ Unavailable variant: when \code{coverage} is NULL (legacy report call,
 or coverage computation failed) the card renders an explicit
 "coverage data unavailable" notice rather than omitting silently. Per
 AC4 (methodology stamped on every output), absence of the card is
-itself a failure signal so we say so.
+itself a failure signal, so it is shown.
 }
 \keyword{internal}

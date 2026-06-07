@@ -2,7 +2,7 @@
 % Please edit documentation in R/research_coverage.R
 \name{.load_research_coverage_from_run_dir}
 \alias{.load_research_coverage_from_run_dir}
-\title{Load a ResearchCoverage from run_dir/rules/research_coverage.json (Phase 63)}
+\title{Load a ResearchCoverage from run_dir/rules/research_coverage.json}
 \usage{
 .load_research_coverage_from_run_dir(run_dir)
 }

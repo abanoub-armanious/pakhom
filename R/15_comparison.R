@@ -28,7 +28,7 @@
 # from an older output schema and silent NA-padded comparisons against them
 # would mislead users. Such old runs should be archived or migrated.
 #
-# Schema 1.1 (Sprint-4 T1.4) -- backward-compatible additions:
+# Schema 1.1 -- backward-compatible additions:
 #   * Audit log records now carry a methodology_mode field (auto-stamped from
 #     config$methodology$mode at init_audit_log time). Pre-1.1 logs have no
 #     such field and summarize_audit_log() reports methodology_modes_observed
@@ -39,7 +39,7 @@
 #     ai_requests_by_model / total_tokens_used fields surface as zero.
 #   * Per-run api_responses/{prompt_hash}.json directory holds the raw API
 #     responses (gated by config$audit$capture_raw_responses). This is the
-#     load-bearing input for the upcoming OS.5 replay_run() feature.
+#     load-bearing input for the planned replay_run() feature.
 #   * sentiment_scores.csv columns (the structural artifact comparison reads)
 #     are unchanged from 1.0; runs labelled 1.0 and 1.1 remain comparable
 #     because .schema_is_compatible() matches major-version only and these
@@ -240,7 +240,7 @@ list_available_runs <- function(results_base) {
   }
 
   run_ids <- basename(dirs)
-  # Phase 40: same mode-suffix accommodation as .discover_run_dirs above.
+  # same mode-suffix accommodation as .discover_run_dirs above.
   # Without the optional `(_M[123])?` capture, sub() leaves mode-suffixed
   # ids unchanged and as.Date() then errors on the unparseable string.
   dates <- as.Date(sub("^run_(\\d{4}-\\d{2}-\\d{2})_\\d{6}(_M[123])?$",
@@ -281,10 +281,10 @@ list_available_runs <- function(results_base) {
   all_dirs <- list.dirs(results_base, full.names = FALSE, recursive = FALSE)
   # The optional _M[123] tail accommodates the T1.7 mode-suffixed run dirs
   # (run_id_with_mode in R/output_stamping.R). Without it, compare_runs()
-  # and compare_models() silently see 0 runs for ANY Sprint-4 production
-  # run dir. find_latest_run was fixed for the same issue in phase 31;
-  # phase 40+ smoke caught the .discover_run_dirs miss. Without this
-  # tail, list_available_runs() also returns empty for Sprint-4 runs.
+  # and compare_models() silently see 0 runs for ANY mode-suffixed
+  # run dir. find_latest_run was fixed for the same issue earlier;
+  # a later smoke test caught the .discover_run_dirs miss. Without this
+  # tail, list_available_runs() also returns empty for mode-suffixed runs.
   run_dirs <- grep("^run_\\d{4}-\\d{2}-\\d{2}_\\d{6}(_M[123])?$",
                     all_dirs, value = TRUE)
 
@@ -327,14 +327,14 @@ list_available_runs <- function(results_base) {
   # comment = "#" so the AC4 methodology stamp on the file head (added
   # by stamp_methodology_csv in export_results) doesn't get parsed as
   # a malformed header row -- otherwise compare_runs() silently breaks
-  # on every Sprint-4 run.
+  # on every mode-suffixed run.
   sentiment <- tryCatch({
     f <- file.path(run_dir, "sentiment_scores.csv")
     if (file.exists(f)) readr::read_csv(f, show_col_types = FALSE, comment = "#") else NULL
   }, error = function(e) NULL)
 
   codes <- tryCatch({
-    # Phase 60.6 rename: "consolidated_codes.csv" -> "codes.csv". Read
+    # Earlier rename: "consolidated_codes.csv" -> "codes.csv". Read
     # either filename for back-compat with run dirs produced before the
     # rename (pakhom is young and a few legacy runs may still exist on
     # users' disks).
@@ -830,8 +830,8 @@ list_available_runs <- function(results_base) {
   codes_a <- if ("codes_included" %in% names(themes_a)) themes_a$codes_included else rep("", length(names_a))
   codes_b <- if ("codes_included" %in% names(themes_b)) themes_b$codes_included else rep("", length(names_b))
 
-  # Phase 51 audit M2: themes.json now writes codes_included as a JSON
-  # array (Phase 50a), so jsonlite::fromJSON + as_tibble surfaces it as a
+  # themes.json now writes codes_included as a JSON
+  # array, so jsonlite::fromJSON + as_tibble surfaces it as a
   # list-column. Use `[[i]]` (not `[i]`) to extract the actual character
   # vector or string from each row — `[i]` on a list-column returns a
   # length-1 sublist that breaks .code_jaccard's trimws() call. The old

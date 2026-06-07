@@ -1,5 +1,5 @@
 # ==============================================================================
-# Framework Specification (Sprint-4 M3.1)
+# Framework Specification
 # ==============================================================================
 # Mode 3 (Framework Applied) requires a researcher-supplied theoretical
 # framework that the AI applies verbatim. The framework specifies:
@@ -50,7 +50,7 @@
 #'                (Vila-Henninger 2024 "abductive coding"). The framework
 #'                themes remain primary; the emergent themes section
 #'                surfaces patterns the framework did not anticipate. This
-#'                is the DEFAULT per Phase 54 -- it gives the researcher
+#'                is the DEFAULT -- it gives the researcher
 #'                visibility into framework misfit instead of burying
 #'                non-fitting segments in a single "Anomaly" catch-all.
 #'   "revise"   -- same as "extend" PLUS writes framework_review.csv to
@@ -62,16 +62,16 @@
 #'                framework. The existing after_themes review pause
 #'                (config$analysis$review_points$after_themes) is the
 #'                integration point where the researcher acts on the CSV.
-#'                Phase 58 Tier 8 M-26 status: a dedicated after_framework_-
+#'                Status: a dedicated after_framework_-
 #'                coding pause point remains deferred -- the architectural
 #'                requirement (resumable runs that re-load an in-flight
 #'                spec edit + re-route already-coded anomaly segments
 #'                through the updated framework) is substantial enough
 #'                that shipping half-implementation would be worse than
 #'                continued deferral. Today after_themes serves as the
-#'                review point; M-26 is queued for the post-rewrite
-#'                Phase 60+ checkpoint redesign.
-#'   "bracket"  -- preserve the pre-Phase-54 behavior: a single "Anomaly
+#'                review point; the dedicated pause point is queued for a
+#'                future checkpoint redesign.
+#'   "bracket"  -- preserve the earlier behavior: a single "Anomaly
 #'                (non-fitting)" catch-all theme containing every
 #'                non-fitting segment. Right when the framework is mature
 #'                and the researcher genuinely wants anomalies bracketed
@@ -265,7 +265,7 @@ load_framework_spec <- function(path) {
     ), call. = FALSE)
   }
 
-  # Anomaly handling policy (Phase 54: default changed from "bracket" to
+  # Anomaly handling policy (default changed from "bracket" to
   # "extend" -- the kitchen-sink "Anomaly" catch-all was methodologically
   # indefensible, and emergent themes from anomalies are abductive theory
   # extension per Vila-Henninger 2024.)
@@ -322,7 +322,7 @@ print.FrameworkSpec <- function(x, ...) {
 
 #' Archive a Mode 3 framework spec into the run output directory
 #'
-#' Phase 32 (audit H1 + H2): a Mode 3 run loads
+#' A Mode 3 run loads
 #' \code{config$methodology$framework_spec_path} into a typed
 #' \code{FrameworkSpec} but never copies the source spec into the run
 #' outputs. The HTML report's methodology stamp says "M3 - Framework
@@ -347,7 +347,7 @@ print.FrameworkSpec <- function(x, ...) {
 #' @param run_dir Path to the run output directory. Created if missing.
 #' @param run_id Optional character: run id used for the AC4
 #'   methodology stamp prepended to the archive (YAML/JSON comment).
-#'   Phase 37 audit added the stamp; \code{run_id = NULL} omits the
+#'   The stamp was added later; \code{run_id = NULL} omits the
 #'   `| run: <id>` portion of the stamp.
 #' @return Named list with \code{path} (path of the archived file
 #'   under run_dir), \code{hash} (sha256 hex string of the ORIGINAL
@@ -398,7 +398,7 @@ archive_framework_spec <- function(spec, run_dir, run_id = NULL) {
   dest_name <- paste0("framework_applied.", ext)
   dest <- file.path(run_dir, dest_name)
 
-  # Phase 37 audit (AC4 MEDIUM): compute sha256 over the SOURCE bytes
+  # Per AC4, compute sha256 over the SOURCE bytes
   # before any copy / stamp, so the returned hash anchors replay-
   # equivalence to the user-supplied spec rather than to the post-
   # stamp archive. The archived file gets a methodology comment
@@ -421,7 +421,7 @@ archive_framework_spec <- function(spec, run_dir, run_id = NULL) {
   }
 
   # Stamp the archived file (YAML accepts `#` comments natively; JSON
-  # has no comment syntax so we wrap the JSON in stamp_methodology_json's
+  # has no comment syntax, so the JSON is wrapped in stamp_methodology_json's
   # envelope).
   tryCatch({
     if (ext %in% c("yaml", "yml")) {

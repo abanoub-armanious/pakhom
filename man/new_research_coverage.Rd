@@ -2,7 +2,7 @@
 % Please edit documentation in R/research_coverage.R
 \name{new_research_coverage}
 \alias{new_research_coverage}
-\title{Construct a ResearchCoverage S3 object (Phase 63)}
+\title{Construct a ResearchCoverage S3 object}
 \usage{
 new_research_coverage(facets = list(), overall_note = "", source = "ai")
 }
@@ -19,6 +19,6 @@ articulations.}
 A \code{ResearchCoverage} S3 list.
 }
 \description{
-Construct a ResearchCoverage S3 object (Phase 63)
+Construct a ResearchCoverage S3 object
 }
 \keyword{internal}

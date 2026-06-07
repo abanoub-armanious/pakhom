@@ -1,5 +1,5 @@
 # ==============================================================================
-# Methodology Rules Generation (Sprint-4 T1.6)
+# Methodology Rules Generation
 # ==============================================================================
 # Lin & Corley Interpretive Orchestration "methodological-rules" pattern
 # (Stream 1 of the strategic audit). Reads the methodology block of
@@ -34,11 +34,11 @@
 #' rules. When \code{config$methodology$mode} is NULL or invalid, returns
 #' the universal-rules-only string with a warning -- this is a soft
 #' fallback rather than a hard error because legacy/test contexts may
-#' instantiate ai_complete without a full config and we don't want to
-#' break those paths.
+#' instantiate ai_complete without a full config, and those paths must
+#' not break.
 #'
-#' Phase 56: \code{inductive_pass = TRUE} selects an alternate mode rule
-#' variant for the Phase 54 abductive emergent-themes pass. The default
+#' \code{inductive_pass = TRUE} selects an alternate mode rule
+#' variant for the abductive emergent-themes pass. The default
 #' Mode 3 rule says "Do NOT generate new framework constructs during
 #' coding"; under the inductive pass that instruction directly
 #' contradicts the prompt asking the AI to inductively code anomaly
@@ -49,7 +49,7 @@
 #'
 #' @param config A ThematicConfig (or list with the same shape).
 #' @param inductive_pass Logical. When TRUE, select the inductive-pass
-#'   rule variant (Phase 54 abductive emergent-themes pass). Default
+#'   rule variant (abductive emergent-themes pass). Default
 #'   FALSE.
 #' @return Character: the rules block, prefixed with a header. Empty
 #'   string when nothing meaningful can be generated.
@@ -59,8 +59,8 @@ generate_methodology_rules <- function(config, inductive_pass = FALSE) {
   mode <- .config_methodology_mode(config)
   rules <- character(0)
 
-  # Mode-specific rules. Only Mode 3 has an inductive variant (Phase 54
-  # deferral iii); for other modes inductive_pass is a no-op and the
+  # Mode-specific rules. Only Mode 3 has an inductive variant; for
+  # other modes inductive_pass is a no-op and the
   # header suffix is suppressed so the rule block is bit-identical to
   # the default-pass output.
   mode_block <- .mode_rules_for(mode, inductive_pass = inductive_pass)
@@ -76,7 +76,7 @@ generate_methodology_rules <- function(config, inductive_pass = FALSE) {
   rules <- c(rules, paste0("## Universal Tier-0 rules\n", .universal_rules()))
 
   # Memos rules (M1.3) -- emitted only when memos are enabled (NULL means
-  # "derive from mode" which we resolve with mandatory_for_modes)
+  # "derive from mode", resolved via mandatory_for_modes)
   memos_block <- .memos_rules_for(mode, config$memos)
   if (nzchar(memos_block)) {
     rules <- c(rules, paste0("## Reflexive memos\n", memos_block))
@@ -182,7 +182,7 @@ generate_methodology_rules <- function(config, inductive_pass = FALSE) {
     "- Theme-level decisions are the researcher's. The model's job during ",
     "deductive coding is rigorous application of the framework, not ",
     "extension of it.\n",
-    "- A SEPARATE abductive pass (Phase 54; only invoked when the ",
+    "- A SEPARATE abductive pass (only invoked when the ",
     "framework spec's anomaly_handling is 'extend' or 'revise') may ask ",
     "you to inductively code the ANOMALY segments AFTER framework coding ",
     "completes. That pass operates only on residuals; it does NOT mutate ",
@@ -196,7 +196,7 @@ generate_methodology_rules <- function(config, inductive_pass = FALSE) {
 #' Inductive-pass variant of the Mode 3 (Framework Applied) rule.
 #'
 #' Selected by .mode_rules_for(mode = "framework_applied",
-#' inductive_pass = TRUE). Phase 56 fix for Phase 54 deferral (iii):
+#' inductive_pass = TRUE). Resolves an earlier deferral:
 #' during the abductive emergent-themes pass on anomaly residuals, the
 #' AI sees a prompt asking it to inductively code segments -- but the
 #' default Mode 3 rule says "Do NOT generate new framework constructs
@@ -218,7 +218,7 @@ generate_methodology_rules <- function(config, inductive_pass = FALSE) {
     "express the same concept -- consolidation is welcome (downstream ",
     "clustering uses these codes).\n",
     "- These inductive codes will be clustered into EMERGENT themes ",
-    "(Phase 54). Emergent themes complement framework themes; they ",
+    ". Emergent themes complement framework themes; they ",
     "do NOT replace them and they do NOT mutate the framework spec ",
     "(AC2 preserved). Per Vila-Henninger 2024 abductive coding, this ",
     "is theory-building from residuals, not theory-revision.\n",

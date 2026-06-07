@@ -22,7 +22,7 @@ the parsed \code{report_data} (the machine-readable contents).
 Generates a self-contained HTML methodological-transparency report
 for a pakhom run, plus a machine-readable JSON companion. Per AC4
 (methodology stamped on every output), the report is mode-stamped at
-the top; per the OS.6 spec (anti-Jowsey compliance), it maps every
+the top; per the transparency spec (anti-Jowsey compliance), it maps every
 pipeline step to a Lincoln & Guba (1985) credibility / dependability
 / confirmability / transferability checkpoint citing the exact
 decisions logged.

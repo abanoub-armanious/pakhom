@@ -7,7 +7,7 @@
 .html_esc_safe(x)
 }
 \description{
-We have a bigger \code{.html_esc} elsewhere but this module is
+A bigger \code{.html_esc} exists elsewhere but this module is
 self-contained -- defining a safe local escaper avoids cross-file
 load-order coupling.
 }

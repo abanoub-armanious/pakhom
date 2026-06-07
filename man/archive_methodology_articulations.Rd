@@ -2,7 +2,7 @@
 % Please edit documentation in R/methodology_assistant.R
 \name{archive_methodology_articulations}
 \alias{archive_methodology_articulations}
-\title{Archive methodology articulations under \code{run_dir/rules/} (Phase 61.2)}
+\title{Archive methodology articulations under \code{run_dir/rules/}}
 \usage{
 archive_methodology_articulations(art, run_dir)
 }

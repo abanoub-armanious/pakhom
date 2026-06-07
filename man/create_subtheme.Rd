@@ -20,8 +20,8 @@ create_subtheme(
 coerced to stub Codes for use in tests / non-coding-state contexts)}
 
 \item{subthemes}{List of nested Subtheme S3 objects (or raw lists
-coerced via recursive create_subtheme call). Phase 58 Tier 1 C-12
-added nested subthemes to support depth-N hierarchical decomposition.
+coerced via recursive create_subtheme call). Nested subthemes
+support depth-N hierarchical decomposition.
 Empty list = leaf Subtheme (no nested children).}
 }
 \value{

@@ -48,11 +48,11 @@ serialization-format changes. The set of fields hashed is exactly those
 that determine the response: prompt + system_prompt + model + temperature
 \itemize{
 \item max_tokens + json_mode + response_schema + documents. Used as the cache
-key for replay_run() (OS.5).
+key for replay_run().
 }
 }
 \details{
-Sprint-4 T1.2 added response_schema; T0.1 part 3b added documents. Pre-
+T1.2 added response_schema; T0.1 part 3b added documents. Pre-
 addition callers (NULL for the new arg) produce the same hashes as
 before because NULL serializes to "null" and the field was implicitly
 absent.

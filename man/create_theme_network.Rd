@@ -41,8 +41,8 @@ co-occurrence strength (entries assigned to both themes). Requires
 multi-label assignment columns (\code{theme_membership_*}).
 }
 \details{
-Phase 58 Tier 5 AH-9/V-1: at scale the unfiltered network was an
-unreadable hairball (Phase 57 audit observed 417 themes plotted at
+at scale the unfiltered network was an
+unreadable hairball (a large run plotted 417 themes at
 once with no legend). The \code{max_inline_themes} parameter caps
 the visible network at the top-N most-connected themes (ranked by
 weighted degree) and adds an inline legend explaining node size +

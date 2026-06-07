@@ -2,7 +2,7 @@
 % Please edit documentation in R/methodology_decision_aid.R
 \name{configuration_selection_aid}
 \alias{configuration_selection_aid}
-\title{Configuration-selection aid (Phase 60.10)}
+\title{Configuration-selection aid}
 \usage{
 configuration_selection_aid(
   mode,
@@ -22,8 +22,8 @@ corpus. Used to estimate codebook scale.}
 \item{estimated_codebook_size}{Integer; approximate number of codes
 you expect after saturation. If NULL, the function estimates from
 \code{corpus_size} (typical ratio: 1 code per 1.5-4 entries
-depending on focus breadth, observed in Phase 60.8 at 40 codes
-from 60 coded entries and 157 codes from 140 coded entries).}
+depending on focus breadth, e.g. 40 codes from 60 coded entries
+up to 157 codes from 140 coded entries).}
 
 \item{focus_shape}{One of \code{"narrow_intersection"} (e.g.,
 "medication x sleep x binge"), \code{"single_focal"} (e.g.,
@@ -40,10 +40,9 @@ A list with elements \code{expected_themes},
 Once you've picked a methodology mode via
 \code{methodology_decision_aid()}, this function helps you set
 \code{config.yaml} knobs based on your corpus shape. It encodes the
-empirical evidence from the Phase 60.8 re-validation: three Mode 2
-runs at different scales (40, 47, 157 codes) and different research
-foci (medication x sleep, medication review-path, emotional triggers)
-produced 6, 10, and 7 themes respectively -- all in the
+empirical evidence from re-validation: three Mode 2 runs at
+different scales (40, 47, 157 codes) and different research-focus
+breadths produced 6, 10, and 7 themes respectively -- all in the
 publication-quality 4-10 range with 0\% single-code themes.
 }
 \details{

@@ -1,9 +1,9 @@
 # ==============================================================================
-# Theme Algorithm v2 (Phase 60): Multi-Pass Clustering + Label-After-Clustering
+# Theme Algorithm v2: Multi-Pass Clustering + Label-After-Clustering
 # ==============================================================================
-# This file implements the v2 theme algorithm that replaces the Phase 52
-# HAC + AI tree-walk (in R/13_themes.R). Activated via
-# config$analysis$themes$algorithm == "v2" (the default in v0.6.0).
+# This file implements the v2 theme algorithm that replaced the earlier
+# HAC + AI tree-walk. Activated via
+# config$analysis$themes$algorithm == "v2" (the default).
 #
 # REWRITE-DIRECTION COMMITMENTS (C1-C8) ENCODED IN THIS FILE:
 #
@@ -51,11 +51,11 @@
 #   whole tree and names every theme + subtheme, with explicit cross-theme
 #   distinctness enforcement.
 #
-# WHY THIS REPLACES Phase 52:
-#   Phase 52's single-pass HAC + tree-walk + articulation gate produced
-#   87-92% single-code themes on the Phase 59 Stage 2 binge-eating corpus
+# WHY THIS REPLACES THE EARLIER ALGORITHM:
+#   The earlier single-pass HAC + tree-walk + articulation gate produced
+#   87-92% single-code themes at scale
 #   (Mode 2 Run 1: 60/69 themes had a single code; Run 6: 141/154). The
-#   articulation gate (R/13_themes.R:859-936) flipped 79-87% of the AI's
+#   articulation gate flipped 79-87% of the AI's
 #   coherent_theme verdicts to split_required, one-way -- the cascade
 #   produced singleton leaves. Three independent audits confirmed the
 #   algorithm diverged from C-tenets 3 (multi-pass) and 5 (label after).
@@ -66,7 +66,7 @@
 # Main entry point
 # ==============================================================================
 
-#' Generate themes via multi-pass clustering + label-after-clustering (Phase 60)
+#' Generate themes via multi-pass clustering + label-after-clustering
 #'
 #' The v2 theme algorithm. Multi-pass partitioning: at each pass the AI sees
 #' the current leaves (codes initially, then prior-pass clusters) and either
@@ -148,7 +148,7 @@ generate_themes_multipass <- function(coding_state, provider, config = list(),
     return(ts)
   }
 
-  log_info("Generating themes via Phase 60 multi-pass clustering: {length(codes)} codes")
+  log_info("Generating themes via multi-pass clustering: {length(codes)} codes")
   tic("Theme generation (v2)")
 
   # ----------------------------------------------------------------------------
@@ -193,8 +193,8 @@ generate_themes_multipass <- function(coding_state, provider, config = list(),
   reflexivity_block <- config$reflexivity_block %||% ""
 
   # Runaway safety net (NOT a methodological cap). If the AI somehow never
-  # converges (broken provider responses, oscillating partitions, ...) we
-  # stop at MAX_RUNAWAY_PASSES to avoid an infinite loop. 20 is far beyond
+  # converges (broken provider responses, oscillating partitions, ...) the
+  # loop stops at MAX_RUNAWAY_PASSES to avoid an infinite loop. 20 is far beyond
   # any methodologically plausible pass count for a corpus that wasn't
   # already saturated; if a real corpus needs >20 passes the design needs
   # revisiting, not the breaker.
@@ -231,11 +231,11 @@ generate_themes_multipass <- function(coding_state, provider, config = list(),
                                  codes = codes)
 
     if (identical(proposal$verdict, "converged")) {
-      # CRITICAL FAILURE GUARD (Phase 60.8 Round 6 lesson): if the AI call
+      # CRITICAL FAILURE GUARD: if the AI call
       # at pass 1 failed and was coerced to convergence by the normalizer,
-      # we would silently output one theme per code -- the v1 pathology
+      # the result would silently be one theme per code -- the v1 pathology
       # the entire v2 rewrite was meant to fix. Abort loudly instead.
-      # Pass N>1 failure is recoverable (we have prior-pass clusters as
+      # Pass N>1 failure is recoverable (prior-pass clusters are
       # the natural fallback) so this guard fires only at the very first
       # call's failure mode.
       ai_failure_coerced <- isTRUE(walk_state$n_failed_calls > 0L) ||
@@ -276,7 +276,7 @@ generate_themes_multipass <- function(coding_state, provider, config = list(),
     #
     # Check B (structural equivalence): the new buckets carry the same
     # code-key sets as the previous-pass buckets. The AI repeated its
-    # prior partition. Phase 60.1 audit M8.
+    # prior partition.
     structurally_repeated_prior <- FALSE
     if (length(pass_history) > 0L) {
       prior_post <- pass_history[[length(pass_history)]]$post_leaves
@@ -405,7 +405,7 @@ generate_themes_multipass <- function(coding_state, provider, config = list(),
       walk_state$n_calls
     ),
     analysis_notes = paste0(
-      "Multi-pass AI-judged clustering (Phase 60). Each pass partitions ",
+      "Multi-pass AI-judged clustering. Each pass partitions ",
       "the current leaves; convergence is the AI's call. No hardcoded ",
       "thresholds (per C1). Codes preserved as atomic leaves (per C2). ",
       "Labeling happened in a dedicated post-convergence pass (per C5)."
@@ -462,7 +462,7 @@ generate_themes_multipass <- function(coding_state, provider, config = list(),
   )
 
   toc()
-  log_info("[v2] Generated {length(theme_list)} theme(s) via Phase 60 multi-pass clustering ({walk_state$n_calls} AI decisions)")
+  log_info("[v2] Generated {length(theme_list)} theme(s) via multi-pass clustering ({walk_state$n_calls} AI decisions)")
 
   ts
 }
@@ -790,7 +790,7 @@ ai_propose_clustering <- function(leaves, pass_index, prior_history,
   }
 
   # Drop duplicates: if a leaf appears in multiple clusters, keep the first
-  # occurrence. Done after the missing-leaves pass so we don't double-add.
+  # occurrence. Done after the missing-leaves pass to avoid double-adding.
   already <- integer(0)
   cleaned <- list()
   for (cl in clusters) {
@@ -892,8 +892,8 @@ apply_partition <- function(leaves, cluster_assignments, pass_n) {
 #' An identity partition is one where every cluster contains exactly one
 #' source leaf, so the post-partition leaves are 1:1 with the pre-partition
 #' leaves (just renamed). This signals "no useful further grouping" even if
-#' the AI didn't explicitly say verdict='converged', and we coerce
-#' convergence to avoid wasted iteration.
+#' the AI didn't explicitly say verdict='converged', and convergence is
+#' coerced to avoid wasted iteration.
 #'
 #' @keywords internal
 .partition_is_identity <- function(pre_leaves, post_leaves) {
@@ -909,7 +909,7 @@ apply_partition <- function(leaves, cluster_assignments, pass_n) {
 
 #' Check whether two partitions are structurally equivalent (oscillation)
 #'
-#' Phase 60.1 audit M8: \code{.partition_is_identity} only catches
+#' \code{.partition_is_identity} only catches
 #' literal-identity partitions (each cluster has one source leaf). An
 #' AI that proposes the SAME multi-leaf partition on consecutive passes
 #' (e.g. \code{\{A,B\}+\{C,D\}} then \code{\{A,B\}+\{C,D\}} again) is
@@ -920,7 +920,7 @@ apply_partition <- function(leaves, cluster_assignments, pass_n) {
 #' This helper compares two sets of leaves by the SETS of their
 #' \code{member_code_keys}. If the two leaf-lists carry the same
 #' code-key buckets (treating cluster order as irrelevant), they are
-#' structurally equivalent and we can coerce convergence.
+#' structurally equivalent, so convergence can be coerced.
 #'
 #' @keywords internal
 .partition_is_structurally_equivalent <- function(pre_leaves, post_leaves) {
@@ -1259,10 +1259,10 @@ ai_label_theme_set <- function(skeleton, codes, provider,
     return(as.character(cd$name %||% keys[[1]]))
   }
   # Multi-code: build a "X, Y, and Z" composite from top 3 by frequency.
-  # Filter NULL lookups defensively (Phase 60.1 audit L2): the lookup
+  # Filter NULL lookups defensively: the lookup
   # would normally hit, since codes is the same list that produced the
-  # keys, but if upstream tampering ever creates a mismatch we don't
-  # want empty-string artifacts in the fallback name.
+  # keys, but if upstream tampering ever creates a mismatch this avoids
+  # empty-string artifacts in the fallback name.
   members <- Filter(Negate(is.null), lapply(keys, function(k) code_by_key[[k]]))
   if (length(members) == 0L) return(paste(keys, collapse = " / "))
   freqs <- vapply(members, function(c) as.integer(c$frequency %||% 0L), integer(1))
@@ -1292,7 +1292,7 @@ ai_label_theme_set <- function(skeleton, codes, provider,
     cd <- code_by_key[[keys[[1]]]]
     return(as.character(cd$description %||% ""))
   }
-  # Filter NULL lookups defensively (Phase 60.1 audit L2)
+  # Filter NULL lookups defensively
   members <- Filter(Negate(is.null), lapply(keys, function(k) code_by_key[[k]]))
   if (length(members) == 0L) return("")
   freqs <- vapply(members, function(c) as.integer(c$frequency %||% 0L), integer(1))
@@ -1460,7 +1460,7 @@ ai_label_theme_set <- function(skeleton, codes, provider,
 #' Compress the pass_history into a summary form for merge_history
 #'
 #' The full pass_history carries large objects (the leaves at each pass).
-#' For the merge_history record we want a compact summary that fits in
+#' The merge_history record needs a compact summary that fits in
 #' themes.json without bloating it. Keeps the partition + rationale +
 #' counts; drops the leaf payloads.
 #'

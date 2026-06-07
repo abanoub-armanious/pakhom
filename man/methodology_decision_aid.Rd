@@ -45,7 +45,7 @@ researcher to read; returns NULL invisibly.
 }
 }
 \details{
-Per Sprint-4 design (AC3), there is no default methodology mode in
+Per AC3, there is no default methodology mode in
 \code{validate_config()}; this function exists so users can make an
 informed choice rather than picking arbitrarily.
 }

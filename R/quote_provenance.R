@@ -1,5 +1,5 @@
 # ==============================================================================
-# Quote Provenance + Verification Ladder (Sprint-4 T0.1)
+# Quote Provenance + Verification Ladder
 # ==============================================================================
 # Every AI-attributed quote in pakhom must carry full provenance metadata
 # AND be verified offline against the source corpus. This is the package's
@@ -36,14 +36,14 @@
 #' Current schema version for the quote provenance object
 #'
 #' \itemize{
-#'   \item 1.0.0 (pre-Phase-58-Tier-7): base schema -- quote_id,
+#'   \item 1.0.0: base schema -- quote_id,
 #'     source_doc_id, source_doc_type, source_text_sha256,
 #'     start_char, end_char, exact_text, ai_paraphrase,
 #'     attributed_theme_id, attributed_code_id, ai_model,
 #'     ai_call_id, citation_source, verification_status,
 #'     verification_method, verification_score, verified_at,
 #'     schema_version.
-#'   \item 1.1.0 (Phase 58 Tier 7 M-13/E-19): adds
+#'   \item 1.1.0: adds
 #'     \code{verification_failure_reason} -- structured attribution
 #'     for fabricated / drifted quotes naming the deepest failed
 #'     ladder step (step1_offset_mismatch, step2_normalized_mismatch,
@@ -107,7 +107,7 @@
 #' \code{quote_id} is computed deterministically as
 #' \code{paste0("qte_", sha1(source_doc_id + start_char + end_char + exact_text))}
 #' so the same quote always has the same ID across runs -- critical for
-#' replay (OS.5) and cross-run comparison.
+#' replay and cross-run comparison.
 #'
 #' \code{source_text_sha256} is a hash of the FULL source document text at
 #' attribution time. If the source corpus changes between runs (researcher
@@ -167,7 +167,7 @@ make_quote <- function(source_doc_id, source_doc_type, source_text,
   source_text_sha256 <- digest::digest(source_text, algo = "sha256",
                                         serialize = FALSE)
   # quote_id is sha1 of the canonical positional fingerprint -- same source +
-  # range + text always produces the same ID (OS.5 replay relies on this).
+  # range + text always produces the same ID (replay relies on this).
   quote_id <- paste0("qte_", digest::digest(
     paste(source_doc_id, start_char, end_char, exact_text, sep = "|"),
     algo = "sha1", serialize = FALSE
@@ -190,7 +190,7 @@ make_quote <- function(source_doc_id, source_doc_type, source_text,
     verification_status = "unverified",
     verification_method = NA_character_,
     verification_score  = NA_real_,
-    # Phase 58 Tier 7 M-13/E-19: structured failure reason populated
+    # structured failure reason populated
     # when verification_status ends as "fabricated" or "drifted". Lets
     # the methodology paper attribute fabrications to specific ladder
     # failure modes (offset_mismatch / normalized_mismatch /
@@ -205,7 +205,7 @@ make_quote <- function(source_doc_id, source_doc_type, source_text,
 }
 
 # ==============================================================================
-# Anthropic Citations API bridge (Sprint-4 T0.1 part 3b, phase 21b)
+# Anthropic Citations API bridge
 # ==============================================================================
 # Converts Anthropic Citations API output (extracted by
 # R/02_ai_providers.R::.anthropic_extract_citations) into pakhom's
@@ -213,10 +213,10 @@ make_quote <- function(source_doc_id, source_doc_type, source_text,
 # documents; this bridge looks up the actual source text via document_index
 # and constructs a QuoteProvenance with citation_source =
 # "anthropic_citations_api". The verification ladder still runs (defense in
-# depth -- Anthropic guarantees the indices are valid pointers, but our
+# depth -- Anthropic guarantees the indices are valid pointers, but the
 # ladder catches corpus drift, encoding issues, and the rare API edge case).
 #
-# Why this is the prevention layer (vs phase 17-19's detection layer):
+# Why this is the prevention layer (vs the detection layer):
 # When the model uses Citations API, it cannot fabricate quote text -- it
 # returns char_location indices into the source document, and Anthropic
 # guarantees those indices are valid. Compare to free-form quote
@@ -244,7 +244,7 @@ make_quote <- function(source_doc_id, source_doc_type, source_text,
 #'     inputs aren't part of pakhom's current data model. Errors with a
 #'     clear message rather than silently producing a malformed quote.
 #'   \item \code{content_block_location} (custom_content source) -- not
-#'     yet supported for the same reason. Phase 21a uses plain_text source
+#'     yet supported for the same reason. The Anthropic path uses plain_text source
 #'     exclusively; if a future caller switches to custom_content, the
 #'     bridge needs a block-index-to-char-offset mapping (caller would
 #'     supply per-document block boundaries).
@@ -316,7 +316,7 @@ make_quote_from_citation <- function(citation, documents,
       # runs at the caller's chaining step to confirm
       # source_text[start_char_index:end_char_index] == cited_text. Defense
       # in depth: Anthropic's server-side guarantee covers index validity;
-      # our offline verification covers byte-identity (catches corpus
+      # the offline verification covers byte-identity (catches corpus
       # drift, encoding mismatch, and any API edge case).
       make_quote(
         source_doc_id      = doc$id,
@@ -449,7 +449,7 @@ verify_quote <- function(quote, source_text, provider = NULL) {
 
   now_iso <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC")
 
-  # Phase 58 Tier 7 M-13/E-19: track the latest-attempted-and-failed
+  # track the latest-attempted-and-failed
   # ladder step so a downstream fabricated/drifted quote carries an
   # attributable reason. Updated at each step's failure; when all
   # four steps fail the latest value names the deepest step the
@@ -459,8 +459,8 @@ verify_quote <- function(quote, source_text, provider = NULL) {
   # ---- Step 1: strict string match at recorded offsets ---------------------
   # OFFSETS ARE 0-INDEXED EXCLUSIVE-END (Anthropic Citations API convention).
   # R's substr is 1-indexed inclusive-end -- convert: +1 for start, end as-is
-  # because end is exclusive (so substr's inclusive end = our end - 1, but
-  # since we want characters [start, end), substr(..., start+1, end) gets
+  # because end is exclusive (so substr's inclusive end = end - 1, but
+  # since the target is characters [start, end), substr(..., start+1, end) gets
   # exactly those characters).
   if (quote$end_char <= nchar(source_text)) {
     candidate <- substr(source_text, quote$start_char + 1L, quote$end_char)
@@ -491,7 +491,7 @@ verify_quote <- function(quote, source_text, provider = NULL) {
     pos <- regexpr(norm_target, norm_source, fixed = TRUE)
     if (pos > 0) {
       # Found via substring search; offsets in the normalized source map back
-      # to the original. We don't try to recover exact original offsets (the
+      # to the original. No attempt is made to recover exact original offsets (the
       # mapping is lossy after normalization); leave the original offsets and
       # mark the score lower to flag the imprecision.
       return(.set_verification(quote, "verified_fuzzy", "substring_search",
@@ -592,7 +592,7 @@ init_fabrication_log <- function(output_dir, methodology_mode = NULL) {
 
   # Always write a fresh header. If a fabricated quote was logged in a prior
   # session the user is starting over; rotating logs would be over-engineering.
-  # Phase 58 Tier 7 M-13/E-19: append failure_reason column so a methodology
+  # append failure_reason column so a methodology
   # paper can attribute fabrications to specific ladder failure modes
   # (step1_offset_mismatch, step2_normalized_mismatch, step3_substring_
   # not_found, step4_embedding_below_threshold, source_text_sha256_
@@ -659,9 +659,9 @@ log_fabrication <- function(flog, quote) {
     # raw_response cache and the original audit log.
     exact_text          = substr(quote$exact_text, 1, 500),
     verification_status = quote$verification_status,
-    # Phase 58 Tier 7 M-13/E-19: structured failure reason populated by
+    # structured failure reason populated by
     # verify_quote. NA on legacy QuoteProvenance objects without the
-    # field (back-compat for runs replayed from pre-Tier-7 cache).
+    # field (back-compat for runs replayed from earlier cache).
     failure_reason      = quote$verification_failure_reason %||%
                             NA_character_
   )
@@ -685,10 +685,10 @@ log_fabrication <- function(flog, quote) {
 #' programmatically for cross-run analyses (the methodology paper's KPIs
 #' draw from the same shape).
 #'
-#' Sprint-4 T0.1 part 3b adds the \code{by_citation_source} breakdown
+#' T0.1 part 3b adds the \code{by_citation_source} breakdown
 #' and \code{verification_rate_by_source} so the dashboard can distinguish
 #' Anthropic Citations API quotes (server-side-grounded by Anthropic plus
-#' client-verified by our ladder) from model-freeform quotes (client-
+#' client-verified by the ladder) from model-freeform quotes (client-
 #' verified only). Both are valid; the citations source is strictly
 #' stronger.
 #'
@@ -853,7 +853,7 @@ print.QuoteProvenance <- function(x, ...) {
 
 #' Set verification fields on a quote
 #'
-#' Phase 58 Tier 7 M-13/E-19: optional \code{failure_reason} populates
+#' optional \code{failure_reason} populates
 #' \code{verification_failure_reason} for fabricated / drifted statuses.
 #' NA when the status is verified_* (the field carries meaning only
 #' when verification failed).
@@ -878,9 +878,9 @@ print.QuoteProvenance <- function(x, ...) {
 #' (including unicode NBSP / em-space / etc. that the default \code{\\s}
 #' regex misses), model lowercases.
 #'
-#' Phase 58 Tier 7 M-24 + L-2: pre-Tier-7 this helper only did smart-
+#' Earlier this helper only did smart-
 #' quote ASCII-fication + standard \code{\\s} whitespace collapse. The
-#' Phase 57 audit found 8 of 50 sampled verbatim spot-checks failed
+#' An audit found 8 of 50 sampled verbatim spot-checks failed
 #' (16% miss rate) -- mostly because (a) source had typographic
 #' apostrophes that weren't NFC-normalized to combine with the AI's
 #' ASCII rendering, and (b) source had U+00A0 NBSP / U+2009 thin-space
@@ -890,10 +890,10 @@ print.QuoteProvenance <- function(x, ...) {
 #' @keywords internal
 .normalize_quote_text <- function(x) {
   if (is.na(x) || !nzchar(x)) return("")
-  # Phase 58 Tier 7 M-24: NFC normalization. NFC composes precomposed
+  # NFC normalization. NFC composes precomposed
   # unicode chars back to their canonical form -- so an a + combining-acute
-  # matches an a-acute precomposed. stringi is in Imports (Phase 59 meta-
-  # audit M3: load-bearing for T0.1 verification fidelity).
+  # matches an a-acute precomposed. stringi is in Imports
+  # (load-bearing for T0.1 verification fidelity).
   x <- stringi::stri_trans_nfc(x)
   # Convert smart quotes to ASCII straights. Using \u escapes (rather
   # than literal multi-byte UTF-8 chars in the source) so chartr's
@@ -914,7 +914,7 @@ print.QuoteProvenance <- function(x, ...) {
   smart_quotes <- "\u2018\u2019\u201A\u201C\u201D\u201E\u2032\u2033"
   ascii_quotes <- "'''\"\"\"'\""
   x <- chartr(smart_quotes, ascii_quotes, x)
-  # Phase 58 Tier 7 L-2: unicode-aware whitespace collapse. The default
+  # unicode-aware whitespace collapse. The default
   # PCRE \s matches [ \t\n\r\f\v] in C locale -- it does NOT match
   # U+00A0 NBSP, U+2009 thin space, U+2003 em space, etc. Sources
   # scraped from web content frequently contain these characters where

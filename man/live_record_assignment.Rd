@@ -37,7 +37,7 @@ Appends a JSONL line to \code{code_assignments.jsonl}. Safe to call with
 \code{tracker = NULL} (no-op).
 }
 \details{
-Phase 58 Tier 9 L-1/F-6: schema relationship to the audit log.
+schema relationship to the audit log.
 \code{code_assignment} events live in TWO places by design:
 \itemize{
 \item \code{outputs/<run>/live/code_assignments.jsonl} (this writer):
@@ -55,7 +55,7 @@ The two are joined by \code{(entry_id, code_key)}. The split is
 intentional: the audit log is the methodology-of-record (provenance,
 AC9 stamping, replay) while the live tracker is the researcher's
 real-time view (text + offsets + verification status for
-\code{tail -F}). Pre-Phase-58-Tier-9 the docstring was silent on
+\code{tail -F}). An earlier docstring was silent on
 this; downstream consumers had to infer the join from the field
 names. Now documented.
 }

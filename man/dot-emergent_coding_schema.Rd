@@ -2,7 +2,7 @@
 % Please edit documentation in R/structured_schemas.R
 \name{.emergent_coding_schema}
 \alias{.emergent_coding_schema}
-\title{Schema for batch inductive coding of Mode 3 anomaly segments (Phase 54)}
+\title{Schema for batch inductive coding of Mode 3 anomaly segments}
 \usage{
 .emergent_coding_schema()
 }
@@ -12,7 +12,7 @@ didn't fit a framework into named inductive codes. The AI sees a batch
 of anomaly segment texts and generates a code_name + code_description
 per segment. Codes can naturally repeat across segments (the AI is
 prompted to reuse code names for segments expressing the same concept);
-Phase 52's HAC + AI tree walk then consolidates near-duplicates into
+The multi-pass clustering then consolidates near-duplicates into
 emergent themes.
 }
 \details{

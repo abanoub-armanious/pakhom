@@ -11,10 +11,10 @@ An object of class \code{character} of length 1.
 .RESEARCHER_REFLECTION_LOG_SCHEMA_VERSION
 }
 \description{
-1.0.0 -- initial schema (phase 30): provocations + memos +
+1.0.0 -- initial schema: provocations + memos +
 positionality_history + reflexivity_collapse_flags +
 researcher_authored_codes + researcher_authored_themes.
-1.1.0 -- phase 31 (run_mode1 orchestrator): add provocation_attempts
+1.1.0 -- add provocation_attempts
 and skipped_themes data.frames so Mode 1 can honestly assert T0.3
 coverage. provocation_attempts records one row per (theme, category)
 attempt regardless of how many provocations the AI emitted; the
@@ -25,7 +25,7 @@ never attempted IS. skipped_themes records themes the orchestrator
 bypassed (e.g., zero supporting entries) with an explicit reason,
 so the coverage card distinguishes "silent skip" from "explicit
 skip with stated reason."
-1.2.0 -- phase 33 (M1.3 reflexive memos): the memos slot now holds
+1.2.0 -- M1.3 reflexive memos: the memos slot now holds
 a list of typed \code{Memo} S3 objects rather than an unstructured
 list. The Memo schema (id, timestamp, author, type, linked_codes,
 linked_themes, linked_entries, linked_prior_memo, body) supports

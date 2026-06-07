@@ -2,7 +2,7 @@
 % Please edit documentation in R/06_manuscript_learning.R
 \name{.build_study_roster}
 \alias{.build_study_roster}
-\title{Phase 58 Tier 3 AH-3: prominent equal-weight roster of prior studies}
+\title{prominent equal-weight roster of prior studies}
 \usage{
 .build_study_roster(studies)
 }
@@ -10,7 +10,7 @@
 Returns a markdown-formatted listing of every study with a brief
 one-line characterization (n_codes, top theme count). Prepended to
 \code{ctx$for_theming} so every study name appears at the TOP of the
-AI's context window with equal prominence. Phase 57 audit found
+AI's context window with equal prominence. An audit found
 that without this, the AI's "synthesis reflection" referenced
 whichever study was iterated first (Dayvigo, 3x) and never named
 Ozempic or Vyvanse despite all three being in the context.

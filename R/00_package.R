@@ -167,7 +167,7 @@ NULL
 # -- Package-level constants (fallback defaults for config-driven values) -------
 .SENTIMENT_NEGATIVE_THRESHOLD <- -0.2
 .SENTIMENT_POSITIVE_THRESHOLD <- 0.2
-# Phase 50e: removed .DEFAULT_SIMILARITY_THRESHOLD <- 0.85 --
+# Removed .DEFAULT_SIMILARITY_THRESHOLD <- 0.85 --
 # was declared but never read. The two distinct similarity thresholds
 # in the package (.QUOTE_EMBEDDING_VERIFICATION_THRESHOLD in
 # R/quote_provenance.R for T0.1 verification, and the embedding-
@@ -178,11 +178,11 @@ NULL
 # entries are truncated to this cap before being included in a prompt;
 # the T0.1 verification ladder still validates against the FULL
 # untruncated text so any quote the model fabricates from beyond-cap
-# content gets dropped. Phase 50c: the manuscript-learning module no
+# content gets dropped. The manuscript-learning module no
 # longer shares this constant -- it carries its own cap
 # (`max_manuscript_chars`, default 12000, configurable via
-# config$learning$max_manuscript_chars). Phase 50f will replace this
-# constant with a context-window-aware computation.
+# config$learning$max_manuscript_chars). This constant is now the
+# floor for the context-window-aware cap (ai.max_entry_chars).
 .MAX_ENTRY_CHARS <- 8000L
 
 # -- Methodology modes (multi-mode architecture, T1.3) -------------------------
@@ -229,7 +229,7 @@ utils::globalVariables(c(
   "pair_key", "n_runs_significant", "mean_correlation",
   "shift", "reclassified", "run_idx", "n_runs_present",
   "sentiment_score_curr", "sentiment_score_prev",
-  # OS.2 (correlation reframe): used inside dplyr filter() in
+  # Used inside dplyr filter() in
   # interpret_correlations() in R/16_report_helpers.R
   "meaningful_effect"
 ))

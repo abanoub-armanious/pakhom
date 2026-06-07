@@ -7,7 +7,7 @@
 .subtheme_codes_recursive(subtheme)
 }
 \description{
-Phase 58 Tier 1 C-12 introduced nested Subthemes. This helper walks
+With nested Subthemes, this helper walks
 the depth-N tree so callers that want a flat list of every Code under
 a Subtheme don't have to recurse manually.
 }
