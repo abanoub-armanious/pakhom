@@ -1,10 +1,10 @@
 # ==============================================================================
 # Reflexive Memos as Data
 # ==============================================================================
-# Per AC6 (symmetric obligations across modes): Mode 2/3 carry researcher
-# burden via the codebook-review and theme-review pause-points (CSV
-# export-edit-reimport cycles); Mode 1 carries equivalent burden via
-# reflexive memos at pause points + dynamic positionality. This module
+# Per AC6 (symmetric engagement affordances across modes): Mode 2/3 offer
+# researcher re-engagement via the (opt-in) codebook-review and theme-review
+# pause-points (CSV export-edit-reimport cycles); Mode 1 via reflexive
+# memos at pause points + dynamic positionality. This module
 # implements the memo layer: Memo S3 + add/read/list + Markdown round-trip
 # with YAML frontmatter + persistence + load.
 #

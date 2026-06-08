@@ -63,11 +63,15 @@ pasting transcripts into a general-purpose chat interface — provides no
 methodological guardrails, no guarantee that quoted evidence is genuine, no record
 of how conclusions were reached, and no path to a reproducible, peer-reviewable
 analysis. The consequences are concrete: in a systematic appraisal across five
-studies, 44.5% of the supporting quotations a leading assistant produced were
-fabricated — absent from the source data — its themes were drawn largely from the
-first two to three pages of datasets running to 150 pages, and none of its outputs
-reported the spread of participants represented, leading the authors to conclude that
-the tool could not be recommended for thematic analysis [@jowsey2025frankenstein].
+studies, over half of the supporting quotations a leading assistant produced were
+modified or fabricated — absent from or altered relative to the source data — its
+themes were drawn largely from the first two to three pages of datasets running to
+150 pages, and it did not report the spread of participants represented, leading the
+authors to conclude that the tool could not be recommended for thematic analysis
+[@jowsey2025frankenstein; @jowsey2025correction]. Tellingly, the same appraisal found
+that the human analysts also produced fabricated quotes, at a substantially lower
+rate. Fabrication and selective reading are failure modes of qualitative analysis in
+general, which the scale and fluency of AI only amplify.
 These failures are compounded by the sycophancy of assistant-tuned models, whose
 inclination to agree rather than challenge undermines the critical stance that
 qualitative interpretation requires [@sarkar2024challenge]. `pakhom`'s mandatory
@@ -111,8 +115,10 @@ qualitative work.
   "methodology assistant" articulates a relevance criterion and, for each numeric or
   temporal variable, chooses summary statistics that are *honest* for that variable's
   distribution — a right-skewed count is summarized by a median and tail measures,
-  not a mean and standard deviation. The package performs the computation; the model
-  never reports a number it did not compute.
+  not a mean and standard deviation. The package performs the computation: every
+  statistic in the structured report is the package's, with the model choosing the
+  method rather than the value. (The narrative executive summary is interpretive
+  AI prose, not a source of the report's computed statistics.)
 - **Embedding-free, multi-pass clustering.** Themes are formed by a multi-pass
   procedure in which the model groups codes and declares its own convergence;
   clustering depth (flat or hierarchical) is an emergent property of the data rather

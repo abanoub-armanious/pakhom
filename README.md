@@ -43,8 +43,8 @@ The empirical motivation comes from three lines of evidence:
 - **Vikan et al. 2026** (Sage, doi:10.1177/10497323251365211) — under
   prolonged AI use, researcher engagement collapses to verification mode.
   Mode 1 forces the researcher back into the data through provocations;
-  Modes 2/3 carry equivalent burden through pause-points and reflexive
-  memos.
+  Modes 2/3 provide the same re-engagement levers (review pause-points and
+  reflexive memos), opt-in rather than automatic.
 
 The package's name, **pakhom**, is the Coptic Egyptian form of *Pachomius*
 — the desert abbot whose written **Rule** (c. 320 CE) established the genre
@@ -318,7 +318,7 @@ result <- pakhom::run_mode1(
   config_path = "config.yaml"     # methodology.mode = "reflexive_scaffold"
 )
 
-# Add reflexive memos (Mode 1's AC6 burden parity vs Modes 2/3)
+# Add reflexive memos (the AC6 engagement affordance shared across modes)
 result$reflection_log <- pakhom::add_memo(
   result$reflection_log,
   body = "The 'Adherence' theme rests heavily on contributors 1-3; the AI's counter_narrative provocations suggest theme reframing is warranted.",
@@ -415,8 +415,9 @@ the contract a peer reviewer can check the package's claims against:
   every CSV/JSON header, HTML stamp, plot watermarks).
 - **AC5**: Soft-lock with audit trail; methodology change creates a new
   run with `parent_run_id` linkage (REDCap dev/production pattern).
-- **AC6**: Symmetric researcher-burden obligations across modes (Mode 1
-  reflexive memos == Modes 2/3 review pause-points).
+- **AC6**: Symmetric researcher-engagement affordances across modes: reflexive
+  memos and review pause-points exist in every mode (the Modes 2/3
+  pause-points are opt-in, off by default).
 - **AC7**: Universal Tier-0 transparency requirements in all modes.
 - **AC8**: Modes are configurations of one architecture, never separate
   code paths.

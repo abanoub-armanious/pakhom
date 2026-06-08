@@ -327,9 +327,9 @@ compute_provocation_provenance_stats <- function(reflection_log) {
 
 #' Build the Researcher Reflexive Memos section of the Mode 1 report
 #'
-#' Per AC6 (symmetric obligations across modes), Mode 1's burden parity
-#' against Modes 2/3 is delivered through reflexive memos at pause
-#' points. This section renders the memo timeline chronologically with
+#' Per AC6 (symmetric engagement affordances across modes), Mode 1's
+#' re-engagement lever is reflexive memos at pause points (matching the
+#' opt-in review pauses of Modes 2/3). This section renders the memo timeline chronologically with
 #' per-memo metadata (type, links to provocations / themes / entries)
 #' so a reviewer can read the researcher's analytic trail alongside
 #' the provocations that prompted it.
@@ -346,8 +346,9 @@ compute_provocation_provenance_stats <- function(reflection_log) {
 
   header <- paste0(
     "\n# Researcher Reflexive Memos (M1.3 / AC6)\n\n",
-    "Per AC6 (symmetric obligations across modes), Mode 1's burden ",
-    "parity against Modes 2 and 3 is delivered through reflexive memos. ",
+    "Per AC6 (symmetric engagement affordances across modes), Mode 1's ",
+    "re-engagement lever is reflexive memos, matching the opt-in review ",
+    "pauses of Modes 2 and 3. ",
     "Memos are *researcher-authored* analytic notes -- the AI does NOT ",
     "write them. This section renders the memo timeline chronologically; ",
     "each memo links to the provocations, themes, codes, or entries it ",
@@ -596,9 +597,9 @@ compute_provocation_provenance_stats <- function(reflection_log) {
 
   # M1.3: Researcher Reflexive Memos section. Renders the
   # researcher's memo timeline (chronological by timestamp). Per AC6
-  # (symmetric obligations across modes), memos are Mode 1's burden-
-  # parity counterpart to Modes 2/3's codebook + theme review pause-
-  # points. The section appears after provocations because memos are
+  # (symmetric engagement affordances across modes), memos are Mode 1's
+  # re-engagement counterpart to Modes 2/3's (opt-in) codebook + theme
+  # review pause-points. The section appears after provocations because memos are
   # most often written in response to provocations -- the reading
   # order mirrors the research workflow.
   content <- paste0(content,

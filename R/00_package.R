@@ -38,8 +38,8 @@
 #'     that surfaces counter-narratives, absent voices, alternative
 #'     interpretations, disconfirming evidence, and assumption-surfacing
 #'     terms. The AI never names themes or codes. Use \code{\link{run_mode1}}.
-#'     Per AC6 (symmetric obligations), Mode 1's burden parity with
-#'     Modes 2/3 is delivered through \emph{reflexive memos} -- typed
+#'     Per AC6 (symmetric engagement affordances), Mode 1's re-engagement
+#'     lever is \emph{reflexive memos} -- typed
 #'     Markdown notes round-tripped via YAML frontmatter
 #'     (\code{\link{add_memo}}, \code{\link{persist_memos}}).}
 #'   \item{\code{codebook_collaborative} (Mode 2)}{AI proposes codes;
@@ -70,8 +70,9 @@
 #'   \item \strong{AC5}: Soft-lock with audit trail; methodology change
 #'     creates a new run with parent_run_id linkage (REDCap dev/production
 #'     pattern).
-#'   \item \strong{AC6}: Symmetric researcher-burden obligations across
-#'     modes (anti-gaming).
+#'   \item \strong{AC6}: Symmetric researcher-engagement affordances across
+#'     modes: the same re-engagement levers in every mode, opt-in for
+#'     Modes 2/3 (anti-gaming).
 #'   \item \strong{AC7}: Universal Tier-0 transparency requirements
 #'     (T0.1 quote provenance, T0.2 participant spread, T0.3 coverage)
 #'     in all modes.

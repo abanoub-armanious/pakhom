@@ -7,9 +7,9 @@
 .build_mode1_memo_section(reflection_log)
 }
 \description{
-Per AC6 (symmetric obligations across modes), Mode 1's burden parity
-against Modes 2/3 is delivered through reflexive memos at pause
-points. This section renders the memo timeline chronologically with
+Per AC6 (symmetric engagement affordances across modes), Mode 1's
+re-engagement lever is reflexive memos at pause points (matching the
+opt-in review pauses of Modes 2/3). This section renders the memo timeline chronologically with
 per-memo metadata (type, links to provocations / themes / entries)
 so a reviewer can read the researcher's analytic trail alongside
 the provocations that prompted it.

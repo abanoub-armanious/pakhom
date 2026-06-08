@@ -99,7 +99,7 @@ result <- run_mode1(
   config    = cfg
 )
 
-# 4. Add reflexive memos (Mode 1's AC6 burden parity vs Modes 2/3)
+# 4. Add reflexive memos (the AC6 engagement affordance shared across modes)
 result$reflection_log <- add_memo(
   result$reflection_log,
   body = "The 'Adherence' theme rests heavily on contributors 1-3.",

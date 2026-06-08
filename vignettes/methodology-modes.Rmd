@@ -119,8 +119,8 @@ result <- run_mode1(
 #                      supporting entries) with explicit reasons
 #   - memos:           reflexive notes (initially empty -- you write them)
 
-# 4. Per AC6 (symmetric obligations across modes), Mode 1's burden parity
-#    against Modes 2/3 is delivered through reflexive memos. Add memos
+# 4. Per AC6 (symmetric engagement affordances across modes), reflexive memos
+#    are the shared re-engagement lever, available in every mode. Add memos
 #    in response to provocations that move you, then persist them.
 result$reflection_log <- add_memo(
   result$reflection_log,
