@@ -44,6 +44,18 @@ test_that("create_ai_provider uses config api_key over env var", {
   expect_equal(provider$key_env$key, "config-key")
 })
 
+test_that("a user-configured OpenAI seed is honored (not silently ignored)", {
+  withr::local_envvar(OPENAI_API_KEY = "env-key")
+  # The request-builder reads provider$openai_seed; create_ai_provider must
+  # store the user's ai.openai.seed there, or the documented override is dead
+  # code (the request always used the 42L default).
+  p <- create_ai_provider("openai", list(openai = list(seed = 7L, api_key = "k")))
+  expect_equal(p$openai_seed, 7L)
+  # absent -> NULL, so the request-builder falls back to 42L
+  p2 <- create_ai_provider("openai", list(openai = list(api_key = "k")))
+  expect_null(p2$openai_seed)
+})
+
 test_that("reasoning model detection works", {
   # .is_reasoning_model is internal, test via namespace
   is_reasoning <- pakhom:::.is_reasoning_model

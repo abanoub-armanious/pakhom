@@ -54,6 +54,12 @@ create_ai_provider <- function(provider = "openai", config = NULL) {
     temperature = temperature,
     context_window = as.integer(provider_config$context_window %||%
       if (provider == "openai") 128000L else 200000L),
+    # OpenAI best-effort determinism seed: NULL unless the user sets
+    # ai.<provider>.seed in the config (ai_complete() then falls back to 42L).
+    # Previously the request-builder read the seed from a provider$config field
+    # that this constructor never set, so a user-configured seed was silently
+    # ignored; store it here so the override actually takes effect.
+    openai_seed = provider_config$seed,
     # T1.6 (AC9): methodology rules generated from the config and injected
     # as a system-prompt prefix on every ai_complete() call. When `config`
     # is a full ThematicConfig with a methodology block they are generated
@@ -354,9 +360,7 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
   # raw_response (when capture_raw_responses is on), where a divergent
   # fingerprint between runs can be inspected. Default 42 to match the R-side
   # test_mode seed; users can override via config$ai$openai$seed.
-  openai_seed <- provider$openai_seed %||%
-                 (if (is.list(provider$config)) provider$config$ai$openai$seed) %||%
-                 42L
+  openai_seed <- provider$openai_seed %||% 42L
   body$seed <- as.integer(openai_seed)
 
   # T1.2: structured outputs via json_schema (strict mode). Reasoning models
