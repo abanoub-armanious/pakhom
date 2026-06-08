@@ -75,13 +75,13 @@ test_that("aggregate_overall_statistics handles missing optional columns", {
   expect_equal(nrow(result$themes), 0)
 })
 
-test_that("Tier 4 C-11 audit followup LOW #6: theme names with special chars round-trip via theme_set", {
-  # Pre-Phase-58 the theme distribution path used
+test_that("C-11 audit followup LOW #6: theme names with special chars round-trip via theme_set", {
+  # Earlier, the theme distribution path used
   # sub("^theme_membership_", "", names(theme_counts)) +
   # gsub("\\.", " ", theme_labels) to recover the original theme name
   # from the membership column name. make.names() collapses MANY chars
   # to periods (-, ', /, :, ',', (, ) etc.) -- the reverse mapping only
-  # handles space. 71 of 417 themes in the Phase 57 run were therefore
+  # handles space. 71 of 417 themes in an early run were therefore
   # MISSING from the dashboard (every theme with a hyphen, apostrophe,
   # slash, colon, comma, or paren in its name).
   # The C-11 fix iterates theme_set$themes directly and computes
@@ -119,7 +119,7 @@ test_that("Tier 4 C-11 audit followup LOW #6: theme names with special chars rou
 })
 
 # ==============================================================================
-# Sprint-4 T0.2: Participant spread per theme
+# T0.2: Participant spread per theme
 # ==============================================================================
 # T0.2 answers Jowsey 2025's "Frankenstein" finding that "none of the
 # Copilot outputs reported the participant spread". Three metrics added to

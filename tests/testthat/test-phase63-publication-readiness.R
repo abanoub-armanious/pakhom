@@ -1,4 +1,4 @@
-# Phase 63 audit-followup: publication-readiness fixes surfaced by the
+# Audit-followup: publication-readiness fixes surfaced by the
 # whole-package methodology + transparency audits. These pin the fixes so a
 # future change cannot silently regress the methods text or the small-n caveats.
 
@@ -18,7 +18,7 @@
 test_that("methodology appendix describes the ACTUAL theme algorithm (v2 default, v1 when pinned)", {
   ap_v2 <- .pr_appendix(.pr_cfg("v2"))
   # The methods text a researcher pastes into a paper must describe v2 (the
-  # production default), NOT the retired Phase-52 HAC-on-embeddings path.
+  # production default), NOT the retired HAC-on-embeddings path.
   expect_match(ap_v2, "Multi-pass AI clustering", fixed = TRUE)
   expect_false(grepl("ward.D2", ap_v2, fixed = TRUE))
   expect_false(grepl("cosine embeddings", ap_v2, fixed = TRUE))
@@ -43,7 +43,7 @@ test_that("per-subtheme table carries a small-n caveat on the legacy battery pat
   # Legacy path: a metric column with NO ai_metric_stats renders Median(MAD)/Mean(SD).
   # The 62.5d dagger only fires on the AI path, so the legacy spread must carry its
   # own small-n caveat (closes the audit's transparency LOW: a fragile SD on a
-  # pre-Phase-61 resume could otherwise appear with no caveat).
+  # a legacy resume could otherwise appear with no caveat).
   ts <- list(metric_cols = "score", subtheme_stats = list(
     Sub = list(name = "Sub", description = "d", n = 4,
                metric_stats = list(score = list(median = 5, mad = 2, mean = 5.5, sd = 3, n_observed = 4)),
@@ -59,7 +59,7 @@ test_that("methodology appendix states the ACTUAL Mann-Whitney effect size (rank
   ap <- .pr_appendix(.pr_cfg())
   # the production code computes rank-biserial 2U/(n1*n2)-1; the appendix must say so
   expect_match(ap, "rank-biserial", fixed = TRUE)
-  # the retired (Phase-58-replaced) |Z|/sqrt(N) derivation must NOT reappear
+  # the retired |Z|/sqrt(N) derivation must NOT reappear
   expect_false(grepl("|Z|", ap, fixed = TRUE))
 })
 

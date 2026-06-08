@@ -112,9 +112,9 @@ mock_config <- function() {
     ),
     analysis = list(
       themes = list(
-        # Phase 53: removed dead theme knobs (min_themes, max_themes,
+        # Removed dead theme knobs (min_themes, max_themes,
         # multi_label_assignment, max_theme_proportion). Per C1 the
-        # algorithm has no count thresholds; per Phase 52 audit cleanup
+        # algorithm has no count thresholds; a later audit cleanup found
         # multi_label_assignment had no effect and was display-only.
         include_subthemes = TRUE
       ),

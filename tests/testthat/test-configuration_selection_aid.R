@@ -1,12 +1,12 @@
 # ==============================================================================
-# Phase 60.10 -- configuration_selection_aid() tests
+# configuration_selection_aid() tests
 # ==============================================================================
 # Verifies the configuration aid returns sensible per-mode + per-scale guidance,
-# matching the empirical evidence from Phase 60.8 deep dive.
+# matching the empirical evidence from the configuration deep-dive.
 # ==============================================================================
 
-test_that("Phase 60.10: Mode 2 narrow_intersection returns 5-8 theme range for 250-entry corpus", {
-  # Phase 60.8 Round 1 was exactly this configuration: 250 entries, narrow
+test_that("Mode 2 narrow_intersection returns 5-8 theme range for 250-entry corpus", {
+  # An early calibration run was exactly this configuration: 250 entries, narrow
   # intersection focus (medication x sleep x binge eating). It produced
   # 6 themes from 40 codes. The aid's bracket should cover that empirical
   # data point.
@@ -17,14 +17,14 @@ test_that("Phase 60.10: Mode 2 narrow_intersection returns 5-8 theme range for 2
   )
   expect_equal(rec$expected_themes, c(5L, 8L))
   expect_true(6L >= rec$expected_themes[1] && 6L <= rec$expected_themes[2],
-              info = "Round 1 actual (6 themes) must be inside the recommendation")
+              info = "actual (6 themes) must be inside the recommendation")
   expect_equal(rec$expected_passes, 1L)  # 40-50 codes -> 1 pass
   expect_true(rec$recommended_review_points$after_coding,
               info = "250-entry corpus is large enough for after_coding review")
 })
 
-test_that("Phase 60.10: Mode 2 broad focus large corpus matches Round 6 empirical evidence", {
-  # Phase 60.8 Round 6: 250-entry corpus, broad emotional-triggers focus,
+test_that("Mode 2 broad focus large corpus matches empirical evidence", {
+  # An early calibration run: 250-entry corpus, broad emotional-triggers focus,
   # produced 157 codes -> 7 themes in 3 substantive passes. The aid should
   # bracket that outcome.
   rec <- configuration_selection_aid(
@@ -34,11 +34,11 @@ test_that("Phase 60.10: Mode 2 broad focus large corpus matches Round 6 empirica
   )
   expect_equal(rec$expected_themes, c(6L, 10L))
   expect_true(7L >= rec$expected_themes[1] && 7L <= rec$expected_themes[2],
-              info = "Round 6 actual (7 themes) must be inside the recommendation")
+              info = "actual (7 themes) must be inside the recommendation")
   expect_equal(rec$expected_passes, 3L)  # 157 codes -> 3 passes
 })
 
-test_that("Phase 60.10: explicit estimated_codebook_size overrides the corpus-size estimate", {
+test_that("explicit estimated_codebook_size overrides the corpus-size estimate", {
   rec_implicit <- configuration_selection_aid(
     mode = "codebook_collaborative",
     corpus_size = 250L,
@@ -54,7 +54,7 @@ test_that("Phase 60.10: explicit estimated_codebook_size overrides the corpus-si
   expect_gt(rec_explicit$expected_passes, rec_implicit$expected_passes)
 })
 
-test_that("Phase 60.10: Mode 1 returns NA theme prediction + run_mode1 note", {
+test_that("Mode 1 returns NA theme prediction + run_mode1 note", {
   rec <- configuration_selection_aid(
     mode = "reflexive_scaffold",
     corpus_size = 100L,
@@ -67,7 +67,7 @@ test_that("Phase 60.10: Mode 1 returns NA theme prediction + run_mode1 note", {
   expect_false(rec$recommended_review_points$after_themes)
 })
 
-test_that("Phase 60.10: Mode 3 returns NA theme prediction + framework note", {
+test_that("Mode 3 returns NA theme prediction + framework note", {
   rec <- configuration_selection_aid(
     mode = "framework_applied",
     corpus_size = 250L,
@@ -78,7 +78,7 @@ test_that("Phase 60.10: Mode 3 returns NA theme prediction + framework note", {
   expect_match(rec$notes, "Mode 3|framework|anomaly_handling")
 })
 
-test_that("Phase 60.10: out-of-bracket codebooks emit smoke-first guidance", {
+test_that("out-of-bracket codebooks emit smoke-first guidance", {
   # Very small
   rec_small <- configuration_selection_aid(
     mode = "codebook_collaborative",
@@ -98,7 +98,7 @@ test_that("Phase 60.10: out-of-bracket codebooks emit smoke-first guidance", {
   expect_match(rec_large$notes, "above.*bracket|smoke")
 })
 
-test_that("Phase 60.10: wall-time + API-spend estimates scale with corpus size", {
+test_that("wall-time + API-spend estimates scale with corpus size", {
   rec_small <- configuration_selection_aid(
     mode = "codebook_collaborative",
     corpus_size = 50L,
@@ -113,7 +113,7 @@ test_that("Phase 60.10: wall-time + API-spend estimates scale with corpus size",
   expect_gt(rec_large$expected_api_spend_usd, rec_small$expected_api_spend_usd)
 })
 
-test_that("Phase 60.10: invalid corpus_size errors clearly", {
+test_that("invalid corpus_size errors clearly", {
   expect_error(
     configuration_selection_aid("codebook_collaborative", corpus_size = -5),
     regexp = "corpus_size must be a positive integer"
@@ -124,7 +124,7 @@ test_that("Phase 60.10: invalid corpus_size errors clearly", {
   )
 })
 
-test_that("Phase 60.10: invalid mode / focus_shape errors clearly", {
+test_that("invalid mode / focus_shape errors clearly", {
   expect_error(
     configuration_selection_aid("nonexistent_mode", corpus_size = 100L),
     regexp = "should be one of"
@@ -136,7 +136,7 @@ test_that("Phase 60.10: invalid mode / focus_shape errors clearly", {
   )
 })
 
-test_that("Phase 60.10: review-point recommendation adapts to corpus size + codebook size", {
+test_that("review-point recommendation adapts to corpus size + codebook size", {
   # Small corpus, small codebook -> after_themes off (no expected overlap pairs)
   rec_small <- configuration_selection_aid(
     mode = "codebook_collaborative",

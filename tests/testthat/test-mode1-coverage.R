@@ -95,8 +95,8 @@ test_that("compute_mode1_coverage returns ProvocationCoverage + Tier0Coverage", 
   expect_s3_class(cov, "ProvocationCoverage")
   expect_s3_class(cov, "Tier0Coverage")
   expect_equal(cov$mode, "reflexive_scaffold")
-  # Schema 2.1.0 (phase 33): added n_memos + memos_by_type informational
-  # fields. Phase-31 audit fixes (2.0.0): named-list serialization,
+  # Schema 2.1.0: added n_memos + memos_by_type informational
+  # fields. Earlier audit fixes (2.0.0): named-list serialization,
   # partition in/out-of-scope attempts, degenerate-state gating,
   # downgraded corpus-truncation claim.
   expect_equal(cov$schema_version, "2.1.0")
@@ -122,7 +122,7 @@ test_that("compute_mode1_coverage records every documented field", {
     # honest fields + retained the headline boolean
     "corpus_provided_to_per_category_fns",
     "llm_prompt_includes_full_corpus",
-    # Phase 33 (M1.3): informational researcher-memo counts
+    # M1.3: informational researcher-memo counts
     "n_memos", "memos_by_type",
     "no_silent_theme_skip", "no_unexpected_category_attempts",
     "no_silent_skip",

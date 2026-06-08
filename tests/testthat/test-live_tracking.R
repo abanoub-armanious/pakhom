@@ -1,4 +1,4 @@
-# Tests for the Phase 53 LiveTracker (R/live_tracking.R) — three streamed/
+# Tests for the LiveTracker (R/live_tracking.R) — three streamed/
 # snapshot artifacts written during analysis so a researcher can `tail -F`
 # or `cat` files in the run directory and watch the codebook + theme
 # clustering grow in real time.
@@ -141,7 +141,7 @@ test_that("LiveTracker print method shows current counts", {
 })
 
 test_that("LiveTracker counters persist across calls without caller reassignment", {
-  # Phase 53 audit CRITICAL-1: counters live in tracker$counters (env)
+  # Audit CRITICAL-1: counters live in tracker$counters (env)
   # so writers can mutate them in place. Without this fix, each
   # live_*() call would reset the counter to its initial value (the
   # on-disk file would still be written -- atomic-rewrite is a side-

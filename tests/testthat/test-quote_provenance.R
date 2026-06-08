@@ -1,5 +1,5 @@
 # Tests for the quote provenance + verification ladder module
-# (Sprint-4 T0.1, R/quote_provenance.R)
+# (T0.1, R/quote_provenance.R)
 # These tests are the empirical contract for the package's anti-fabrication
 # guarantee. Edits should add cases, not weaken assertions.
 
@@ -26,7 +26,7 @@ test_that("make_quote constructs a QuoteProvenance with all schema fields", {
                        "attributed_code_id", "ai_model", "ai_call_id",
                        "citation_source", "verification_status",
                        "verification_method", "verification_score",
-                       # Phase 58 Tier 7 M-13/E-19: failure_reason field
+                       # M-13/E-19: failure_reason field
                        # populated on fabricated / drifted; NA otherwise.
                        "verification_failure_reason",
                        "verified_at", "schema_version")
@@ -196,7 +196,7 @@ test_that("init_fabrication_log creates the CSV with header row", {
   header <- readLines(flog$path)[1]
   # Verify header lists the expected columns
   expect_match(header, "timestamp,quote_id,source_doc_id")
-  # Phase 58 Tier 7 M-13/E-19: failure_reason column appended after
+  # M-13/E-19: failure_reason column appended after
   # verification_status.
   expect_match(header, "verification_status,failure_reason$")
 })
@@ -222,7 +222,7 @@ test_that("log_fabrication appends one row per fabricated quote", {
 })
 
 test_that("init_fabrication_log stamps the CSV when methodology_mode is set, and appends survive the stamp", {
-  # Audit A HIGH (phase 38): fabrication_log.csv was a user-facing
+  # Audit A HIGH: fabrication_log.csv was a user-facing
   # run-dir artifact that AC4 missed -- the audit log flagged it as
   # the only T0.1 artifact without a methodology stamp.
   td <- withr::local_tempdir()
@@ -418,7 +418,7 @@ test_that(".build_tier0_dashboard renders verified counts + method breakdown", {
 })
 
 test_that(".build_tier0_dashboard renders fabrication CSV link when fabrications occurred", {
-  # Phase 58 Tier 4 V-5: text updated to "CAUGHT by the verification ladder
+  # V-5: text updated to "CAUGHT by the verification ladder
   # and DROPPED from the codebook" (was "detected and DROPPED"). Honest
   # post-rejection framing -- the new dashboard distinguishes pre-rejection
   # (caught + dropped) fabrications from the post-rejection (surviving)
@@ -438,7 +438,7 @@ test_that(".build_tier0_dashboard renders fabrication CSV link when fabrications
 })
 
 test_that(".build_tier0_dashboard handles singular vs plural correctly", {
-  # Phase 58 Tier 4 V-5: singular "1 attribution was CAUGHT" / plural
+  # V-5: singular "1 attribution was CAUGHT" / plural
   # "2 attributions were CAUGHT" (was "1 quote was detected" / "2 quotes
   # were detected").
   q_fab1 <- verify_quote(make_quote("d1", "t", SRC, 0L, 30L, "fake quote one"), SRC)
@@ -459,7 +459,7 @@ test_that("V-5: dashboard reports pre-rejection fabrication count via fabricatio
   # fabrication_log_path so the dashboard counts fabrications the
   # ladder DROPPED during coding (which aren't in the surviving
   # codebook population at all). Without this signal the dashboard
-  # reports "No fabrications detected" -- the Phase 57 audit V-5 lie.
+  # reports "No fabrications detected" -- the V-5 false-negative.
   td <- withr::local_tempdir()
   fab_path <- file.path(td, "fabrication_log.csv")
   # Simulate a fabrication log with 3 fabrications + the methodology
@@ -514,13 +514,13 @@ test_that("V-5: dashboard reports zero fabrications honestly when none caught", 
 })
 
 # ==============================================================================
-# Phase 21b: Anthropic Citations API bridge
+# Anthropic Citations API bridge
 # ==============================================================================
 # Tests for make_quote_from_citation() and make_quotes_from_citations(),
 # which convert Anthropic Citations API output into QuoteProvenance objects
 # with citation_source = "anthropic_citations_api". The bridge is the second
-# half of T0.1's prevention layer: phase 21a captures citations at the
-# provider level; this phase produces verifiable QuoteProvenance objects
+# half of T0.1's prevention layer: the provider layer captures citations
+# at the source; this bridge produces verifiable QuoteProvenance objects
 # from them.
 
 # Helper: a citation pointing at QUOTE_TEXT in SRC.
@@ -761,7 +761,7 @@ test_that("make_quotes_from_citations propagates errors from individual citation
 })
 
 # ==============================================================================
-# Phase 21d: citation_source breakdown in the summary + Tier-0 dashboard
+# citation_source breakdown in the summary + Tier-0 dashboard
 # ==============================================================================
 # T0.1 part 3b dashboard work: quote_provenance_summary now exposes per-source
 # counts and per-source verification rates so the dashboard can distinguish

@@ -1,5 +1,5 @@
-# Tests for the reflexive-memos module (R/memos.R) -- Sprint-4 phase 33
-# / M1.3. Closes phase 30 audit HIGH #2: ResearcherReflectionLog had a
+# Tests for the reflexive-memos module (R/memos.R) -- M1.3.
+# Closes an earlier audit HIGH #2: ResearcherReflectionLog had a
 # memos slot but no CRUD. Per AC6 (symmetric obligations), Mode 1's
 # burden parity vs Modes 2/3 is delivered through reflexive memos at
 # pause points. These tests pin the constructor, CRUD, Markdown round-
@@ -346,7 +346,7 @@ test_that("add_memo writes a memo_added decision to the audit log when supplied"
 
 # ---- ResearcherReflectionLog schema 1.2.0 -------------------------------
 
-test_that("ResearcherReflectionLog schema is 1.2.0 (phase 33 bump)", {
+test_that("ResearcherReflectionLog schema is 1.2.0", {
   log <- create_reflection_log()
   expect_equal(log$schema_version, "1.2.0")
 })

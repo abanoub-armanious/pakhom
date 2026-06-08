@@ -1,8 +1,7 @@
 # ==============================================================================
-# Phase 60: Multi-pass clustering + label-after-clustering tests
+# Multi-pass clustering + label-after-clustering tests
 # ==============================================================================
-# Test plan from PHASE_60_THEME_ALGORITHM_REWRITE.md ("Test plan" section).
-# Items map 1:1:
+# Test plan -- items map 1:1:
 #   1. Convergence on pass 1 (immediate)
 #   2. Convergence on pass 2 (one substantive pass)
 #   3. Convergence at pass 5+ (deep hierarchy)
@@ -125,7 +124,7 @@
 # Schema validation
 # ------------------------------------------------------------------------------
 
-test_that("Phase 60: .clustering_schema validates against OpenAI strict-mode rules", {
+test_that(".clustering_schema validates against OpenAI strict-mode rules", {
   schema <- .clustering_schema()
   expect_silent(.validate_schema(schema))
   expect_true("verdict"             %in% unlist(schema$required))
@@ -138,7 +137,7 @@ test_that("Phase 60: .clustering_schema validates against OpenAI strict-mode rul
   expect_false("description"           %in% names(schema$properties))
 })
 
-test_that("Phase 60: .theme_labeling_schema validates against OpenAI strict-mode rules", {
+test_that(".theme_labeling_schema validates against OpenAI strict-mode rules", {
   schema <- .theme_labeling_schema()
   expect_silent(.validate_schema(schema))
   expect_true("themes" %in% unlist(schema$required))
@@ -147,7 +146,7 @@ test_that("Phase 60: .theme_labeling_schema validates against OpenAI strict-mode
   expect_true(all(c("theme_index", "name", "description", "subthemes") %in% names(theme_props)))
 })
 
-test_that("Phase 60: clustering schema forbids name/description in cluster items (C5)", {
+test_that("clustering schema forbids name/description in cluster items (C5)", {
   schema <- .clustering_schema()
   cluster_props <- schema$properties$cluster_assignments$items$properties
   expect_false("name"                  %in% names(cluster_props))
@@ -166,7 +165,7 @@ test_that("Phase 60: clustering schema forbids name/description in cluster items
 # Pure function: apply_partition
 # ------------------------------------------------------------------------------
 
-test_that("Phase 60: apply_partition merges leaves by cluster_assignments correctly", {
+test_that("apply_partition merges leaves by cluster_assignments correctly", {
   leaves <- list(
     list(leaf_id = "leaf_p0_1", leaf_type = "code",
          member_code_keys = "c_a", n_codes = 1L, lineage = list()),
@@ -188,7 +187,7 @@ test_that("Phase 60: apply_partition merges leaves by cluster_assignments correc
   expect_equal(out[[1]]$cluster_rationale, "A and C share principle X")
 })
 
-test_that("Phase 60: apply_partition preserves code keys (C2)", {
+test_that("apply_partition preserves code keys (C2)", {
   leaves <- lapply(1:5, function(i) list(
     leaf_id = sprintf("leaf_p0_%d", i),
     leaf_type = "code",
@@ -206,7 +205,7 @@ test_that("Phase 60: apply_partition preserves code keys (C2)", {
   expect_setequal(all_keys_in, all_keys_out)
 })
 
-test_that("Phase 60: apply_partition lineage records source_leaf_ids + rationale", {
+test_that("apply_partition lineage records source_leaf_ids + rationale", {
   leaves <- list(
     list(leaf_id = "leaf_p0_1", leaf_type = "code",
          member_code_keys = "c_a", n_codes = 1L, lineage = list()),
@@ -230,7 +229,7 @@ test_that("Phase 60: apply_partition lineage records source_leaf_ids + rationale
 # Pure function: .partition_is_identity
 # ------------------------------------------------------------------------------
 
-test_that("Phase 60: .partition_is_identity detects no-merge partitions", {
+test_that(".partition_is_identity detects no-merge partitions", {
   pre <- list(
     list(leaf_id = "leaf_p0_1"),
     list(leaf_id = "leaf_p0_2"),
@@ -256,7 +255,7 @@ test_that("Phase 60: .partition_is_identity detects no-merge partitions", {
 # Pure function: derive_theme_subtheme_structure
 # ------------------------------------------------------------------------------
 
-test_that("Phase 60: derive_theme_subtheme_structure: k=0 (immediate convergence) -> each code its own theme", {
+test_that("derive_theme_subtheme_structure: k=0 (immediate convergence) -> each code its own theme", {
   codes <- list(
     list(key = "c_a", name = "A", description = "desc A", frequency = 1L, entry_ids = "e1"),
     list(key = "c_b", name = "B", description = "desc B", frequency = 1L, entry_ids = "e2")
@@ -274,7 +273,7 @@ test_that("Phase 60: derive_theme_subtheme_structure: k=0 (immediate convergence
   expect_equal(skeleton[[1]]$decision_origin, "single_code_no_merge")
 })
 
-test_that("Phase 60: derive_theme_subtheme_structure: k=1 (one pass) -> themes, no subthemes", {
+test_that("derive_theme_subtheme_structure: k=1 (one pass) -> themes, no subthemes", {
   codes <- list(
     list(key = "c_a"), list(key = "c_b"), list(key = "c_c")
   )
@@ -307,7 +306,7 @@ test_that("Phase 60: derive_theme_subtheme_structure: k=1 (one pass) -> themes, 
   expect_equal(skeleton[[1]]$decision_origin, "multi_pass_converged")
 })
 
-test_that("Phase 60: derive_theme_subtheme_structure: k=2 -> themes + subthemes", {
+test_that("derive_theme_subtheme_structure: k=2 -> themes + subthemes", {
   codes <- list(list(key = "c_a"), list(key = "c_b"), list(key = "c_c"), list(key = "c_d"))
 
   # Pass 1: codes -> 3 clusters: {a,b} {c} {d}
@@ -370,7 +369,7 @@ test_that("Phase 60: derive_theme_subtheme_structure: k=2 -> themes + subthemes"
 # End-to-end: convergence on pass 1 (test plan item 1)
 # ------------------------------------------------------------------------------
 
-test_that("Phase 60: end-to-end convergence on pass 1 (5 distinct codes -> 5 themes, no subthemes)", {
+test_that("end-to-end convergence on pass 1 (5 distinct codes -> 5 themes, no subthemes)", {
   state <- .v2_state(5L)
   responses <- list(
     .v2_converged("All 5 codes are conceptually distinct; no useful grouping possible."),
@@ -406,7 +405,7 @@ test_that("Phase 60: end-to-end convergence on pass 1 (5 distinct codes -> 5 the
 # End-to-end: convergence on pass 2 (test plan item 2)
 # ------------------------------------------------------------------------------
 
-test_that("Phase 60: convergence on pass 2 (one substantive pass) -> themes, no subtheme structure", {
+test_that("convergence on pass 2 (one substantive pass) -> themes, no subtheme structure", {
   state <- .v2_state(4L)
   responses <- list(
     # Pass 1: group into 2 clusters
@@ -446,7 +445,7 @@ test_that("Phase 60: convergence on pass 2 (one substantive pass) -> themes, no 
 # End-to-end: convergence on pass 3 (test plan item 3 -- multi-level)
 # ------------------------------------------------------------------------------
 
-test_that("Phase 60: convergence on pass 3 -> themes (pass 2) + subthemes (pass 1)", {
+test_that("convergence on pass 3 -> themes (pass 2) + subthemes (pass 1)", {
   state <- .v2_state(6L)
   responses <- list(
     # Pass 1: 6 codes -> 3 clusters
@@ -500,7 +499,7 @@ test_that("Phase 60: convergence on pass 3 -> themes (pass 2) + subthemes (pass 
 # Test plan item 4: no label leakage during clustering
 # ------------------------------------------------------------------------------
 
-test_that("Phase 60: clustering schema rejects name/description leakage", {
+test_that("clustering schema rejects name/description leakage", {
   # Confirms structurally that the clustering schema cannot carry
   # name/description fields. The post-clustering labeling pass is the
   # only place those fields appear.
@@ -516,7 +515,7 @@ test_that("Phase 60: clustering schema rejects name/description leakage", {
   expect_true("description" %in% names(ts$properties$themes$items$properties))
 })
 
-test_that("Phase 60: AI receives clustering schema, not labeling schema, in clustering calls", {
+test_that("AI receives clustering schema, not labeling schema, in clustering calls", {
   state <- .v2_state(3L)
   recorded_schemas <- list()
   testthat::local_mocked_bindings(
@@ -549,7 +548,7 @@ test_that("Phase 60: AI receives clustering schema, not labeling schema, in clus
 # Test plan item 5: code preservation (C2)
 # ------------------------------------------------------------------------------
 
-test_that("Phase 60: C2 -- every code appears in exactly one theme's union of code keys", {
+test_that("C2 -- every code appears in exactly one theme's union of code keys", {
   state <- .v2_state(8L)
   responses <- list(
     .v2_continue(list(
@@ -590,7 +589,7 @@ test_that("Phase 60: C2 -- every code appears in exactly one theme's union of co
 # Test plan item 6: live tracking emission per pass (C3)
 # ------------------------------------------------------------------------------
 
-test_that("Phase 60: C3 -- live_record_clustering_pass writes one file per pass", {
+test_that("C3 -- live_record_clustering_pass writes one file per pass", {
   state <- .v2_state(4L)
   tmpdir <- withr::local_tempdir()
   tracker <- init_live_tracker(tmpdir)
@@ -640,7 +639,7 @@ test_that("Phase 60: C3 -- live_record_clustering_pass writes one file per pass"
 # Edge cases + safety nets
 # ------------------------------------------------------------------------------
 
-test_that("Phase 60: audit_log non-NULL run accepts clustering_proposal + label_pass decision types", {
+test_that("audit_log non-NULL run accepts clustering_proposal + label_pass decision types", {
   # Self-audit regression: v2 emits "clustering_proposal" and "label_pass"
   # via log_ai_decision. These must be in .valid_decision_types or the
   # call stops the run. Pre-followup the allowlist was missing both,
@@ -686,7 +685,7 @@ test_that("Phase 60: audit_log non-NULL run accepts clustering_proposal + label_
   expect_true("label_pass" %in% types)
 })
 
-test_that("Phase 60: single-code corpus produces 1-theme ThemeSet without AI call", {
+test_that("single-code corpus produces 1-theme ThemeSet without AI call", {
   state <- .v2_state(1L)
   call_count <- 0L
   testthat::local_mocked_bindings(
@@ -703,14 +702,14 @@ test_that("Phase 60: single-code corpus produces 1-theme ThemeSet without AI cal
   expect_equal(ts$merge_history$algorithm, "multi_pass_v2")
 })
 
-test_that("Phase 60: empty codebook returns empty ThemeSet", {
+test_that("empty codebook returns empty ThemeSet", {
   state <- .v2_state(0L)
   ts <- generate_themes_iterative(state, .v2_provider(),
                                      config = list(algorithm = "v2"))
   expect_equal(n_themes(ts), 0L)
 })
 
-test_that("Phase 60: .partition_is_structurally_equivalent detects code-key bucket repeats", {
+test_that(".partition_is_structurally_equivalent detects code-key bucket repeats", {
   # Two leaf lists with the same code-key buckets but different leaf_ids
   prior_post <- list(
     list(leaf_id = "leaf_p1_1", member_code_keys = c("c_a", "c_b")),
@@ -736,7 +735,7 @@ test_that("Phase 60: .partition_is_structurally_equivalent detects code-key buck
   expect_false(.partition_is_structurally_equivalent(prior_post, merged_post))
 })
 
-test_that("Phase 60: structural-repeat oscillation forces convergence (audit M8)", {
+test_that("structural-repeat oscillation forces convergence (audit M8)", {
   # The AI proposes {1,2}+{3,4} on pass 1, then proposes the same
   # partition on pass 2 (re-grouping the pass-1 clusters as singletons
   # into the same structural buckets). Without the structural-repeat
@@ -778,7 +777,7 @@ test_that("Phase 60: structural-repeat oscillation forces convergence (audit M8)
   expect_equal(ts$merge_history$n_substantive_passes, 1L)
 })
 
-test_that("Phase 60: convergence on pass 5 (deep hierarchy, k=4 substantive)", {
+test_that("convergence on pass 5 (deep hierarchy, k=4 substantive)", {
   # Test plan item 3 calls for "convergence on pass 5+". This walks
   # through 4 substantive passes (8 -> 4 -> 2 -> 2 -> 2 with the last
   # being a degenerate merge that converges) ending in a converged 6th
@@ -837,7 +836,7 @@ test_that("Phase 60: convergence on pass 5 (deep hierarchy, k=4 substantive)", {
   expect_setequal(all_keys, names(state$codebook))
 })
 
-test_that("Phase 60: idempotence coercion -- identity partition forces convergence", {
+test_that("idempotence coercion -- identity partition forces convergence", {
   state <- .v2_state(3L)
   responses <- list(
     # Pass 1: AI proposes 3 singletons (= identity partition)
@@ -864,8 +863,8 @@ test_that("Phase 60: idempotence coercion -- identity partition forces convergen
   expect_match(ts$merge_history$convergence_rationale, "[Ii]dentity")
 })
 
-test_that("Phase 60: Round-6 lesson -- pass 1 AI failure aborts loudly, not silently degenerate", {
-  # Round 6 of Phase 60.8 exposed a critical failure mode: when the
+test_that("pass 1 AI failure aborts loudly, not silently degenerate", {
+  # An early full-corpus run exposed a critical failure mode: when the
   # AI call at pass 1 fails (in that case, OpenAI quota exhaustion),
   # the parse-failure fallback coerces to verdict='converged' which
   # produces one theme per code (167 single-code themes at the time).
@@ -888,7 +887,7 @@ test_that("Phase 60: Round-6 lesson -- pass 1 AI failure aborts loudly, not sile
   )
 })
 
-test_that("Phase 60: pass 1 AI failure with 1 leaf does NOT trip the abort (n=1 is normal)", {
+test_that("pass 1 AI failure with 1 leaf does NOT trip the abort (n=1 is normal)", {
   # The abort guard is conditional on length(current_leaves) > 1L --
   # with a single code there's no failure mode (the single-code degenerate
   # path is correct, not a v1 pathology). Exercise that branch.
@@ -904,8 +903,8 @@ test_that("Phase 60: pass 1 AI failure with 1 leaf does NOT trip the abort (n=1 
   expect_equal(n_themes(ts), 1L)
 })
 
-test_that("Phase 60: AI failure on PASS 2+ recoverable via prior-pass clusters", {
-  # The Round 6 hardening only aborts at pass 1 (where failure ->
+test_that("AI failure on PASS 2+ recoverable via prior-pass clusters", {
+  # The hardening only aborts at pass 1 (where failure ->
   # degenerate output). At pass 2+, the prior pass's clusters ARE the
   # natural fallback -- we just stop iterating and use what we have.
   state <- .v2_state(4L)
@@ -942,7 +941,7 @@ test_that("Phase 60: AI failure on PASS 2+ recoverable via prior-pass clusters",
   expect_equal(ts$merge_history$n_failed_calls, 1L)
 })
 
-test_that("Phase 60: missing leaf indices are added as auto-singletons (partition repair)", {
+test_that("missing leaf indices are added as auto-singletons (partition repair)", {
   state <- .v2_state(4L)
   responses <- list(
     # AI proposes a partition missing leaf 4 -- orchestrator should add it
@@ -968,8 +967,8 @@ test_that("Phase 60: missing leaf indices are added as auto-singletons (partitio
   expect_equal(n_themes(ts), 2L)
 })
 
-test_that("Phase 60: malformed AI response on clustering call aborts loudly (Round 6 hardening)", {
-  # Post-Round-6 behavior: malformed responses at pass 1 are NOT silently
+test_that("malformed AI response on clustering call aborts loudly", {
+  # Malformed responses at pass 1 are NOT silently
   # coerced to one-theme-per-code. They abort the run with a clear error
   # message so the operator can diagnose (typically: provider quota /
   # response_schema strict-mode failure / network).
@@ -998,7 +997,7 @@ test_that("Phase 60: malformed AI response on clustering call aborts loudly (Rou
 # methodology mode, not inside generate_themes_iterative.
 # ------------------------------------------------------------------------------
 
-test_that("Phase 60: Mode 3 inductive (anomaly emergent) runs v2 algorithm on synthetic codebook", {
+test_that("Mode 3 inductive (anomaly emergent) runs v2 algorithm on synthetic codebook", {
   # The wiring happens via .generate_emergent_themes_from_anomalies which
   # synthesizes a ProgressiveCodingState and calls generate_themes_iterative
   # -- that means the algorithm config flows through naturally. This test
@@ -1032,7 +1031,7 @@ test_that("Phase 60: Mode 3 inductive (anomaly emergent) runs v2 algorithm on sy
 # Apply_partition + derive symmetry
 # ------------------------------------------------------------------------------
 
-test_that("Phase 60: apply_partition + derive preserves total leaf count through k=0..3", {
+test_that("apply_partition + derive preserves total leaf count through k=0..3", {
   # Property test: regardless of how many passes occur, every code ends
   # up in exactly one place in the final structure.
   codes <- lapply(1:8, function(i) list(key = sprintf("c_%d", i)))
@@ -1088,14 +1087,14 @@ test_that("Phase 60: apply_partition + derive preserves total leaf count through
 })
 
 
-test_that("Phase 63: v2 clustering prompt carries the singleton-vs-specific-instance steer (#3)", {
+test_that("v2 clustering prompt carries the singleton-vs-specific-instance steer (#3)", {
   # The #3 anti-bias steer: keep a genuinely-distinct CONCEPT as a singleton, but
   # GROUP a lone code that is a narrower, specific INSTANCE of an existing
   # cluster's organizing principle. It is a COUNTERWEIGHT to the "singletons are
   # normal" latitude -- it must be ADDITIVE (both bullets present), never a
   # directive to eliminate singletons, and must NOT introduce a hardcoded count
-  # threshold (C1: the AI judges convergence). Behavioural validation is the
-  # Phase 63 multi-run A/B; this is the ship-regression guard that the guidance
+  # threshold (C1: the AI judges convergence). Behavioural validation was done via
+  # a multi-run A/B; this is the ship-regression guard that the guidance
   # text is actually emitted into the clustering system prompt.
   captured <- new.env(parent = emptyenv())
   testthat::local_mocked_bindings(
@@ -1127,7 +1126,7 @@ test_that("Phase 63: v2 clustering prompt carries the singleton-vs-specific-inst
   expect_match(sp, "more SPECIFIC INSTANCE", fixed = TRUE)
   expect_match(sp, "not a standalone single-code theme", fixed = TRUE)
   expect_match(sp, "Reserve singletons for concepts with no conceptual home", fixed = TRUE)
-  # Phase 63 wording: the steer says GROUP/cluster, never "merge" -- the package
+  # On wording: the steer says GROUP/cluster, never "merge" -- the package
   # GROUPS codes, it never combines them into new codes (C2). Assert the reworded
   # phrasing landed AND that no bare "merge" survives anywhere in the AI-facing
   # clustering prompt ("\\bmerge" tolerates "emergent"). Absence-of-bad-pattern.

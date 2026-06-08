@@ -1,5 +1,5 @@
 # Tests for AI decision audit log (audit_log.R)
-# Sprint-4 T1.4 expanded the schema with: methodology_mode auto-stamping,
+# T1.4 expanded the schema with: methodology_mode auto-stamping,
 # log_ai_request() helper, env-backed n_written counter, and ai_request stats
 # in summarize_audit_log. The pre-T1.4 contract (init/log/close/summarize) is
 # also exercised here.

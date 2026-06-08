@@ -1,8 +1,8 @@
-# Tests for Phase 54: Mode 3 anomaly_handling policy dispatch
+# Tests for Mode 3 anomaly_handling policy dispatch
 # (apply_framework_themes branches on framework_spec$anomaly_handling).
 #
 # Three policies:
-#   bracket  -- single "Anomaly (non-fitting)" theme (pre-Phase-54 behavior)
+#   bracket  -- single "Anomaly (non-fitting)" theme (legacy behavior)
 #   extend   -- inductive emergent themes from anomaly segments (default)
 #   revise   -- same as extend + framework_review.csv artifact
 
@@ -11,7 +11,7 @@
 .mode3_test_spec <- function(policy = "extend") {
   # Build a minimal in-memory FrameworkSpec without touching disk
   spec <- list(
-    name              = "Phase 54 test framework",
+    name              = "Anomaly test framework",
     epistemic_stance  = "constructionist",
     anomaly_handling  = policy,
     citations         = character(0),
@@ -107,7 +107,7 @@ test_that("extend policy: with provider, mocked AI produces emergent themes", {
   # Mock both:
   #   (a) inductive emergent coding (.emergent_coding_schema) -- returns
   #       3 segments each with the SAME code_name so they consolidate.
-  #   (b) the Phase 52 cluster decision (.theme_decision_schema) -- returns
+  #   (b) the legacy cluster decision (.theme_decision_schema) -- returns
   #       coherent_theme for the resulting cluster.
   testthat::local_mocked_bindings(
     ai_complete = function(provider, prompt, system_prompt, task,
@@ -127,7 +127,7 @@ test_that("extend policy: with provider, mocked AI produces emergent themes", {
           usage = list()
         )
       } else {
-        # Phase 52 cluster decision path
+        # Legacy cluster decision path
         list(
           content = jsonlite::toJSON(list(
             central_organizing_concept = paste0(
@@ -249,9 +249,9 @@ test_that("no anomalies: bracket/extend/revise produce no anomaly + no emergent"
 
 # ---- default policy --------------------------------------------------------
 
-test_that("default anomaly_handling on FrameworkSpec is 'extend' (Phase 54)", {
+test_that("default anomaly_handling on FrameworkSpec is 'extend'", {
   # .validate_framework_spec wraps a raw `framework: ...` YAML block.
-  # Phase 54 default is "extend" (was "bracket" pre-Phase-54). Verify
+  # The default is "extend" (was "bracket" in earlier versions). Verify
   # by omitting the field and asserting the constructed default.
   raw <- list(framework = list(
     name = "X",
@@ -300,10 +300,10 @@ test_that("framework_revision_suggested is a valid audit decision_type", {
 # ---- CRITICAL regression: cascade fans entries into emergent themes -------
 
 test_that("cascade routes anomaly entries into emergent themes (CRITICAL-8 regression)", {
-  # Phase 54 audit CRITICAL-8: under extend policy, cascade_theme_assignments
+  # Audit CRITICAL-8: under extend policy, cascade_theme_assignments
   # has no code_to_theme mapping for the per-segment inductive codes -- the
   # "anomaly" key in entry_results$codes_assigned would have routed every
-  # anomaly-bearing entry to a single theme. Phase 54 fixes this via the
+  # anomaly-bearing entry to a single theme. This is fixed via the
   # mode3_anomaly_segment_to_theme map on the ThemeSet, consulted by
   # cascade. This test pins that fix.
   spec  <- .mode3_test_spec("extend")
@@ -343,7 +343,7 @@ test_that("cascade routes anomaly entries into emergent themes (CRITICAL-8 regre
           usage = list()
         )
       } else if ("verdict" %in% names(props)) {
-        # Phase 60 v2 clustering call: 2 codes are conceptually distinct,
+        # v2 clustering call: 2 codes are conceptually distinct,
         # converge immediately at pass 1 with no grouping.
         list(
           content = jsonlite::toJSON(list(
@@ -354,7 +354,7 @@ test_that("cascade routes anomaly entries into emergent themes (CRITICAL-8 regre
           usage = list()
         )
       } else if ("themes" %in% names(props)) {
-        # Phase 60 v2 labeling call: name the 2 emergent themes.
+        # v2 labeling call: name the 2 emergent themes.
         list(
           content = jsonlite::toJSON(list(
             themes = list(

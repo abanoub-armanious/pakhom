@@ -1,6 +1,6 @@
-# Tests for content-addressable response cache (Sprint-4 T1.4)
+# Tests for content-addressable response cache (T1.4)
 # api_response_cache.R provides on-disk storage of raw_response keyed by
-# prompt_hash; the upcoming OS.5 replay_run() consumes it.
+# prompt_hash; the planned replay_run() consumes it.
 
 # ---- Helpers ----------------------------------------------------------------
 

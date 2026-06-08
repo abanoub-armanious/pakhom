@@ -46,7 +46,7 @@ create_test_config <- function(db_path, output_dir) {
       coding = list(progressive = TRUE, max_retries_per_entry = 1, checkpoint_interval = 50),
       human_verification = list(enabled = FALSE),
       themes = list(
-        # Phase 53: removed dead pre-Phase-52 knobs (merge_strategy,
+        # Removed dead legacy knobs (merge_strategy,
         # max_merge_passes, min_merges_to_continue) -- the HAC + AI tree
         # walk has no merge-pass parameters.
         include_subthemes = TRUE

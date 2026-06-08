@@ -496,7 +496,7 @@ test_that("cross-study synthesis returns empty string with fewer than 2 studies"
 })
 
 # ============================================================================
-# Phase 58 Tier 3 AH-3 audit followup: study roster + hash-shuffle iteration
+# AH-3 audit followup: study roster + hash-shuffle iteration
 # ============================================================================
 
 test_that("AH-3: .build_study_roster returns empty string for single-study input", {
@@ -534,9 +534,9 @@ test_that("AH-3: .build_study_roster names every study at the top", {
   expect_true(grepl("dayvigo", out, fixed = TRUE),
               info = "dayvigo missing from roster")
   expect_true(grepl("ozempic", out, fixed = TRUE),
-              info = "ozempic missing from roster (the Phase 57 audit-flagged study)")
+              info = "ozempic missing from roster (an audit-flagged study)")
   expect_true(grepl("vyvanse", out, fixed = TRUE),
-              info = "vyvanse missing from roster (the Phase 57 audit-flagged study)")
+              info = "vyvanse missing from roster (an audit-flagged study)")
   expect_true(grepl("equal weight", out, fixed = TRUE),
               info = "roster must include explicit equal-weight directive")
   expect_true(grepl("10 codes", out, fixed = TRUE))

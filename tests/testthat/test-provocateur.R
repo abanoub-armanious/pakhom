@@ -1,4 +1,4 @@
-# Tests for the provocateur architecture (Sprint-4 M1.1 + M1.2,
+# Tests for the provocateur architecture (M1.1 + M1.2,
 # R/provocateur.R). Mode 1 (Reflexive Scaffold) implements Sarkar 2024's
 # "AI as Socratic gadfly" pattern: AI provides extractive provocations
 # that surface counter-narratives, absent voices, alternative
@@ -14,7 +14,7 @@ test_that("create_reflection_log returns the documented shape", {
     "provocations", "memos", "positionality_history",
     "reflexivity_collapse_flags", "researcher_authored_codes",
     "researcher_authored_themes",
-    # Schema 1.1.0 (phase 31): T0.3 attempt + explicit-skip tracking
+    # Schema 1.1.0: T0.3 attempt + explicit-skip tracking
     "provocation_attempts", "skipped_themes",
     "config_hash", "created_at",
     "last_updated", "schema_version"
@@ -492,7 +492,7 @@ test_that("run_provocateur_questioning skips themes with no supporting entries",
 
   expect_equal(call_count$n, 0L)  # zero AI calls because theme had no entries
   expect_length(log$provocations, 0L)
-  # Schema 1.1.0 (phase 31): the explicit-skip is recorded with reason
+  # Schema 1.1.0: the explicit-skip is recorded with reason
   # so compute_mode1_coverage can distinguish it from a silent skip.
   expect_equal(nrow(log$skipped_themes), 1L)
   expect_equal(log$skipped_themes$theme_name, "Empty")
@@ -503,7 +503,7 @@ test_that("run_provocateur_questioning skips themes with no supporting entries",
 })
 
 test_that("run_provocateur_questioning surfaces missing-membership-input as a distinct skip reason", {
-  # Phase 40 finding: when input data carries NEITHER any
+  # Finding: when input data carries NEITHER any
   # theme_membership_<safe_name> column NOR an emerged_themes column,
   # every theme would silently grade as "no supporting entries", which
   # masks a real input-shape misconfiguration. The improved error

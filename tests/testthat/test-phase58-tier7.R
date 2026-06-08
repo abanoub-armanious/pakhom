@@ -1,4 +1,4 @@
-# Phase 58 Tier 7 unit tests
+# Quote-verification and prompt-fencing unit tests
 #
 # V-6 + L-3  offset reference bug (prompt switched from JSON-escaped to
 #            <entry_text> XML-fenced verbatim)
@@ -179,7 +179,7 @@ test_that(".THEME_DEFAULTS includes supporting_quote_records", {
 
 
 # ==========================================================================
-# Tier 7 audit followups
+# Audit followups
 # ==========================================================================
 
 test_that("audit followup C-T7-1: supporting_quote_records is written to themes.json", {

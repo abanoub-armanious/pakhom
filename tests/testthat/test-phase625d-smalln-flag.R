@@ -1,4 +1,4 @@
-# Phase 62.5d: AI-numeric per-column small-n reliability floor + per-cell flag.
+# AI-numeric per-column small-n reliability floor + per-cell flag.
 #
 # The AI returns min_reliable_n (ITS judgement per column, never a package
 # hardcode); the report MARKS -- never hides -- spread/shape cells computed on

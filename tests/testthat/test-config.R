@@ -23,10 +23,10 @@ test_that("default_config has expected AI settings", {
 
 test_that("default_config has expected analysis settings", {
   cfg <- default_config("codebook_collaborative")
-  # Phase 53 cleanup of Phase 52 audit deferral: min_themes / max_themes /
+  # Legacy cleanup of an earlier audit deferral: min_themes / max_themes /
   # max_theme_proportion / multi_label_assignment / ai_batch_size are
   # removed (they were dead per C1 -- never gated algorithm behavior).
-  # Phase 50e removed min/max_subthemes_per_theme as dead knobs.
+  # An earlier cleanup removed min/max_subthemes_per_theme as dead knobs.
   expect_null(cfg$analysis$themes$min_themes)
   expect_null(cfg$analysis$themes$max_themes)
   expect_null(cfg$analysis$themes$max_theme_proportion)
@@ -45,7 +45,7 @@ test_that("default_config has new config fields", {
   expect_null(cfg$study$researcher_positionality)
   expect_null(cfg$data$explicit_columns)
   expect_type(cfg$data$preprocessing$custom_cleaning_rules, "list")
-  # Phase 50e: removed `fallback_keyword_patterns` as dead knob.
+  # Removed `fallback_keyword_patterns` as a dead knob.
   # New reflexivity fields
   expect_null(cfg$study$research_paradigm)
   expect_null(cfg$study$reflexive_notes)
@@ -56,7 +56,7 @@ test_that("default_config has new config fields", {
 })
 
 test_that("default_config: multi-label entry assignment is structural (correlations dispatch)", {
-  # Phase 53: multi_label_assignment under analysis$themes was a dead
+  # multi_label_assignment under analysis$themes was a dead
   # knob and is removed. Multi-label behavior is now structural in
   # cascade_theme_assignments (entries flow into every theme that
   # contains any of their codes) and in correlations dispatch via
@@ -106,7 +106,7 @@ test_that("default_config(mode) sets methodology block correctly", {
 })
 
 test_that("default_config() with no methodology arg ERRORS per AC3", {
-  # Phase 37 audit (AC HIGH): per AC3 ("no default mode; explicit
+  # Audit (AC HIGH): per AC3 ("no default mode; explicit
   # declaration mandatory"), the NULL-methodology path now hard-stops
   # rather than warn-and-default. The error message must point users
   # at the three valid modes + the decision aid. The previous
@@ -336,10 +336,10 @@ test_that("methodology_decision_aid errors when ta_family is missing in non-inte
 })
 
 # ============================================================================
-# Phase 58 Tier 3 AH-5: deprecated-knob warnings
+# AH-5: deprecated-knob warnings
 # ============================================================================
 
-test_that("AH-5: .warn_deprecated_config_knobs flags pre-Phase-53 sequential-merge knobs", {
+test_that("AH-5: .warn_deprecated_config_knobs flags legacy sequential-merge knobs", {
   cfg <- list(
     analysis = list(themes = list(
       merge_strategy        = "auto",
@@ -358,7 +358,7 @@ test_that("AH-5: .warn_deprecated_config_knobs flags pre-Phase-53 sequential-mer
   expect_false(any(grepl("include_subthemes", flagged)))
 })
 
-test_that("AH-5: .warn_deprecated_config_knobs flags pre-Phase-56 saturation knobs", {
+test_that("AH-5: .warn_deprecated_config_knobs flags legacy saturation knobs", {
   cfg <- list(analysis = list(coding = list(
     saturation_enabled          = TRUE,
     saturation_window           = 100L,
@@ -377,7 +377,7 @@ test_that("AH-5: empty config produces no deprecated-knob warnings", {
 })
 
 # ============================================================================
-# Phase 58 Tier 3 AH-4: reflexivity-scaffold warnings
+# AH-4: reflexivity-scaffold warnings
 # ============================================================================
 
 test_that("AH-4: .warn_empty_reflexivity flags fully-empty reflexivity scaffold", {
@@ -426,7 +426,7 @@ test_that("AH-4: fully-populated reflexivity produces no warning", {
 })
 
 # ============================================================================
-# Phase 58 Tier 3 audit followup LOW-6: validate_config wires the warns through
+# Audit followup LOW-6: validate_config wires the warns through
 # ============================================================================
 
 test_that("AH-5 integration: validate_config calls deprecated-knob warn helper", {
@@ -459,7 +459,7 @@ test_that("AH-5 integration: validate_config calls deprecated-knob warn helper",
 })
 
 # ============================================================================
-# Phase 59 Stage 2 Round 3: overrides accept BOTH dot-path AND nested-list
+# Overrides accept BOTH dot-path AND nested-list
 # styles (load_config / create_config / run_analysis / run_mode1)
 # ============================================================================
 #
@@ -470,7 +470,7 @@ test_that("AH-5 integration: validate_config calls deprecated-knob warn helper",
 # everything) and surfaced as the misleading validation error
 # "study.research_focus is required" -- making the user think the
 # override had silently failed when it had in fact silently overshot.
-# Caught Phase 59 Stage 2 Round 3 during the Mode 1 smoke test.
+# Caught during the Mode 1 smoke test.
 # ----------------------------------------------------------------------------
 
 test_that(".flatten_overrides: empty input returns empty list", {
@@ -694,7 +694,7 @@ test_that("load_config: dot-path override preserves siblings (regression)", {
   expect_equal(cfg$study$researcher_positionality, "Test positionality")
 })
 
-test_that("load_config: NESTED-list override preserves siblings (Phase 59 bug)", {
+test_that("load_config: NESTED-list override preserves siblings (regression)", {
   # THE BUG: pre-fix, passing a nested list silently clobbered the
   # entire study block. validate_config then failed with
   # "study.research_focus is required" even though the YAML had it set

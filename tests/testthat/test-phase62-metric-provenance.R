@@ -1,4 +1,4 @@
-# Phase 62.1 -- metric relevance/provenance framing. The methodology assistant
+# Metric relevance/provenance framing. The methodology assistant
 # judges, in free-form prose, what each numeric column MEASURES and whether it is
 # a substantive measure of the phenomenon vs incidental source/platform metadata,
 # reasoned against the research focus. The report groups the per-metric

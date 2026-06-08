@@ -1,4 +1,4 @@
-# Phase 63: research-question coverage lens.
+# Research-question coverage lens.
 #
 # A late, post-hoc AI pass over (research_focus + concepts + final themes) that
 # judges WHERE each named focus facet landed. The AI judges; the package renders.

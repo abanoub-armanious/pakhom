@@ -1,7 +1,7 @@
 # ==============================================================================
 # Tests for data loading + column detection (R/07_data_loading.R)
 # ==============================================================================
-# Phase 39 finding: the default reddit column-mapping had `id` candidates
+# Finding: the default reddit column-mapping had `id` candidates
 # ordered as `c("post_id", "comment_id", "id")`, so a comments table with
 # BOTH columns matched id->post_id (the parent's id, not the row's own id).
 # Result: every comment under the same parent post collapsed onto one
@@ -149,13 +149,13 @@ test_that("load_and_combine_tables refuses when intra-table std_id duplicates pe
 })
 
 # ============================================================================
-# Phase 58 Tier 0 C-9 regression: multi-table merge union (was intersect)
+# C-9 regression: multi-table merge union (was intersect)
 #
-# Background: Phase 57's full-corpus run dropped num_comments and
+# Background: an early full-corpus run dropped num_comments and
 # upvote_ratio from the analytic data because the comments table doesn't
 # carry those columns. load_and_combine_tables was filtering to the
 # intersect of column names across tables -> the post-only metric
-# columns were silently dropped. Phase 55 paper-style subtheme tables
+# columns were silently dropped. The paper-style subtheme tables
 # and correlations could therefore only ever score on `score`.
 #
 # Fix: bind_rows() the standardized tables directly and let dplyr NA-fill
@@ -170,9 +170,9 @@ test_that("load_and_combine_tables preserves columns present in only some tables
   on.exit(try(DBI::dbDisconnect(con), silent = TRUE), add = TRUE)
 
   # Canonical Reddit shape: posts carry score, num_comments, upvote_ratio;
-  # comments carry score only. The pre-Phase-58 intersect path would drop
+  # comments carry score only. The earlier intersect path would drop
   # num_comments + upvote_ratio from the combined data, leaving downstream
-  # Phase 55 + correlation layers with `score` as the lone metric.
+  # paper-style tables + correlation layers with `score` as the lone metric.
   DBI::dbWriteTable(con, "posts", data.frame(
     post_id      = c("p1", "p2", "p3"),
     text         = c("post 1", "post 2", "post 3"),
@@ -306,7 +306,7 @@ test_that("load_and_combine_tables: 3-table union with disjoint metric columns (
                                        source_type = "reddit")
 
   # 2 + 2 + 2 = 6 rows; all three reddit metric columns must survive the
-  # 3-way union (pre-Phase-58 intersect would have kept only `score`).
+  # 3-way union (the earlier intersect would have kept only `score`).
   expect_equal(nrow(combined), 6L)
   expect_true("score"        %in% names(combined),
               info = "shared metric dropped in 3-table union")

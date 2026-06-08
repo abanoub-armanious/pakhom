@@ -1,4 +1,4 @@
-# Tests for the OS.6 transparency report bundler (Stage 1A / Phase 58 followup)
+# Tests for the transparency report bundler
 
 # --------------------------------------------------------------------------
 # Helpers: build a synthetic run directory with the minimal artifacts the

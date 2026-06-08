@@ -1,4 +1,4 @@
-# Tests for the soft-lock + parent_run_id mechanism (Sprint-4 T1.5,
+# Tests for the soft-lock + parent_run_id mechanism (T1.5,
 # R/run_state.R). The REDCap-style state model is the empirical answer
 # to AC5 (soft-lock with audit trail) and AC6 (symmetric obligations
 # across modes -- methodology cannot be silently re-declared).

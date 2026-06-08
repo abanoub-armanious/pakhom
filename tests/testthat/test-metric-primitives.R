@@ -1,7 +1,7 @@
-# Tests for R/metric_primitives.R (Phase 61.1)
+# Tests for R/metric_primitives.R
 #
 # The backend metric-primitive catalog: ~45 deterministic statistics the
-# Phase 61 Methodology Assistant can request by name, plus the registry-backed
+# Methodology Assistant can request by name, plus the registry-backed
 # catalog accessors and the allowlist dispatcher. Every primitive is checked
 # against a hand-computed expected value; the cross-cutting contracts
 # (NA-safety, registry<->catalog consistency, fail-honest dispatch, security

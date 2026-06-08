@@ -1,4 +1,4 @@
-# Phase 58 Tier 6 unit tests
+# Correlation-statistics unit tests
 #
 # H-13 Spearman / Kendall routing for binary x ordinal pairs
 # H-14 negligible effect-size tier on all three statistical layers
@@ -235,7 +235,7 @@ test_that("test_theme_cooccurrence emits non-NA Cramer's V on the Fisher path", 
                                       min_observed_both = 1L)
   if (nrow(result) > 0L) {
     expect_equal(result$method[1L], "Fisher")
-    # H-18: Cramer's V is now populated for Fisher (was NA pre-Tier-6)
+    # H-18: Cramer's V is now populated for Fisher (was NA before)
     expect_false(is.na(result$cramers_v[1L]))
     expect_true(is.numeric(result$cramers_v[1L]))
   }
@@ -279,7 +279,7 @@ test_that("compare_theme_groups effect_r is sign-aware and rank-biserial", {
 # ==========================================================================
 
 test_that("compare_theme_groups direction agrees with effect_r sign on skewed data", {
-  # Tier 6 audit followup H-1: pre-followup `direction` used a mean
+  # Audit followup H-1: pre-followup `direction` used a mean
   # comparison; on skewed data the mean and rank centroid can disagree
   # (members carry an outlier that drags the mean up but the bulk of
   # ranks are below non-members). The fix derives direction from
@@ -308,7 +308,7 @@ test_that("compare_theme_groups direction agrees with effect_r sign on skewed da
 })
 
 test_that("compare_theme_groups effect_r reaches 1 when all members rank above non-members", {
-  # Tier 6 audit followup M-8: extreme rank-biserial bound check.
+  # Audit followup M-8: extreme rank-biserial bound check.
   data <- tibble::tibble(
     std_id = paste0("e", 1:20),
     sentiment_score = c(rep(0.9, 10L), rep(0.1, 10L)),
@@ -329,7 +329,7 @@ test_that("compare_theme_groups effect_r reaches 1 when all members rank above n
 })
 
 test_that("test_theme_cooccurrence handles all-themes-filtered case", {
-  # Tier 6 audit followup M-6: when every theme is below the cohort
+  # Audit followup M-6: when every theme is below the cohort
   # filter, the function returns an empty tibble with a clean log.
   data <- tibble::tibble(
     # Two themes, each with only 2 members (below default 5)
@@ -350,7 +350,7 @@ test_that("test_theme_cooccurrence handles all-themes-filtered case", {
 })
 
 test_that("test_theme_cooccurrence handles mixed Fisher + Chi-square dispatch", {
-  # Tier 6 audit followup M-7: the run produces both Fisher and
+  # Audit followup M-7: the run produces both Fisher and
   # Chi-square dispatches in the same call; H-18's Fisher Cramer's V
   # should sit alongside the chi-square Cramer's V in the same tibble.
   set.seed(133L)

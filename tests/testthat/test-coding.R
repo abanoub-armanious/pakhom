@@ -116,9 +116,9 @@ test_that("codebook_summary builder works", {
 })
 
 # ============================================================================
-# Phase 58 Tier 0 C-4 regression: numbered-list prompt leak
+# C-4 regression: numbered-list prompt leak
 #
-# Background: in the Phase 57 full-corpus run, 52 codes ended up with names
+# Background: in an early full-corpus run, 52 codes ended up with names
 # like `321. "Food Addiction"` because the codebook-summary prompt format
 # used `sprintf("  %d. \"%s\" ...", i, name)`. The AI echoed the entire
 # prefix back as the code name on re-uses; the case-insensitive key matcher
@@ -134,7 +134,7 @@ test_that("codebook_summary builder works", {
 # ============================================================================
 
 test_that(".normalize_code_name strips numbered-list prefixes (C-4 root cause)", {
-  # The exact corruption pattern observed in Phase 57's full-corpus run.
+  # The exact corruption pattern observed in an early full-corpus run.
   expect_equal(pakhom:::.normalize_code_name('321. "Food Addiction"'),
                "Food Addiction")
   expect_equal(pakhom:::.normalize_code_name('1. Food Addiction'),
@@ -218,7 +218,7 @@ test_that(".build_codebook_summary uses bare-bullet format (C-4 prompt fix)", {
 })
 
 # ============================================================================
-# Phase 58 Tier 0 C-4 audit followup tests
+# C-4 audit followup tests
 #
 # The post-C-4 audit subagent flagged:
 #  - HIGH-2: no end-to-end test asserting that an AI returning the corrupt
@@ -264,7 +264,7 @@ test_that("C-4 integration: AI-emitted '321. \"Foo\"' merges into existing 'foo'
   ), auto_unbox = TRUE)
 
   # Mock compute_embeddings too: with a pre-populated codebook, the
-  # Phase 58 C-6 additive-retrieval path inside .code_entry_progressive
+  # C-6 additive-retrieval path inside .code_entry_progressive
   # would otherwise make a real HTTP request to OpenAI with the fake
   # test key and return 401. The graceful fallback works (no failure)
   # but the network egress is undesirable in a unit test.
@@ -370,9 +370,9 @@ test_that("C-4 audit MEDIUM-4: quote-wrapped NEW: prefix still detected as new-c
 })
 
 # ============================================================================
-# Phase 58 Tier 0 C-6: codebook additive semantic retrieval
+# C-6: codebook additive semantic retrieval
 #
-# The pre-Phase-58 prompt window showed the AI top-80 codes by frequency +
+# The earlier prompt window showed the AI top-80 codes by frequency +
 # the last-20 created. With 4,000-code codebooks the AI saw only 2% of
 # existing codes per entry, so every re-encounter past entry 1000 looked
 # new and the codebook never saturated.
@@ -782,7 +782,7 @@ test_that("C-6 audit LOW-4: cache accumulates across multiple calls (no re-embed
 })
 
 # ============================================================================
-# Phase 58 Tier 2 D-7: empty-description backfill on new code admission
+# D-7: empty-description backfill on new code admission
 # ============================================================================
 
 test_that("D-7: new code with empty AI description gets D-7 placeholder", {
@@ -791,7 +791,7 @@ test_that("D-7: new code with empty AI description gets D-7 placeholder", {
 
   entry_text <- "I struggle with food addiction every single day."
   # AI returns a NEW code with NO code_description -- the historical
-  # bug that produced 94 empty-description codes in the Phase 57 run.
+  # bug that produced 94 empty-description codes in an early run.
   mock_response <- jsonlite::toJSON(list(
     skipped = FALSE, skip_reason = "",
     coded_segments = list(list(
@@ -823,7 +823,7 @@ test_that("D-7: new code with empty AI description gets D-7 placeholder", {
   ))
 
   # Code admitted with an honest provisional description, not an empty string.
-  # Phase 62.2: the "[D-7 placeholder; awaiting refresh]" engineering marker was
+  # The "[D-7 placeholder; awaiting refresh]" engineering marker was
   # dropped -- it leaked into themes.json and biased clustering embeddings
   # (description feeds paste(name, description) in R/13_themes.R). The backfill
   # now keeps the first-segment snippet as a clean human description.
@@ -832,7 +832,7 @@ test_that("D-7: new code with empty AI description gets D-7 placeholder", {
   expect_true(nzchar(desc),
               info = "Empty description should have been backfilled with a provisional one")
   expect_false(grepl("D-7 placeholder", desc, fixed = TRUE),
-               info = "Phase 62.2: the engineering marker must NOT leak into the description")
+               info = "the engineering marker must NOT leak into the description")
   expect_true(grepl("First observed in:", desc, fixed = TRUE),
               info = "Backfill is a clean 'First observed in: <snippet>' provisional description")
   expect_true(grepl("food addiction", desc, fixed = TRUE),
@@ -840,7 +840,7 @@ test_that("D-7: new code with empty AI description gets D-7 placeholder", {
 })
 
 # ============================================================================
-# Phase 58 Tier 2 C-5: per-N description-refresh for high-freq codes
+# C-5: per-N description-refresh for high-freq codes
 # ============================================================================
 
 test_that("C-5: .maybe_refresh_high_freq_descriptions no-ops when interval not hit", {
@@ -1034,7 +1034,7 @@ test_that("D-7 audit followup LOW F2: NA AI description triggers backfill (not a
     ))
   })
   # Code admitted with an honest provisional description (not "" and not NA).
-  # Phase 62.2: engineering marker dropped; clean "First observed in:" default.
+  # Engineering marker dropped; clean "First observed in:" default.
   desc <- state$codebook[["food addiction"]]$description
   expect_true(nzchar(desc))
   expect_false(is.na(desc))
@@ -1073,7 +1073,7 @@ test_that("D-7 audit followup: whitespace-only AI description triggers backfill"
     config = list(max_retries_per_entry = 1L), base_system_prompt = "test"
   ))
   desc <- state$codebook[["food addiction"]]$description
-  # Phase 62.2: whitespace-only AI description -> clean provisional backfill.
+  # Whitespace-only AI description -> clean provisional backfill.
   expect_false(grepl("D-7 placeholder", desc, fixed = TRUE))
   expect_true(grepl("First observed in:", desc, fixed = TRUE))
 })
@@ -1166,7 +1166,7 @@ test_that("C-5 audit followup MEDIUM F1: sample_idx is deterministic across call
 # in a parallel map at the moment each code is created, so the saturation
 # check is a direct lookup.
 #
-# Phase 56: the pre-Phase-56 code-creation-rate / slope-ratio / consecutive-
+# The former code-creation-rate / slope-ratio / consecutive-
 # windows heuristic signals were replaced by an AI saturation arbiter
 # (R/saturation_arbiter.R) per C1. The curve math below is still in
 # production (it feeds the AI arbiter's prompt evidence + the
@@ -1440,7 +1440,7 @@ test_that("T0.1: .code_entry_progressive writes fabricated quotes to Fabrication
 })
 
 # ==============================================================================
-# Phase 21c: Anthropic Citations API integration in .code_entry_progressive
+# Anthropic Citations API integration in .code_entry_progressive
 # ==============================================================================
 # T0.1 part 3b: when the provider is Anthropic, the coding pipeline uses the
 # Citations API (PREVENTION layer -- model returns server-side-guaranteed
@@ -1976,7 +1976,7 @@ test_that("T0.1 part 3b: Anthropic citations path handles multiple segments with
 })
 
 # ==============================================================================
-# Phase 50f: .effective_max_entry_chars context-window-aware truncation
+# .effective_max_entry_chars context-window-aware truncation
 # ==============================================================================
 
 test_that(".effective_max_entry_chars derives from provider context window", {
@@ -2007,7 +2007,7 @@ test_that(".effective_max_entry_chars floors at .MAX_ENTRY_CHARS for tiny-contex
 })
 
 test_that(".effective_max_entry_chars is robust to NULL/missing provider (R-quirk: is.na(NULL))", {
-  # Phase 50f bug caught at implementation: is.na(NULL) returns logical(0)
+  # Bug caught at implementation: is.na(NULL) returns logical(0)
   # which trips the if-condition. Must guard with length check first.
   expect_equal(pakhom:::.effective_max_entry_chars(NULL, list()), 8000L)
   expect_equal(pakhom:::.effective_max_entry_chars(list(), list()), 8000L)

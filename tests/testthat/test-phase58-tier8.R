@@ -1,4 +1,4 @@
-# Phase 58 Tier 8 unit tests
+# Coverage, audit-log, and theme hardening unit tests
 #
 # H-6  .coverage-banner-saturated CSS rule present
 # H-9  saturation arbiter dedupe via last_arbiter_n_coded
@@ -121,7 +121,7 @@ test_that("enrich_themes caps Mode 2 keywords to top-8 codes by frequency", {
   class(coding_state) <- "ProgressiveCodingState"
 
   # Use create_theme_set so the codes_included character vector is
-  # wrapped into a virtual Subtheme S3 (Phase 51 back-compat shim) and
+  # wrapped into a virtual Subtheme S3 (back-compat shim) and
   # theme_codes() returns the codes properly.
   theme_set <- create_theme_set(list(
     list(
@@ -182,7 +182,7 @@ test_that(".THEME_DEFAULTS still includes narrative field (back-compat)", {
 
 
 # ==========================================================================
-# Tier 8 audit followups
+# Audit followups
 # ==========================================================================
 
 

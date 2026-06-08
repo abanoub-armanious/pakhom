@@ -1,4 +1,4 @@
-# Tests for methodology rules generation + injection (Sprint-4 T1.6,
+# Tests for methodology rules generation + injection (T1.6,
 # R/methodology_rules.R). The rules block is prepended to the system
 # prompt on every ai_complete() call (per AC9 -- rules in the model's
 # context-window every turn).
@@ -29,9 +29,9 @@ test_that("generate_methodology_rules: reflexive_scaffold rules forbid theme pro
   expect_match(rules, "Refusal is a first-class output")
 })
 
-test_that("generate_methodology_rules: codebook_collaborative allows codes + Phase 52 theme proposals", {
-  # Phase 56 refresh: pre-Phase-52 said "model does NOT name themes" but
-  # Phase 52 made the AI propose theme names via the HAC tree-walk's
+test_that("generate_methodology_rules: codebook_collaborative allows codes + theme proposals", {
+  # An earlier rule said "model does NOT name themes"; the AI now
+  # proposes theme names via the clustering pass's
   # central_organizing_concept. The refreshed rule reflects this while
   # keeping researcher-as-final-author.
   cfg <- list(methodology = list(mode = "codebook_collaborative"))
@@ -289,10 +289,10 @@ test_that("AC9 enforcement: rules injection cannot be turned off via task or con
 })
 
 # ============================================================================
-# Phase 56: inductive-pass variant of the Mode 3 rule + methodology_override
+# Inductive-pass variant of the Mode 3 rule + methodology_override
 # ============================================================================
 
-test_that("Phase 63: codebook_collaborative rule reflects the v2 grouping posture (no stale v1 mechanics)", {
+test_that("codebook_collaborative rule reflects the v2 grouping posture (no stale v1 mechanics)", {
   # Mode 2 lets the AI PROPOSE codes + cluster-level groupings while the
   # researcher remains the deliverable's author. The injected + archived rule
   # text describes the methodological POSTURE -- group codes, judge a shared
@@ -310,12 +310,12 @@ test_that("Phase 63: codebook_collaborative rule reflects the v2 grouping postur
   expect_match(rules, "rename, merge, split, or delete")
   # Symmetric (anti-consolidation-bias) framing, not a merge-biased prompt
   expect_match(rules, "symmetric")
-  # Regression guard (Phase 63 publication fix): NO stale v1 HAC/dendrogram
+  # Regression guard (publication fix): NO stale v1 HAC/dendrogram
   # mechanics leak into the rules that are archived + injected on every call.
   expect_false(grepl("HAC|dendrogram|internal node|one-level-deeper|tree walk", rules))
 })
 
-test_that("Phase 56: framework_applied default rule still forbids new construct generation", {
+test_that("framework_applied default rule still forbids new construct generation", {
   cfg <- list(methodology = list(mode = "framework_applied"))
   rules <- generate_methodology_rules(cfg, inductive_pass = FALSE)
   # Default Mode 3 must still tell the AI not to generate new framework
@@ -325,7 +325,7 @@ test_that("Phase 56: framework_applied default rule still forbids new construct 
   expect_match(rules, "## Mode rules \\(framework_applied\\)")
 })
 
-test_that("Phase 56: framework_applied inductive variant omits 'do NOT generate' + permits new codes", {
+test_that("framework_applied inductive variant omits 'do NOT generate' + permits new codes", {
   cfg <- list(methodology = list(mode = "framework_applied"))
   rules <- generate_methodology_rules(cfg, inductive_pass = TRUE)
   # The inductive variant must NOT say "Do NOT generate new framework constructs"
@@ -338,7 +338,7 @@ test_that("Phase 56: framework_applied inductive variant omits 'do NOT generate'
   expect_match(rules, "do NOT mutate the framework spec|framework definition is fixed")
 })
 
-test_that("Phase 56: inductive_pass = TRUE is a no-op for non-Mode-3 modes", {
+test_that("inductive_pass = TRUE is a no-op for non-Mode-3 modes", {
   # For Mode 1 / Mode 2 the inductive flag is a no-op -- there is no
   # alternate rule body AND no header suffix (the suffix is suppressed
   # so the rule block is bit-identical to the default-pass output).
@@ -354,7 +354,7 @@ test_that("Phase 56: inductive_pass = TRUE is a no-op for non-Mode-3 modes", {
   }
 })
 
-test_that("Phase 56: ai_complete uses methodology_override when supplied (overrides provider rules)", {
+test_that("ai_complete uses methodology_override when supplied (overrides provider rules)", {
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5")
   captured <- new.env(parent = emptyenv())
@@ -387,7 +387,7 @@ test_that("Phase 56: ai_complete uses methodology_override when supplied (overri
   expect_false(grepl("INDUCTIVE OVERRIDE", captured$system_prompt))
 })
 
-test_that("Phase 56: methodology_override with empty string falls through cleanly", {
+test_that("methodology_override with empty string falls through cleanly", {
   # A caller passing methodology_override = "" should produce a
   # system_prompt without any rules prefix (matches the empty-default
   # behavior; not a back-door to the provider rules).

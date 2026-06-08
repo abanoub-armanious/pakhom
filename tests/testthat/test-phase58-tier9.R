@@ -1,12 +1,12 @@
-# Phase 58 Tier 9 unit tests
+# Cross-cutting hardening unit tests
 #
 # V-8  word-boundary-aware quote truncation with visible ellipsis
 # L-15 timestamps in UTC across audit_log + quote_provenance
 # L-21 code_style removed (dead) + include_in_vivo + min_text_length wired
 # L-1  code_assignment provenance docstring documents the join
-# (prior-tier deferrals)
-# Tier 5 M-T7-1   prompt_template_version stamped in run_metadata.json
-# Tier 8 MEDIUM-2 schema_version is FIRST field in audit log records
+# (carried over from earlier)
+# M-T7-1   prompt_template_version stamped in run_metadata.json
+# MEDIUM-2 schema_version is FIRST field in audit log records
 
 # ==========================================================================
 # V-8: word-boundary truncation with ellipsis
@@ -61,7 +61,7 @@ test_that("audit log timestamps are emitted in UTC", {
   expect_match(rec$timestamp, "\\+0000$")
 })
 
-# Phase 59 meta-audit M2 + M4: helper for the static UTC test.
+# Meta-audit M2 + M4: helper for the static UTC test.
 # Walks every `format(Sys.time(), ...)` call in `files` (after stripping
 # whole-line R comments) and returns offenders that lack `tz = "UTC"`.
 # Used by both the R/ scope test and the tests/ hygiene test.
@@ -116,9 +116,9 @@ test_that("every format(Sys.time(), ...) in R/ declares tz = \"UTC\" (L-15 invar
   # creation dates, JSONL timestamps). Two researchers in different
   # timezones running identical code would otherwise produce divergent
   # artifacts. Caught:
-  #   - Tier 9 L-15 audit: 14 sites in R/
-  #   - Stage 1 cross-tier audit: mode1_orchestrator.R:363 (Tier 9 missed)
-  #   - Phase 59 meta-audit M4: utils.R / 17_report.R / qdpx_export.R
+  #   - L-15 audit: 14 sites in R/
+  #   - cross-cutting audit: mode1_orchestrator.R:363 (initially missed)
+  #   - meta-audit M4: utils.R / 17_report.R / qdpx_export.R
   # This static-source test catches the ENTIRE bug class for any future site.
   r_files <- list.files(
     test_path("..", "..", "R"),
@@ -141,7 +141,7 @@ test_that("test fixtures in tests/testthat/ also declare tz = \"UTC\" (hygiene)"
   if (!file.exists(file.path(test_dir, "test-phase58-tier9.R"))) {
     testthat::skip("tests/testthat/ source files not on disk (covr / install context)")
   }
-  # Phase 59 meta-audit L1: test fixtures should model the package's own
+  # Meta-audit L1: test fixtures should model the package's own
   # hygiene rule. If a maintainer copies a `format(Sys.time(), ...)` line
   # from a test fixture into R/ code, the UTC declaration should travel
   # with it. Otherwise the same class of bug as M4 can re-enter.
@@ -156,7 +156,7 @@ test_that("test fixtures in tests/testthat/ also declare tz = \"UTC\" (hygiene)"
   expect_equal(offenders, character())
 })
 
-test_that("ProvocationCoverage computed_at is UTC (Stage 1 cross-tier finding 1)", {
+test_that("ProvocationCoverage computed_at is UTC", {
   obj <- list(
     n_corpus_entries_searchable = 10L,
     corpus_provided_to_per_category_fns = TRUE,
@@ -174,7 +174,7 @@ test_that("ProvocationCoverage computed_at is UTC (Stage 1 cross-tier finding 1)
 
 
 # ==========================================================================
-# Tier 8 MEDIUM-2: schema_version is the FIRST field
+# MEDIUM-2: schema_version is the FIRST field
 # ==========================================================================
 
 test_that("audit log record has schema_version as the first field", {
@@ -192,7 +192,7 @@ test_that("audit log record has schema_version as the first field", {
 
 
 # ==========================================================================
-# Tier 5 M-T7-1 (deferred): prompt_template_version in run_metadata
+# M-T7-1 (deferred): prompt_template_version in run_metadata
 # ==========================================================================
 
 test_that(".PROMPT_TEMPLATE_VERSION constant exists and is 1.0.0", {
@@ -218,7 +218,7 @@ test_that("init_run_state stamps prompt_template_version into run_metadata.json"
 # L-21: config wiring audit -- code_style removed
 # ==========================================================================
 
-test_that("code_style is NOT in default_config.yaml (was dead since Phase 50e)", {
+test_that("code_style is NOT in default_config.yaml (legacy dead knob)", {
   yaml_path <- system.file("config", "default_config.yaml", package = "pakhom")
   if (!nzchar(yaml_path)) {
     yaml_path <- file.path("../../inst/config/default_config.yaml")

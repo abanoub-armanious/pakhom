@@ -1,4 +1,4 @@
-# Tests for output stamping (Sprint-4 T1.7, R/output_stamping.R).
+# Tests for output stamping (T1.7, R/output_stamping.R).
 # Per AC4 (methodology stamped on every output), every artifact pakhom
 # produces should carry the methodology declaration. The stamping API
 # centralizes that so individual writers don't have to roll their own.

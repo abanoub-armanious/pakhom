@@ -1,4 +1,4 @@
-# End-to-end pipeline integration tests (Sprint-4 phase 34)
+# End-to-end pipeline integration tests
 # ==============================================================================
 # These tests drive run_analysis() through the full pipeline (data load ->
 # coding -> sentiment -> theme generation -> correlations -> report ->
@@ -10,8 +10,8 @@
 #   - dead-code paths (T0.2 spread-aware quote selection)
 #   - silent overwrite of finalized runs on resume (AC5 violation)
 #   - apply_framework_themes not populating merge_history (Mode 3 e2e)
-# Phase 30 audit MEDIUM #4 explicitly called out the gap: existing
-# component-level tests would not catch any of these. Phase 34 closes it.
+# An earlier audit (MEDIUM #4) explicitly called out the gap: existing
+# component-level tests would not catch any of these; these e2e tests close it.
 # ==============================================================================
 
 # ---- Smart ai_complete mock: returns task-appropriate JSON --------------
@@ -26,9 +26,9 @@
 #' code label the coding-task path returns. Set to a framework
 #' construct id (e.g., `"attitude"`) to exercise the Mode 3 happy-path
 #' (apply_framework_themes -> non-empty theme_set -> cascade_theme_assignments
-#' populates theme_membership_*). Audit H2 (phase 34): without this
+#' populates theme_membership_*). Audit H2: without this
 #' lever, every Mode 3 e2e test would silently exercise only the
-#' empty-theme-set branch -- exactly the path that hid the phase 29
+#' empty-theme-set branch -- exactly the path that hid the earlier
 #' apply_framework_themes-not-populating-merge_history bug.
 #' @keywords internal
 .smart_mock_ai_complete <- function(known_entry_ids = c("e1", "e2", "e3", "e4", "e5"),
@@ -67,9 +67,9 @@
         # returned segment is verbatim (otherwise verify_quote drops
         # it as "fabricated" and the codebook stays empty -- exactly
         # the silent failure mode that masked the audit H2 finding).
-        # Phase 58 Tier 7 V-6/L-3: the Mode 2 / Mode 3 prompts wrap
-        # entry text in `<entry_text>...</entry_text>` fences (pre-
-        # Tier-7 they used `Entry text: "..."`). Match the new fence
+        # The Mode 2 / Mode 3 prompts wrap
+        # entry text in `<entry_text>...</entry_text>` fences (earlier
+        # prompts used `Entry text: "..."`). Match the new fence
         # first, then fall back to the legacy format for back-compat
         # with older fixtures.
         m <- regmatches(prompt,
@@ -78,7 +78,7 @@
           inner <- sub("^<entry_text>", "", m)
           substr(inner, 1L, min(15L, nchar(inner)))
         } else {
-          # Legacy `Entry text: "..."` format (pre-Tier-7)
+          # Legacy `Entry text: "..."` format
           m2 <- regmatches(prompt,
                             regexpr('Entry text:\\s*"([^"]{1,200})', prompt))
           if (length(m2) > 0L && nzchar(m2)) {
@@ -126,11 +126,10 @@
         })
       ), auto_unbox = TRUE),
 
-      # Phase 52: theming schema is now .theme_decision_schema() (HAC tree
-      # walk). The mock returns split_required so each branch of the HAC
-      # tree resolves to atomic outliers at the leaves -- producing one
-      # theme per code, which keeps the mock pipeline functional without
-      # requiring real embeddings + AI judgment.
+      # Legacy single-call theming-task mock response (decision =
+      # split_required). It keeps the mock pipeline functional --
+      # resolving to one theme per code -- without requiring real
+      # embeddings or AI judgment.
       "theming" = jsonlite::toJSON(list(
         central_organizing_concept = "mocked: no unifying principle",
         decision = "split_required",
@@ -161,7 +160,7 @@
         reason = "Mock: not saturated"
       ), auto_unbox = TRUE),
 
-      # Phase 61: the Methodology Assistant (Step 2.5) makes two
+      # The Methodology Assistant (Step 2.5) makes two
       # task="methodology" calls -- a relevance-criterion call (its prompt
       # contains "CORPUS SAMPLE") and a metric-interpretation call. Return
       # shape-valid JSON for each so Step 2.5 does not (correctly) abort.
@@ -240,7 +239,7 @@
     ),
     study = list(
       name = "E2E Test",
-      research_focus = "phase 34 e2e",
+      research_focus = "integration e2e",
       research_context = "integration tests",
       concepts = c("sleep", "medication")
     ),
@@ -271,7 +270,7 @@
       coding = list(progressive = TRUE, max_retries_per_entry = 1,
                        checkpoint_interval = 50),
       human_verification = list(enabled = FALSE),
-      # Phase 53: removed dead pre-Phase-52 knobs (merge_strategy,
+      # Removed dead legacy knobs (merge_strategy,
       # max_merge_passes, min_merges_to_continue).
       themes = list(include_subthemes = FALSE),
       correlations = list(method = "spearman",
@@ -390,7 +389,7 @@ test_that("Mode 3 e2e: run_analysis archives framework_spec + stamps run_metadat
   expect_false(is.null(result))
   d <- result$output_dir
 
-  # Phase 32 (audit H1 + H2): framework_applied.yaml is archived + hashed
+  # Audit H1 + H2: framework_applied.yaml is archived + hashed
   framework_archive_path <- file.path(d, "framework_applied.yaml")
   expect_true(file.exists(framework_archive_path))
 
@@ -454,7 +453,7 @@ test_that("AC4: Mode 2 run_analysis stamps the methodology mode on every CSV out
   for (csv in csvs) {
     first_line <- readLines(csv, n = 1L, warn = FALSE)
     if (length(first_line) == 0L) next
-    # fabrication_log.csv is now also stamped (phase 38, audit A finding):
+    # fabrication_log.csv is now also stamped (audit A finding):
     # init_fabrication_log writes the header then prepends the methodology
     # stamp; subsequent log_fabrication appends rows below. The header
     # comment lines aren't disturbed by the appends.
@@ -604,7 +603,7 @@ test_that("AC8: run_mode1 produces Mode 1 artifact set (different from run_analy
   cfg <- list(
     methodology = list(mode = "reflexive_scaffold"),
     study = list(name = "M1 cross-mode test",
-                   research_focus = "phase 34"),
+                   research_focus = "integration test"),
     ai = list(provider = "openai"),
     output = list(results_dir = tmp_dir, generate_report = TRUE),
     audit = list(capture_raw_responses = FALSE),
@@ -657,13 +656,13 @@ test_that("AC8: run_mode1 produces Mode 1 artifact set (different from run_analy
   expect_true(is_run_finalized(d))
 })
 
-# ---- Phase 59 Stage 2 Round 3: Mode 1 from public API only ----------------
+# ---- Mode 1 from public API only ------------------------------------------
 
 # A Mode 1 user must be able to take a YAML config, get a standardized +
 # preprocessed corpus, attach theme membership from their external coding
 # tool, and run the provocateur loop -- WITHOUT calling pakhom:::
 # internals (load_and_combine_tables, preprocess_text, detect_columns,
-# standardize_data). The Phase 59 Stage 2 Round 3 smoke test caught
+# standardize_data). An earlier smoke test caught
 # that this required pakhom::: access before load_corpus_from_config()
 # was exported. This test pins that public-API contract so any future
 # helper de-export silently breaks the test.
@@ -917,7 +916,7 @@ test_that("Mode 2 e2e WITH generate_report=TRUE produces analysis_report.html", 
 # ---- Audit H2: Mode 3 HAPPY-PATH (construct-matching codes) -------------
 
 test_that("Mode 3 e2e (happy path): construct-matching codes -> apply_framework_themes populates merge_history -> theme_membership_* set", {
-  # Audit H2 (phase 34): the previous Mode 3 e2e returned "NEW: mock_code"
+  # Audit H2: the previous Mode 3 e2e returned "NEW: mock_code"
   # for every coding call, which never matches a TPB construct id.
   # apply_framework_themes (R/13_themes.R:687) skips constructs whose
   # codebook entry is NULL, so the theme_set was empty and
@@ -927,7 +926,7 @@ test_that("Mode 3 e2e (happy path): construct-matching codes -> apply_framework_
   # theme_membership_*) was never exercised. THIS test fires that path
   # by feeding the mock a construct-matching code so apply_framework_themes
   # produces a non-empty theme_set and cascade does its work. The
-  # phase 29 "apply_framework_themes not populating merge_history"
+  # earlier "apply_framework_themes not populating merge_history"
   # silent failure lived precisely in this path -- test pins it.
   skip_if_not_installed("RSQLite")
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
@@ -985,7 +984,7 @@ test_that("Mode 3 e2e (happy path): construct-matching codes -> apply_framework_
   }, integer(1)))
   expect_gt(total_assigned, 0L)
 
-  # merge_history must carry the code-to-theme map (the phase 29
+  # merge_history must carry the code-to-theme map (the earlier
   # silent-failure regression pin)
   expect_false(is.null(result$theme_set$merge_history))
   expect_gt(length(result$theme_set$merge_history$code_to_theme_map),
@@ -1026,8 +1025,8 @@ test_that("AC2: run_analysis rejects an unknown methodology mode", {
 
 test_that("AC3: run_analysis rejects a config without an explicit methodology.mode", {
   # AC3 ("No default mode; explicit declaration mandatory"): a config
-  # missing methodology$mode must fail validation. Phase 30 introduced
-  # T1.3 enforcement; pin it at the run_analysis level so a regression
+  # missing methodology$mode must fail validation. T1.3 enforcement is
+  # pinned at the run_analysis level so a regression
   # that re-introduces a default is caught.
   skip_if_not_installed("RSQLite")
   tmp_dir <- withr::local_tempdir()
@@ -1047,10 +1046,10 @@ test_that("AC3: run_analysis rejects a config without an explicit methodology.mo
   )
 })
 
-# ---- Phase 34 production-bug regression test ----------------------------
+# ---- Production-bug regression test --------------------------------------
 
 test_that("aggregate_overall_statistics: empty-emerged-themes path keeps theme_name column (audit-found bug)", {
-  # Pin the production bug found by phase 34's e2e tests:
+  # Pin the production bug found by these e2e tests:
   # names(table(character(0))) returns NULL, and tibble(theme_name = NULL,
   # ...) drops the column entirely. The downstream pull(theme_name)
   # in generate_report errored with "object 'theme_name' not found"

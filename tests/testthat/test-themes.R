@@ -210,7 +210,7 @@ test_that("theme_membership columns are created", {
 # ==============================================================================
 
 
-test_that("Phase 52: generate_themes_iterative single-code corpus produces 1-theme ThemeSet without AI", {
+test_that("generate_themes_iterative single-code corpus produces 1-theme ThemeSet without AI", {
   state <- create_coding_state()
   state$codebook[["only"]] <- list(
     code_name = "Solo Code", description = "the only code",
@@ -234,7 +234,7 @@ test_that("Phase 52: generate_themes_iterative single-code corpus produces 1-the
   expect_equal(ts$merge_history$code_to_theme_map[["only"]], "Solo Code")
 })
 
-test_that("Phase 52: generate_themes_iterative empty codebook returns empty ThemeSet", {
+test_that("generate_themes_iterative empty codebook returns empty ThemeSet", {
   state <- create_coding_state()
   fake_provider <- list(
     provider = "anthropic",
@@ -248,8 +248,8 @@ test_that("Phase 52: generate_themes_iterative empty codebook returns empty Them
   expect_equal(n_themes(ts), 0L)
 })
 
-test_that("Phase 52: cluster_decision is a valid audit log decision_type", {
-  # Phase 52 audit CRITICAL-6a: production runs with audit_log != NULL
+test_that("cluster_decision is a valid audit log decision_type", {
+  # Audit CRITICAL-6a: production runs with audit_log != NULL
   # would abort if cluster_decision were not registered. Pin this by
   # asserting it's in the validator's allow-list.
   expect_true("cluster_decision" %in% pakhom:::.valid_decision_types)
@@ -364,10 +364,10 @@ test_that("Tier 1 C-12: create_subtheme coerces raw-list nested subthemes into S
 
 
 # ============================================================================
-# Phase 58 Tier 1 AF-3: n_subthemes schema clarity
+# AF-3: n_subthemes schema clarity
 #
-# Pre-Phase-58 the JSON field n_subthemes counted only top-level real
-# subthemes but wasn't documented; the Phase 57 audit found 207 of 417
+# Earlier, the JSON field n_subthemes counted only top-level real
+# subthemes but wasn't documented; an audit found 207 of 417
 # themes where n_subthemes != length(subthemes_structured) and called it
 # "unreliable". The fix exposes three distinct counters:
 #   n_subthemes              -- depth-1 real subthemes (legacy semantics)

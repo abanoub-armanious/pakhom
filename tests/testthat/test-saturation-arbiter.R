@@ -1,11 +1,11 @@
 # ==============================================================================
-# Phase 56: AI saturation arbiter (R/saturation_arbiter.R)
+# AI saturation arbiter (R/saturation_arbiter.R)
 # ==============================================================================
 # Tests for .ai_judge_saturation, .saturation_cadence, .build_saturation_prompt,
 # .format_saturation_curve_for_prompt, .sample_codebook_for_prompt, and the
 # .saturation_decision_schema().
 #
-# The arbiter is the C1 replacement for the pre-Phase-56 multi-signal
+# The arbiter is the C1 replacement for the former multi-signal
 # triangulation (six hardcoded knobs + 0.05 slope threshold). Tests cover
 # the three verdict paths, articulation enforcement, circuit-breaker
 # failure path, schema validity, cadence formula, and prompt assembly.
@@ -243,7 +243,7 @@ test_that(".ai_judge_saturation returns 'uncertain' verdict when AI defers", {
   expect_equal(out$verdict, "uncertain")
 })
 
-# ---- AI arbiter: articulation enforcement (Phase 52 anti-vacuous) -----------
+# ---- AI arbiter: articulation enforcement (anti-vacuous) -----------
 
 test_that(".ai_judge_saturation downgrades short articulation 'reached' -> 'not_yet'", {
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
@@ -276,7 +276,7 @@ test_that(".ai_judge_saturation downgrades short articulation 'reached' -> 'not_
 })
 
 test_that(".ai_judge_saturation does NOT downgrade short articulation for 'not_yet' / 'uncertain'", {
-  # Phase 52 anti-vacuous only applies to 'reached' (the stopping verdict).
+  # The anti-vacuous rule only applies to 'reached' (the stopping verdict).
   # Short articulations for 'not_yet' or 'uncertain' are acceptable.
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5")

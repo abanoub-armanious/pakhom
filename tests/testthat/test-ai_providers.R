@@ -100,7 +100,7 @@ test_that("create_ai_provider initializes context_window", {
 })
 
 # ==============================================================================
-# Sprint-4 T1.1: Structured return helpers for ai_complete()
+# T1.1: Structured return helpers for ai_complete()
 # ==============================================================================
 # .compute_prompt_hash, .normalize_usage_openai, .normalize_usage_anthropic,
 # .normalize_anthropic_finish are internal helpers that shape the structured
@@ -215,9 +215,9 @@ test_that(".normalize_anthropic_finish maps stop_reason to canonical finish_reas
 })
 
 # ==============================================================================
-# Sprint-4 T0.1 part 3b: Anthropic Citations API support
+# T0.1 part 3b: Anthropic Citations API support
 # ==============================================================================
-# Phase 21a adds Citations API support to the provider layer. Tests cover:
+# The provider layer adds Citations API support. Tests cover:
 #   - .validate_documents: shape validation, defaulting, NULL/empty handling
 #   - .anthropic_build_user_content: content array construction
 #   - .anthropic_extract_citations: parsing all three citation types from

@@ -1,12 +1,11 @@
-# Phase 59 high-effort code review followup tests
+# Code-review followup tests
 #
-# Five fixes surfaced by the code-review skill (high effort, 3-angle finder
-# with parallel 1-vote verifiers). All five CONFIRMED via verifier sub-tasks
-# after dedup; six other candidates REFUTED.
+# Five fixes surfaced by a code review of the report and config layers,
+# each confirmed before landing.
 
 # ==========================================================================
 # Fix 1: 17_report.R:1546 -- renderer used to slice to 5, dropping 3 of
-# Tier 8's 8 frequency-ranked keywords. Now uses seq_along.
+# the 8 keywords the cap allows. Now uses seq_along.
 # ==========================================================================
 
 # Static-source tests require access to R/*.R source files (devtools::test
@@ -23,7 +22,7 @@ skip_if_no_r_source <- function(relpath = "17_report.R") {
 
 test_that("theme detail HTML renders all keywords (cap respected at source, not re-truncated)", {
   skip_if_no_r_source("17_report.R")
-  # Synthesize a theme_set summary with 8 keywords (Tier 8 cap).
+  # Synthesize a theme_set summary with 8 keywords (the keyword cap).
   ts_summary <- list(
     name = "Synthetic",
     n_entries = 5L,
@@ -51,7 +50,7 @@ test_that("theme detail HTML renders all keywords (cap respected at source, not 
     collapse = "\n"
   )
   expect_match(builder_block, "seq_along\\(ts\\$keywords\\)", perl = TRUE,
-    label = "renderer must respect upstream Tier 8 cap (not re-truncate to 5)"
+    label = "renderer must respect upstream keyword cap (not re-truncate to 5)"
   )
   expect_false(grepl("seq_len\\(min\\(5", builder_block, perl = TRUE))
 })
@@ -59,10 +58,10 @@ test_that("theme detail HTML renders all keywords (cap respected at source, not 
 
 # ==========================================================================
 # Fix 2: 16_report_helpers.R:167 -- fallback used to cap legacy theme_sets
-# at 5 (vs Tier 8's 8). Now caps at 8 with documenting comment.
+# at 5 (vs the cap of 8). Now caps at 8 with documenting comment.
 # ==========================================================================
 
-test_that("compute_theme_stats keyword fallback caps at 8 (matches Tier 8 contract)", {
+test_that("compute_theme_stats keyword fallback caps at 8 (matches keyword cap)", {
   skip_if_no_r_source("16_report_helpers.R")
   src <- readLines(
     test_path("..", "..", "R", "16_report_helpers.R"),
@@ -74,20 +73,20 @@ test_that("compute_theme_stats keyword fallback caps at 8 (matches Tier 8 contra
   fallback_line <- grep("keywords = t\\$keywords %\\|\\|% theme_codes\\(t\\)", src, perl = TRUE)
   expect_equal(length(fallback_line), 1L)
   fallback_text <- src[fallback_line]
-  # Cap should be 8L (Tier 8 keyword_cap), not 5.
+  # Cap should be 8L (keyword_cap), not 5.
   expect_match(fallback_text, "min\\(8L", perl = TRUE,
-    label = "fallback cap must match Tier 8 contract (8 not 5)"
+    label = "fallback cap must match keyword cap (8 not 5)"
   )
   expect_false(grepl("min\\(5", fallback_text, perl = TRUE))
 })
 
 
 # ==========================================================================
-# Fix 3: 01_config.R -- three Phase-50e-removed knobs were missing from
+# Fix 3: 01_config.R -- three legacy-removed knobs were missing from
 # .warn_deprecated_config_knobs. Now covered.
 # ==========================================================================
 
-test_that(".warn_deprecated_config_knobs flags Phase-50e-removed theme knobs", {
+test_that(".warn_deprecated_config_knobs flags legacy-removed theme knobs", {
   cfg <- list(analysis = list(themes = list(
     membership_threshold     = 0.3,
     max_rebalance_iterations = 5L,
@@ -119,9 +118,9 @@ test_that(".truncate_quote_word_boundary hard-cut path uses ' ...' marker", {
   )
 })
 
-test_that(".truncate_quote_word_boundary single-pathed branch (Phase 59 dedupe)", {
+test_that(".truncate_quote_word_boundary single-pathed branch (dedupe)", {
   # Boundary case: text whose last whitespace lands exactly at budget. Both
-  # the old branches handled this identically; the dedupe in Phase 59
+  # the old branches handled this identically; the dedupe here
   # collapses them into one. Behaviour-equivalent check.
   base <- paste(rep("alpha beta", 20L), collapse = " ")
   for (mc in c(40L, 50L, 60L, 80L)) {
@@ -149,7 +148,7 @@ test_that(".truncate_quote_word_boundary single-pathed branch (Phase 59 dedupe)"
 
 test_that(".warn_legacy_coding_resume warns when ANY legacy QP is present (mixed-vintage)", {
   # Build a synthetic coding_state whose FIRST QP is modern (has the field)
-  # and the SECOND QP is legacy (missing the field). Pre-Phase-59 behaviour
+  # and the SECOND QP is legacy (missing the field). The earlier behaviour
   # would return after the first probe and silently skip the warning.
   modern_qp <- structure(
     list(
@@ -163,7 +162,7 @@ test_that(".warn_legacy_coding_resume warns when ANY legacy QP is present (mixed
   )
   legacy_qp <- structure(
     list(
-      # Note: NO `verification_failure_reason` -- this is the pre-Tier-7 shape
+      # Note: NO `verification_failure_reason` -- this is the legacy shape
       schema_version = "1.0.0",
       entry_id = "e2",
       exact_text = "legacy quote",

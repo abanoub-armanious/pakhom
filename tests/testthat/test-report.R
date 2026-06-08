@@ -140,8 +140,8 @@ test_that("export_results creates expected files", {
   expect_true(file.exists(files$themes_file))
 })
 
-# Phase 50a regression test — themes.json preserves codes_included as
-# a JSON array, not as a ";"-collapsed string. The Phase 48 output-quality
+# Regression test — themes.json preserves codes_included as
+# a JSON array, not as a ";"-collapsed string. An earlier output-quality
 # audit incorrectly flagged "codes_included length 1 across all themes"
 # as a merge-tree corruption; the actual cause was the tibble-then-write
 # path collapsing character vectors to scalar strings. This test pins
@@ -160,7 +160,7 @@ test_that("themes.json serializes codes_included / subthemes / keywords as JSON 
     theme_membership_Sleep.Disruption     = c(1L, 1L, 1L, 0L, 0L, 0L),
     theme_membership_Treatment.Efficacy   = c(0L, 0L, 0L, 1L, 1L, 1L)
   )
-  # Phase 51: themes.json now serializes the canonical Theme -> Subtheme ->
+  # themes.json now serializes the canonical Theme -> Subtheme ->
   # Code hierarchy. Build the test fixture with first-class Subtheme S3
   # objects mirroring what generate_themes_iterative() produces in
   # production.
@@ -236,7 +236,7 @@ test_that("themes.json serializes codes_included / subthemes / keywords as JSON 
 
 test_that("verify_run_integrity detects complete run", {
   tmp_dir <- withr::local_tempdir()
-  # Sprint-4 update: integrity check now also requires the Tier-0 + Tier-1
+  # The integrity check now also requires the Tier-0 + Tier-1
   # outputs (run_metadata.json, rules/methodology_rules.md, fabrication
   # log, audit log, api_responses dir per AC4). Test fixture creates them.
   core_files <- c("sentiment_scores.csv", "codes.csv",
@@ -272,7 +272,7 @@ test_that("verify_run_integrity checks conditional files from config", {
                    "themes.json", "analysis_report.Rmd")
   for (f in core_files) file.create(file.path(tmp_dir, f))
   dir.create(file.path(tmp_dir, "theme_entries"))
-  # Phase 39: correlation_plot.png is now expected only when
+  # correlation_plot.png is now expected only when
   # correlations.csv has at least one data row (small samples
   # legitimately produce a 0-row correlations.csv and skip the plot).
   # Drop a one-row correlations.csv so the integrity check expects the

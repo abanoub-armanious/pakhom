@@ -1,5 +1,5 @@
 # Tests for ThemeSet S3 class (R/12_theme_data.R)
-# Phase 51: themes carry first-class Subtheme S3 objects holding Code S3
+# Themes carry first-class Subtheme S3 objects holding Code S3
 # objects. Legacy codes_included input is wrapped via the back-compat path
 # into a single virtual (NA-named) Subtheme.
 
@@ -58,7 +58,7 @@ test_that("normalize_theme_result fills default fields", {
   expect_true(!is.null(t$description))
   expect_true(!is.null(t$prevalence))
   expect_true(!is.null(t$sentiment_tendency))
-  # Phase 51: codes_included is the denormalised character vector;
+  # codes_included is the denormalised character vector;
   # subthemes is a list of Subtheme S3 (always >= 1, virtual when no
   # AI clustering produced subthemes).
   expect_type(t$codes_included, "character")
@@ -109,11 +109,11 @@ test_that("prune_empty_themes removes zero-entry themes", {
 })
 
 test_that("create_theme_set handles character vector subthemes (legacy)", {
-  # Phase 51: a plain character vector of subtheme names with no per-subtheme
+  # A plain character vector of subtheme names with no per-subtheme
   # code mapping is degenerate input. The back-compat path drops the names
   # and wraps all theme codes in one virtual Subtheme — the alternative
   # (preserve names with no codes) creates orphan subthemes that render
-  # awkwardly in reports. Phase 52's clustering populates real subthemes
+  # awkwardly in reports. The clustering pass populates real subthemes
   # with codes.
   ts <- create_theme_set(list(
     list(name = "A", description = "D", codes_included = "c1",

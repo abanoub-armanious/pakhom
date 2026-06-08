@@ -1,4 +1,4 @@
-# Tests for Phase 55: paper-style per-theme + per-subtheme tables
+# Tests for paper-style per-theme + per-subtheme tables
 #
 # The deliverables under test are:
 #   * .detect_metric_columns -- dataset-agnostic metric detection
@@ -91,7 +91,7 @@ test_that(".format_metric_tag returns empty string when all metrics NA", {
 # ---- .compute_subtheme_statistics -----------------------------------------
 
 .make_theme_for_subtheme_test <- function() {
-  # Phase 51 hierarchy: theme has 2 real subthemes + 0 virtual.
+  # Hierarchy: theme has 2 real subthemes + 0 virtual.
   list(
     name = "Daily routines",
     description = "How participants weave the medication into daily life.",
@@ -224,7 +224,7 @@ test_that(".build_subtheme_summary_table emits a row per subtheme + metric cols"
   )
   html <- pakhom:::.build_subtheme_summary_table(ts)
   expect_match(html, "<table")
-  # Phase 55 audit MEDIUM-2: metric column names are pretty-printed in
+  # Audit MEDIUM-2: metric column names are pretty-printed in
   # the header (underscores -> spaces). The underlying column name
   # stays canonical in the CSV + stats list.
   expect_match(html, "Median\\(MAD\\) Drug Rating")
@@ -232,7 +232,7 @@ test_that(".build_subtheme_summary_table emits a row per subtheme + metric cols"
   expect_match(html, "Morning")
   expect_match(html, "8.00 \\(1.00\\)")  # Median(MAD) for Drug Rating
   expect_match(html, "first morning quote")
-  # Phase 55 audit MEDIUM-15: caption clarifies bracketed metrics are
+  # Audit MEDIUM-15: caption clarifies bracketed metrics are
   # source entry values, not subtheme aggregates.
   expect_match(html, "bracketed values after each example")
 })
@@ -312,7 +312,7 @@ test_that("aggregate_theme_statistics attaches subtheme_stats + metric_cols", {
     )
   ))
   # Include emotion_intensity so the parent aggregate's intensity stats
-  # don't warn on a missing column (unrelated to Phase 55 but exercised).
+  # don't warn on a missing column (unrelated to this feature but exercised).
   data <- tibble::tibble(
     std_id = c("e1", "e2"),
     std_text = c("a", "b"),

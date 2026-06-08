@@ -1,4 +1,4 @@
-# Phase 59 Stage 3: qdpx_export coverage
+# qdpx_export coverage
 #
 # covr revealed `R/qdpx_export.R` had 0% test coverage despite being
 # 235 lines and recently modified for the meta-audit M4 UTC sweep

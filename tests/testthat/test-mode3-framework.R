@@ -1,4 +1,4 @@
-# End-to-end tests for Mode 3 (Framework Applied) — Sprint-4 M3.x
+# End-to-end tests for Mode 3 (Framework Applied) — M3.x
 #
 # Mode 3 dispatches at two seams:
 #   1. .code_entry_progressive: framework_spec is non-NULL -> AI applies
@@ -317,10 +317,10 @@ test_that("Mode 3 dispatch uses framework even when provider is Anthropic (overr
   # case (verified in the prior test).
 })
 
-# ---- BLOCKER fixes from phase 29 audit -------------------------------------
+# ---- BLOCKER fixes from an earlier audit ----------------------------------
 
 test_that("apply_framework_themes populates merge_history$code_to_theme_map (BLOCKER 1 regression)", {
-  # The phase 29 audit caught that apply_framework_themes was returning
+  # An earlier audit caught that apply_framework_themes was returning
   # a ThemeSet without merge_history$code_to_theme_map populated, which
   # caused cascade_theme_assignments to bail out and produce
   # n_entries = 0 for every theme. Without this, Mode 3 was silently
@@ -388,7 +388,7 @@ test_that("Mode 3 end-to-end: cascade_theme_assignments populates theme_membersh
 })
 
 test_that("enrich_themes preserves Mode 3 keywords (HIGH 3 regression)", {
-  # Phase 29 audit caught that enrich_themes unconditionally overwrote
+  # An earlier audit caught that enrich_themes unconditionally overwrote
   # keywords with codes_included, erasing the framework's
   # example_indicators that apply_framework_themes had set. The fix
   # detects Mode 3 themes via the framework_construct_id marker and
@@ -426,7 +426,7 @@ test_that("enrich_themes preserves Mode 3 keywords (HIGH 3 regression)", {
   }, logical(1)))]]
   # Example indicators from TPB intention include "I plan to..." etc.
   expect_true(any(grepl("plan", intention_theme$keywords)))
-  # Phase 51: codes_included is now the denormalised character vector of
+  # codes_included is now the denormalised character vector of
   # code NAMES across the theme's hierarchy. For Mode 3 framework themes
   # this is the construct's display name (which shows in the report and
   # JSON) rather than the construct id (technical key). The id is still
@@ -437,7 +437,7 @@ test_that("enrich_themes preserves Mode 3 keywords (HIGH 3 regression)", {
 })
 
 test_that("run_progressive_coding refuses Mode 3 resume from a Mode 2 state (BLOCKER 2)", {
-  # Phase 29 audit caught that resuming a Mode 2 partial state under a
+  # An earlier audit caught that resuming a Mode 2 partial state under a
   # framework_spec arg would Frankenstein the codebook. Resume guard
   # added at R/09_coding.R now refuses.
   spec <- load_framework_spec("tpb")
@@ -490,7 +490,7 @@ test_that("Pipeline source contains Mode 1 friendly-error block (dispatch is wir
 
   src <- paste(readLines(src_path), collapse = "\n")
   expect_match(src, "Mode 1 \\(Reflexive Scaffold\\)")
-  # Source points users at the dedicated Mode 1 entry point (phase 31:
+  # Source points users at the dedicated Mode 1 entry point (historically,
   # run_mode1 superseded run_provocateur_questioning as the canonical
   # Mode 1 orchestrator -- both must be referenced so the bare-loop
   # entry point and the scaffolded entry point are both visible)
@@ -500,7 +500,7 @@ test_that("Pipeline source contains Mode 1 friendly-error block (dispatch is wir
   expect_match(src, "framework_applied")
 })
 
-# ---- Phase 32: Framework Declaration section + Citations API footnote ----
+# ---- Framework Declaration section + Citations API footnote ----
 
 test_that(".build_framework_declaration renders framework name + sha256 + citations + stance + policy + constructs", {
   spec <- load_framework_spec("tpb")
@@ -518,8 +518,8 @@ test_that(".build_framework_declaration renders framework name + sha256 + citati
   # Epistemic stance + plain-language explainer
   expect_match(html, "positivist")
   expect_match(html, "brackets data that doesn't fit")
-  # Anomaly policy + plain-language explainer. Phase 54: the bracket
-  # explainer no longer says "out-of-scope" (that was the pre-Phase-54
+  # Anomaly policy + plain-language explainer. The bracket
+  # explainer no longer says "out-of-scope" (that was the earlier
   # phrasing); it now says "single 'Anomaly (non-fitting)' theme" to
   # match the actual behavior + contrasts it with extend/revise.
   expect_match(html, "bracket")
@@ -667,7 +667,7 @@ test_that("verify_run_integrity expects framework_applied.{yaml|yml|json} when M
 })
 
 test_that("verify_run_integrity does NOT expect correlation_plot.png when correlations.csv has no rows", {
-  # Phase 39: small samples (or any run with no overlapping theme-pair
+  # Small samples (or any run with no overlapping theme-pair
   # data) produce a 0-row correlations.csv and skip the plot. The
   # integrity check should treat the plot as expected only when there's
   # actually data to plot.
@@ -735,7 +735,7 @@ test_that("verify_run_integrity for Mode 2/Mode 3 differs only in framework expe
 })
 
 test_that("Mode 3 report integration: generate_report writes an Rmd with Framework Declaration + bypass footnote", {
-  # Audit H1 (phase 32 audit): the previous version of this test
+  # Audit H1: the previous version of this test
   # wrapped generate_report in a tryCatch that swallowed the error and
   # then skip()ped if the Rmd was never written. That made the test
   # silently pass for ANY future regression of the Mode 3 wiring --
@@ -821,7 +821,7 @@ test_that("Mode 3 report integration: generate_report writes an Rmd with Framewo
   cfg <- list(
     methodology = list(mode = "framework_applied",
                           framework_spec_path = spec$source_path),
-    study = list(name = "phase32-test",
+    study = list(name = "framework-decl-test",
                    research_focus = "Mode 3 e2e smoke",
                    research_context = "test"),
     ai = list(provider = "anthropic"),

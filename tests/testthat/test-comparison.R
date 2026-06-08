@@ -21,13 +21,13 @@ test_that(".discover_run_dirs finds and sorts run directories correctly", {
 })
 
 test_that(".discover_run_dirs accepts T1.7 mode-suffixed run dirs (_M1, _M2, _M3)", {
-  # Phase 40 finding: the regex was `^run_\d{4}-\d{2}-\d{2}_\d{6}$`
-  # without the optional `_M[123]` suffix, so EVERY Sprint-4 production
+  # Finding: the regex was `^run_\d{4}-\d{2}-\d{2}_\d{6}$`
+  # without the optional `_M[123]` suffix, so EVERY production
   # run dir (which carries the methodology short-code as a directory
   # suffix per R/output_stamping.R::run_id_with_mode) was silently
   # filtered out -- compare_runs() and list_available_runs() saw 0
-  # runs across every real Sprint-4 production output. find_latest_run
-  # was fixed for the same issue in phase 31; .discover_run_dirs was
+  # runs across every real production output. find_latest_run
+  # was fixed for the same issue earlier; .discover_run_dirs was
   # missed.
   tmp <- withr::local_tempdir()
   for (suffix in c("_M1", "_M2", "_M3", "")) {
@@ -558,10 +558,10 @@ test_that("compare_models flags is_inter_model = TRUE when runs used different m
 })
 
 test_that(".load_run_snapshot reads stamped CSVs without choking on the AC4 comment header", {
-  # Audit A CRITICAL (phase 38): pre-fix, the read_csv calls in
+  # Audit A CRITICAL: pre-fix, the read_csv calls in
   # .load_run_snapshot didn't pass comment="#" so a stamped CSV's first
   # line ("# methodology: ...") would have been parsed as a malformed
-  # header, silently breaking compare_runs() for every Sprint-4 run.
+  # header, silently breaking compare_runs() for every production run.
   tmp <- withr::local_tempdir()
   run_dir <- file.path(tmp, "run_2026-05-04_120000")
   src <- file.path(fixture_dir, "run_2026-01-01_120000")

@@ -1,4 +1,4 @@
-# Phase 59 Stage 3 covr followup: branch tests for the 2 next-lowest-
+# Coverage followup: branch tests for the 2 next-lowest-
 # coverage user-facing files surfaced by covr:
 #   - R/methodology_decision_aid.R (50% pre-followup)
 #   - R/03_json_utils.R (41% pre-followup)

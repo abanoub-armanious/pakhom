@@ -1,4 +1,4 @@
-# Phase 61.4 -- report DISPLAY of the Methodology Assistant's analytical
+# Report DISPLAY of the Methodology Assistant's analytical
 # decisions. Three surfaces:
 #   (1) per-subtheme summary table prefers the AI's chosen primitives
 #       (one column per primitive + interpretation notes), falling back to the
@@ -95,8 +95,8 @@ test_that(".format_primitive_result is NA-safe", {
 
 test_that("subtheme table is BYTE-IDENTICAL to legacy when no column interpreted", {
   # No ai_metric_stats field at all (pre-61.3b stats object). The legacy caption
-  # now carries the Phase-63 small-n caveat (audit followup -- the legacy spread
-  # battery must disclose small-n fragility too, since the 62.5d dagger only fires
+  # now carries the small-n caveat (audit followup -- the legacy spread
+  # battery must disclose small-n fragility too, since the per-cell dagger only fires
   # on the AI path); the table is otherwise byte-identical to the legacy render.
   ts <- list(metric_cols = c("score"),
     subtheme_stats = list(

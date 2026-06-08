@@ -1,5 +1,5 @@
 # Tests for run_mode1() -- the Mode 1 (Reflexive Scaffold) orchestrator
-# (R/mode1_orchestrator.R). Closes audit findings C1 + C2 from phase 30
+# (R/mode1_orchestrator.R). Closes audit findings C1 + C2 from an early
 # wrap-up: Mode 1 was emitting only a ResearcherReflectionLog with no
 # scaffolding (no run_metadata.json, no T0.2/T0.3 cards, no report,
 # no finalize_run). These tests pin the AC4 + AC7 commitments at the
@@ -504,7 +504,7 @@ test_that("compute_mode1_theme_stats per-theme entry count matches data", {
 })
 
 test_that("end-to-end: run_mode1 with generate_report=TRUE produces a complete reviewable run", {
-  # The phase 31 acceptance test for audit findings C1+C2: a fresh
+  # The acceptance test for audit findings C1+C2: a fresh
   # run_mode1 invocation against a small mocked corpus produces the
   # full Mode 1 artifact set (run_metadata, methodology rules,
   # fabrication log, audit log, reflection log, provocations,
@@ -590,7 +590,7 @@ test_that("end-to-end: run_mode1 with generate_report=TRUE produces a complete r
 })
 
 test_that(".read_reflection_log_json re-classes nested Provocation + QuoteProvenance objects", {
-  # Audit A H3 (phase 31): a previous version used simplifyVector=TRUE,
+  # Audit A H3: a previous version used simplifyVector=TRUE,
   # which collapsed the provocations list into a row-frame and stripped
   # S3 class tags. Resume-time consumers (e.g., .provocation_to_row,
   # which gates on inherits(p$provenance, "QuoteProvenance")) would then
@@ -661,10 +661,10 @@ test_that(".read_reflection_log_json handles a log with zero provocations", {
   expect_equal(nrow(rt$skipped_themes), 0L)
 })
 
-# ---- Phase 33 / M1.3: end-to-end memo persistence + integrity ------------
+# ---- M1.3: end-to-end memo persistence + integrity ----------------------
 
 test_that("run_mode1 with prior memos persists them to disk + integrity reflects count", {
-  # Audit H3 (phase 33): without this test, a regression that removes
+  # Audit H3: without this test, a regression that removes
   # the persist_memos() call from run_mode1 would only surface at
   # manual-inspection time. The unit tests in test-memos.R exercise
   # persist_memos directly but not via the orchestrator.
@@ -772,7 +772,7 @@ test_that("run_mode1 with prior memos persists them to disk + integrity reflects
 })
 
 test_that(".read_reflection_log_json re-classes memos on resume (audit C1)", {
-  # Audit C1 (phase 33): memos must be re-classed after the JSON
+  # Audit C1: memos must be re-classed after the JSON
   # round-trip; otherwise downstream consumers (gating on
   # inherits(m, "Memo")) silently see zero memos. This test pins
   # the regression by writing a 2-memo reflection log, round-

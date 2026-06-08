@@ -1,4 +1,4 @@
-# Tests for R/methodology_assistant.R + the two Phase 61.2 schemas
+# Tests for R/methodology_assistant.R + its two schemas
 #
 # The Methodology Assistant (Step 2.5): the AI articulates a relevance criterion
 # and per-metric interpretations, with FREE-STRING primitive requests (no enum /
@@ -118,7 +118,7 @@ test_that("the metric schema's primitive field is a free string, NOT an enum", {
   expect_null(prim$enum)                       # the no-menu guarantee, asserted
 })
 
-test_that("Phase 61.2 decision types are in the audit-log allowlist", {
+test_that("methodology decision types are in the audit-log allowlist", {
   # The prior-phase landmine: a decision_type missing here crashes every
   # production run with an audit log on the first call.
   expect_true("relevance_criterion" %in% pakhom:::.valid_decision_types)

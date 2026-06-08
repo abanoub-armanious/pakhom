@@ -1,4 +1,4 @@
-# Tests for structured output schemas (Sprint-4 T1.2)
+# Tests for structured output schemas (T1.2)
 # R/structured_schemas.R defines 6 task schemas + a .validate_schema()
 # helper. The schemas are consumed by ai_complete(response_schema = ...)
 # which enforces them server-side via OpenAI strict json_schema or
@@ -9,11 +9,11 @@
 test_that("all six task schemas pass .validate_schema", {
   schemas <- list(
     coding     = pakhom:::.coding_schema(),
-    # Phase 56: was .saturation_schema (binary novel_patterns_remaining);
+    # was .saturation_schema (binary novel_patterns_remaining);
     # the new arbiter uses a 3-valued verdict + articulation requirement.
     saturation = pakhom:::.saturation_decision_schema(),
     sentiment  = pakhom:::.sentiment_schema(),
-    theming    = pakhom:::.theme_decision_schema(),  # Phase 52: was .theming_schema
+    theming    = pakhom:::.theme_decision_schema(),  # was .theming_schema
     insight    = pakhom:::.insight_schema(),
     synthesis  = pakhom:::.synthesis_schema()
   )
@@ -27,7 +27,7 @@ test_that("all six task schemas pass .validate_schema", {
 test_that("schemas serialize via jsonlite without losing structure", {
   schemas <- list(
     pakhom:::.coding_schema(),
-    pakhom:::.saturation_decision_schema(),  # Phase 56
+    pakhom:::.saturation_decision_schema(),
     pakhom:::.sentiment_schema(),
     pakhom:::.theme_decision_schema(),
     pakhom:::.insight_schema(),
@@ -121,7 +121,7 @@ test_that(".sentiment_schema reflects the emotion_categories argument", {
   expect_setequal(unlist(enum), c("joy", "sadness", "neutral"))
 })
 
-test_that(".theme_decision_schema enforces Phase 52 bias mitigations", {
+test_that(".theme_decision_schema enforces bias mitigations", {
   s <- pakhom:::.theme_decision_schema()
   # The articulation field is the single load-bearing bias mitigation
   # against kitchen-sink themes: the AI must write the central organizing

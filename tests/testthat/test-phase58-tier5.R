@@ -1,4 +1,4 @@
-# Phase 58 Tier 5 unit tests
+# Report-rendering unit tests
 #
 # C-3 top-N inlining of theme cards in the main HTML report
 # C-10 top-N effect-size lollipop chart for large correlation matrices
@@ -121,7 +121,7 @@ test_that(".cluster_skip_reasons NA / empty reason strings cluster to Other", {
 })
 
 test_that(".cluster_skip_reasons on-topic negation does not bucket into off-topic", {
-  # Tier 5 audit followup M2: defensive test that negated phrasings
+  # Audit followup M2: defensive test that negated phrasings
   # ("entry is on-topic but..." / "this IS about X but lacks detail")
   # don't false-positive into the off-topic bucket. The off-topic
   # pattern anchors on \b(not |unrelated|irrelevant|...), so a positive
@@ -146,7 +146,7 @@ test_that(".cluster_skip_reasons on-topic negation does not bucket into off-topi
 })
 
 test_that(".cluster_skip_reasons documents first-match-wins for reply-without-quote", {
-  # Tier 5 audit followup M2: the V-7 taxonomy is intent-blind. A
+  # Audit followup M2: the V-7 taxonomy is intent-blind. A
   # reason like "Reply to another user with no substance" lands in
   # the Quote/Reply bucket via the reply alternation rather than the
   # too-short bucket, because the quote/reply pattern is matched
@@ -248,8 +248,8 @@ test_that(".build_thematic_section without cap renders all themes as full cards"
 })
 
 test_that(".build_thematic_section emits Additional themes BEFORE kind transition at boundary", {
-  # Tier 5 audit followup H1: the compact-header (top-N C-3) and
-  # the Phase 54 kind-header used to stack with no content in
+  # Audit followup H1: the compact-header (top-N C-3) and
+  # the kind-header used to stack with no content in
   # between when framework count == max_inline_themes. The followup
   # reorders so "## Additional themes" emits first, then the kind
   # transition ("## Emergent themes") -- reader sees two coherent
@@ -292,7 +292,7 @@ test_that(".build_thematic_section emits Additional themes BEFORE kind transitio
 })
 
 test_that(".build_thematic_section dedupes theme_order before counting", {
-  # Tier 5 audit followup M3: defensive dedupe so an upstream caller
+  # Audit followup M3: defensive dedupe so an upstream caller
   # passing the same theme twice doesn't render it twice (which
   # would also break the n_compact arithmetic in the header).
   ts_one <- function(n) list(
@@ -504,7 +504,7 @@ test_that(".generate_theme_detail_htmls embeds .build_subtheme_summary_table out
 
   expect_true("Demo Theme" %in% names(generated))
   html <- paste(readLines(generated[["Demo Theme"]]$file_path), collapse = "\n")
-  # The Phase 55 table marker classes / heading should appear in the detail
+  # The paper-style table marker classes / heading should appear in the detail
   expect_match(html, "Subthemes \\(per-subtheme summary\\)")
   expect_match(html, "subtheme-summary-table", fixed = TRUE)
   expect_match(html, "detail-subtheme-summary", fixed = TRUE)
@@ -513,7 +513,7 @@ test_that(".generate_theme_detail_htmls embeds .build_subtheme_summary_table out
 })
 
 test_that("create_theme_network filters to top-N by weighted degree", {
-  # Tier 5 audit followup H2: theme_network top-N filter coverage.
+  # Audit followup H2: theme_network top-N filter coverage.
   # Build a 5-theme membership matrix; cap at 3; assert that the
   # PNG file is written and the lowest-degree themes are removed.
   skip_if_not_installed("igraph")
@@ -617,7 +617,7 @@ test_that("create_theme_network handles empty co-occurrence gracefully", {
 })
 
 
-test_that(".generate_theme_detail_htmls omits Phase 55 table when no real subthemes", {
+test_that(".generate_theme_detail_htmls omits paper-style table when no real subthemes", {
   ts <- list(
     description = "Demo",
     n_entries = 5L,

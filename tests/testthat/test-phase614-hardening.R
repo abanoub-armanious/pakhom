@@ -1,4 +1,4 @@
-# Phase 61.4 audit-followup hardening. Three independent audits (correctness,
+# Audit-followup hardening. Three independent audits (correctness,
 # principle+back-compat, cross-tier invariants) all returned SHIP and all
 # flagged the SAME single [LOW]: the per-subtheme AI table matched body cells to
 # headers by POSITION, correct today only because .compute_subtheme_statistics

@@ -1,4 +1,4 @@
-# Tests for the corpus coverage assertion (Sprint-4 T0.3, R/corpus_coverage.R)
+# Tests for the corpus coverage assertion (T0.3, R/corpus_coverage.R)
 #
 # T0.3 is the third Tier-0 universal: pakhom asserts in the report that the
 # LLM saw every entry that survived preprocessing. This is the empirical
@@ -58,7 +58,7 @@ test_that("compute_corpus_coverage returns a CorpusCoverage S3 object with all s
     "n_skipped", "skip_reasons", "n_coded",
     "bytes_processed", "chars_processed", "words_processed",
     "coverage_rate", "no_silent_truncation",
-    # Phase 56: stop_reason / saturation_reached / reached_at_entry
+    # stop_reason / saturation_reached / reached_at_entry
     # distinguish intentional saturation-arbiter early-stop from
     # silent truncation so the T0.3 banner can render the right
     # language (audit CRITICAL-1).
@@ -366,15 +366,15 @@ test_that(".build_corpus_coverage_card on non-CorpusCoverage object renders unav
 })
 
 # ==============================================================================
-# Phase 56: saturation-aware coverage (audit CRITICAL-1)
+# Saturation-aware coverage (audit CRITICAL-1)
 # ==============================================================================
-# Pre-Phase-56 the headline no_silent_truncation flag was simply
+# Earlier, the headline no_silent_truncation flag was simply
 # (n_unprocessed == 0L), so any saturation-triggered early stop made it
 # render FALSE -- which is wrong: the arbiter is the methodologically
-# intentional stop. Phase 56 distinguishes the two by reading
+# intentional stop. The current code distinguishes the two by reading
 # coding_state$saturation$reached + $reached_at_entry.
 
-test_that("Phase 56: coverage with NO saturation reports stop_reason='all_entries_processed'", {
+test_that("coverage with NO saturation reports stop_reason='all_entries_processed'", {
   state <- .make_state(coded_ids = c("e1", "e2", "e3"))
   data  <- .make_data(c("e1", "e2", "e3"))
   cov <- compute_corpus_coverage(state, data)
@@ -384,7 +384,7 @@ test_that("Phase 56: coverage with NO saturation reports stop_reason='all_entrie
   expect_true(cov$no_silent_truncation)
 })
 
-test_that("Phase 56: coverage with saturation_reached + intact tail is no_silent_truncation=TRUE", {
+test_that("coverage with saturation_reached + intact tail is no_silent_truncation=TRUE", {
   # Simulate: AI arbiter declared saturation at entry 60 of 100. Entries
   # 1..60 are in entry_results; entries 61..100 were intentionally NOT
   # processed. n_unprocessed = 40, which exactly equals the post-saturation
@@ -407,7 +407,7 @@ test_that("Phase 56: coverage with saturation_reached + intact tail is no_silent
   expect_equal(cov$n_unprocessed, 40L)
 })
 
-test_that("Phase 56: coverage with saturation_reached BUT missing tail flags silent truncation", {
+test_that("coverage with saturation_reached BUT missing tail flags silent truncation", {
   # Defensive: even with saturation_reached=TRUE, if n_unprocessed
   # exceeds the expected post-saturation tail (e.g., due to a pre-
   # saturation processing gap), no_silent_truncation must still be FALSE
@@ -427,7 +427,7 @@ test_that("Phase 56: coverage with saturation_reached BUT missing tail flags sil
   expect_equal(cov$stop_reason, "saturation_arbiter_reached")  # the kind of stop
 })
 
-test_that("Phase 56: render_tier0_coverage_card emits saturation banner on intentional stop", {
+test_that("render_tier0_coverage_card emits saturation banner on intentional stop", {
   state <- .make_state(coded_ids = paste0("e", 1:60))
   state$saturation$reached <- TRUE
   state$saturation$reached_at_entry <- 60L
@@ -436,7 +436,7 @@ test_that("Phase 56: render_tier0_coverage_card emits saturation banner on inten
   data <- .make_data(paste0("e", 1:100))
   cov <- compute_corpus_coverage(state, data)
   html <- render_tier0_coverage_card(cov)
-  # Phase 56-specific banner language
+  # Saturation banner language
   expect_match(html, "saturation arbiter judged")
   expect_match(html, "intentionally")
   # Banner class is the saturation variant, not the warning variant

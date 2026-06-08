@@ -1,4 +1,4 @@
-# Phase 61.3 integration: the Methodology Assistant's relevance criterion is
+# Integration: the Methodology Assistant's relevance criterion is
 # injected into the coding system prompt (the upstream focus-drift fix), with
 # byte-identical fallback to the prior wording when no criterion is present.
 # (The full Step-2.5 pipeline path is exercised end-to-end by test-pipeline-e2e.R

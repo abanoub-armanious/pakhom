@@ -1,4 +1,4 @@
-# Tests for framework specification loading + validation (Sprint-4 M3.1,
+# Tests for framework specification loading + validation (M3.1,
 # R/framework_spec.R). Mode 3 (Framework Applied) requires a researcher-
 # supplied theoretical framework that the AI applies verbatim. The schema
 # validator is the gatekeeper -- malformed specs must fail loud, not
@@ -222,7 +222,7 @@ test_that("load_framework_spec defaults epistemic_stance + anomaly_handling sens
     "      description: 'one'"
   ), yaml_path)
   spec <- load_framework_spec(yaml_path)
-  # Defaults: constructionist (allows interpretation), extend (Phase 54:
+  # Defaults: constructionist (allows interpretation), extend (this was
   # changed from "bracket" so emergent themes from anomalies become the
   # default abductive output rather than burying non-fitting segments in
   # a single "Anomaly" catch-all theme).
@@ -313,14 +313,14 @@ test_that("framework_prompt_block omits indicators line when none supplied", {
   expect_false(grepl("Example indicators", block))
 })
 
-# ---- archive_framework_spec (phase 32 / audit H1 + H2) -------------------
+# ---- archive_framework_spec (audit H1 + H2) -----------------------------
 
 test_that("archive_framework_spec writes archive + sha256 hash anchored to source", {
   spec <- load_framework_spec("tpb")
   d <- withr::local_tempdir()
   arch <- archive_framework_spec(spec, d)
   expect_true(file.exists(arch$path))
-  # Phase 37 audit (AC4 stamp): arch$hash anchors replay-equivalence
+  # Audit (AC4 stamp): arch$hash anchors replay-equivalence
   # to the SOURCE spec the user supplied, not the post-stamp archive
   # (which has a methodology comment line prepended). The hash field
   # is therefore equal to digest(source) regardless of whether the
@@ -338,7 +338,7 @@ test_that("archive_framework_spec writes archive + sha256 hash anchored to sourc
 })
 
 test_that("archive_framework_spec stamps methodology + run_id + source-sha256 into the YAML header (AC4)", {
-  # Phase 37 audit (AC MEDIUM): archived framework_applied.yaml must
+  # Audit (AC MEDIUM): archived framework_applied.yaml must
   # carry the methodology stamp at the artifact level so a reviewer
   # auditing a single file sees the mode declaration even out of run-
   # dir context. The stamp is a `#` YAML comment, which yaml::yaml.load
@@ -430,10 +430,10 @@ test_that("archive_framework_spec works for all three built-in frameworks", {
 })
 
 test_that("framework_construct_ids serializes as a JSON array even for single-construct frameworks", {
-  # Audit L2 (phase 32): jsonlite::write_json with auto_unbox=TRUE
+  # Audit L2: jsonlite::write_json with auto_unbox=TRUE
   # would collapse a length-1 character vector into a JSON scalar,
   # so a 1-construct framework's construct_ids would round-trip as
-  # "c1" instead of ["c1"]. The phase 32 fix is to splat
+  # "c1" instead of ["c1"]. The fix is to splat
   # as.list(construct_ids) into init_run_state's extras so the JSON
   # array shape is preserved regardless of length.
   d <- withr::local_tempdir()
