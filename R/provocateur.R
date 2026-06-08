@@ -1118,6 +1118,10 @@ run_provocateur_questioning <- function(data, theme_set, provider,
 
   for (t in theme_set$themes) {
     tn <- t$name
+    # Resume idempotency (T0.3): a theme already recorded as skipped in a prior
+    # run must not be re-evaluated -- re-running would duplicate its
+    # skipped_themes row and corrupt the coverage accounting.
+    if (nrow(log$skipped_themes) > 0L && tn %in% log$skipped_themes$theme_name) next
     safe_col <- paste0("theme_membership_", make.names(tn))
     if (safe_col %in% names(data)) {
       theme_entries <- data[data[[safe_col]] == 1L, ]
@@ -1150,6 +1154,17 @@ run_provocateur_questioning <- function(data, theme_set, provider,
     }
 
     for (cat in categories) {
+      # Resume idempotency (T0.3): skip a (theme, category) pair already
+      # attempted in a prior run. Re-running would append a duplicate attempt
+      # row -- inflating n_attempts_recorded past n_attempts_expected and
+      # flipping attempts_complete / no_silent_skip to FALSE -- and waste AI
+      # spend. Resume is therefore incremental: only not-yet-attempted pairs
+      # run, and the seeded provocations/attempts are preserved as-is.
+      if (nrow(log$provocation_attempts) > 0L &&
+          any(log$provocation_attempts$theme_name == tn &
+              log$provocation_attempts$category == cat)) {
+        next
+      }
       provs <- switch(cat,
         "counter_narrative" = provoke_counter_narrative(
           tn, theme_entries, data, provider,

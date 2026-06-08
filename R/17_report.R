@@ -153,6 +153,15 @@
   if (is.null(x) || all(is.na(x))) return("")
   x <- as.character(x)
   x[is.na(x)] <- ""
+  # Strip ASCII control characters first, EXCEPT tab (\t) and newline (\n)
+  # which legitimately structure Markdown. pandoc silently DELETES some of
+  # these -- notably a carriage return -- from a link destination, while
+  # .MD_LINK_RE's whitespace-stopping capture treats the same character as the
+  # end of the URL. That mismatch let an embedded control char hide a scheme
+  # from the allowlist (a CR in "[x](java<CR>script:...)") yet have pandoc
+  # reassemble it into a live javascript: href in the rendered report. Removing
+  # the control characters up front makes the sanitizer and pandoc agree.
+  x <- gsub("[\x01-\x08\x0B-\x1F\x7F]", "", x, perl = TRUE)
   # Bare & first (a & not already part of a &name; / &#123; / &#xAF; entity),
   # so the &lt;/&gt; introduced next aren't themselves re-amped.
   x <- gsub("&(?!#?[A-Za-z0-9]+;)", "&amp;", x, perl = TRUE)
@@ -842,17 +851,20 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     file.copy(css_src, file.path(output_dir, "styles.css"), overwrite = TRUE)
   }
 
-  # Generate separate theme detail HTML files
+  # Generate separate theme detail HTML files. Compute the methodology mode
+  # here (AC4) so each standalone detail page carries the same methodology
+  # badge as the main report -- mirroring the per-theme CSVs below.
+  meth_mode <- .config_methodology_mode(config)
   theme_detail_files <- .generate_theme_detail_htmls(
     theme_stats, theme_order, export_files, output_dir,
-    data = data, coding_results = coding_results
+    data = data, coding_results = coding_results,
+    methodology_mode = meth_mode
   )
 
   # paper-style per-theme subtheme summary CSVs. One CSV per
   # theme (one row per subtheme; columns include Median(MAD) + Mean(SD)
   # per auto-detected metric + examples-of-comments) plus a master
   # all_subthemes.csv. Methodology-stamped per AC4 when in a real run.
-  meth_mode <- .config_methodology_mode(config)
   tryCatch(
     export_theme_subtheme_summary_csvs(
       theme_stats     = theme_stats,
@@ -4162,7 +4174,8 @@ sentiment_colors <- c(
 
 .generate_theme_detail_htmls <- function(theme_stats, theme_order, export_files,
                                           output_dir, data = NULL,
-                                          coding_results = NULL) {
+                                          coding_results = NULL,
+                                          methodology_mode = NULL) {
   detail_dir <- file.path(output_dir, "theme_details")
   dir.create(detail_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -4183,6 +4196,15 @@ sentiment_colors <- c(
   }
 
   generated <- list()
+
+  # AC4: each standalone theme-detail page carries the same methodology badge
+  # (mode + run id) as the main report. A NULL mode -- legacy/test callers with
+  # no methodology block -- renders no badge. The badge uses the same
+  # .methodology-stamp class and the page already links ../styles.css, so it is
+  # styled identically to the main report.
+  meth_stamp <- if (!is.null(methodology_mode)) {
+    stamp_methodology_html(methodology_mode, run_id = basename(output_dir))
+  } else ""
 
   for (tn in theme_order) {
     if (!tn %in% names(theme_stats)) next
@@ -4221,6 +4243,7 @@ sentiment_colors <- c(
       '<div style="max-width: 900px; margin: 2rem auto; padding: 0 1.5rem;">\n',
       '<a href="../analysis_report.html" class="appendix-back-link">Back to Report</a>\n',
       '<h1>', .html_esc(tn), '</h1>\n',
+      meth_stamp,
       '<p class="theme-description">', .html_esc(ts$description %||% ""), '</p>\n',
       '<div class="theme-meta">\n',
       '<div class="theme-meta-item"><span class="theme-meta-value">', ts$n_entries, '</span>',

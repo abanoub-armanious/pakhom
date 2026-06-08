@@ -512,6 +512,64 @@ test_that(".generate_theme_detail_htmls embeds .build_subtheme_summary_table out
   expect_match(html, "Subtheme One", fixed = TRUE)
 })
 
+test_that(".generate_theme_detail_htmls methodology-stamps each detail page (AC4)", {
+  # AC4 ("methodology stamped on every output"): a standalone theme-detail page
+  # must carry the same methodology badge as the main report when a mode is
+  # supplied, and render cleanly with NO badge for legacy NULL callers.
+  ts <- list(
+    description = "Demo",
+    n_entries = 12L,
+    pct_of_total = 24,
+    sentiment = list(mean = 0.05, pct_negative = 20, pct_positive = 25),
+    intensity = list(mean = 0.4),
+    keywords = c("alpha", "beta"),
+    quotes_with_context = NULL,
+    subthemes_structured = list(
+      structure(
+        list(name = "Subtheme One",
+              description = "A real (non-virtual) subtheme",
+              codes = list()),
+        class = "Subtheme"
+      )
+    ),
+    subtheme_stats = list(
+      "Subtheme One" = list(
+        name = "Subtheme One",
+        description = "A real (non-virtual) subtheme",
+        n = 5L,
+        metric_stats = list(score = list(median = 8, mad = 1, mean = 7.5, sd = 1.2)),
+        example_quotes = c("Example quote 1 [score: 8]", "Example quote 2 [score: 7]")
+      )
+    ),
+    metric_cols = c("score"),
+    theme_kind = "framework"
+  )
+  theme_stats <- list("Demo Theme" = ts)
+
+  render_detail <- function(mode) {
+    out_dir <- tempfile()
+    dir.create(out_dir)
+    on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
+    generated <- pakhom:::.generate_theme_detail_htmls(
+      theme_stats = theme_stats,
+      theme_order = names(theme_stats),
+      export_files = list(theme_csv_files = list()),
+      output_dir = out_dir,
+      methodology_mode = mode
+    )
+    paste(readLines(generated[["Demo Theme"]]$file_path), collapse = "\n")
+  }
+
+  # Mode supplied -> the detail page carries the same badge class + mode label
+  # as the main report (styled via the ../styles.css the page already links).
+  stamped <- render_detail("codebook_collaborative")
+  expect_match(stamped, "methodology-stamp", fixed = TRUE)
+  expect_match(stamped, "M2 - Codebook Collaborative", fixed = TRUE)
+
+  # Legacy NULL caller (no methodology block) -> renders, but no badge.
+  expect_false(grepl("methodology-stamp", render_detail(NULL), fixed = TRUE))
+})
+
 test_that("create_theme_network filters to top-N by weighted degree", {
   # Audit followup H2: theme_network top-N filter coverage.
   # Build a 5-theme membership matrix; cap at 3; assert that the

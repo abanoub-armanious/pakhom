@@ -573,25 +573,22 @@ test_that("run_provocateur_questioning records one attempt row per theme x categ
   expect_true(all(log$provocation_attempts$n_emitted == 0L))
 })
 
-test_that("run_provocateur_questioning supports resume via resume_log", {
+test_that("run_provocateur_questioning resume via resume_log is idempotent (no double-count) [T0.3]", {
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
   data <- .smoke_data_with_themes()
   ts <- .smoke_theme_set()
 
-  # Build a resume log with one prior provocation
-  prior_log <- create_reflection_log()
-  src <- "I plan to take my medication every day from now on."
-  q <- make_quote("e1", "data_entry", src, 0L, 6L, "I plan",
-                   citation_source = "model_freeform")
-  q <- verify_quote(q, src)
-  prior_log$provocations[[1]] <- make_provocation(
-    category = "counter_narrative", theme_name = "Adherence",
-    reason = "prior", provenance = q
-  )
-
-  mock <- jsonlite::toJSON(list(provocations = list()), auto_unbox = TRUE)
+  # A NON-empty, VERIFYING mock: each counter_narrative call emits one verified
+  # provocation, so BOTH provocation_attempts and provocations are populated.
+  # An empty-provocations mock (as this test previously used) cannot detect the
+  # resume double-count: it would leave provocations at 0 either way.
+  mock <- jsonlite::toJSON(list(provocations = list(
+    list(entry_id = "e5", char_start = 25L, char_end = 41L,
+         exact_text = "medication helps",
+         reason = "Patient denies medication efficacy")
+  )), auto_unbox = TRUE)
   local_mocked_bindings(
     ai_complete = function(...) list(
       content = mock, model = "m", request_id = "r",
@@ -603,17 +600,37 @@ test_that("run_provocateur_questioning supports resume via resume_log", {
     .package = "pakhom"
   )
 
-  log <- run_provocateur_questioning(
+  # Fresh run establishes the baseline counts.
+  # Run all five (default) categories so n_attempts_expected (themes x 5) is
+  # fully met -- a prerequisite for no_silent_skip being TRUE to begin with.
+  # Only counter_narrative emits (its quote verifies); the other four record
+  # an attempt with 0 emitted.
+  fresh <- run_provocateur_questioning(
+    data = data, theme_set = ts,
+    provider = mock_provider("anthropic")
+  )
+  n_att  <- nrow(fresh$provocation_attempts)
+  n_prov <- length(fresh$provocations)
+  expect_gt(n_att, 0L)
+  expect_gt(n_prov, 0L)
+
+  # Resume from the fresh log: every (theme, category) pair was already
+  # attempted, so the resumed run must add NOTHING -- not re-run completed work,
+  # not duplicate attempt rows, not duplicate provocations.
+  resumed <- run_provocateur_questioning(
     data = data, theme_set = ts,
     provider = mock_provider("anthropic"),
-    resume_log = prior_log,
-    categories = "counter_narrative"
+    resume_log = fresh
   )
-  # Prior provocation preserved in resumed log
-  expect_gte(length(log$provocations), 1L)
-  expect_true(any(vapply(log$provocations,
-                          function(p) identical(p$reason, "prior"),
-                          logical(1))))
+  expect_equal(nrow(resumed$provocation_attempts), n_att)   # attempts NOT doubled
+  expect_equal(length(resumed$provocations), n_prov)        # provocations NOT doubled
+  # Prior provocations preserved through the resume (subsumes the old assertion).
+  expect_identical(resumed$provocations, fresh$provocations)
+
+  # ...and the T0.3 coverage headline stays honest. The double-count previously
+  # made n_attempts_recorded exceed n_attempts_expected, flipping this to FALSE.
+  cov <- compute_mode1_coverage(resumed, ts, data)
+  expect_true(cov$no_silent_skip)
 })
 
 # ---- AC contract tests for Mode 1 -----------------------------------------

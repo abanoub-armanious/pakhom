@@ -238,10 +238,13 @@ generate_themes_multipass <- function(coding_state, provider, config = list(),
       # Pass N>1 failure is recoverable (prior-pass clusters are
       # the natural fallback) so this guard fires only at the very first
       # call's failure mode.
+      # Distinguish a normalizer-COERCED "convergence" (the AI call failed, or
+      # the response was malformed) from a GENUINE pass-1 convergence. The
+      # normalizer sets proposal$coerced = TRUE only on its failure path; the
+      # AI's own rationale is never pattern-matched, so qualitative wording like
+      # "absent support" or "coerced consent" cannot false-trigger an abort.
       ai_failure_coerced <- isTRUE(walk_state$n_failed_calls > 0L) ||
-                              grepl("malformed|coerced|unparseable|absent",
-                                     proposal$overall_rationale %||% "",
-                                     ignore.case = TRUE)
+                              isTRUE(proposal$coerced)
       if (pass_n == 1L && ai_failure_coerced && length(current_leaves) > 1L) {
         log_error(paste0(
           "[v2] CRITICAL: pass 1 AI call failed and would coerce to ",
@@ -706,7 +709,8 @@ ai_propose_clustering <- function(leaves, pass_index, prior_history,
     return(list(
       verdict             = "converged",
       cluster_assignments = NULL,
-      overall_rationale   = "AI response malformed or absent; coerced to convergence."
+      overall_rationale   = "AI response malformed or absent; coerced to convergence.",
+      coerced             = TRUE
     ))
   }
 
@@ -731,7 +735,8 @@ ai_propose_clustering <- function(leaves, pass_index, prior_history,
       cluster_assignments = NULL,
       overall_rationale   = paste0("Unknown verdict '", verdict,
                                     "'; coerced to convergence. ",
-                                    overall_rationale)
+                                    overall_rationale),
+      coerced             = TRUE
     ))
   }
 
@@ -746,7 +751,8 @@ ai_propose_clustering <- function(leaves, pass_index, prior_history,
       verdict             = "converged",
       cluster_assignments = NULL,
       overall_rationale   = paste0("Empty cluster_assignments with continue verdict; ",
-                                    "coerced to convergence. ", overall_rationale)
+                                    "coerced to convergence. ", overall_rationale),
+      coerced             = TRUE
     ))
   }
 
@@ -810,7 +816,8 @@ ai_propose_clustering <- function(leaves, pass_index, prior_history,
       verdict             = "converged",
       cluster_assignments = NULL,
       overall_rationale   = paste0("No valid clusters after sanitation; ",
-                                    "coerced to convergence. ", overall_rationale)
+                                    "coerced to convergence. ", overall_rationale),
+      coerced             = TRUE
     ))
   }
 

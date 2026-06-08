@@ -988,6 +988,35 @@ test_that("malformed AI response on clustering call aborts loudly", {
   )
 })
 
+test_that("pass 1 GENUINE convergence whose rationale says 'absent'/'coerced' does NOT abort", {
+  # Regression: the pass-1 abort guard must fire ONLY on a normalizer-coerced
+  # convergence (a real AI failure), never on a genuine convergence whose
+  # AI-authored rationale merely contains qualitative words. The earlier guard
+  # grepped the rationale for "absent"/"coerced"/... and killed legitimate runs
+  # (e.g. a rationale about "absent support" or "coerced consent").
+  state <- .v2_state(3L)
+  responses <- list(
+    .v2_converged(paste(
+      "These codes describe experiences of absent support and coerced",
+      "consent; each is conceptually distinct, so no useful grouping is possible."
+    )),
+    .v2_label(list(
+      list(name = "Absent support",  description = "About code 1"),
+      list(name = "Coerced consent", description = "About code 2"),
+      list(name = "Distinct third",  description = "About code 3")
+    ))
+  )
+  testthat::local_mocked_bindings(
+    ai_complete = .v2_mock_ai(responses),
+    .package = "pakhom"
+  )
+  ts <- generate_themes_iterative(state, .v2_provider(),
+                                    config = list(algorithm = "v2"))
+  expect_s3_class(ts, "ThemeSet")
+  expect_equal(n_themes(ts), 3L)               # single-code-per-theme, NOT aborted
+  expect_equal(ts$merge_history$converged_at_pass, 1L)
+})
+
 
 # ------------------------------------------------------------------------------
 # Test plan item 7: Mode 3 deductive skip is verified in test-anomaly-handling.R

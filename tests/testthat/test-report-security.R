@@ -143,6 +143,27 @@ test_that("FIX2b: entity-obfuscated dangerous schemes are also defanged", {
   }
 })
 
+test_that("FIX2b: a control char embedded in a link scheme cannot smuggle a live javascript: href", {
+  # Adversarial-audit finding: pandoc strips a carriage return (and other C0
+  # control chars) from a link destination, while .MD_LINK_RE stops the URL
+  # capture at the same whitespace -- so "[x](java<CR>script:...)" slipped past
+  # the scheme allowlist yet rendered as a live javascript: href. The sanitizer
+  # removes the control chars up front. Empirically CR was the exploitable
+  # vector (pandoc percent-encodes tab/newline), but the whole C0-control class
+  # is stripped for defence in depth.
+  s <- pakhom:::.sanitize_ai_prose
+  for (ctrl in c("\r", "\v", "\f", "\a", "\b")) {
+    out <- s(paste0("[x](java", ctrl, "script:alertX)"))
+    expect_false(grepl("](", out, fixed = TRUE))          # link defanged to text
+    expect_false(grepl("javascript", out, fixed = TRUE))  # scheme gone
+  }
+  # a leading control char before the scheme is likewise neutralized
+  expect_false(grepl("javascript", s("[x](\rjavascript:alertX)"), fixed = TRUE))
+  # tab and newline (legitimate Markdown structure) are preserved
+  expect_equal(s("line1\nline2"), "line1\nline2")
+  expect_equal(s("a\tb"), "a\tb")
+})
+
 test_that("FIX2b: a dangerous reference-style definition is neutralized to #", {
   out <- pakhom:::.sanitize_ai_prose("see [it][1]\n\n[1]: javascript:alert(1)")
   # The reference URL is rewritten so [it][1] resolves to '#', not javascript:.
