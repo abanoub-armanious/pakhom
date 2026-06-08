@@ -573,7 +573,6 @@ analysis:
     include_subthemes: true       # Render the emergent subtheme decomposition
     include_quotes: true          # Render representative quotes per theme
     quotes_per_theme: 3
-    approach: "inductive"         # "inductive" (Mode 2) or "deductive" (Mode 3)
     max_subtheme_depth: 3         # inert: legacy knob, no longer read
     max_codes_per_subtheme: 25    # inert: legacy knob, no longer read
     max_inline_themes: 30         # top-N theme inlining cap

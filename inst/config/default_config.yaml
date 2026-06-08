@@ -284,7 +284,6 @@ analysis:
     include_subthemes: true       # Render the per-theme subtheme decomposition.
     include_quotes: true          # Render representative quotes in the per-theme report.
     quotes_per_theme: 3           # Number of representative quotes selected per theme.
-    approach: "inductive"         # "inductive" (Mode 2) or "deductive" (Mode 3 framework).
     # Inert: these two knobs were only ever read by the removed v1 HAC walker.
     # Under the current engine, subtheme structure is derived from the
     # multi-pass clustering tree, so they have no effect. Retained so older

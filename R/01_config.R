@@ -684,7 +684,6 @@ print.ThematicConfig <- function(x, ...) {
         include_subthemes = TRUE,
         include_quotes = TRUE,
         quotes_per_theme = 3,
-        approach = "inductive",
         # Legacy subtheme-nesting depth knob (read only by the removed
         # v1 HAC walker). Under v2 subtheme depth is derived from the
         # multi-pass clustering tree, so this knob is inert; it is kept
@@ -1087,7 +1086,7 @@ create_config <- function(methodology = NULL,
       database = database_path
     ),
     analysis = list(
-      themes = list(approach = "inductive")
+      themes = list()
     ),
     output = list(
       results_dir = output_dir,

@@ -36,7 +36,6 @@ test_that("default_config has expected analysis settings", {
   expect_true(cfg$analysis$themes$include_subthemes)
   expect_true(cfg$analysis$themes$include_quotes)
   expect_equal(cfg$analysis$themes$quotes_per_theme, 3)
-  expect_equal(cfg$analysis$themes$approach, "inductive")
   expect_true(cfg$analysis$correlations$use_multi_label)
 })
 
