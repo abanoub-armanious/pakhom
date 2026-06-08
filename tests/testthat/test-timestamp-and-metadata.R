@@ -138,7 +138,7 @@ test_that("every format(Sys.time(), ...) in R/ declares tz = \"UTC\" (L-15 invar
 test_that("test fixtures in tests/testthat/ also declare tz = \"UTC\" (hygiene)", {
   test_dir <- test_path("..", "testthat")
   # Check for a known fixture file (not just the directory).
-  if (!file.exists(file.path(test_dir, "test-phase58-tier9.R"))) {
+  if (!file.exists(file.path(test_dir, "test-timestamp-and-metadata.R"))) {
     testthat::skip("tests/testthat/ source files not on disk (covr / install context)")
   }
   # Meta-audit L1: test fixtures should model the package's own
@@ -151,7 +151,7 @@ test_that("test fixtures in tests/testthat/ also declare tz = \"UTC\" (hygiene)"
   )
   # Exclude THIS file -- its own .collect_utc_offenders example strings
   # would otherwise self-match.
-  test_files <- test_files[!grepl("test-phase58-tier9\\.R$", test_files)]
+  test_files <- test_files[!grepl("test-timestamp-and-metadata\\.R$", test_files)]
   offenders <- .collect_utc_offenders(test_files)
   expect_equal(offenders, character())
 })
