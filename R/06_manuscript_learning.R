@@ -1509,7 +1509,11 @@ parse_codebook <- function(path) {
 
   # Try to detect indentation in code names (NVivo-style)
   leading_spaces <- nchar(codebook$code_name) - nchar(trimws(codebook$code_name, which = "left"))
-  if (max(leading_spaces) > 0) {
+  # Blank / NA code names (empty rows in an Excel codebook) make nchar() return
+  # NA, so max() would be NA and crash the if() with "missing value where
+  # TRUE/FALSE needed". Treat them as un-indented (top level).
+  leading_spaces[is.na(leading_spaces)] <- 0L
+  if (length(leading_spaces) > 0 && max(leading_spaces) > 0) {
     # Use indentation levels
     unique_indents <- sort(unique(leading_spaces))
     indent_map <- setNames(seq_along(unique_indents) - 1L, unique_indents)

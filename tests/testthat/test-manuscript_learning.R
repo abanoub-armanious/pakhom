@@ -222,6 +222,21 @@ test_that(".parse_filename_metadata handles unparseable filenames gracefully", {
   # Should return NAs, not error
 })
 
+test_that(".infer_hierarchy tolerates blank/NA code-name rows without crashing", {
+  # An empty row in an Excel codebook gives code_name = NA, so nchar() returns
+  # NA and the indentation max() used to crash with 'missing value where
+  # TRUE/FALSE needed'. Such rows are now treated as un-indented.
+  cb <- data.frame(
+    code_name = c("Parent", "  Child", NA),
+    parent_code = c(NA, NA, NA),
+    hierarchy_level = NA_integer_,
+    stringsAsFactors = FALSE
+  )
+  out <- pakhom:::.infer_hierarchy(cb)
+  expect_s3_class(out, "data.frame")
+  expect_equal(nrow(out), 3L)
+})
+
 # ==============================================================================
 # discover_study_folders: Directory discovery
 # ==============================================================================

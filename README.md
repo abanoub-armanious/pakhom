@@ -195,8 +195,8 @@ voice. The author is Coptic Egyptian.
   Krippendorff's alpha) for human verification of AI-generated codes
 - **Multiple AI providers** -- works with OpenAI (GPT-4o) or Anthropic (Claude)
 - **Inter-model reliability** -- run the pipeline with different AI models and
-  compare results via `compare_models()` to compute inter-model agreement
-  (Cohen's kappa, theme similarity, sentiment correlation)
+  compare results via `compare_models()` (theme Jaccard similarity, code
+  stability/churn, sentiment drift, and correlation persistence across the runs)
 - **Researcher reflexivity** -- injects researcher positionality, research
   paradigm, and reflexive notes into all AI prompts, aligning with Braun &
   Clarke's emphasis on reflexive practice and Olmos-Vega AMEE Guide 149

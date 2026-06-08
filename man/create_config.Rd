@@ -5,7 +5,7 @@
 \title{Create a minimal configuration file}
 \usage{
 create_config(
-  methodology = "codebook_collaborative",
+  methodology = NULL,
   study_name = "Untitled Study",
   research_focus = NULL,
   framework_spec_path = NULL,
@@ -21,7 +21,7 @@ create_config(
 \arguments{
 \item{methodology}{Methodology mode (mandatory): one of
 \code{"reflexive_scaffold"} (Mode 1), \code{"codebook_collaborative"}
-(Mode 2; the default), or \code{"framework_applied"} (Mode 3).
+(Mode 2), or \code{"framework_applied"} (Mode 3).
 Mode 3 also requires \code{framework_spec_path}.}
 
 \item{study_name}{Study name (default \code{"Untitled Study"}).}

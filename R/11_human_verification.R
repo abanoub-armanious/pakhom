@@ -39,10 +39,15 @@ run_human_verification <- function(data, coding_state,
   codebook_path <- file.path(irr_dir, "codebook.csv")
   ai_ref_path <- file.path(irr_dir, "ai_codes_reference.csv")
 
-  # Sample entries
-  set.seed(config$seed)
+  # Sample entries. Seed the sampling WITHOUT clobbering the caller's global
+  # RNG stream -- run_human_verification is exported, so a bare set.seed() here
+  # would permanently reset the user's random state. .with_seed restores it.
   n_sample <- min(config$sample_size, nrow(data))
-  sample_idx <- sample(nrow(data), n_sample)
+  sample_idx <- if (is.null(config$seed)) {
+    sample(nrow(data), n_sample)
+  } else {
+    .with_seed(config$seed, sample(nrow(data), n_sample))
+  }
   sample_data <- data[sample_idx, ]
 
   sample_ids <- as.character(sample_data$std_id)
@@ -545,16 +550,14 @@ run_human_verification <- function(data, coding_state,
   n <- length(human_sets)
   if (n < 8L || n_boot < 1L) return(c(NA_real_, NA_real_))
 
-  if (exists(".Random.seed", envir = .GlobalEnv, inherits = FALSE)) {
-    old_seed <- get(".Random.seed", envir = .GlobalEnv, inherits = FALSE)
-    on.exit(assign(".Random.seed", old_seed, envir = .GlobalEnv), add = TRUE)
-  }
-  set.seed(seed)
-
-  alphas <- vapply(seq_len(n_boot), function(b) {
+  # Seed the bootstrap resampling without leaking RNG state into the caller's
+  # session. The prior manual save/restore was conditional on .Random.seed
+  # already existing, so in a fresh session (no prior RNG use) it left a fixed
+  # seed behind. .with_seed restores -- or removes -- the global state correctly.
+  alphas <- .with_seed(seed, vapply(seq_len(n_boot), function(b) {
     idx <- sample.int(n, n, replace = TRUE)
     .set_krippendorff_alpha(human_sets[idx], ai_sets[idx])
-  }, numeric(1))
+  }, numeric(1)))
   alphas <- alphas[is.finite(alphas)]
   if (length(alphas) < 2L) return(c(NA_real_, NA_real_))
 

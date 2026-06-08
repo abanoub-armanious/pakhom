@@ -776,3 +776,31 @@ test_that("load_config: unnamed-list override is a leaf (custom_cleaning_rules)"
   # then stopped at the unnamed list of rules).
   expect_true(cfg$data$preprocessing$remove_urls)
 })
+
+test_that(".resolve_paths resolves a relative custom framework_spec_path (Mode 3 from any cwd)", {
+  # A Mode 3 run with a relative CUSTOM spec sitting next to config.yaml must
+  # work regardless of the working directory at run time -- like every other
+  # path field. Built-in aliases and absolute paths pass through unchanged.
+  rp <- pakhom:::.resolve_paths
+  custom <- rp(list(methodology = list(framework_spec_path = "my_framework.yaml")),
+               "/tmp/cfgdir")$methodology$framework_spec_path
+  expect_false(identical(custom, "my_framework.yaml"))          # was resolved
+  expect_true(grepl("cfgdir", custom, fixed = TRUE))            # against config dir
+  expect_true(grepl("my_framework.yaml", custom, fixed = TRUE))
+  expect_equal(rp(list(methodology = list(framework_spec_path = "tpb")),
+                  "/tmp/cfgdir")$methodology$framework_spec_path, "tpb")
+  expect_equal(rp(list(methodology = list(framework_spec_path = "/abs/x.yaml")),
+                  "/tmp/cfgdir")$methodology$framework_spec_path, "/abs/x.yaml")
+})
+
+test_that("create_config() requires an explicit methodology (AC3, no default mode)", {
+  # create_config() used to default methodology to Mode 2, silently giving a
+  # codebook config to anyone who did not choose -- contradicting AC3 and its
+  # own @param, which already said 'mandatory'. It now errors, like
+  # default_config().
+  expect_error(
+    create_config(methodology = NULL, study_name = "x",
+                  research_focus = "y", database_path = tempfile()),
+    "methodology.mode is required"
+  )
+})

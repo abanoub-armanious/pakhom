@@ -810,6 +810,14 @@ print.ThematicConfig <- function(x, ...) {
     config$output$results_dir <- resolve(config$output$results_dir)
   if (!is.null(config$output$checkpoint_dir))
     config$output$checkpoint_dir <- resolve(config$output$checkpoint_dir)
+  # Resolve a relative CUSTOM framework spec path too (Mode 3), so a run
+  # launched from a different working directory finds a spec sitting next to
+  # config.yaml -- consistent with every other path field. Built-in aliases
+  # (tpb/comb/tdf) resolve via system.file() in load_framework_spec() and must
+  # pass through unchanged.
+  fp <- config$methodology$framework_spec_path
+  if (!is.null(fp) && nzchar(fp) && is.null(.resolve_builtin_framework(fp)))
+    config$methodology$framework_spec_path <- resolve(fp)
 
   config
 }
@@ -954,7 +962,7 @@ print.ThematicConfig <- function(x, ...) {
 #'
 #' @param methodology Methodology mode (mandatory): one of
 #'   \code{"reflexive_scaffold"} (Mode 1), \code{"codebook_collaborative"}
-#'   (Mode 2; the default), or \code{"framework_applied"} (Mode 3).
+#'   (Mode 2), or \code{"framework_applied"} (Mode 3).
 #'   Mode 3 also requires \code{framework_spec_path}.
 #' @param study_name Study name (default \code{"Untitled Study"}).
 #' @param research_focus Research focus string. Required when no
@@ -1010,7 +1018,7 @@ print.ThematicConfig <- function(x, ...) {
 #' )
 #' }
 #' @export
-create_config <- function(methodology = "codebook_collaborative",
+create_config <- function(methodology = NULL,
                           study_name = "Untitled Study",
                           research_focus = NULL,
                           framework_spec_path = NULL,

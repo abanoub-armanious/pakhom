@@ -664,6 +664,16 @@ test_that("bootstrap alpha CI preserves the caller's RNG stream", {
   invisible(pakhom:::.bootstrap_alpha_ci(
     as.list(letters[1:10]), as.list(letters[1:10]), n_boot = 50L, seed = 7L))
   expect_identical(.Random.seed, before)
+
+  # ...and in a FRESH session (no .Random.seed yet) it must not LEAVE a fixed
+  # seed behind. The prior save/restore was conditional on .Random.seed already
+  # existing, so it leaked a deterministic global state in that case.
+  if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+    rm(".Random.seed", envir = globalenv())
+  }
+  invisible(pakhom:::.bootstrap_alpha_ci(
+    as.list(letters[1:10]), as.list(letters[1:10]), n_boot = 50L, seed = 7L))
+  expect_false(exists(".Random.seed", envir = globalenv(), inherits = FALSE))
 })
 
 # ==============================================================================
