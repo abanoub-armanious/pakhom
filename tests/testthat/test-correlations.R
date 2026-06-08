@@ -349,13 +349,18 @@ test_that("test_theme_cooccurrence returns tibble with expected columns", {
   }
 })
 
-test_that("test_theme_cooccurrence uses Fisher when expected < 5", {
-  # Create data where one cell will have very low expected count
-  n <- 20
+test_that("test_theme_cooccurrence uses Fisher's exact test when an expected cell < 5", {
+  # Two themes with enough co-occurrence to be analysed (observed_both >=
+  # min_observed_both) but a small margin so a 2x2 expected cell falls below
+  # min_expected, forcing Fisher (chi-square would be invalid). The prior test
+  # guarded its Fisher assertion behind `if (nrow > 0)` while its fixture (tiny
+  # themes filtered out by min_theme_entries) produced zero rows -- so it never
+  # actually checked anything.
+  n <- 30
   data <- tibble::tibble(
     std_id = paste0("e", 1:n),
-    theme_membership_Rare.A = c(rep(1L, 2), rep(0L, n - 2)),
-    theme_membership_Rare.B = c(rep(1L, 3), rep(0L, n - 3))
+    theme_membership_Rare.A = c(rep(1L, 10), rep(0L, 20)),
+    theme_membership_Rare.B = c(rep(1L, 5), rep(0L, 5), rep(1L, 3), rep(0L, 17))
   )
   theme_set <- create_theme_set(list(
     list(name = "Rare A", description = "d", codes_included = "c"),
@@ -363,11 +368,9 @@ test_that("test_theme_cooccurrence uses Fisher when expected < 5", {
   ))
   result <- test_theme_cooccurrence(data, theme_set, min_expected = 5)
   expect_s3_class(result, "tbl_df")
-  if (nrow(result) > 0) {
-    # Fisher's test doesn't produce a chi-square statistic
-    expect_true("method" %in% names(result))
-    expect_true(any(result$method == "Fisher"))
-  }
+  expect_equal(nrow(result), 1L)            # the pair IS analysed
+  expect_true("method" %in% names(result))
+  expect_equal(result$method[1], "Fisher")  # ...via Fisher (asserted unconditionally)
 })
 
 # ---------------------------------------------------------------------------
