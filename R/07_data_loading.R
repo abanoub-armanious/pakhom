@@ -453,6 +453,23 @@ standardize_data <- function(data, column_map) {
   # Map required columns
   if (!is.na(column_map$id)) {
     std$std_id <- as.character(std[[column_map$id]])
+    # std_id is the primary key for coding, quote provenance, IRR joins, and
+    # cross-run comparison; a non-unique id column silently corrupts all of
+    # them (entries collide on the key). Fail loudly rather than mis-key. (The
+    # multi-table combine path auto-recovers by prefixing with source_table; a
+    # single table has no such fallback, so point the user at the fix.)
+    n_dup <- sum(duplicated(std$std_id))
+    if (n_dup > 0L) {
+      dups <- unique(std$std_id[duplicated(std$std_id)])
+      stop(sprintf(
+        paste0("standardize_data: id column '%s' has %d duplicate value(s) ",
+               "(e.g. %s). std_id must be row-unique -- it is the primary key ",
+               "for coding, quote provenance, and cross-run joins. Point ",
+               "explicit_columns$id_column at a row-unique field, or omit it to ",
+               "auto-number rows."),
+        column_map$id, n_dup, paste(utils::head(dups, 3), collapse = ", ")),
+        call. = FALSE)
+    }
   } else {
     std$std_id <- as.character(seq_len(nrow(std)))
   }

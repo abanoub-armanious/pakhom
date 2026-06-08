@@ -531,7 +531,11 @@ run_human_verification <- function(data, coding_state,
   for (code in canonical_codes) {
     h <- vapply(human_sets, function(s) as.integer(code %in% s), integer(1))
     a <- vapply(ai_sets,    function(s) as.integer(code %in% s), integer(1))
-    if (sum(h) == 0L && sum(a) == 0L) next  # code present for neither rater
+    # Skip codes with NO variance for both raters: present for NEITHER entry,
+    # or applied to EVERY entry by BOTH. Cohen's kappa is undefined there
+    # (expected agreement = 1, so .compute_cohens_kappa returns 1.0); counting
+    # that as perfect agreement spuriously inflates the mean per-code kappa.
+    if ((sum(h) == 0L && sum(a) == 0L) || (sum(h) == n && sum(a) == n)) next
     k <- .compute_cohens_kappa(h, a)
     if (!is.na(k)) kappas <- c(kappas, k)
   }

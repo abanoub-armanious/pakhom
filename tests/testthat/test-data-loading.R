@@ -129,6 +129,21 @@ test_that("load_and_combine_tables auto-prefixes with source_table when explicit
   expect_true(all(grepl("^(posts|comments):", combined$std_id)))
 })
 
+test_that("standardize_data errors on a non-unique single-table id column (std_id integrity)", {
+  # std_id is the primary key for coding / quote provenance / IRR / cross-run
+  # joins. A single table whose id column has duplicates would silently corrupt
+  # coding; standardize_data must fail loudly (the multi-table path can
+  # auto-prefix with source_table, but a single table has no such fallback).
+  cm <- list(id = "uid", text = "txt", author = NA, timestamp = NA,
+             metrics = character(0))
+  dup <- data.frame(uid = c("a", "a", "b"), txt = c("x", "y", "z"),
+                    stringsAsFactors = FALSE)
+  expect_error(standardize_data(dup, cm), "duplicate value")
+  uniq <- data.frame(uid = c("a", "b", "c"), txt = c("x", "y", "z"),
+                     stringsAsFactors = FALSE)
+  expect_equal(nrow(standardize_data(uniq, cm)), 3L)
+})
+
 test_that("load_and_combine_tables refuses when intra-table std_id duplicates persist after prefixing", {
   td <- withr::local_tempdir()
   db_path <- file.path(td, "test.db")

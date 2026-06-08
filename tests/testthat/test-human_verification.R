@@ -610,8 +610,11 @@ test_that(".mean_per_code_kappa averages per-code agreement", {
   k <- pakhom:::.mean_per_code_kappa(list("a", "b"), list("a", "c"),
                                      c("a", "b", "c"))
   expect_equal(k, 1 / 3, tolerance = 1e-9)
-  # Codes present for neither rater are skipped (no spurious 1.0).
-  k2 <- pakhom:::.mean_per_code_kappa(list("a"), list("a"), c("a", "zzz"))
+  # No-variance codes are skipped (present for NEITHER entry, or applied to
+  # EVERY entry by BOTH) -- neither yields a spurious 1.0. Here "a" varies and
+  # agrees (k=1); "zzz" is absent and "u" is universal, both skipped.
+  k2 <- pakhom:::.mean_per_code_kappa(
+    list(c("a", "u"), c("u")), list(c("a", "u"), c("u")), c("a", "u", "zzz"))
   expect_equal(k2, 1.0)
 })
 
@@ -674,6 +677,16 @@ test_that("bootstrap alpha CI preserves the caller's RNG stream", {
   invisible(pakhom:::.bootstrap_alpha_ci(
     as.list(letters[1:10]), as.list(letters[1:10]), n_boot = 50L, seed = 7L))
   expect_false(exists(".Random.seed", envir = globalenv(), inherits = FALSE))
+})
+
+test_that("mean per-code kappa excludes no-variance codes (no upward inflation)", {
+  # A code BOTH raters apply to every entry has no variance, so Cohen's kappa
+  # is undefined there. It must be excluded -- not counted as a perfect 1.0
+  # that spuriously inflates the mean per-code kappa.
+  human <- list(c("U", "A"), c("U"), c("U", "A"), c("U"))
+  ai    <- list(c("U"), c("U", "A"), c("U", "A"), c("U"))
+  # Code A alone has kappa 0; the universal code U would inflate the mean to 0.5.
+  expect_equal(pakhom:::.mean_per_code_kappa(human, ai, c("U", "A")), 0)
 })
 
 # ==============================================================================
