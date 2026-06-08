@@ -68,5 +68,5 @@ deprecation notice.
 \details{
 The function name retains its earlier form for back-compat with
 the single production caller (R/18_pipeline.R) and existing test
-fixtures. A future cleanup phase may rename to \code{generate_themes()}.
+fixtures. A future release may rename it to \code{generate_themes()}.
 }

@@ -31,14 +31,13 @@ test_that("generate_methodology_rules: reflexive_scaffold rules forbid theme pro
 
 test_that("generate_methodology_rules: codebook_collaborative allows codes + theme proposals", {
   # An earlier rule said "model does NOT name themes"; the AI now
-  # proposes theme names via the clustering pass's
-  # central_organizing_concept. The refreshed rule reflects this while
-  # keeping researcher-as-final-author.
+  # proposes theme + subtheme names in the post-clustering labeling pass.
+  # The refreshed rule reflects this while keeping researcher-as-final-author.
   cfg <- list(methodology = list(mode = "codebook_collaborative"))
   rules <- generate_methodology_rules(cfg)
   expect_match(rules, "Mode 2 \\(Codebook Collaborative\\)")
   expect_match(rules, "MAY propose codes")
-  # AI now articulates the central organizing concept = theme-name proposal
+  # the rules ask the AI to articulate each theme's central organizing concept
   expect_match(rules, "central organizing concept")
   # Researcher can rename/merge/split/delete at the end
   expect_match(rules, "rename, merge, split, or delete")

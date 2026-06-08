@@ -14,24 +14,26 @@ live_snapshot_clusters(
 \arguments{
 \item{tracker}{A \code{LiveTracker} or NULL}
 
-\item{walk_status}{One of \code{"in_progress"}, \code{"theme_walk_complete"},
-\code{"subtheme_walk_complete"}}
+\item{walk_status}{Character status label recorded in the snapshot, e.g.
+\code{"v2_complete"} (multi-pass clustering) or
+\code{"framework_deductive_complete"} (Mode 3 deductive pass).}
 
 \item{walk_state}{The walk_state environment (or list) carrying
 \code{n_calls}, \code{n_failed_calls}, \code{decisions}.}
 
-\item{themes_so_far}{List of in-progress theme records (each with
-\code{name}, \code{description}, \code{code_indices}, \code{code_keys}).
-Optional; the snapshot just records empty themes when the walk is
-mid-flight.}
+\item{themes_so_far}{List of theme records (each with \code{name},
+\code{description}, \code{code_indices}, \code{code_keys}). Optional;
+the snapshot records an empty theme set when none are supplied.}
 }
 \value{
 The (possibly updated) tracker, invisibly.
 }
 \description{
-Called during theme generation after each AI clustering decision.
-Captures the in-progress theme structure so a researcher can watch
-themes form in real time.
+Called once at the end of theme generation -- the multi-pass algorithm
+writes it after convergence + labeling, the Mode 3 deductive pass after
+its framework themes are assembled -- so a researcher can \code{cat} the
+final theme structure. Per-pass partition proposals stream separately to
+\code{clustering_pass_<N>.json} (see \code{live_record_clustering_pass}).
 }
 \details{
 Atomic rewrite. Safe to call with \code{tracker = NULL} (no-op).

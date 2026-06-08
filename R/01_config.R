@@ -498,10 +498,6 @@ print.ThematicConfig <- function(x, ...) {
       # silently truncated long-form entries (interviews, multi-paragraph
       # posts) regardless of model context window.
       max_entry_chars = NULL,
-      multi_model = list(
-        enabled = FALSE,
-        models = list()  # list of list(provider, model, api_key_env)
-      ),
       openai = list(
         api_key_env = "OPENAI_API_KEY",
         models = list(
@@ -866,7 +862,7 @@ print.ThematicConfig <- function(x, ...) {
 #' lists, unnamed/positional lists (e.g.,
 #' \code{custom_cleaning_rules = list(list(pattern = ...))}), and
 #' data.frames are treated as leaves so a config value that legitimately
-#' is a list (e.g., \code{ai$multi_model$models}) is not mis-walked.
+#' is a list is not mis-walked.
 #' Mixed-named lists (some entries with empty names) are recursed into
 #' so the recursive top-of-function name check can fire an error with
 #' the full dot-path prefix for localization.

@@ -17,10 +17,11 @@
 #      n_segments). Refreshed after every entry by default, or every N
 #      entries via codebook_snapshot_every. Researchers `cat` the file to
 #      see the codebook NOW.
-#   3. code_to_cluster.json    -- atomic-rewrite snapshot of the cluster
-#      hierarchy as the HAC tree walk produces themes. After each theme
-#      decision, the file contains: themes (each with codes), pending
-#      walk state (decisions so far). Refreshed at every node in the walk.
+#   3. code_to_cluster.json    -- atomic-rewrite snapshot of the theme/
+#      cluster hierarchy produced by the multi-pass clustering: themes
+#      (each with their codes) plus the clustering decision trail. Written
+#      after convergence + labeling; per-pass partition proposals stream
+#      separately to clustering_pass_<N>.json.
 #
 # The C3 commitment from the rewrite plan: "researcher wants to see, in real
 # time, what entries are listed under what codes (with quoted segments
@@ -274,21 +275,23 @@ live_snapshot_codebook <- function(tracker, codebook, entry_index = NA_integer_,
 
 #' Snapshot the current theme/cluster hierarchy to \code{code_to_cluster.json}
 #'
-#' Called during theme generation after each AI clustering decision.
-#' Captures the in-progress theme structure so a researcher can watch
-#' themes form in real time.
+#' Called once at the end of theme generation -- the multi-pass algorithm
+#' writes it after convergence + labeling, the Mode 3 deductive pass after
+#' its framework themes are assembled -- so a researcher can \code{cat} the
+#' final theme structure. Per-pass partition proposals stream separately to
+#' \code{clustering_pass_<N>.json} (see \code{live_record_clustering_pass}).
 #'
 #' Atomic rewrite. Safe to call with \code{tracker = NULL} (no-op).
 #'
 #' @param tracker A \code{LiveTracker} or NULL
-#' @param walk_status One of \code{"in_progress"}, \code{"theme_walk_complete"},
-#'   \code{"subtheme_walk_complete"}
+#' @param walk_status Character status label recorded in the snapshot, e.g.
+#'   \code{"v2_complete"} (multi-pass clustering) or
+#'   \code{"framework_deductive_complete"} (Mode 3 deductive pass).
 #' @param walk_state The walk_state environment (or list) carrying
 #'   \code{n_calls}, \code{n_failed_calls}, \code{decisions}.
-#' @param themes_so_far List of in-progress theme records (each with
-#'   \code{name}, \code{description}, \code{code_indices}, \code{code_keys}).
-#'   Optional; the snapshot just records empty themes when the walk is
-#'   mid-flight.
+#' @param themes_so_far List of theme records (each with \code{name},
+#'   \code{description}, \code{code_indices}, \code{code_keys}). Optional;
+#'   the snapshot records an empty theme set when none are supplied.
 #' @return The (possibly updated) tracker, invisibly.
 #' @export
 live_snapshot_clusters <- function(tracker, walk_status,

@@ -367,7 +367,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   # artifacts under outputs/<run>/live/ -- code_assignments.jsonl (append-only
   # event log), codebook_live.json (atomic-rewrite snapshot of the current
   # codebook), code_to_cluster.json (atomic-rewrite snapshot of theme/subtheme
-  # hierarchy as the HAC tree walk produces themes). Researchers can `tail -F`
+  # hierarchy as the multi-pass clustering produces themes). Researchers can `tail -F`
   # or `cat` these during a long run to watch the analysis evolve.
   live_tracker <- tryCatch(
     init_live_tracker(output_dir),
@@ -752,12 +752,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
       }
       save_checkpoint(checkpoint, "themes_generated", theme_set)
     } else {
-      algorithm_label <- if (identical(as.character(config$analysis$themes$algorithm %||% "v2"), "v1")) {
-        "HAC + AI-judged divisive tree walk (legacy v1)"
-      } else {
-        "multi-pass AI clustering with label-after-clustering (v2)"
-      }
-      log_info(paste0("\n[STEP 5] Generating themes via ", algorithm_label, "..."))
+      log_info("\n[STEP 5] Generating themes via multi-pass AI clustering with label-after-clustering...")
       theme_set <- generate_themes_iterative(
         coding_state, provider, config$analysis$themes,
         learning_context = learning_context,

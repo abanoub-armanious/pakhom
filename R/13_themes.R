@@ -61,7 +61,7 @@
 #'
 #' The function name retains its earlier form for back-compat with
 #' the single production caller (R/18_pipeline.R) and existing test
-#' fixtures. A future cleanup phase may rename to \code{generate_themes()}.
+#' fixtures. A future release may rename it to \code{generate_themes()}.
 #'
 #' @param coding_state \code{ProgressiveCodingState}
 #' @param provider \code{AIProvider} object
@@ -951,7 +951,7 @@ apply_framework_themes <- function(coding_state, framework_spec,
   # generate new framework constructs during coding" -- a direct
   # contradiction with the inductive prompt. Pre-compute the override once
   # here so .generate_emergent_themes_from_anomalies can thread it into
-  # both the segment-coding call AND the downstream HAC tree-walk for
+  # both the segment-coding call AND the downstream theme generation for
   # emergent themes. NULL when no config provided (legacy/test callers);
   # the inductive path falls through to the provider default in that case.
   inductive_override <- if (!is.null(config)) {

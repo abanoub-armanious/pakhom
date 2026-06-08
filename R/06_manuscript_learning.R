@@ -234,7 +234,7 @@ parse_raw_data_files <- function(raw_data_dir, max_files = NULL, seed = NULL) {
 
   if (!is.null(max_files) && length(files) > max_files) {
     if (!is.null(seed)) {
-      files <- withr::with_seed(seed, sample(files, max_files))
+      files <- .with_seed(seed, sample(files, max_files))
     } else {
       files <- sample(files, max_files)
     }
@@ -497,7 +497,7 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
 
           # Add entry-level coding examples (actual coded segments)
           sample_refs <- refs[!is.na(refs$coded_text), ]
-          sample_refs <- withr::with_seed(seed, {
+          sample_refs <- .with_seed(seed, {
             sample_refs[sample(seq_len(nrow(sample_refs)),
                                min(10, nrow(sample_refs))), ]
           })
@@ -567,7 +567,7 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
       if (n_with_text > 0) {
         # Seed the raw-example sampling with the SAME single seed (it was
         # previously unseeded), so the whole learning context is reproducible.
-        samples <- withr::with_seed(seed,
+        samples <- .with_seed(seed,
           rd_with_text |> slice_sample(n = min(max_raw_samples, n_with_text)))
         for (i in seq_len(nrow(samples))) {
           sample_text <- substr(samples$text[i], 1, 300)
@@ -967,6 +967,10 @@ parse_codebook <- function(path) {
 #'   $coding_references (tibble), $sources (tibble), $hierarchy (nested list)
 #' @keywords internal
 .parse_qdpx_deep <- function(path) {
+  if (!requireNamespace("xml2", quietly = TRUE)) {
+    log_warn("xml2 package required to parse QDPX codebooks. Install with: install.packages('xml2')")
+    return(NULL)
+  }
   temp_dir <- tempfile()
   dir.create(temp_dir)
   on.exit(unlink(temp_dir, recursive = TRUE), add = TRUE)
@@ -1738,6 +1742,10 @@ compute_coding_benchmarks <- function(studies) {
 #' Extract text from DOCX using xml2
 #' @keywords internal
 .extract_docx_text <- function(file_path) {
+  if (!requireNamespace("xml2", quietly = TRUE)) {
+    log_warn("xml2 package required to read .docx manuscripts. Install with: install.packages('xml2')")
+    return(NULL)
+  }
   # Unzip the DOCX and read word/document.xml
   temp_dir <- tempfile()
   dir.create(temp_dir)

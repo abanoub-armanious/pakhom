@@ -3521,23 +3521,15 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     "codebook_collaborative" = "AI-assisted **codebook** thematic analysis (Braun & Clarke's codebook orientation -- an evolving, AI-collaborative codebook with a full provenance/audit trail)",
     "framework_applied"      = "AI-assisted **framework-applied** (deductive) thematic analysis (a pre-specified framework mapped onto the corpus, with an abductive pass for non-fitting data)",
     "AI-assisted thematic analysis")
-  # The theme-generation step must describe the algorithm that ACTUALLY ran. The
-  # production default is the v2 embedding-free multi-pass AI clustering, NOT the
-  # retired HAC-on-embeddings path -- so branch on the configured algorithm, or
-  # the methods text a researcher pastes into a manuscript misstates the method.
-  # Mirrors the dynamic algorithm label the pipeline logs.
-  theme_algo <- config$analysis$themes$algorithm %||% "v2"
-  theme_step_desc <- if (identical(theme_algo, "v1")) {
-    "**HAC + AI-judged divisive theme walk** -- codes clustered via ward.D2 on cosine embeddings; AI judges coherence at each internal node; nested sub-subthemes when subthemes exceed a size cap"
-  } else {
-    "**Multi-pass AI clustering with label-after-clustering** -- the AI sees all codes at once and proposes a partition into conceptual clusters; passes repeat (grouping clusters into larger clusters) until the AI declares convergence (no hardcoded pass count); a separate post-convergence pass assigns theme + subtheme labels. Embedding-free; clustering depth is the AI's dynamic call"
-  }
-  theme_algo_row <- if (identical(theme_algo, "v1")) {
-    "HAC (ward.D2 linkage, cosine distance on code-name embeddings; Jaccard fallback) + AI-judged divisive tree walk"
-  } else {
-    "Multi-pass AI clustering: AI-proposed partitions until AI-declared convergence, then a separate labeling pass (embedding-free; no count thresholds)"
-  }
-  theme_algo_short <- if (identical(theme_algo, "v1")) "the HAC + AI tree walk" else "the multi-pass AI clustering"
+  # The theme-generation step describes the algorithm that ACTUALLY runs. The
+  # production theme generator is the embedding-free multi-pass AI clustering;
+  # the retired HAC-on-embeddings path was removed, and a config that pins the
+  # deprecated algorithm = "v1" now dispatches to this same generator. So the
+  # appendix always emits the multi-pass description -- matching what the
+  # pipeline logs and what actually executed.
+  theme_step_desc <- "**Multi-pass AI clustering with label-after-clustering** -- the AI sees all codes at once and proposes a partition into conceptual clusters; passes repeat (grouping clusters into larger clusters) until the AI declares convergence (no hardcoded pass count); a separate post-convergence pass assigns theme + subtheme labels. Embedding-free; clustering depth is the AI's dynamic call"
+  theme_algo_row <- "Multi-pass AI clustering: AI-proposed partitions until AI-declared convergence, then a separate labeling pass (embedding-free; no count thresholds)"
+  theme_algo_short <- "the multi-pass AI clustering"
   content <- paste0(
     "# Appendix A: Methodology\n\n",
     "## Analysis Process\n\n",

@@ -27,3 +27,6 @@ pipeline_run.log
 
 # Internal development / strategy notes -- kept local, never published
 /notes/
+
+# Local harness state (Claude Code) -- never published
+.claude/

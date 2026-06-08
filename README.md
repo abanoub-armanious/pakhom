@@ -193,8 +193,7 @@ voice. The author is Coptic Egyptian.
   WARN banners describing methodology-era drift
 - **Inter-rater reliability** -- built-in IRR computation (Cohen's kappa,
   Krippendorff's alpha) for human verification of AI-generated codes
-- **Multiple AI providers** -- works with OpenAI (GPT-4o) or Anthropic (Claude),
-  with optional parallel multi-model mode for cross-provider analysis
+- **Multiple AI providers** -- works with OpenAI (GPT-4o) or Anthropic (Claude)
 - **Inter-model reliability** -- run the pipeline with different AI models and
   compare results via `compare_models()` to compute inter-model agreement
   (Cohen's kappa, theme similarity, sentiment correlation)
@@ -219,8 +218,8 @@ voice. The author is Coptic Egyptian.
   effect-size lollipop charts for large correlation matrices, theme network
   filtered to top-N by weighted degree with an explanatory legend, top-N
   inline cards plus compact-row tail for large theme inventories
-- **Methodological transparency report bundler** -- `bundle_transparency_-
-  report(run_dir)` produces a single self-contained HTML + JSON companion
+- **Methodological transparency report bundler** --
+  `bundle_transparency_report(run_dir)` produces a single self-contained HTML + JSON companion
   bundling audit log + Lincoln & Guba (1985) credibility / dependability /
   confirmability / transferability mapping + reflexivity scaffold + T0.1
   dashboard + T0.3 coverage card + theme set summary. The "AI does the
@@ -346,8 +345,7 @@ pakhom::persist_memos(result$reflection_log, result$output_dir)
 | 11. Cross-run comparison | Compares themes, codes, and sentiment across runs; detects inter-model reliability |
 
 Optional steps: researcher review points (after coding and/or theme generation,
-in CSV or QDPX format), human verification (IRR), parallel multi-model mode,
-and AI decision audit logging.
+in CSV or QDPX format), human verification (IRR), and AI decision audit logging.
 
 ## Who is this for?
 
@@ -393,10 +391,6 @@ results2 <- run_analysis("config.yaml")
 comparison <- compare_models("outputs/")
 ```
 
-An optional parallel multi-model mode is also available (`ai.multi_model.enabled: true`
-in config). Note: parallel mode disables reviewer pauses to preserve model
-independence. For reviewer-guided analysis, use single-model sequential runs.
-
 ## Documentation
 
 - **[Getting Started vignette](articles/getting-started.html)** -- step-by-step
@@ -410,7 +404,7 @@ independence. For reviewer-guided analysis, use single-model sequential runs.
 ## For methodologists / reviewers: architectural commitments
 
 The package codifies ten load-bearing commitments. Each is regression-
-tested at the integration level (the test suite has 4,700+ expectations
+tested at the integration level (the test suite has more than 4,600 expectations
 pinning them against silent regression). They are
 the contract a peer reviewer can check the package's claims against:
 
@@ -438,7 +432,7 @@ context.
 Distinct from the mode-design commitments above, the package's
 **algorithm-level** behaviour is governed by eight commitments — C1
 through C8 — distilled from the rewrite-direction conversations that
-shaped Phases 50–60. These are *how the package thinks*, not *what modes
+shaped the package's design. These are *how the package thinks*, not *what modes
 it offers*. They are equally load-bearing and equally regression-tested,
 and any code change that touches coding, clustering, statistics, or
 output rendering must honour them:

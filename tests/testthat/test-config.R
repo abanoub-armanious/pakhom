@@ -49,8 +49,6 @@ test_that("default_config has new config fields", {
   # New reflexivity fields
   expect_null(cfg$study$research_paradigm)
   expect_null(cfg$study$reflexive_notes)
-  # Multi-model config
-  expect_false(cfg$ai$multi_model$enabled)
   # Review format
   expect_equal(cfg$analysis$review_points$format, "csv")
 })

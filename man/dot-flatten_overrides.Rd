@@ -38,7 +38,7 @@ named list (\code{is.list} TRUE, \code{length > 0}, has
 lists, unnamed/positional lists (e.g.,
 \code{custom_cleaning_rules = list(list(pattern = ...))}), and
 data.frames are treated as leaves so a config value that legitimately
-is a list (e.g., \code{ai$multi_model$models}) is not mis-walked.
+is a list is not mis-walked.
 Mixed-named lists (some entries with empty names) are recursed into
 so the recursive top-of-function name check can fire an error with
 the full dot-path prefix for localization.

@@ -15,10 +15,11 @@
 .pr_appendix <- function(cfg) .build_methodology_appendix(
   stats = list(), export_files = list(codes_file = "codes.csv"), config = cfg)
 
-test_that("methodology appendix describes the ACTUAL theme algorithm (v2 default, v1 when pinned)", {
+test_that("methodology appendix describes the ACTUAL theme algorithm (always v2; pinned 'v1' runs as v2)", {
   ap_v2 <- .pr_appendix(.pr_cfg("v2"))
-  # The methods text a researcher pastes into a paper must describe v2 (the
-  # production default), NOT the retired HAC-on-embeddings path.
+  # The methods text a researcher pastes into a paper must describe the
+  # multi-pass AI clustering that actually runs, NOT the retired
+  # HAC-on-embeddings path.
   expect_match(ap_v2, "Multi-pass AI clustering", fixed = TRUE)
   expect_false(grepl("ward.D2", ap_v2, fixed = TRUE))
   expect_false(grepl("cosine embeddings", ap_v2, fixed = TRUE))
@@ -27,13 +28,17 @@ test_that("methodology appendix describes the ACTUAL theme algorithm (v2 default
   cfg_default <- .pr_cfg("v2"); cfg_default$analysis$themes$algorithm <- NULL
   expect_match(.pr_appendix(cfg_default), "Multi-pass AI clustering", fixed = TRUE)
   expect_false(grepl("ward.D2", .pr_appendix(cfg_default), fixed = TRUE))
-  # a v1-pinned run still gets an ACCURATE legacy description
+  # The v1 algorithm was deleted: pinning the deprecated algorithm = "v1"
+  # now dispatches to v2, so the appendix must describe v2 too -- never the
+  # retired HAC text, or the methods would misstate what executed.
   ap_v1 <- .pr_appendix(.pr_cfg("v1"))
-  expect_match(ap_v1, "ward.D2", fixed = TRUE)
-  expect_false(grepl("Multi-pass AI clustering", ap_v1, fixed = TRUE))
+  expect_match(ap_v1, "Multi-pass AI clustering", fixed = TRUE)
+  expect_false(grepl("ward.D2", ap_v1, fixed = TRUE))
+  expect_false(grepl("cosine embeddings", ap_v1, fixed = TRUE))
   # the Statistical-Notes decision-point list is algorithm-accurate too
   expect_match(ap_v2, "the multi-pass AI clustering", fixed = TRUE)
-  expect_match(ap_v1, "the HAC + AI tree walk", fixed = TRUE)
+  expect_match(ap_v1, "the multi-pass AI clustering", fixed = TRUE)
+  expect_false(grepl("the HAC + AI tree walk", ap_v1, fixed = TRUE))
   # published methods text carries no internal dev-process labels
   expect_false(grepl("Phase 60", ap_v2, fixed = TRUE))
   expect_false(grepl("Phase 52", ap_v1, fixed = TRUE))

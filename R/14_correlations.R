@@ -1272,9 +1272,9 @@ create_theme_network <- function(data, theme_set, output_path = "theme_network.p
   # runs (AC10 replay-equivalence). An earlier implementation
   # called layout_with_fr() with no seed control, so even on identical
   # data the network plot rendered with different node positions.
-  # withr::with_seed pattern matches R/06_manuscript_learning.R:237
-  # and R/14_correlations.R:185 (existing internal convention).
-  fr_layout <- withr::with_seed(42L, igraph::layout_with_fr(g))
+  # .with_seed() uses withr when installed and a save/restore fallback
+  # otherwise (withr is Suggests), so this never hard-depends on withr.
+  fr_layout <- .with_seed(42L, igraph::layout_with_fr(g))
 
   png(output_path, width = 1400, height = 1100, res = 120)
   tryCatch({

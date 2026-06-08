@@ -301,7 +301,7 @@ online forum corpus):
 
 In these three validation runs (n = 3 -- indicative, not a performance
 guarantee) all landed in a 4-10 theme range with zero single-code themes.
-The Round 6 case (157 codes → 3 substantive passes → 7 themes with 2-3
+The Run 6 case (157 codes → 3 substantive passes → 7 themes with 2-3
 subthemes each) demonstrates that v2 can produce a clean theme/subtheme
 hierarchy at realistic codebook scale. Single-code reduction is
 run-dependent, not a guaranteed invariant (C-tenet 1: the AI judges
@@ -491,7 +491,7 @@ constraint. Without the footnote, a reviewer reading "Model freeform
 the Anthropic prevention layer isn't engaged — the footnote makes the
 architectural reason explicit rather than letting it look like a bug.
 
-A future phase may explore a hybrid schema (constrained constructs
+A future release may explore a hybrid schema (constrained constructs
 paired with citation offsets) as a research spike.
 
 ### When to use Mode 3
@@ -634,8 +634,7 @@ verify both sets against the code; every contributor (human or AI)
 touching the algorithm layer should re-read both before changing
 behaviour. The two families are orthogonal — mode-design changes
 (adding a fourth mode, say — which AC2 forbids) and algorithm
-changes (replacing single-pass HAC with multi-pass clustering — Phase
-60) are independent.
+changes (replacing single-pass HAC with multi-pass clustering) are independent.
 
 For algorithm authors specifically, the C-commitments to watch:
 

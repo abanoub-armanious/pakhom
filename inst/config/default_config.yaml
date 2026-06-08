@@ -105,10 +105,6 @@ study:
 ai:
   provider: "openai"              # "openai" or "anthropic".
 
-  multi_model:
-    enabled: false                # Run multiple models in parallel for inter-model agreement.
-    models: []                    # List of {provider, model, api_key_env} entries.
-
   openai:
     api_key_env: "OPENAI_API_KEY" # Env var holding the key. Set in .Renviron, not here.
     models:

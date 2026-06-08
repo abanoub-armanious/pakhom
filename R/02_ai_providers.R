@@ -722,8 +722,8 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 # Citations API helpers
 # ==============================================================================
 # T0.1 anti-fabrication has two layers: DETECTION (verification ladder in
-# R/quote_provenance.R, shipped phases 17-19) and PREVENTION (Anthropic
-# Citations API, this phase). Citations API guarantees server-side that
+# R/quote_provenance.R) and PREVENTION (Anthropic Citations API,
+# implemented here). Citations API guarantees server-side that
 # returned indices are valid pointers into the provided document -- the
 # model literally cannot return a span that doesn't exist in the source.
 # This module provides the provider-side primitives; the bridge from

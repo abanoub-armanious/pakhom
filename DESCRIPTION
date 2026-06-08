@@ -19,7 +19,7 @@ Description: Conducts AI-assisted thematic analysis across three
     data with Markdown round-trip, framework specs (Theory of Planned
     Behavior, COM-B, Theoretical Domains Framework included as built-ins),
     and publication-quality HTML reports. Empirically motivated by Sarkar
-    2024 (CACM, AI Should Challenge Not Obey), Jowsey et al. 2025 (PLOS
+    2024 (CACM, AI Should Challenge, Not Obey), Jowsey et al. 2025 (PLOS
     One, the Frankenstein finding), and Braun and Clarke 2022 (reflexive
     thematic analysis). The package name 'pakhom' (Coptic for 'eagle')
     honors Saint Pachomius the Great (c. 292-348 CE), whose written Rule
@@ -62,17 +62,12 @@ Suggests:
     pdftools,
     pkgdown,
     progress,
-    purrr,
     readxl,
     shiny,
-    SnowballC,
     testthat (>= 3.0.0),
-    tidyr,
     withr,
     xml2,
     DT,
-    furrr,
-    future,
     igraph
 VignetteBuilder: knitr
 Config/testthat/edition: 3

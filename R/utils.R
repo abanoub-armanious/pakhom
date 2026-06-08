@@ -97,6 +97,40 @@ generate_run_id <- function() {
   paste0("run_", format(Sys.time(), "%Y-%m-%d_%H%M%S", tz = "UTC"))
 }
 
+#' Run an expression under a fixed RNG seed (withr optional)
+#'
+#' Mirrors \code{withr::with_seed()} when the suggested \code{withr} package is
+#' installed; otherwise saves, sets, and restores the global RNG manually so the
+#' result is reproducible without leaving the caller's RNG stream perturbed.
+#' This keeps reproducibility working even when \code{withr} (Suggests) is absent,
+#' so callers never hard-depend on it.
+#'
+#' @param seed Integer seed.
+#' @param code Expression evaluated under \code{seed} (lazily evaluated).
+#' @return The value of \code{code}.
+#' @keywords internal
+#' @noRd
+.with_seed <- function(seed, code) {
+  if (requireNamespace("withr", quietly = TRUE)) {
+    return(withr::with_seed(seed, code))
+  }
+  # Fallback: replicate withr::with_seed -- seed the RNG for `code`, then
+  # restore the caller's prior RNG state so the global stream is untouched.
+  if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+    old_seed <- get(".Random.seed", envir = globalenv(), inherits = FALSE)
+    on.exit(assign(".Random.seed", old_seed, envir = globalenv()), add = TRUE)
+  } else {
+    on.exit(
+      if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
+        rm(".Random.seed", envir = globalenv())
+      },
+      add = TRUE
+    )
+  }
+  set.seed(seed)
+  code
+}
+
 #' Create a progress bar that works in non-interactive/background mode
 #'
 #' When R runs without a terminal (e.g., background jobs), the progress
