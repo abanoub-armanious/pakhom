@@ -37,6 +37,15 @@ parse_json_safely <- function(response, expected_key = NULL,
   cleaned <- gsub("^```json\\s*", "", cleaned)
   cleaned <- gsub("^```\\s*", "", cleaned)
   cleaned <- gsub("\\s*```$", "", cleaned)
+  # Re-check emptiness AFTER fence removal. An all-fence response (e.g.
+  # "```json\n```") is non-empty before stripping but empty after, and the
+  # downstream repair path errors on "" with "missing value where TRUE/FALSE
+  # needed" -- violating the documented NULL-on-unparseable contract. Return
+  # NULL cleanly instead.
+  if (nchar(trimws(cleaned)) == 0) {
+    log_warn("JSON response empty after code-fence removal")
+    return(NULL)
+  }
 
   # Strategy 0: Direct parse
   result <- .try_parse(cleaned, expected_key)

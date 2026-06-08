@@ -1818,7 +1818,10 @@ compute_coding_benchmarks <- function(studies) {
   # Try to parse the structured format
   date_pattern <- "(\\d{4}-\\d{2}-\\d{2})_(\\d{4}-\\d{2}-\\d{2})"
   username_pattern <- "Username\\s+([^_]+)"
-  rating_pattern <- "Rating\\s+([\\d.NA]+)"
+  # [0-9] not \d: inside a character class, R's default (TRE) regex engine does
+  # NOT treat \d as a digit shorthand, so "[\d.NA]" matched no digits and the
+  # rating was always NA. [0-9.NA] is engine-agnostic.
+  rating_pattern <- "Rating\\s+([0-9.NA]+)"
   likes_pattern <- "Likes\\s+(\\d+)"
 
   date_scraped <- NA_character_

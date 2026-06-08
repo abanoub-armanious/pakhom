@@ -54,3 +54,12 @@ test_that("parse_json_safely handles JSON arrays", {
   result <- parse_json_safely(json)
   expect_true(is.list(result) || is.data.frame(result))
 })
+
+test_that("parse_json_safely returns NULL (not a crash) on empty-after-fence input", {
+  # An all-fence response is non-empty before fence stripping but empty after;
+  # the repair path used to error with "missing value where TRUE/FALSE needed",
+  # violating the documented NULL-on-unparseable contract.
+  for (inp in c("```json\n```", "```\n```", "```json\n \n```")) {
+    expect_null(suppressWarnings(parse_json_safely(inp)), info = inp)
+  }
+})

@@ -141,9 +141,21 @@ load_checkpoint <- function(manager, step_name) {
   file_path <- file.path(manager$checkpoint_dir,
                           paste0(step_name, ".rds"))
 
+  # readRDS on a corrupt/truncated payload throws -- exactly the partial-failure
+  # case resume=TRUE is meant to recover from (process killed mid-write). Treat
+  # an unreadable checkpoint as "step not done" (return NULL) so the pipeline
+  # recomputes it, rather than crashing on every resume attempt.
+  .read_checkpoint_safely <- function(path, label) {
+    tryCatch(readRDS(path), error = function(e) {
+      log_warn(paste0(label, " checkpoint '", step_name,
+                      "' is unreadable (", conditionMessage(e),
+                      "); recomputing this step."))
+      NULL
+    })
+  }
   if (file.exists(file_path)) {
     log_info("Loading checkpoint: {step_name}")
-    return(readRDS(file_path))
+    return(.read_checkpoint_safely(file_path, "Full"))
   }
 
   # Check for partial
@@ -151,7 +163,7 @@ load_checkpoint <- function(manager, step_name) {
                              paste0(step_name, "_partial.rds"))
   if (file.exists(partial_path)) {
     log_info("Loading partial checkpoint: {step_name}")
-    return(readRDS(partial_path))
+    return(.read_checkpoint_safely(partial_path, "Partial"))
   }
 
   NULL

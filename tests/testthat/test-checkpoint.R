@@ -108,3 +108,15 @@ test_that("symlink detection works via base R", {
   file.symlink(f, link)
   expect_true(nzchar(Sys.readlink(link)))
 })
+
+test_that("load_checkpoint returns NULL (not a crash) on a corrupt payload", {
+  # A truncated/corrupt .rds is the partial-failure case resume=TRUE is meant
+  # to recover from; it must be treated as 'step not done' (recompute), not
+  # crash on every resume attempt.
+  tmp <- tempfile(); dir.create(tmp)
+  on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
+  mgr <- init_checkpoints(tmp, config_hash = "x")
+  writeLines("this is not a valid rds payload",
+             file.path(mgr$checkpoint_dir, "badstep.rds"))
+  expect_null(suppressWarnings(load_checkpoint(mgr, "badstep")))
+})

@@ -971,22 +971,27 @@ list_available_runs <- function(results_base) {
   migration <- joined |>
     dplyr::count(.data$theme_prev, .data$theme_curr, name = "n_entries")
 
-  # Determine stable entries (same theme or matched theme)
-  if (!is.null(theme_matches) && nrow(theme_matches$persisted) > 0) {
-    # Use theme matching to account for renamed themes
-    theme_map <- stats::setNames(
-      theme_matches$persisted$theme_prev,
-      theme_matches$persisted$theme_curr
-    )
-    joined$theme_prev_mapped <- ifelse(
-      joined$theme_curr %in% names(theme_map),
-      theme_map[joined$theme_curr],
-      joined$theme_curr
-    )
-    n_stable <- sum(joined$theme_prev == joined$theme_prev_mapped, na.rm = TRUE)
-  } else {
-    n_stable <- sum(joined$theme_prev == joined$theme_curr, na.rm = TRUE)
+  # Determine stable entries by comparing theme SETS, not the raw ordered
+  # string. emerged_themes is a multi-label, semicolon-joined cell, so an
+  # entry whose theme SET is unchanged but reordered ("A; B" vs "B; A") -- or
+  # whose labels were renamed -- must NOT be miscounted as migrated.
+  .cell_set <- function(x) {
+    if (length(x) != 1L || is.na(x) || !nzchar(x)) return(character(0))
+    sort(unique(trimws(strsplit(x, ";", fixed = TRUE)[[1]])))
   }
+  theme_map <- if (!is.null(theme_matches) && nrow(theme_matches$persisted) > 0) {
+    stats::setNames(theme_matches$persisted$theme_prev,
+                    theme_matches$persisted$theme_curr)
+  } else character(0)
+  .map_curr <- function(s) {
+    if (length(theme_map) == 0L || length(s) == 0L) return(s)
+    mapped <- ifelse(s %in% names(theme_map), unname(theme_map[s]), s)
+    sort(unique(mapped))
+  }
+  n_stable <- sum(vapply(seq_len(nrow(joined)), function(i) {
+    identical(.cell_set(joined$theme_prev[i]),
+              .map_curr(.cell_set(joined$theme_curr[i])))
+  }, logical(1)))
 
   n_total <- nrow(joined)
   n_migrated <- n_total - n_stable

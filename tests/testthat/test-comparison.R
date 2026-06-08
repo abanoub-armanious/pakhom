@@ -344,6 +344,22 @@ test_that(".compare_entry_migration builds migration matrix", {
   expect_true("n_entries" %in% names(result$matrix))
 })
 
+test_that(".compare_entry_migration counts a reordered multi-label set as STABLE", {
+  # emerged_themes is a multi-label, semicolon-joined cell. An entry whose theme
+  # SET is unchanged but reordered ("Alpha; Beta" -> "Beta; Alpha") must count
+  # as stable, not migrated -- the prior exact-string comparison miscounted it.
+  mk <- function(themes) list(
+    run_id = "r", timestamp = NULL, themes = NULL, codes = NULL,
+    correlations = tibble::tibble(), dir = tempdir(),
+    sentiment = tibble::tibble(std_id = c("e1", "e2"), emerged_themes = themes)
+  )
+  prev <- mk(c("Alpha; Beta", "Gamma"))
+  curr <- mk(c("Beta; Alpha", "Gamma"))   # e1 reordered (same set); e2 identical
+  res <- pakhom:::.compare_entry_migration(curr, prev)
+  expect_equal(res$stability_rate, 1)
+  expect_equal(res$n_migrated, 0L)
+})
+
 test_that(".compare_entry_migration computes stability rate", {
   snap1 <- .load_run_snapshot(file.path(fixture_dir, "run_2026-01-01_120000"))
   snap2 <- .load_run_snapshot(file.path(fixture_dir, "run_2026-01-02_120000"))

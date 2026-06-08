@@ -205,8 +205,14 @@ test_that(".parse_filename_metadata extracts structured metadata", {
   )
 
   expect_type(meta, "list")
-  # Should extract at least some fields (exact fields depend on regex)
-  expect_true(!is.null(meta$username) || !is.null(meta$date_scraped) || !is.null(meta$rating))
+  # Assert the ACTUAL extracted values. The prior test only checked that SOME
+  # field was non-NULL, which masked the rating regex being broken: "[\d.NA]"
+  # matches no digits in R's default (TRE) engine, so meta$rating was always NA
+  # even on a well-formed "Rating 4.5".
+  expect_equal(meta$rating, 4.5)
+  expect_equal(meta$date_scraped, "2024-03-15")
+  expect_equal(meta$date_posted, "2024-01-20")
+  expect_equal(meta$likes, 120L)
 })
 
 test_that(".parse_filename_metadata handles unparseable filenames gracefully", {
