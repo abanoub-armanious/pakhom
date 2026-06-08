@@ -76,20 +76,19 @@ load_config <- function(config_path, overrides = list()) {
 #'   default_config("framework_applied")       # Mode 3: AI applies researcher's framework
 #' }
 #'
-#' Calling \code{default_config()} with no argument emits a warning and falls
-#' back to \code{"codebook_collaborative"} (the mode that best matches v1.x
-#' behavior and serves the largest existing user population). The warning
-#' exists by design: per Spool 2011 (>95\% of users never change defaults),
-#' a silent default would let users inherit a methodology without conscious
-#' choice -- contrary to pakhom's architectural commitment that
-#' methodology declaration must be explicit. Run
-#' \code{\link{methodology_decision_aid}} for guidance on choosing.
+#' Calling \code{default_config()} with no argument is an ERROR: the
+#' \code{methodology} argument is mandatory (AC3 -- no default mode; explicit
+#' declaration mandatory). There is deliberately no fallback default. Spool
+#' 2011 (>95\% of users never change defaults) is precisely why: a silent
+#' default would let users inherit a methodology without conscious choice, so
+#' pakhom requires the mode to be declared explicitly rather than supplying one
+#' for them. Run \code{\link{methodology_decision_aid}} for guidance on choosing.
 #'
 #' Note: \code{.config_defaults()} (internal) returns the bare schema with
 #' \code{methodology$mode = NULL}, so user-supplied YAMLs that omit the
 #' methodology section fail validation with a clear error rather than
 #' silently inheriting a default. \code{default_config()} is the only
-#' entry point that pre-fills mode (and only with the warning above).
+#' entry point that pre-fills mode (when methodology is supplied explicitly).
 #'
 #' @param methodology One of \code{"reflexive_scaffold"},
 #'   \code{"codebook_collaborative"}, or \code{"framework_applied"}.
