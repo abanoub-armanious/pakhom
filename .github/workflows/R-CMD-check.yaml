@@ -1,30 +1,58 @@
 # Continuous Integration for pakhom
-# Runs R CMD check and tests on every push and pull request.
-# R release on macOS, Ubuntu, and Windows, plus R-devel and R-oldrel on Ubuntu
-# (devel catches upcoming-R breakage; oldrel exercises the declared R >= 4.1.0 floor).
+# Runs R CMD check and tests across platforms and R versions.
+#
+# Cost-aware matrix:
+#   - Branch pushes run Linux (R-devel / release / oldrel-1) + Windows -- the
+#     platforms NOT exercised during local development. Linux is CRAN's primary
+#     check platform; Windows is never run on the author's machine, and both
+#     have surfaced real platform-specific bugs here before.
+#   - macOS (which bills at a 10x runner multiplier and is already covered by the
+#     author's local R CMD check on every change) is added only on pull requests
+#     and release tags, where CRAN-platform parity matters most.
+#   - Documentation-only commits (markdown, bibliography, licence, gitignore)
+#     skip CI entirely via paths-ignore.
 
 name: R-CMD-check
 
 on:
   push:
     branches: [main, master, develop]
+    tags: ['v*']
+    paths-ignore:
+      - '**.md'
+      - '**.bib'
+      - 'LICENSE*'
+      - '.gitignore'
   pull_request:
     branches: [main, master, develop]
 
 jobs:
+  # Decide the platform matrix from the triggering event. Full matrix (incl.
+  # macOS) on pull requests and release tags; the fast lane on branch pushes.
+  configure:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+      - id: set
+        shell: bash
+        run: |
+          fast='{"os":"windows-latest","r":"release"},{"os":"ubuntu-latest","r":"devel","http-user-agent":"release"},{"os":"ubuntu-latest","r":"release"},{"os":"ubuntu-latest","r":"oldrel-1"}'
+          mac='{"os":"macos-latest","r":"release"},'
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ] || [ "${GITHUB_REF#refs/tags/}" != "$GITHUB_REF" ]; then
+            echo "matrix={\"config\":[$mac$fast]}" >> "$GITHUB_OUTPUT"
+          else
+            echo "matrix={\"config\":[$fast]}" >> "$GITHUB_OUTPUT"
+          fi
+
   R-CMD-check:
+    needs: configure
     runs-on: ${{ matrix.config.os }}
     name: ${{ matrix.config.os }} (R ${{ matrix.config.r }})
 
     strategy:
       fail-fast: false
-      matrix:
-        config:
-          - {os: macos-latest,   r: 'release'}
-          - {os: windows-latest, r: 'release'}
-          - {os: ubuntu-latest,  r: 'devel', http-user-agent: 'release'}
-          - {os: ubuntu-latest,  r: 'release'}
-          - {os: ubuntu-latest,  r: 'oldrel-1'}
+      matrix: ${{ fromJSON(needs.configure.outputs.matrix) }}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
