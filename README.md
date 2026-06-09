@@ -77,9 +77,11 @@ for a worked example of each mode.
 Every mode produces three transparency artifacts addressing the most-cited
 empirical critiques of LLM-for-TA tools:
 
-- **T0.1 quote provenance + 4-step verification ladder** — every AI-attributed
+- **T0.1 quote provenance + verification ladder** — every AI-attributed
   verbatim claim runs through strict offline match → normalized match →
-  substring search → embedding similarity. Fabricated quotes are dropped and
+  substring search → embedding similarity (this fourth step is optional -- it
+  runs only when an embedding provider is supplied; the default coding path uses
+  the first three). Fabricated quotes are dropped and
   logged to `fabrication_log.csv`. Mode 1 verifies provocation citations;
   Mode 2/3 verify coded-segment quotes. On Anthropic, the Citations API serves
   as a prevention layer; the verification ladder is detection-in-depth.

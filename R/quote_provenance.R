@@ -12,14 +12,17 @@
 # 1. Every quote object carries source_doc_id + char range + sha256 of the
 #    source text used at attribution time. If the source corpus changes
 #    between runs, drift is detectable (verification_status = "drifted").
-# 2. A four-step verification ladder runs at quote-creation time and again
+# 2. A verification ladder runs at quote-creation time and again
 #    at report-generation time:
 #      (a) strict offline string match
 #      (b) normalized match (whitespace + smart-quote + NFC + case)
 #      (c) substring search fallback (corrects offsets)
 #      (d) embedding cosine similarity (paraphrase tolerance, threshold 0.85)
+#          -- OPTIONAL: runs only when an embedding provider is passed to
+#          verify_quote()/verify_quotes(); the default coding path uses (a)-(c)
+#          (and is therefore stricter -- no paraphrase tolerance).
 #    Each step downgrades verification_status if the previous fails. A quote
-#    that fails all four is "fabricated" and never rendered.
+#    that fails every applicable step is "fabricated" and never rendered.
 # 3. Fabricated quotes are written to outputs/<run>/fabrication_log.csv
 #    for the methodology paper's KPI ("fabrication rate per N AI calls").
 # 4. Future T0.1 phases add Anthropic Citations API custom content blocks
@@ -102,7 +105,7 @@
 #' Builds a structured quote with all provenance metadata fields populated
 #' (or set to sensible NA defaults). The quote is created in the
 #' \code{"unverified"} state; pass it through \code{\link{verify_quote}} to
-#' run the four-step verification ladder.
+#' run the verification ladder.
 #'
 #' \code{quote_id} is computed deterministically as
 #' \code{paste0("qte_", sha1(source_doc_id + start_char + end_char + exact_text))}
@@ -232,7 +235,7 @@ make_quote <- function(source_doc_id, source_doc_type, source_text,
 #' \code{QuoteProvenance} object with \code{citation_source =
 #' "anthropic_citations_api"}. The constructed quote is in the
 #' \code{"unverified"} state; chain through \code{\link{verify_quote}}
-#' to run the four-step verification ladder.
+#' to run the verification ladder.
 #'
 #' Supported citation types:
 #' \itemize{
@@ -397,7 +400,7 @@ make_quotes_from_citations <- function(citations, documents,
 # Verification ladder
 # ==============================================================================
 
-#' Verify a quote against its source text via the four-step ladder
+#' Verify a quote against its source text via the verification ladder
 #'
 #' Runs the verification ladder in order; the first match wins and sets
 #' \code{verification_status} accordingly. Steps:
@@ -452,7 +455,7 @@ verify_quote <- function(quote, source_text, provider = NULL) {
   # track the latest-attempted-and-failed
   # ladder step so a downstream fabricated/drifted quote carries an
   # attributable reason. Updated at each step's failure; when all
-  # four steps fail the latest value names the deepest step the
+  # applicable steps fail, the latest value names the deepest step the
   # ladder tried.
   last_failure_reason <- NA_character_
 

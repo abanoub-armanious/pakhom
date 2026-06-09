@@ -62,7 +62,7 @@ researcher's framing might overlook.
 | `assumption_surfacing` | Other terms participants use for the same construct + a term the researcher's framing erases |
 
 Each provocation that cites a verbatim quote runs through the same
-four-step verification ladder used in Modes 2/3 (T0.1 universal). A
+verification ladder used in Modes 2/3 (T0.1 universal). A
 fabricated quote is dropped silently and logged to
 `fabrication_log.csv` — fabricated provocations never reach the
 researcher.
@@ -590,7 +590,7 @@ corpora.
 Regardless of mode, every finalized pakhom run produces these
 **universal Tier-0 transparency artifacts** (per AC7):
 
-- **T0.1 quote provenance** — every AI-attributed verbatim claim verified via the four-step ladder; fabrications dropped + logged to `fabrication_log.csv`.
+- **T0.1 quote provenance** — every AI-attributed verbatim claim verified via the verification ladder; fabrications dropped + logged to `fabrication_log.csv`.
 - **T0.2 participant spread** — every theme reports n_distinct_contributors + Gini + top contributor share. Themes that look prevalent but rest on one heavy poster get a warning on the report.
 - **T0.3 corpus coverage** — Modes 2/3 assert "no silent truncation in the LLM call path"; Mode 1 asserts "no silent skip across themes × provocation categories." Both are surfaced via a coverage card on the HTML report.
 

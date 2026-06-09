@@ -65,7 +65,7 @@ A \code{QuoteProvenance} S3 object (a list with class).
 Builds a structured quote with all provenance metadata fields populated
 (or set to sensible NA defaults). The quote is created in the
 \code{"unverified"} state; pass it through \code{\link{verify_quote}} to
-run the four-step verification ladder.
+run the verification ladder.
 }
 \details{
 \code{quote_id} is computed deterministically as

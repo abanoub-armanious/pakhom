@@ -205,7 +205,7 @@ compute_provocation_provenance_stats <- function(reflection_log) {
     concentration_block,
     fab_line,
     "(Mode 1 verification: every provocation that cited a verbatim ",
-    "quote ran through the same four-step verification ladder used in ",
+    "quote ran through the same verification ladder used in ",
     "Modes 2 and 3 -- per AC7, T0.1 is universal across modes.)\n\n"
   )
 }
@@ -232,7 +232,7 @@ compute_provocation_provenance_stats <- function(reflection_log) {
     "surfaced for the researcher's consideration. The AI does NOT ",
     "interpret -- it selects evidence the researcher's framing would ",
     "want to engage with.\n\n",
-    "*Verification status* on each cited quote reflects the four-step ",
+    "*Verification status* on each cited quote reflects the ",
     "verification ladder (AC7 / T0.1 universal). Fabricated provocations ",
     "are dropped silently and recorded in `fabrication_log.csv` -- they ",
     "do not appear here.\n\n"

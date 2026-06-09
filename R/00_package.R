@@ -87,7 +87,7 @@
 #' Three commitments mandatory in every mode, addressing the most-cited
 #' empirical critiques of LLM-for-TA tools.
 #' \describe{
-#'   \item{T0.1 -- Quote provenance + 4-step verification ladder}{Every
+#'   \item{T0.1 -- Quote provenance + verification ladder}{Every
 #'     AI-attributed verbatim claim runs through strict offline match,
 #'     normalized match, substring search, and embedding similarity.
 #'     Fabricated quotes are dropped silently and logged to

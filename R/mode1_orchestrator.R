@@ -613,7 +613,7 @@ render_tier0_coverage_card.ProvocationCoverage <- function(x, ...) {
       'prompt embeds only the per-theme subset). The LLM is instructed ',
       'to "search the FULL corpus" but only sees the supporting-entry ',
       'context; counter-evidence the model returns is verified against ',
-      'the corpus by the four-step verification ladder (T0.1) -- ',
+      'the corpus by the verification ladder (T0.1) -- ',
       'fabricated entry_ids fail .citation_to_provocation lookup and ',
       'are dropped. A future phase will add corpus-search retrieval ',
       'so the LLM can reason against the whole corpus directly.'

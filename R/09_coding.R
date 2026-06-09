@@ -186,7 +186,7 @@ create_coding_state <- function(learning_context = NULL, config_hash = NULL) {
 #' @param fabrication_log An optional FabricationLog object (from
 #'   \code{\link{init_fabrication_log}}). T0.1 verification ALWAYS runs --
 #'   each per-segment AI-attributed verbatim text is checked against the
-#'   entry via the four-step ladder, and fabricated segments are dropped
+#'   entry via the verification ladder, and fabricated segments are dropped
 #'   regardless of whether a log is supplied. When \code{fabrication_log}
 #'   is non-NULL, fabrications are also written to
 #'   \code{outputs/<run>/fabrication_log.csv} as a CSV audit artifact for

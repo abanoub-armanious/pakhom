@@ -51,7 +51,7 @@ Bridges one Anthropic citation object (the shape produced by
 \code{QuoteProvenance} object with \code{citation_source =
 "anthropic_citations_api"}. The constructed quote is in the
 \code{"unverified"} state; chain through \code{\link{verify_quote}}
-to run the four-step verification ladder.
+to run the verification ladder.
 }
 \details{
 Supported citation types:

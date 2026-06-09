@@ -2,7 +2,7 @@
 % Please edit documentation in R/quote_provenance.R
 \name{verify_quote}
 \alias{verify_quote}
-\title{Verify a quote against its source text via the four-step ladder}
+\title{Verify a quote against its source text via the verification ladder}
 \usage{
 verify_quote(quote, source_text, provider = NULL)
 }
