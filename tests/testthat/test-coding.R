@@ -1102,7 +1102,7 @@ test_that("C-5 audit followup LOW F4: refresh_interval <= 0 disables the dispatc
 })
 
 test_that("C-5 audit followup MEDIUM F1: sample_idx is deterministic across calls", {
-  # Replay-equivalence (AC10): two calls with identical inputs must
+  # Replay-equivalence (R7): two calls with identical inputs must
   # produce identical sample_idx. The fix replaces sample() with
   # evenly-spaced indices via seq(..., length.out = ...).
   state <- create_coding_state()

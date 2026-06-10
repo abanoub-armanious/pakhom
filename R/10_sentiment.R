@@ -78,15 +78,24 @@ analyze_sentiment <- function(data, provider, config = list(),
                               "sentiment_done_partial.rds")
     if (file.exists(partial_path)) {
       partial <- tryCatch(readRDS(partial_path), error = function(e) NULL)
+      # Recognition guard covers names AND types: a foreign/hand-edited
+      # partial with a character sentiment_score would silently flip the
+      # whole column to character on adoption; a factor all_emotions
+      # would adopt integer codes. Type-drifted partials start fresh.
       if (is.list(partial) && is.data.frame(partial$data) &&
-          all(c("std_id", .SENTIMENT_VALUE_COLS) %in% names(partial$data))) {
+          all(c("std_id", .SENTIMENT_VALUE_COLS) %in% names(partial$data)) &&
+          is.numeric(partial$data$sentiment_score) &&
+          is.numeric(partial$data$confidence) &&
+          is.numeric(partial$data$emotion_intensity)) {
         p <- partial$data[!is.na(partial$data$sentiment_score), , drop = FALSE]
         m <- match(as.character(p$std_id), as.character(data$std_id))
         keep <- !is.na(m)
         if (any(keep)) {
-          for (col in .SENTIMENT_VALUE_COLS) {
-            data[[col]][m[keep]] <- p[[col]][keep]
-          }
+          data$sentiment_score[m[keep]]   <- p$sentiment_score[keep]
+          data$confidence[m[keep]]        <- p$confidence[keep]
+          data$emotion_intensity[m[keep]] <- p$emotion_intensity[keep]
+          # as.character: never adopt a factor's integer codes
+          data$all_emotions[m[keep]]      <- as.character(p$all_emotions[keep])
           log_info(paste0("Resuming sentiment: {sum(keep)} of {nrow(data)} ",
                           "entries already scored in a partial checkpoint"))
         }

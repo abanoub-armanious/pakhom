@@ -731,6 +731,13 @@ test_that(".build_candidate_counter_entries handles an all-theme corpus (empty p
 test_that(".build_candidate_counter_entries does not disturb the caller's RNG stream", {
   data <- tibble::tibble(std_id = paste0("e", 1:40),
                           std_text = paste("Entry", 1:40))
+  # Scoped seeding: restore the suite's RNG state afterwards (the same
+  # global-state-leak class as the logger-appender issue).
+  old_seed <- if (exists(".Random.seed", globalenv())) {
+    get(".Random.seed", globalenv())
+  } else NULL
+  on.exit(if (!is.null(old_seed)) assign(".Random.seed", old_seed, globalenv()),
+          add = TRUE)
   set.seed(999)
   before <- .Random.seed
   invisible(pakhom:::.build_candidate_counter_entries(data, data[1:5, ]))
@@ -838,4 +845,38 @@ test_that("alternative_interpretation flags anchor_quote_verified=TRUE when the 
   expect_length(provs, 1L)
   expect_s3_class(provs[[1]]$provenance, "QuoteProvenance")
   expect_true(provs[[1]]$extra$anchor_quote_verified)
+})
+
+test_that("candidate and supporting prompt blocks embed std_text, never original_text", {
+  # The verifier checks std_text; showing the model original_text made its
+  # CORRECT citations of cleaned-away spans (URLs, mentions) fail the
+  # ladder and be logged as fabrications. The prompt must show the text
+  # citations will be verified against.
+  data <- tibble::tibble(
+    std_id = c("e1", "e2"),
+    std_text = c("I tracked it at home and it got worse",
+                 "Another entry about sleep"),
+    original_text = c("I tracked it at https://myapp.example.com/log and it got worse",
+                      "Another entry about sleep u/someone")
+  )
+  cand <- pakhom:::.build_candidate_counter_entries(data, data[2, ])
+  expect_match(cand, "I tracked it at home", fixed = TRUE)
+  expect_false(grepl("https://myapp.example.com", cand, fixed = TRUE))
+
+  supp <- pakhom:::.build_theme_supporting_entries(data[2, ])
+  expect_match(supp, "Another entry about sleep", fixed = TRUE)
+  expect_false(grepl("u/someone", supp, fixed = TRUE))
+
+  # End-to-end: citing the text exactly as shown in the prompt verifies.
+  ai_meta <- new.env(parent = emptyenv())
+  ai_meta$model <- "mock"; ai_meta$call_id <- "req"
+  cit <- list(entry_id = "e1", char_start = 0L, char_end = 37L,
+              exact_text = "I tracked it at home and it got worse",
+              reason = "contradicts the theme")
+  p <- pakhom:::.citation_to_provocation(
+    cit = cit, theme_name = "T", category = "counter_narrative",
+    data = data, ai_meta = ai_meta
+  )
+  expect_s3_class(p, "Provocation")
+  expect_equal(p$provenance$verification_status, "verified_exact")
 })

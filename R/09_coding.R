@@ -327,6 +327,25 @@ run_progressive_coding <- function(data, provider, config = list(),
     }
   }
 
+  # Re-queue AI-call failures from a prior (crashed/tripped) run. A
+  # periodic checkpoint taken mid-outage can bake failure-marked records
+  # (failure = TRUE: NULL result after retries, never an AI-judged skip)
+  # into entries_processed; without eviction, resume would carry them
+  # forever as "AI response parse failure" skips. Drop the records and
+  # their indices so they are genuinely retried.
+  failed_ids <- names(Filter(function(er) isTRUE(er$failure),
+                             state$entry_results))
+  if (length(failed_ids) > 0L) {
+    failed_idx <- which(as.character(data$std_id) %in% failed_ids)
+    state$entries_processed <- setdiff(state$entries_processed, failed_idx)
+    state$entries_skipped   <- setdiff(state$entries_skipped,   failed_idx)
+    state$entry_results[failed_ids] <- NULL
+    log_info(paste0("Re-queuing {length(failed_ids)} entr",
+                    "{if (length(failed_ids) == 1L) 'y' else 'ies'} whose ",
+                    "AI calls failed in a previous run (network/parse ",
+                    "failures are retried on resume, not carried as skips)"))
+  }
+
   # Determine remaining entries
   remaining <- setdiff(seq_len(n), state$entries_processed)
   log_info("{length(remaining)} entries remaining to process")
@@ -745,6 +764,22 @@ run_progressive_coding <- function(data, provider, config = list(),
 
   state$last_updated <- Sys.time()
   toc()
+
+  # End-of-run failure-fraction check. The in-loop fraction gate has a
+  # 20-attempt floor (a fraction over a handful of entries is noise), so
+  # a SMALL corpus can finish with most AI calls failed and no trip --
+  # warn loudly so an outage run is not read as a substantive result.
+  if (n_ai_attempted > 0L && n_ai_attempted < 20L &&
+      n_ai_failed / n_ai_attempted > config$max_failed_entry_fraction) {
+    log_warn(paste0(
+      "AI calls failed for ", n_ai_failed, " of ", n_ai_attempted,
+      " attempted entries -- above the max_failed_entry_fraction ",
+      "threshold (", config$max_failed_entry_fraction, "), but the ",
+      "corpus was too small for the in-run breaker (< 20 attempts). ",
+      "Treat this run's near-empty coding as a likely provider/network ",
+      "outage, NOT a substantive result; re-run with resume = TRUE."
+    ))
+  }
 
   n_total_processed <- length(state$entries_processed)
   n_total_skipped <- length(state$entries_skipped)
@@ -1905,7 +1940,7 @@ run_progressive_coding <- function(data, provider, config = list(),
     }
 
     # Deterministic sampling for
-    # replay-equivalence (AC10). Pre-fix `sample()` produced different
+    # replay-equivalence (R7). Pre-fix `sample()` produced different
     # segment indices on every rerun, persisting different refreshed
     # descriptions in state -- the only stochastic R-side decision in
     # the per-entry loop. Use evenly-spaced indices so the same code +

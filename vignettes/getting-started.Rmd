@@ -374,6 +374,10 @@ The pipeline generates an interactive HTML report at
 It contains:
 
 - Study overview and methodology description
+- A Data Integrity Dashboard (T0.1): every AI-attributed quote verified
+  against the analytic text, with fabrications dropped and logged
+- A Corpus Coverage card (T0.3): the entry-level coverage assertion, with
+  within-entry truncation measured and disclosed
 - Sentiment distribution with histograms
 - Full theme descriptions with supporting quotes and code lists
 - Correlation matrix and significant findings

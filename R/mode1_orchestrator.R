@@ -615,21 +615,32 @@ render_tier0_coverage_card.ProvocationCoverage <- function(x, ...) {
   # sees. The counter-evidence prompts embed the supporting-entry context
   # plus a bounded, deterministic sample of non-theme entries; the prompt
   # never contains the whole corpus.
-  prompt_context_note <- sprintf(
-    paste0(
-      'Prompt context: per-category prompts include the supporting-',
-      'entry text for each theme (data argument: %s entries available; ',
+  # Legacy guard: a coverage object serialized under schema < 2.2.0 has
+  # no n_candidate_entries_prompt_cap and its run's prompts embedded NO
+  # candidate sample -- re-rendering its card must not assert sampling
+  # behavior (with a fabricated cap) that the run never had.
+  sample_sentence <- if (!is.null(coverage$n_candidate_entries_prompt_cap)) {
+    sprintf(paste0(
       'the prompt embeds the per-theme subset, and the counter-evidence ',
       'categories additionally embed a bounded, deterministic sample of ',
       'up to %d non-theme entries so real counter-evidence is citable). ',
-      'The prompt never contains the whole corpus. Every citation the ',
-      'model returns is verified against ',
-      'the corpus by the verification ladder (T0.1) -- ',
-      'fabricated entry_ids fail .citation_to_provocation lookup and ',
-      'are dropped.'
-    ),
-    format(coverage$n_corpus_entries_searchable %||% 0L, big.mark = ","),
-    coverage$n_candidate_entries_prompt_cap %||% 25L
+      'The prompt never contains the whole corpus.'
+    ), coverage$n_candidate_entries_prompt_cap)
+  } else {
+    paste0('the prompt embeds only the per-theme subset -- this run ',
+           'predates candidate-sample injection). ',
+           'The prompt never contained the whole corpus.')
+  }
+  prompt_context_note <- paste0(
+    sprintf(paste0(
+      'Prompt context: per-category prompts include the supporting-',
+      'entry text for each theme (data argument: %s entries available; '),
+      format(coverage$n_corpus_entries_searchable %||% 0L, big.mark = ",")),
+    sample_sentence,
+    ' Every citation the model returns is verified against ',
+    'the corpus by the verification ladder (T0.1) -- ',
+    'fabricated entry_ids fail .citation_to_provocation lookup and ',
+    'are dropped.'
   )
 
   paste0(
@@ -654,7 +665,8 @@ render_tier0_coverage_card.ProvocationCoverage <- function(x, ...) {
     '<p class="coverage-citation">Mode 1 (Reflexive Scaffold) ',
     'coverage analog of Jowsey et al. 2025 ',
     '(doi:10.1371/journal.pone.0330217). Where the Mode 2/3 coverage ',
-    'card asserts "no silent truncation in the LLM call path", Mode 1 ',
+    'card asserts that every preprocessed entry reached the LLM ',
+    '(entry-level coverage), Mode 1 ',
     'asserts "no silent skip across themes x provocation categories" -- ',
     'the corresponding transparency claim for Sarkar 2024\'s "AI as ',
     'Socratic gadfly" pattern, in which the AI\'s contribution is ',

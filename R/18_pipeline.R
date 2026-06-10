@@ -467,7 +467,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   # focus drift); the metric interpretations drive the report's per-subtheme
   # statistics. Skipped -- pinned articulations loaded, NO AI
   # calls -- when config$study$inferred_methodology is set (replay
-  # equivalence, AC10/R7). Mode 1 (run_mode1) codes via the provocateur loop,
+  # equivalence, R7). Mode 1 (run_mode1) codes via the provocateur loop,
   # not inductively, and never reaches this path.
   if ("methodology_setup" %in% completed) {
     log_info("\n[STEP 2.5] Loading methodology articulations from checkpoint...")

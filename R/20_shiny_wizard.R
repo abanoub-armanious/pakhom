@@ -101,6 +101,12 @@ config_wizard_app <- function(output_path = "config.yaml") {
       # framework spec, mirroring create_config()/validate_config(). Block
       # advancing without one so the saved config can't fail validation.
       if (step() == 1L) {
+        if (is.null(input$methodology_mode)) {
+          shiny::showNotification(
+            "Choose a methodology mode -- the declaration is mandatory (no default).",
+            type = "error")
+          return()
+        }
         if (identical(input$methodology_mode, "framework_applied") &&
             (is.null(input$framework_spec_path) ||
              nchar(trimws(input$framework_spec_path)) == 0)) {
@@ -201,7 +207,11 @@ config_wizard_app <- function(output_path = "config.yaml") {
         shiny::HTML("<b>Framework applied</b> (Mode 3) &mdash; deductive coding against a predefined framework you supply (TPB, COM-B, TDF, or a custom spec); entries that resist the framework are flagged. <i>(Framework / theoretical analysis.)</i>")
       ),
       choiceValues = c("reflexive_scaffold", "codebook_collaborative", "framework_applied"),
-      selected = "codebook_collaborative", width = "100%"),
+      # AC3 (no default mode): start UNSELECTED so the researcher makes a
+      # conscious choice -- a preselected mode would let a user click
+      # through and inherit a methodology they never chose, the exact
+      # silent default create_config()/the CLI wizard refuse.
+      selected = character(0), width = "100%"),
 
     shiny::conditionalPanel(
       condition = "input.methodology_mode == 'framework_applied'",

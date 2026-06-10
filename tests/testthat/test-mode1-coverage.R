@@ -536,3 +536,23 @@ test_that("expected_attempts is clamped at 0 against degenerate counts", {
   cov <- compute_mode1_coverage(log, empty_ts, .mock_corpus())
   expect_equal(cov$n_attempts_expected, 0L)
 })
+
+test_that("the coverage card does not claim candidate sampling for legacy (pre-2.2.0) objects", {
+  log <- create_reflection_log()
+  log <- .populate_attempts(log, c("Adherence"))
+  ts <- .mock_theme_set(c("Adherence"))
+  data <- .mock_corpus()
+  cov <- compute_mode1_coverage(log, ts, data)
+
+  # Current objects disclose the sampling shape
+  html <- render_tier0_coverage_card(cov)
+  expect_match(html, "bounded, deterministic sample", fixed = TRUE)
+
+  # A legacy object (schema < 2.2.0: field absent) must not have sampling
+  # behavior asserted about a run that never had it
+  cov_legacy <- cov
+  cov_legacy$n_candidate_entries_prompt_cap <- NULL
+  html_legacy <- render_tier0_coverage_card(cov_legacy)
+  expect_false(grepl("bounded, deterministic sample", html_legacy, fixed = TRUE))
+  expect_match(html_legacy, "predates candidate-sample injection", fixed = TRUE)
+})

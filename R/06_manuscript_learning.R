@@ -400,7 +400,7 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
   # help if alphabetical order happens to match registration order
   # (Dayvigo < Ozempic < Vyvanse), so each study name is hashed and
   # iteration order is set by the hash. The hash is deterministic
-  # (AC10 replay-equivalence preserved) AND uncorrelated with
+  # (R7 replay-equivalence preserved) AND uncorrelated with
   # registration / alphabetical order.
   study_hashes <- vapply(names(studies$studies), function(n) {
     digest::digest(n, algo = "md5")

@@ -627,6 +627,23 @@ export_qdpx <- function(coding_state, data, output_path,
   if (!is.data.frame(data) || !all(c("std_id", "std_text") %in% names(data))) {
     stop("data must be a data frame with 'std_id' and 'std_text' columns")
   }
+  # std_id keys the source GUIDs and file names: an NA crashes the
+  # lookup, and a duplicate would emit two TextSources with the SAME
+  # GUID (schema-invalid) while silently overwriting one entry's source
+  # file with the other's text. Refuse loudly, naming the offenders.
+  if (anyNA(data$std_id)) {
+    stop("export_qdpx: data$std_id contains NA at row(s) ",
+         paste(which(is.na(data$std_id)), collapse = ", "),
+         "; every entry needs a unique non-missing id")
+  }
+  dup_ids <- unique(as.character(data$std_id)[duplicated(data$std_id)])
+  if (length(dup_ids) > 0L) {
+    stop("export_qdpx: duplicate std_id value(s): ",
+         paste(utils::head(dup_ids, 5L), collapse = ", "),
+         if (length(dup_ids) > 5L) " ..." else "",
+         " -- duplicate ids would produce duplicate TextSource GUIDs and ",
+         "silently overwrite source files")
+  }
   if (!is.null(theme_set) && !inherits(theme_set, "ThemeSet")) {
     stop("theme_set must be a ThemeSet object or NULL")
   }

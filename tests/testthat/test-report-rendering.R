@@ -801,12 +801,44 @@ test_that(".build_longitudinal_section embeds charts that exist on disk", {
   expect_false(grepl("No prevalence chart", out, fixed = TRUE))
 })
 
-test_that(".build_rmd_content omits the Longitudinal section when temporal_results is NULL", {
-  # The section is strictly opt-in: absent temporal results leave no trace.
-  # (Direct check of the gating expression -- the builder is only invoked
-  # behind the NULL + has_temporal_data guard.)
-  tr_null <- NULL
-  expect_false(!is.null(tr_null) && isTRUE(tr_null$has_temporal_data))
-  tr_no_data <- list(has_temporal_data = FALSE)
-  expect_false(!is.null(tr_no_data) && isTRUE(tr_no_data$has_temporal_data))
+test_that(".build_rmd_content gates the Longitudinal section on temporal_results", {
+  # Real end-to-end check through the actual builder (the IRR-regression
+  # pattern): the section must appear when temporal data exist and leave
+  # no trace when temporal_results is NULL or has_temporal_data is FALSE.
+  data  <- sample_data(8)
+  stats <- aggregate_overall_statistics(data, mock_theme_set(), consolidated = NULL,
+                                        learning_context = NULL, config = mock_config())
+  ef <- list(sentiment_file = "s.csv", correlations_file = "c.csv", codes_file = "codes.csv")
+  base_args <- list(
+    overall_stats = stats, theme_stats = list(), theme_order = character(0),
+    ai_synthesis = list(executive_summary = "ok", conclusion = "done"),
+    corr_interpretation = NULL, insights = list(), export_files = ef,
+    config = mock_config()
+  )
+
+  tr <- list(
+    prevalence_over_time = tibble::tibble(
+      period = c("2025-01", "2025-02"), theme_name = "Theme One",
+      n_entries = c(2L, 1L), pct_of_period = c(66.7, 33.3),
+      total_in_period = c(3L, 3L)
+    ),
+    emergence_timeline = tibble::tibble(
+      theme_name = "Theme One", first_appearance_date = "2025-01-01",
+      n_entries = 3L
+    ),
+    period_type = "monthly",
+    has_temporal_data = TRUE
+  )
+
+  with_tr <- do.call(pakhom:::.build_rmd_content,
+                     c(base_args, list(temporal_results = tr)))
+  expect_true(grepl("## Longitudinal Patterns", with_tr, fixed = TRUE))
+
+  without_tr <- do.call(pakhom:::.build_rmd_content,
+                        c(base_args, list(temporal_results = NULL)))
+  expect_false(grepl("Longitudinal Patterns", without_tr, fixed = TRUE))
+
+  no_data <- do.call(pakhom:::.build_rmd_content,
+                     c(base_args, list(temporal_results = list(has_temporal_data = FALSE))))
+  expect_false(grepl("Longitudinal Patterns", no_data, fixed = TRUE))
 })

@@ -1273,7 +1273,7 @@ create_theme_network <- function(data, theme_set, output_path = "theme_network.p
 
   # Seed the Fruchterman-Reingold
   # layout RNG so identical inputs produce byte-identical PNGs across
-  # runs (AC10 replay-equivalence). An earlier implementation
+  # runs (R7 replay-equivalence). An earlier implementation
   # called layout_with_fr() with no seed control, so even on identical
   # data the network plot rendered with different node positions.
   # .with_seed() uses withr when installed and a save/restore fallback

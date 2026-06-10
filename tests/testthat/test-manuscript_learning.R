@@ -580,7 +580,7 @@ test_that("AH-3: .build_study_roster handles studies with NULL codebook graceful
 })
 
 test_that("AH-3 (audit MEDIUM-4): study iteration order is deterministic + hash-shuffled", {
-  # Hash-based ordering is deterministic across calls (AC10 replay-
+  # Hash-based ordering is deterministic across calls (R7 replay-
   # equivalence) AND uncorrelated with registration order. Verify by
   # computing the expected order via the same hash + confirming the
   # first depth-chunk in for_theming matches the hash's first study.
@@ -607,7 +607,7 @@ test_that("AH-3 (audit MEDIUM-4): study iteration order is deterministic + hash-
   ctx1 <- generate_learning_context(studies)
   ctx2 <- generate_learning_context(studies)
   expect_identical(ctx1$for_theming, ctx2$for_theming,
-                   info = "AC10: identical inputs must produce identical for_theming output")
+                   info = "R7: identical inputs must produce identical for_theming output")
 
   expected_order <- names(studies$studies)[order(vapply(
     names(studies$studies), function(n) digest::digest(n, algo = "md5"),

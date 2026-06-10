@@ -7,7 +7,7 @@ methodologically-distinct operating modes (reflexive, codebook, framework). Meth
 codified at the **architectural** level — the AI's role is shaped by the mode
 you declare, not by user discipline at the configuration level. Every output
 carries the methodology stamp, every AI-attributed verbatim claim is verified
-against the source corpus, and every run is fully auditable and comparable
+against the analytic corpus, and every run is fully auditable and comparable
 across re-runs (same data, config, framework, and provider).
 
 You give it your data, your research question, and the methodological posture
@@ -414,7 +414,7 @@ comparison <- compare_models("outputs/")
 ## For methodologists / reviewers: architectural commitments
 
 The package codifies ten load-bearing commitments. Each is regression-
-tested at the integration level (the test suite has more than 4,600 expectations
+tested at the integration level (the test suite has more than 4,900 expectations
 pinning them against silent regression). They are
 the contract a peer reviewer can check the package's claims against:
 

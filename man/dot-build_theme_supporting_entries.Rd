@@ -11,4 +11,13 @@ Used by category functions that need to show the model "here are
 the entries the researcher believes support theme X". Returns a
 compact one-line-per-entry string suitable for prompt injection.
 }
+\details{
+Always embeds \code{std_text} -- the SAME column the citation
+verifier checks (.citation_to_provocation resolves src_text from
+std_text). Showing the model \code{original_text} while verifying
+against the cleaned \code{std_text} made the model's verbatim
+citations of URL/mention/markdown-bearing spans fail the ladder and
+be logged as fabrications -- false positives in the fabrication-rate
+KPI, and real counter-evidence silently dropped.
+}
 \keyword{internal}

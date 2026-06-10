@@ -577,3 +577,101 @@ test_that("legitimate AI-judged skips never trip the breaker (high-skip corpus)"
   expect_equal(sum(vapply(state$entry_results,
                           function(er) isTRUE(er$skipped), logical(1))), 25L)
 })
+
+test_that("the breaker's FRACTION arm trips on intermittent failures", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+  # 2 failures then 1 success, repeating: streak never exceeds 2, so only
+  # the fraction arm (>25% failed after >=20 attempts) can trip.
+  call_n <- 0L
+  ok_response <- jsonlite::toJSON(list(
+    skipped = TRUE, skip_reason = "No applicable content",
+    coded_segments = list()
+  ), auto_unbox = TRUE)
+  local_mocked_bindings(
+    ai_complete = function(...) {
+      call_n <<- call_n + 1L
+      if (call_n %% 3L != 0L) stop("simulated intermittent outage")
+      list(content = ok_response, model = "mock", request_id = "req",
+           usage = list(prompt_tokens = 1L, completion_tokens = 1L,
+                        total_tokens = 2L),
+           finish_reason = "stop", raw_response = list(), prompt_hash = "h")
+    },
+    .package = "pakhom"
+  )
+  data <- tibble::tibble(
+    std_id = paste0("e", 1:30),
+    std_text = paste("This entry has plenty of text to be coded, number", 1:30)
+  )
+  err <- tryCatch(
+    suppressWarnings(run_progressive_coding(
+      data, provider = mock_provider(),
+      config = list(max_retries_per_entry = 0L,
+                    max_consecutive_entry_failures = 100L,  # disarm the streak arm
+                    max_failed_entry_fraction = 0.25),
+      research_focus = "test"
+    )),
+    error = function(e) e
+  )
+  expect_s3_class(err, "pakhom_coding_failure_breaker")
+  expect_match(conditionMessage(err), "max_failed_entry_fraction", fixed = TRUE)
+})
+
+test_that("resume re-queues failure-marked entries instead of carrying them as skips", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+  data <- tibble::tibble(
+    std_id = paste0("e", 1:4),
+    std_text = paste("This entry has plenty of text to be coded, number", 1:4)
+  )
+  # A prior run's state where e1/e2 succeeded-as-skips (AI-judged) and
+  # e3 FAILED (network) before being baked into a checkpoint.
+  state <- create_coding_state()
+  for (i in 1:2) {
+    state$entry_results[[paste0("e", i)]] <- list(
+      codes_assigned = character(0), coded_segments = list(),
+      skipped = TRUE, skip_reason = "No applicable content",
+      failure = FALSE, chars_total = 50L, chars_sent = 50L, truncated = FALSE
+    )
+  }
+  state$entry_results[["e3"]] <- list(
+    codes_assigned = character(0), coded_segments = list(),
+    skipped = TRUE, skip_reason = "AI response parse failure",
+    failure = TRUE, chars_total = 50L, chars_sent = 50L, truncated = FALSE
+  )
+  state$entries_processed <- 1:3
+  state$entries_skipped <- 1:3
+
+  attempted <- character(0)
+  ok_response <- jsonlite::toJSON(list(
+    skipped = TRUE, skip_reason = "No applicable content",
+    coded_segments = list()
+  ), auto_unbox = TRUE)
+  local_mocked_bindings(
+    ai_complete = function(provider, prompt, ...) {
+      m <- regmatches(prompt, gregexpr("entry", prompt))
+      attempted <<- c(attempted, "call")
+      list(content = ok_response, model = "mock", request_id = "req",
+           usage = list(prompt_tokens = 1L, completion_tokens = 1L,
+                        total_tokens = 2L),
+           finish_reason = "stop", raw_response = list(), prompt_hash = "h")
+    },
+    .package = "pakhom"
+  )
+
+  out <- suppressWarnings(run_progressive_coding(
+    data, provider = mock_provider(),
+    config = list(max_retries_per_entry = 0L),
+    research_focus = "test",
+    resume_state = state
+  ))
+
+  # e3 (failed) + e4 (never attempted) were processed on resume: 2 calls
+  expect_length(attempted, 2L)
+  # e3's record is now a real result, no longer failure-marked
+  expect_false(isTRUE(out$entry_results[["e3"]]$failure))
+  expect_equal(out$entry_results[["e3"]]$skip_reason, "No applicable content")
+  # e1/e2 (legitimate AI-judged skips) were NOT re-attempted
+  expect_equal(out$entry_results[["e1"]]$skip_reason, "No applicable content")
+  expect_length(out$entries_processed, 4L)
+})

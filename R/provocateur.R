@@ -466,13 +466,19 @@ print.Provocation <- function(x, ...) {
 #' Used by category functions that need to show the model "here are
 #' the entries the researcher believes support theme X". Returns a
 #' compact one-line-per-entry string suitable for prompt injection.
+#'
+#' Always embeds \code{std_text} -- the SAME column the citation
+#' verifier checks (.citation_to_provocation resolves src_text from
+#' std_text). Showing the model \code{original_text} while verifying
+#' against the cleaned \code{std_text} made the model's verbatim
+#' citations of URL/mention/markdown-bearing spans fail the ladder and
+#' be logged as fabrications -- false positives in the fabrication-rate
+#' KPI, and real counter-evidence silently dropped.
 #' @keywords internal
 .build_theme_supporting_entries <- function(theme_entries, max_chars = 400) {
   if (nrow(theme_entries) == 0L) return("(no supporting entries)")
-  text_col <- if ("original_text" %in% names(theme_entries))
-                "original_text" else "std_text"
   lines <- vapply(seq_len(nrow(theme_entries)), function(i) {
-    txt <- theme_entries[[text_col]][i]
+    txt <- theme_entries$std_text[i]
     txt <- substr(txt, 1, max_chars)
     sprintf("- entry_id: %s\n  text: \"%s\"",
             theme_entries$std_id[i], txt)
@@ -517,9 +523,11 @@ print.Provocation <- function(x, ...) {
     keep <- .with_seed(20260609L, sample.int(nrow(pool), max_entries))
     pool <- pool[sort(keep), , drop = FALSE]
   }
-  text_col <- if ("original_text" %in% names(pool)) "original_text" else "std_text"
+  # std_text, never original_text: the verifier checks std_text, so the
+  # model must be shown the text its citations will be verified against
+  # (see .build_theme_supporting_entries).
   lines <- vapply(seq_len(nrow(pool)), function(i) {
-    txt <- substr(pool[[text_col]][i], 1, max_chars)
+    txt <- substr(pool$std_text[i], 1, max_chars)
     sprintf("- entry_id: %s\n  text: \"%s\"", pool$std_id[i], txt)
   }, character(1))
   paste(lines, collapse = "\n")

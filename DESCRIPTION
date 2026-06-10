@@ -48,7 +48,6 @@ Imports:
     httr2,
     stringdist,
     ggplot2,
-    scales,
     rmarkdown,
     knitr,
     logger,
@@ -57,7 +56,6 @@ Imports:
     tools,
     digest
 Suggests:
-    cli,
     corrplot,
     htmltools,
     pdftools,

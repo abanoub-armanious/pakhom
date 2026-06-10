@@ -163,7 +163,6 @@
 #' @importFrom graphics par hist
 #' @importFrom grDevices png colorRampPalette dev.off
 #' @importFrom ggplot2 ggplot aes geom_histogram
-#' @importFrom scales comma percent
 #' @importFrom knitr kable
 NULL
 

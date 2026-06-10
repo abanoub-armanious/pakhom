@@ -163,3 +163,13 @@ test_that(".parse_methodology_choice maps numbers, names, and blank input", {
   expect_null(pakhom:::.parse_methodology_choice("bogus"))
   expect_null(pakhom:::.parse_methodology_choice("4"))
 })
+
+test_that("the Shiny wizard's methodology radio starts UNSELECTED (AC3: no default mode)", {
+  skip_if_not_installed("shiny")
+  ui <- pakhom:::.ui_step_methodology()
+  html <- as.character(htmltools::renderTags(ui)$html)
+  # No radio option may be pre-checked: a preselected mode would let a
+  # user click through and inherit a methodology they never chose.
+  expect_false(grepl('checked="checked"', html, fixed = TRUE))
+  expect_true(grepl('name="methodology_mode"', html, fixed = TRUE))
+})

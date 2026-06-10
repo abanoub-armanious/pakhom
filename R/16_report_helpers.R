@@ -1845,7 +1845,7 @@ generate_downloads_section <- function(export_files, theme_stats) {
       if (n_caught == 1L) " was" else "s were",
       " CAUGHT by the verification ladder and DROPPED from the codebook ",
       "(", rate_pct, "% pre-rejection fabrication rate; **", n_verified,
-      "** surviving verbatim claims verified against the source corpus",
+      "** surviving verbatim claims verified against the analytic source text",
       if (n_drifted + (total - n_verified - n_drifted) > 0L) {
         paste0("; ", total - n_verified, " of the ", total, " survivors ",
                 "are drifted or pending review and NOT counted as verified")
@@ -1858,14 +1858,14 @@ generate_downloads_section <- function(export_files, theme_stats) {
     if (n_verified == total) {
       paste0(
         "**No fabrications detected.** Every one of the **", total, "** ",
-        "AI-attributed verbatim claims verified against the source corpus ",
-        "(the verification ladder did not need to drop any).\n\n"
+        "AI-attributed verbatim claims verified against the analytic ",
+        "source text (the verification ladder did not need to drop any).\n\n"
       )
     } else {
       paste0(
         "**No fabrications detected.** Of the **", total, "** AI-attributed ",
-        "verbatim claims, **", n_verified, "** verified against the source ",
-        "corpus; the remaining ", total - n_verified, " are drifted or ",
+        "verbatim claims, **", n_verified, "** verified against the ",
+        "analytic source text; the remaining ", total - n_verified, " are drifted or ",
         "pending review (see drift section below) and NOT counted as ",
         "verified.\n\n"
       )
@@ -1919,9 +1919,9 @@ generate_downloads_section <- function(export_files, theme_stats) {
     source_block,
     fab_line,
     drift_line,
-    'See [`R/quote_provenance.R`](https://github.com/) for the verification ',
-    'ladder implementation and the methodology paper for the empirical ',
-    'justification of each ladder step\'s threshold.\n\n',
+    'See `R/quote_provenance.R` in the package source for the ',
+    'verification-ladder implementation and the per-step threshold ',
+    'rationale (documented in the ladder constants and `verify_quote`).\n\n',
     '</div>\n\n'
   )
 }

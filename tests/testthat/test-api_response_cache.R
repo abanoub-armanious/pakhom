@@ -224,11 +224,13 @@ test_that("no source file or shipped config references the phantom replay_run()"
   # replay_run() was referenced ~26 times across the codebase but never
   # implemented. All references were demoted to 'planned replay tooling'
   # (no promised API name). This guard prevents the phantom from regrowing.
-  r_files <- list.files(file.path("..", ".."), pattern = "\\.R$",
-                        recursive = FALSE, full.names = TRUE)
   # testthat working dir is tests/testthat -> package root is ../..
+  # Under R CMD check the tests run against the INSTALLED package and the
+  # R/ source tree is absent -- skip honestly rather than pass vacuously.
   r_files <- list.files(file.path("..", "..", "R"), pattern = "\\.R$",
                         full.names = TRUE)
+  skip_if(length(r_files) == 0L,
+          "package R/ source tree not available (installed-package check)")
   cfg <- file.path("..", "..", "inst", "config", "default_config.yaml")
   files <- c(r_files, cfg[file.exists(cfg)])
   offenders <- character(0)

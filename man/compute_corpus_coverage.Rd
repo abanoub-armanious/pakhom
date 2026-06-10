@@ -53,6 +53,7 @@ Pre-preprocessing counts (e.g., raw rows from the database before
 deduplication and length filtering) can be supplied via
 \code{n_raw_loaded} and \code{n_after_preprocessing}; when omitted, the
 coverage object reports them as \code{NA_integer_} and the card
-degrades gracefully. The headline assertion (no silent truncation in
-the LLM call path) does not depend on pre-preprocessing counts.
+degrades gracefully. The headline assertion (entry-level coverage: no
+silent entry-level truncation) does not depend on pre-preprocessing
+counts.
 }

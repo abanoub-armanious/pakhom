@@ -129,7 +129,7 @@ qualitative work.
   configuration hash, and provider, supporting auditable comparison across re-runs;
   and reflexive memos are first-class, round-trippable data.
 
-The package is covered by a test suite of more than 4,600 expectations that runs
+The package is covered by a test suite of more than 4,900 expectations that runs
 entirely offline (all model calls are mocked) and is documented by a getting-started
 walkthrough and a methodology-modes vignette.
 

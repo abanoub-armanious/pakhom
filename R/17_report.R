@@ -2915,7 +2915,9 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     '(doi:10.1371/journal.pone.0330217), which found that Microsoft ',
     'Copilot drew themes from only the first 2-3 pages of data. ',
     'pakhom processes entries strictly one at a time; this funnel is ',
-    'the empirical proof of full-corpus coverage in the LLM call path.</p>\n',
+    'the empirical proof of entry-level corpus coverage in the LLM call ',
+    'path (within-entry truncation against the per-entry cap is measured ',
+    'and disclosed above).</p>\n',
     '</div>\n\n'
   )
 }
@@ -3747,7 +3749,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   # pipeline so legacy keys (consolidation/assignment/relevance from the
   # pre-1.0 architecture) carried over in user configs are not shown.
   # callsite-level temperature overrides for the
-  # tasks that pin temperature for replay-equivalence (AC10). The
+  # tasks that pin temperature for replay-equivalence (R7). The
   # config-level table previously showed the CONFIG default (e.g.
   # theming = 0.4) but the runtime calls ai_complete with explicit
   # temperature=0 for theme clustering (R/theme_algorithm_v2.R) and at
@@ -3767,7 +3769,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
         "## Token Limits per Task\n\n",
         "Temperature shown is the EFFECTIVE runtime value. Tasks where ",
         "the call-site explicitly overrides the config default (for ",
-        "replay-equivalence, AC10) are marked with `*`.\n\n",
+        "replay-equivalence) are marked with `*`.\n\n",
         "| Task | Max Tokens | Temperature |\n",
         "|------|----------:|------------:|\n"
       )
