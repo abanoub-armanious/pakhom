@@ -104,10 +104,24 @@ save_checkpoint <- function(manager, step_name, data) {
   size_mb <- round(file.size(file_path) / 1024 / 1024, 2)
   log_info("Checkpoint saved: {step_name} ({size_mb} MB)")
 
+  # The full save supersedes any in-step partial: delete it so a stale
+  # partial cannot be adopted by a later resume (e.g. a user manually
+  # removing the full checkpoint to force a re-run of the step).
+  partial_path <- file.path(manager$checkpoint_dir,
+                            paste0(step_name, "_partial.rds"))
+  if (file.exists(partial_path)) unlink(partial_path)
+
   invisible(manager)
 }
 
 #' Save partial checkpoint within a step (for long-running batch operations)
+#'
+#' Partials are consumed on resume: the coding step reads
+#' \code{progressive_coding_partial.rds} (via the pipeline) and the
+#' sentiment step reads \code{sentiment_done_partial.rds} (inside
+#' \code{analyze_sentiment}), so a crash mid-step does not re-pay the
+#' LLM cost of completed entries. A successful \code{save_checkpoint}
+#' for the step deletes its partial.
 #'
 #' @param manager CheckpointManager object
 #' @param step_name Step identifier
@@ -208,10 +222,12 @@ find_resume_point <- function(manager) {
   completed_steps <- names(manifest$steps)
   if (length(completed_steps) == 0) return(NULL)
 
-  # Check config hash
+  # Check config hash. isTRUE() also covers an NA hash (hash_config
+  # returns NA_character_ for a missing config file): an unknowable hash
+  # is not a known mismatch, and a bare `if (NA)` would crash the resume.
   if (!is.null(manager$config_hash) &&
       !is.null(manifest$config_hash) &&
-      manager$config_hash != manifest$config_hash) {
+      isTRUE(manager$config_hash != manifest$config_hash)) {
     log_warn("Config has changed since last checkpoint. Results may be inconsistent.")
     log_warn("Consider starting fresh (resume = FALSE)")
   }

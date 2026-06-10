@@ -120,3 +120,59 @@ test_that("load_checkpoint returns NULL (not a crash) on a corrupt payload", {
              file.path(mgr$checkpoint_dir, "badstep.rds"))
   expect_null(suppressWarnings(load_checkpoint(mgr, "badstep")))
 })
+
+test_that("find_resume_point surfaces a config-hash mismatch but still resumes", {
+  # The 1.0.0 policy is warn-and-continue: the user opted in via resume=TRUE,
+  # and the raw-YAML hash cannot distinguish substantive from cosmetic edits,
+  # so a hard stop would block legitimate resumes. This test locks the policy
+  # in: the mismatch IS surfaced (via the logger) AND the resume proceeds.
+  tmp <- tempfile(); dir.create(tmp)
+  on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
+  mgr_a <- init_checkpoints(tmp, config_hash = "hash_A")
+  save_checkpoint(mgr_a, "data_loaded", list(x = 1))
+
+  mgr_b <- init_checkpoints(tmp, config_hash = "hash_B")
+  # logger::log_warn does NOT signal an R warning condition; capture the
+  # appender output instead. NOTE: logger::log_appender() (the getter)
+  # returns a SYMBOL in logger >= 0.4, not a function -- restore the
+  # console appender (the suite baseline) explicitly, or the failed
+  # restore leaks the collector into every downstream test.
+  logs <- character(0)
+  logger::log_appender(function(lines) logs <<- c(logs, lines))
+  on.exit(logger::log_appender(logger::appender_console),
+          add = TRUE, after = FALSE)
+
+  resume <- find_resume_point(mgr_b)
+  expect_true(any(grepl("Config has changed", logs)))
+  expect_equal(resume, "data_loaded")
+})
+
+test_that("find_resume_point stays silent when the config hash matches", {
+  tmp <- tempfile(); dir.create(tmp)
+  on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
+  mgr_a <- init_checkpoints(tmp, config_hash = "hash_A")
+  save_checkpoint(mgr_a, "data_loaded", list(x = 1))
+
+  mgr_a2 <- init_checkpoints(tmp, config_hash = "hash_A")
+  logs <- character(0)
+  logger::log_appender(function(lines) logs <<- c(logs, lines))
+  on.exit(logger::log_appender(logger::appender_console),
+          add = TRUE, after = FALSE)
+
+  resume <- find_resume_point(mgr_a2)
+  expect_false(any(grepl("Config has changed", logs)))
+  expect_equal(resume, "data_loaded")
+})
+
+test_that("find_resume_point tolerates an NA config hash (missing config file)", {
+  # hash_config() returns NA_character_ when the config file is absent; an
+  # unknowable hash is not a known mismatch, and `if (NA)` must not crash.
+  tmp <- tempfile(); dir.create(tmp)
+  on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
+  mgr_a <- init_checkpoints(tmp, config_hash = "hash_A")
+  save_checkpoint(mgr_a, "data_loaded", list(x = 1))
+
+  mgr_na <- init_checkpoints(tmp, config_hash = NA_character_)
+  expect_no_error(resume <- find_resume_point(mgr_na))
+  expect_equal(resume, "data_loaded")
+})

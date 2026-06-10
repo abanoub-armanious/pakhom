@@ -10,7 +10,10 @@
 #' @param data Standardized tibble with std_text column
 #' @param provider AIProvider object
 #' @param config Sentiment config section
-#' @param checkpoint CheckpointManager (or NULL)
+#' @param checkpoint CheckpointManager (or NULL). On resume after a crash,
+#'   entries already scored in the step's partial checkpoint are adopted
+#'   (matched by \code{std_id}) and skipped, so only unscored entries are
+#'   re-sent to the provider.
 #' @param research_focus Research focus string
 #' @param coding_state ProgressiveCodingState (or NULL). When provided,
 #'   only processes entries in the analytic sample (those with codes) and
@@ -57,38 +60,79 @@ analyze_sentiment <- function(data, provider, config = list(),
     c("joy", "sadness", "anger", "fear", "surprise", "disgust", "trust", "anticipation")
   emotions_str <- paste(emotions, collapse = ", ")
 
-  # Compute batch indices -- dynamic or fixed
-  if (isTRUE(dynamic_batching) && !is.null(provider$context_window)) {
-    # Budget: ~20K tokens of entry content per batch (conservative for sentiment)
-    max_batch_tokens <- config$max_batch_tokens %||% 20000L
-    batch_indices <- compute_dynamic_batches(
-      data$std_text, max_batch_tokens = max_batch_tokens,
-      max_batch_size = batch_size, chars_per_entry = 800
-    )
-    n_batches <- length(batch_indices)
-    log_info("Starting sentiment analysis for {nrow(data)} entries ({n_batches} dynamic batches)...")
-  } else {
-    n_batches <- ceiling(nrow(data) / batch_size)
-    batch_indices <- lapply(seq_len(n_batches), function(b) {
-      start <- (b - 1) * batch_size + 1
-      end <- min(b * batch_size, nrow(data))
-      start:end
-    })
-    log_info("Starting sentiment analysis for {nrow(data)} entries (batch size: {batch_size})...")
-  }
-  tic("Sentiment analysis")
-
-
   # Initialize columns
   data$sentiment_score <- NA_real_
   data$confidence <- NA_real_
   data$all_emotions <- NA_character_
   data$emotion_intensity <- NA_real_
 
-  pb <- safe_progress_bar(
-    format = "  Sentiment [:bar] :current/:total (:percent) eta: :eta",
-    total = n_batches
-  )
+  # Resume from a partial checkpoint: a crash mid-sentiment leaves
+  # sentiment_done_partial.rds behind; adopting its scored rows avoids
+  # re-paying the LLM cost for entries already analyzed. Merge is BY
+  # std_id, never by row position -- the analytic sample can change
+  # between crash and resume (e.g. a codebook-review edit).
+  .SENTIMENT_VALUE_COLS <- c("sentiment_score", "confidence",
+                             "all_emotions", "emotion_intensity")
+  if (!is.null(checkpoint)) {
+    partial_path <- file.path(checkpoint$checkpoint_dir,
+                              "sentiment_done_partial.rds")
+    if (file.exists(partial_path)) {
+      partial <- tryCatch(readRDS(partial_path), error = function(e) NULL)
+      if (is.list(partial) && is.data.frame(partial$data) &&
+          all(c("std_id", .SENTIMENT_VALUE_COLS) %in% names(partial$data))) {
+        p <- partial$data[!is.na(partial$data$sentiment_score), , drop = FALSE]
+        m <- match(as.character(p$std_id), as.character(data$std_id))
+        keep <- !is.na(m)
+        if (any(keep)) {
+          for (col in .SENTIMENT_VALUE_COLS) {
+            data[[col]][m[keep]] <- p[[col]][keep]
+          }
+          log_info(paste0("Resuming sentiment: {sum(keep)} of {nrow(data)} ",
+                          "entries already scored in a partial checkpoint"))
+        }
+      } else {
+        log_warn("Sentiment partial checkpoint unrecognized or unreadable -- starting fresh")
+      }
+    }
+  }
+
+  # Compute batch indices over the PENDING (unscored) rows only -- dynamic
+  # or fixed. Each batch carries true row indices of `data`, so the
+  # prompt's [%d] entry ids and .assign_sentiment_results stay unchanged.
+  pending <- which(is.na(data$sentiment_score))
+  if (length(pending) == 0L) {
+    n_batches <- 0L
+    batch_indices <- list()
+    log_info("Sentiment analysis: all {nrow(data)} entries already scored; nothing to do")
+  } else if (isTRUE(dynamic_batching) && !is.null(provider$context_window)) {
+    # Budget: ~20K tokens of entry content per batch (conservative for sentiment)
+    max_batch_tokens <- config$max_batch_tokens %||% 20000L
+    batch_indices <- compute_dynamic_batches(
+      data$std_text[pending], max_batch_tokens = max_batch_tokens,
+      max_batch_size = batch_size, chars_per_entry = 800
+    )
+    batch_indices <- lapply(batch_indices, function(ix) pending[ix])
+    n_batches <- length(batch_indices)
+    log_info("Starting sentiment analysis for {length(pending)} entries ({n_batches} dynamic batches)...")
+  } else {
+    n_batches <- ceiling(length(pending) / batch_size)
+    batch_indices <- lapply(seq_len(n_batches), function(b) {
+      start <- (b - 1) * batch_size + 1
+      end <- min(b * batch_size, length(pending))
+      pending[start:end]
+    })
+    log_info("Starting sentiment analysis for {length(pending)} entries (batch size: {batch_size})...")
+  }
+  tic("Sentiment analysis")
+
+  pb <- if (n_batches > 0L) {
+    safe_progress_bar(
+      format = "  Sentiment [:bar] :current/:total (:percent) eta: :eta",
+      total = n_batches
+    )
+  } else {
+    NULL
+  }
 
   last_checkpoint_idx <- 0L
 

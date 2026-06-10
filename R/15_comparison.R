@@ -39,7 +39,7 @@
 #     ai_requests_by_model / total_tokens_used fields surface as zero.
 #   * Per-run api_responses/{prompt_hash}.json directory holds the raw API
 #     responses (gated by config$audit$capture_raw_responses). This is the
-#     load-bearing input for the planned replay_run() feature.
+#     load-bearing input for planned replay tooling.
 #   * sentiment_scores.csv columns (the structural artifact comparison reads)
 #     are unchanged from 1.0; runs labelled 1.0 and 1.1 remain comparable
 #     because .schema_is_compatible() matches major-version only and these
@@ -1020,7 +1020,8 @@ list_available_runs <- function(results_base) {
     persistent = tibble::tibble(),
     intermittent = tibble::tibble(),
     run_specific = tibble::tibble(),
-    trends = tibble::tibble()
+    trends = tibble::tibble(),
+    n_corr_runs = 0L
   )
 
   # Collect all correlations with normalized variable names
@@ -1050,7 +1051,12 @@ list_available_runs <- function(results_base) {
   trends <- dplyr::bind_rows(all_corr)
   result$trends <- trends
 
-  n_runs <- length(snapshots)
+  # Persistence is judged against the runs that actually exported
+  # correlation data, not all loaded runs: a run with no correlations.csv
+  # contributes zero rows here, and counting it in the denominator would
+  # make a pair significant in every measured run look 'intermittent'.
+  n_corr_runs <- dplyr::n_distinct(trends$run_id)
+  result$n_corr_runs <- n_corr_runs
 
   # Classify by persistence
   pair_summary <- trends |>
@@ -1063,10 +1069,15 @@ list_available_runs <- function(results_base) {
     )
 
   if (nrow(pair_summary) > 0) {
-    result$persistent <- pair_summary |>
-      dplyr::filter(.data$n_runs_significant == n_runs)
-    result$intermittent <- pair_summary |>
-      dplyr::filter(.data$n_runs_significant > 1, .data$n_runs_significant < n_runs)
+    if (n_corr_runs >= 2L) {
+      result$persistent <- pair_summary |>
+        dplyr::filter(.data$n_runs_significant == n_corr_runs)
+      result$intermittent <- pair_summary |>
+        dplyr::filter(.data$n_runs_significant > 1,
+                      .data$n_runs_significant < n_corr_runs)
+    }
+    # With a single correlation-bearing run there is no cross-run basis
+    # for persistence, so every pair is run-specific by definition.
     result$run_specific <- pair_summary |>
       dplyr::filter(.data$n_runs_significant == 1)
   }

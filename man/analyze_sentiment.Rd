@@ -22,7 +22,10 @@ analyze_sentiment(
 
 \item{config}{Sentiment config section}
 
-\item{checkpoint}{CheckpointManager (or NULL)}
+\item{checkpoint}{CheckpointManager (or NULL). On resume after a crash,
+entries already scored in the step's partial checkpoint are adopted
+(matched by \code{std_id}) and skipped, so only unscored entries are
+re-sent to the provider.}
 
 \item{research_focus}{Research focus string}
 

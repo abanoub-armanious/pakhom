@@ -331,6 +331,48 @@ test_that(".compare_correlations handles empty correlations", {
   expect_equal(nrow(result$trends), 0)
 })
 
+test_that(".compare_correlations judges persistence against correlation-bearing runs only", {
+  # A run with no correlations.csv must not deflate the persistence
+  # denominator: a pair significant in every MEASURED run is persistent.
+  snap1 <- .load_run_snapshot(file.path(fixture_dir, "run_2026-01-01_120000"))
+  snap2 <- .load_run_snapshot(file.path(fixture_dir, "run_2026-01-02_120000"))
+  snap3 <- list(
+    run_id = "run_no_correlations",
+    timestamp = Sys.time(),
+    themes = NULL, sentiment = NULL, codes = NULL,
+    correlations = NULL,
+    dir = tempdir()
+  )
+  result <- .compare_correlations(list(snap1, snap2, snap3), snap3)
+
+  expect_equal(result$n_corr_runs, 2L)
+  # The emotion_intensity <-> confidence pair is significant in both
+  # measured runs -> persistent (pre-fix it fell to intermittent because
+  # the denominator counted the correlation-less third run).
+  expect_true(nrow(result$persistent) >= 1)
+  expect_false(any(result$persistent$pair_key %in% result$intermittent$pair_key))
+})
+
+test_that(".compare_correlations with one correlation-bearing run classifies all as run-specific", {
+  # A single measured run gives no cross-run basis for persistence.
+  snap1 <- .load_run_snapshot(file.path(fixture_dir, "run_2026-01-01_120000"))
+  empty_a <- list(
+    run_id = "run_empty_a",
+    timestamp = Sys.time(),
+    themes = NULL, sentiment = NULL, codes = NULL,
+    correlations = NULL,
+    dir = tempdir()
+  )
+  empty_b <- empty_a
+  empty_b$run_id <- "run_empty_b"
+  result <- .compare_correlations(list(snap1, empty_a, empty_b), empty_b)
+
+  expect_equal(result$n_corr_runs, 1L)
+  expect_equal(nrow(result$persistent), 0)
+  expect_equal(nrow(result$intermittent), 0)
+  expect_true(nrow(result$run_specific) >= 1)
+})
+
 # ==============================================================================
 # Entry Migration
 # ==============================================================================

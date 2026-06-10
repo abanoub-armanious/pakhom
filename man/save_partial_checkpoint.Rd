@@ -16,5 +16,10 @@ save_partial_checkpoint(manager, step_name, data, progress_idx)
 \item{progress_idx}{Index of last completed item}
 }
 \description{
-Save partial checkpoint within a step (for long-running batch operations)
+Partials are consumed on resume: the coding step reads
+\code{progressive_coding_partial.rds} (via the pipeline) and the
+sentiment step reads \code{sentiment_done_partial.rds} (inside
+\code{analyze_sentiment}), so a crash mid-step does not re-pay the
+LLM cost of completed entries. A successful \code{save_checkpoint}
+for the step deletes its partial.
 }
