@@ -75,8 +75,14 @@
 #'   \code{no_silent_skip} boolean is unchanged. The fields exist so
 #'   the methodology paper can report researcher-side burden as a
 #'   KPI alongside AI-side coverage.
+#' 2.2.0 -- counter-evidence candidate sampling: the counter_narrative /
+#'   disconfirming_evidence prompts now embed a bounded, deterministic
+#'   sample of NON-theme corpus entries, so the model can cite real
+#'   counter-evidence. Added \code{n_candidate_entries_prompt_cap}
+#'   (informational). \code{llm_prompt_includes_full_corpus} stays FALSE
+#'   -- the prompt holds a bounded sample, never the whole corpus.
 #' @keywords internal
-.PROVOCATION_COVERAGE_SCHEMA_VERSION <- "2.1.0"
+.PROVOCATION_COVERAGE_SCHEMA_VERSION <- "2.2.0"
 
 # ==============================================================================
 # compute_mode1_coverage -- T0.3 for Mode 1
@@ -91,10 +97,12 @@
 #' \itemize{
 #'   \item every researcher-authored theme was challenged across every
 #'     requested provocation category (no silent theme/category skip);
-#'   \item the AI was given the FULL corpus when searching for counter-
-#'     evidence (no silent corpus truncation -- by construction in
-#'     pakhom's prompt builders, which pass the entire corpus tibble to
-#'     each per-category provocation function).
+#'   \item the full corpus tibble is passed to each per-category
+#'     provocation function for citation verification, and the
+#'     counter-evidence prompts embed a bounded, deterministic sample of
+#'     non-theme entries -- the LLM prompt never contains the whole
+#'     corpus, and the coverage card states the prompt-context shape
+#'     explicitly rather than claiming a full-corpus search.
 #' }
 #'
 #' Distinguishing legitimate empty results from silent skips matters:
@@ -272,23 +280,18 @@ compute_mode1_coverage <- function(reflection_log, theme_set, data,
     sum(attempts_in_scope$n_emitted == 0L) else 0L
   n_attempts_with_emit <- n_attempts_recorded - n_attempts_with_zero_emit
 
-  # M3: the per-category prompts (R/provocateur.R
-  # provoke_*) instruct the LLM to "search the FULL corpus" but the
-  # prompt builders include only the theme's supporting entries (via
-  # .build_theme_supporting_entries) -- the rest of the corpus is NOT
-  # in the prompt. Asserting "no silent corpus truncation = TRUE"
-  # would overclaim. Instead surface the prompt-context shape: the
-  # corpus IS available to the per-category functions (passed as the
-  # `data` argument), but the LLM only sees a subset. Future phases
-  # may add corpus-search via embeddings + k-nearest neighbors; until
-  # then, the honest claim is that the LLM cannot search what it
-  # cannot see, so any counter-evidence it returns is drawn from
-  # training data -- which the verification ladder catches as
-  # fabrication unless the model happens to know the entry_id space.
-  # The field is kept for future use but explicitly downgrades
-  # its semantics in the rendered card; see render method.
+  # Prompt-context shape: the counter-evidence prompts
+  # (counter_narrative / disconfirming_evidence) embed the theme's
+  # supporting entries PLUS a bounded, deterministic sample of non-theme
+  # corpus entries (.build_candidate_counter_entries, cap disclosed
+  # below), so the model can cite real counter-evidence. The prompt still
+  # never contains the WHOLE corpus -- llm_prompt_includes_full_corpus
+  # stays FALSE and the rendered card states the sampling shape
+  # explicitly. Any cited entry_id is resolved + verified against the
+  # full corpus (T0.1), so out-of-prompt citations are caught.
   corpus_provided_to_per_category_fns <- TRUE
-  llm_prompt_includes_full_corpus     <- FALSE  # current architecture
+  llm_prompt_includes_full_corpus     <- FALSE  # bounded sample, by design
+  n_candidate_entries_prompt_cap      <- 25L    # .build_candidate_counter_entries default
 
   # M1.3: count typed memos. Informational only -- memo
   # writing is a researcher activity, not an AI-pipeline gate, so
@@ -355,6 +358,7 @@ compute_mode1_coverage <- function(reflection_log, theme_set, data,
     n_corpus_entries_searchable   = as.integer(nrow(data)),
     corpus_provided_to_per_category_fns = corpus_provided_to_per_category_fns,
     llm_prompt_includes_full_corpus = llm_prompt_includes_full_corpus,
+    n_candidate_entries_prompt_cap = as.integer(n_candidate_entries_prompt_cap),
     n_memos                       = as.integer(n_memos),
     memos_by_type                 = memos_by_type,
     no_silent_theme_skip          = no_silent_theme_skip,
@@ -422,7 +426,12 @@ print.ProvocationCoverage <- function(x, ...) {
                 "TRUE" else "FALSE"))
   cat(sprintf("  LLM prompts include full corpus: %s\n",
               if (isTRUE(x$llm_prompt_includes_full_corpus)) "TRUE"
-              else "FALSE (only supporting-entry context per theme)"))
+              else paste0("FALSE (supporting-entry context per theme + a ",
+                          "bounded candidate sample of non-theme entries)")))
+  if (!is.null(x$n_candidate_entries_prompt_cap)) {
+    cat(sprintf("  Candidate-sample cap per prompt: %d\n",
+                x$n_candidate_entries_prompt_cap))
+  }
   cat(sprintf("  Researcher memos (M1.3):         %d\n",
               x$n_memos %||% 0L))
   if (length(x$memos_by_type %||% list()) > 0L) {
@@ -602,23 +611,25 @@ render_tier0_coverage_card.ProvocationCoverage <- function(x, ...) {
     coverage$n_provocations_emitted %||% 0L
   )
 
-  # Prompt-context note: addresses M3 from the audit. Replaces the
-  # previous overclaim ("no silent corpus truncation = TRUE") with an
-  # honest description of what the LLM actually sees in current
-  # architecture.
+  # Prompt-context note: honest description of what the LLM actually
+  # sees. The counter-evidence prompts embed the supporting-entry context
+  # plus a bounded, deterministic sample of non-theme entries; the prompt
+  # never contains the whole corpus.
   prompt_context_note <- sprintf(
     paste0(
       'Prompt context: per-category prompts include the supporting-',
       'entry text for each theme (data argument: %s entries available; ',
-      'prompt embeds only the per-theme subset). The LLM is instructed ',
-      'to "search the FULL corpus" but only sees the supporting-entry ',
-      'context; counter-evidence the model returns is verified against ',
+      'the prompt embeds the per-theme subset, and the counter-evidence ',
+      'categories additionally embed a bounded, deterministic sample of ',
+      'up to %d non-theme entries so real counter-evidence is citable). ',
+      'The prompt never contains the whole corpus. Every citation the ',
+      'model returns is verified against ',
       'the corpus by the verification ladder (T0.1) -- ',
       'fabricated entry_ids fail .citation_to_provocation lookup and ',
-      'are dropped. A future phase will add corpus-search retrieval ',
-      'so the LLM can reason against the whole corpus directly.'
+      'are dropped.'
     ),
-    format(coverage$n_corpus_entries_searchable %||% 0L, big.mark = ",")
+    format(coverage$n_corpus_entries_searchable %||% 0L, big.mark = ","),
+    coverage$n_candidate_entries_prompt_cap %||% 25L
   )
 
   paste0(

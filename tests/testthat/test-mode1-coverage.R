@@ -95,11 +95,13 @@ test_that("compute_mode1_coverage returns ProvocationCoverage + Tier0Coverage", 
   expect_s3_class(cov, "ProvocationCoverage")
   expect_s3_class(cov, "Tier0Coverage")
   expect_equal(cov$mode, "reflexive_scaffold")
-  # Schema 2.1.0: added n_memos + memos_by_type informational
-  # fields. Earlier audit fixes (2.0.0): named-list serialization,
-  # partition in/out-of-scope attempts, degenerate-state gating,
-  # downgraded corpus-truncation claim.
-  expect_equal(cov$schema_version, "2.1.0")
+  # Schema 2.2.0: counter-evidence candidate sampling (bounded,
+  # deterministic non-theme sample in the prompts) + the
+  # n_candidate_entries_prompt_cap informational field. 2.1.0 added
+  # n_memos + memos_by_type; 2.0.0: named-list serialization, partition
+  # in/out-of-scope attempts, degenerate-state gating, downgraded
+  # corpus-truncation claim.
+  expect_equal(cov$schema_version, "2.2.0")
 })
 
 test_that("compute_mode1_coverage records every documented field", {
@@ -122,6 +124,8 @@ test_that("compute_mode1_coverage records every documented field", {
     # honest fields + retained the headline boolean
     "corpus_provided_to_per_category_fns",
     "llm_prompt_includes_full_corpus",
+    # 2.2.0: candidate-sample cap for the counter-evidence prompts
+    "n_candidate_entries_prompt_cap",
     # M1.3: informational researcher-memo counts
     "n_memos", "memos_by_type",
     "no_silent_theme_skip", "no_unexpected_category_attempts",
@@ -510,9 +514,13 @@ test_that("ProvocationCoverage carries the prompt-context fields (corpus passed 
   expect_true(any(grepl("Corpus passed to per-category fns", out)))
   expect_true(any(grepl("LLM prompts include full corpus", out)))
   html <- render_tier0_coverage_card(cov)
-  expect_true(grepl("supporting-entry context", html))
-  # Old overclaim should NOT appear anymore
+  expect_true(grepl("supporting-entry", html))
+  # The candidate-sampling shape is disclosed
+  expect_true(grepl("bounded, deterministic sample", html))
+  expect_true(grepl("never contains the whole corpus", html))
+  # Old overclaims should NOT appear anymore
   expect_false(grepl("no silent corpus truncation", html, ignore.case=TRUE))
+  expect_false(grepl("search the FULL corpus", html, fixed=TRUE))
 })
 
 # ---- L2 (audit C): expected_attempts is clamped at 0 ----------------------

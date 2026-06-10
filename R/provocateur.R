@@ -480,6 +480,51 @@ print.Provocation <- function(x, ...) {
   paste(lines, collapse = "\n")
 }
 
+#' Build a bounded candidate pool of NON-theme corpus entries for the
+#' evidence-based challenge categories
+#'
+#' counter_narrative and disconfirming_evidence ask the model to find
+#' entries that complicate or contradict a theme. Showing it only the
+#' theme's OWN supporting entries makes that structurally impossible --
+#' the model cannot cite corpus evidence it never sees. This helper
+#' injects a bounded sample of entries OUTSIDE the theme's supporting set
+#' so real counter-evidence is reachable; the existing verification flow
+#' needs no changes because .citation_to_provocation resolves any cited
+#' entry_id against the FULL corpus.
+#'
+#' The sample is DETERMINISTIC (fixed seed via .with_seed, which restores
+#' the caller's RNG state): identical inputs produce identical prompts,
+#' keeping the response cache effective and runs reproducible. When the
+#' pool exceeds \code{max_entries}, the cap is disclosed to the coverage
+#' card via the \code{n_candidate_entries_prompt_cap} field.
+#'
+#' @param data Tibble: the full corpus (std_id + std_text).
+#' @param theme_entries Tibble: the theme's supporting entries.
+#' @param max_entries Integer cap on candidates injected per prompt.
+#' @param max_chars Per-entry text truncation for the prompt block.
+#' @return Compact one-line-per-entry string for prompt injection;
+#'   \code{"(no candidate entries -- every corpus entry supports this
+#'   theme)"} when the pool is empty.
+#' @keywords internal
+.build_candidate_counter_entries <- function(data, theme_entries,
+                                              max_entries = 25L,
+                                              max_chars = 400L) {
+  pool <- data[!data$std_id %in% theme_entries$std_id, , drop = FALSE]
+  if (nrow(pool) == 0L) {
+    return("(no candidate entries -- every corpus entry supports this theme)")
+  }
+  if (nrow(pool) > max_entries) {
+    keep <- .with_seed(20260609L, sample.int(nrow(pool), max_entries))
+    pool <- pool[sort(keep), , drop = FALSE]
+  }
+  text_col <- if ("original_text" %in% names(pool)) "original_text" else "std_text"
+  lines <- vapply(seq_len(nrow(pool)), function(i) {
+    txt <- substr(pool[[text_col]][i], 1, max_chars)
+    sprintf("- entry_id: %s\n  text: \"%s\"", pool$std_id[i], txt)
+  }, character(1))
+  paste(lines, collapse = "\n")
+}
+
 #' Convert one parsed citation row to a Provocation
 #'
 #' Takes the AI's `{entry_id, char_start, char_end, exact_text, reason}`
@@ -548,6 +593,25 @@ print.Provocation <- function(x, ...) {
     return(NULL)
   }
 
+  # Verified -- emit the quote_verified counterpart of the fabricated
+  # record above, so Mode 1 run dirs get matching denominator events for
+  # the transparency report's fabrication rate. Guarded: audit_log
+  # defaults to NULL here and log_ai_decision rejects NULL. (Drifted is
+  # unreachable in this path -- make_quote hashes the same src_text that
+  # verify_quote re-hashes -- but gate on the verified statuses anyway.)
+  if (!is.null(audit_log) &&
+      q$verification_status %in% c("verified_exact", "verified_fuzzy")) {
+    log_ai_decision(audit_log, "quote_verification", "quote_verified",
+                    entry_id   = entry_id,
+                    theme_name = theme_name,
+                    quote_id   = q$quote_id,
+                    ai_call_id = q$ai_call_id %||% NA_character_,
+                    provocation_category = category,
+                    verification_status = q$verification_status,
+                    verification_method = q$verification_method
+                                            %||% NA_character_)
+  }
+
   make_provocation(
     category    = category,
     theme_name  = theme_name,
@@ -565,14 +629,21 @@ print.Provocation <- function(x, ...) {
 #' Counter-narrative provocation
 #'
 #' Given researcher-supplied theme name + supporting entries, AI returns
-#' up to \code{n} entries from the corpus that frame the same construct
-#' as not-Y. Per Sarkar 2024 / patterns doc: extractive only -- the model
-#' returns entries (not arguments), and a one-sentence reason per entry.
+#' up to \code{n} entries that frame the same construct as not-Y, drawn
+#' from the supporting entries plus a bounded, deterministic sample of
+#' non-theme corpus entries injected into the prompt (the model sees only
+#' what the prompt contains -- it has no retrieval access to the rest of
+#' the corpus). Per Sarkar 2024 / patterns doc: extractive only -- the
+#' model returns entries (not arguments), and a one-sentence reason per
+#' entry.
 #'
 #' @param theme_name Character: the theme to challenge.
 #' @param theme_entries Tibble: entries the researcher believes support
 #'   the theme (must have std_id and std_text).
-#' @param data Tibble: the FULL corpus (the model searches this).
+#' @param data Tibble: the full corpus. Used to resolve and verify cited
+#'   entry_ids (T0.1) and to draw the bounded candidate sample of
+#'   non-theme entries for the counter-evidence categories; the model is
+#'   NOT given the full corpus to search.
 #' @param provider AIProvider object.
 #' @param n Integer: maximum provocations to return (default 5).
 #' @param audit_log Optional AuditLog.
@@ -590,12 +661,17 @@ provoke_counter_narrative <- function(theme_name, theme_entries, data, provider,
   prompt <- paste0(
     "You are a research provocateur. The researcher believes theme \"",
     theme_name, "\" is supported by the entries below. ",
-    "Search the FULL corpus for up to ", n, " entries that, in the ",
+    "Search the candidate corpus entries below for up to ", n,
+    " entries that, in the ",
     "researcher's own framing, would be the strongest COUNTER-NARRATIVE ",
     "-- entries that, if read first, would lead a researcher to a ",
     "different theme name.\n\n",
     "Researcher's supporting entries:\n",
     .build_theme_supporting_entries(theme_entries),
+    "\n\n",
+    "Candidate corpus entries (cite ONLY from the entries shown in this ",
+    "prompt):\n",
+    .build_candidate_counter_entries(data, theme_entries),
     "\n\n",
     "Return JSON: {provocations: [{entry_id, char_start, char_end, ",
     "exact_text, reason}]}. exact_text must be a verbatim slice of the ",
@@ -643,8 +719,10 @@ provoke_counter_narrative <- function(theme_name, theme_entries, data, provider,
 
 #' Disconfirming-evidence provocation
 #'
-#' Find the n entries in the corpus that most strongly contradict theme X.
-#' Same extractive shape as counter_narrative.
+#' Find up to n entries that most strongly contradict theme X, drawn from
+#' the entries shown in the prompt (supporting entries plus the bounded
+#' candidate sample of non-theme corpus entries). Same extractive shape
+#' as counter_narrative.
 #' @inheritParams provoke_counter_narrative
 #' @export
 provoke_disconfirming_evidence <- function(theme_name, theme_entries, data,
@@ -655,11 +733,16 @@ provoke_disconfirming_evidence <- function(theme_name, theme_entries, data,
   validate_class(provider, "AIProvider")
 
   prompt <- paste0(
-    "You are a research provocateur. Find the ", n, " entries in the corpus ",
+    "You are a research provocateur. From the candidate corpus entries ",
+    "below, find the ", n, " entries ",
     "that most strongly CONTRADICT theme \"", theme_name, "\". Return ",
     "verbatim citations with one-sentence reasons. Do not interpret or argue.\n\n",
     "Researcher's supporting entries (for theme context):\n",
     .build_theme_supporting_entries(theme_entries),
+    "\n\n",
+    "Candidate corpus entries (cite ONLY from the entries shown in this ",
+    "prompt):\n",
+    .build_candidate_counter_entries(data, theme_entries),
     "\n\n",
     "Return JSON: {provocations: [{entry_id, char_start, char_end, ",
     "exact_text, reason}]}. exact_text must be a verbatim slice of the ",
@@ -778,7 +861,16 @@ provoke_alternative_interpretation <- function(theme_name, theme_entries, data,
                                     fabrication_log = fabrication_log)
     if (!is.null(a)) { anchor <- a; break }
   }
-  if (is.null(anchor)) return(list())
+  # Alternative names are conceptually independent of any single re-cited
+  # quote: when no anchor verifies, the substantive challenge (the rival
+  # NAMES) must not be silently erased over a citation technicality. Emit
+  # them with NULL provenance (the absent_voice precedent) and an explicit
+  # flag so the report can show them as unanchored.
+  if (is.null(anchor) && length(alternatives) > 0L) {
+    log_warn(paste0("alternative_interpretation for '{theme_name}': no shared ",
+                    "quote re-citation verified; emitting alternative names ",
+                    "without an anchor quote."))
+  }
 
   provs <- list()
   for (alt in alternatives) {
@@ -787,8 +879,9 @@ provoke_alternative_interpretation <- function(theme_name, theme_entries, data,
       category   = "alternative_interpretation",
       theme_name = theme_name,
       reason     = sprintf("Alternative name: '%s'", alt),
-      provenance = anchor$provenance,
-      extra      = list(alternative_name = alt),
+      provenance = if (!is.null(anchor)) anchor$provenance else NULL,
+      extra      = list(alternative_name = alt,
+                        anchor_quote_verified = !is.null(anchor)),
       ai_model   = ai_meta$model %||% NA_character_,
       ai_call_id = ai_meta$call_id %||% NA_character_
     )

@@ -667,3 +667,175 @@ test_that("AC7: every Provocation with a citation runs through verify_quote", {
   expect_s3_class(p_real, "Provocation")
   expect_null(p_fake)
 })
+
+test_that(".citation_to_provocation emits a quote_verified audit record on success", {
+  data <- tibble::tibble(
+    std_id   = "e1",
+    std_text = "I plan to take my medication every day from now on."
+  )
+  ai_meta <- new.env(parent = emptyenv())
+  ai_meta$model <- "claude-mock"; ai_meta$call_id <- "msg_test_qv"
+  cit <- list(entry_id = "e1", char_start = 0L, char_end = 6L,
+              exact_text = "I plan", reason = "challenges the framing")
+
+  tmp <- tempfile(); dir.create(tmp)
+  on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
+  audit <- init_audit_log(tmp)
+
+  p <- pakhom:::.citation_to_provocation(
+    cit = cit, theme_name = "Medication adherence",
+    category = "counter_narrative", data = data, ai_meta = ai_meta,
+    audit_log = audit
+  )
+  expect_s3_class(p, "Provocation")
+
+  lines <- readLines(file.path(tmp, "ai_decisions.jsonl"), warn = FALSE)
+  recs <- lapply(lines, jsonlite::fromJSON)
+  qv <- Filter(function(r) identical(r$decision_type, "quote_verified"), recs)
+  expect_length(qv, 1L)
+  expect_equal(qv[[1]]$entry_id, "e1")
+  expect_equal(qv[[1]]$provocation_category, "counter_narrative")
+  expect_equal(qv[[1]]$verification_status, "verified_exact")
+})
+
+# ==============================================================================
+# Counter-evidence candidate sampling (HIGH-6/7 fix)
+# ==============================================================================
+
+test_that(".build_candidate_counter_entries samples only NON-theme entries, deterministically", {
+  data <- tibble::tibble(
+    std_id = paste0("e", 1:40),
+    std_text = paste("Corpus entry number", 1:40)
+  )
+  theme_entries <- data[1:10, ]
+
+  block1 <- pakhom:::.build_candidate_counter_entries(data, theme_entries)
+  block2 <- pakhom:::.build_candidate_counter_entries(data, theme_entries)
+  expect_identical(block1, block2)  # deterministic across calls
+
+  # No theme entry leaks into the candidate block
+  for (id in theme_entries$std_id) {
+    expect_false(grepl(paste0("entry_id: ", id, "\n"), block1, fixed = TRUE))
+  }
+  # Cap respected: 30 candidates exist, cap is 25
+  expect_equal(length(gregexpr("entry_id:", block1, fixed = TRUE)[[1]]), 25L)
+})
+
+test_that(".build_candidate_counter_entries handles an all-theme corpus (empty pool)", {
+  data <- tibble::tibble(std_id = paste0("e", 1:4),
+                          std_text = paste("Entry", 1:4))
+  block <- pakhom:::.build_candidate_counter_entries(data, data)
+  expect_match(block, "no candidate entries", fixed = TRUE)
+})
+
+test_that(".build_candidate_counter_entries does not disturb the caller's RNG stream", {
+  data <- tibble::tibble(std_id = paste0("e", 1:40),
+                          std_text = paste("Entry", 1:40))
+  set.seed(999)
+  before <- .Random.seed
+  invisible(pakhom:::.build_candidate_counter_entries(data, data[1:5, ]))
+  expect_identical(.Random.seed, before)
+})
+
+test_that("counter-evidence prompts embed the candidate corpus entries", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+  data <- tibble::tibble(
+    std_id = paste0("e", 1:6),
+    std_text = paste("This is corpus entry number", 1:6)
+  )
+  theme_entries <- data[1:2, ]
+
+  seen_prompt <- NULL
+  local_mocked_bindings(
+    ai_complete = function(provider, prompt, ...) {
+      seen_prompt <<- prompt
+      list(content = '{"provocations": []}', model = "mock",
+           request_id = "req", usage = list(), finish_reason = "stop",
+           raw_response = list(), prompt_hash = "h")
+    },
+    .package = "pakhom"
+  )
+
+  invisible(provoke_counter_narrative("Test Theme", theme_entries, data,
+                                       provider = mock_provider()))
+  expect_match(seen_prompt, "Candidate corpus entries", fixed = TRUE)
+  expect_match(seen_prompt, "entry_id: e3", fixed = TRUE)  # non-theme entry visible
+  expect_false(grepl("Search the FULL corpus", seen_prompt, fixed = TRUE))
+
+  invisible(provoke_disconfirming_evidence("Test Theme", theme_entries, data,
+                                            provider = mock_provider()))
+  expect_match(seen_prompt, "Candidate corpus entries", fixed = TRUE)
+})
+
+# ==============================================================================
+# M-14: alternative names survive an anchor-quote verification failure
+# ==============================================================================
+
+test_that("alternative_interpretation emits names with NULL provenance when no anchor verifies", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+  data <- tibble::tibble(
+    std_id = "e1",
+    std_text = "I plan to take my medication every day from now on."
+  )
+  # The shared quote re-citation is fabricated (text not in the entry),
+  # but the rival names are substantive challenges and must survive.
+  mock_response <- jsonlite::toJSON(list(
+    alternative_names = list("Medication Ambivalence", "Treatment Negotiation"),
+    shared_quotes = list(list(
+      entry_id = "e1", char_start = 0L, char_end = 10L,
+      exact_text = "completely fabricated text", reason = "anchor"
+    ))
+  ), auto_unbox = TRUE)
+  local_mocked_bindings(
+    ai_complete = function(...) list(
+      content = mock_response, model = "mock", request_id = "req",
+      usage = list(), finish_reason = "stop", raw_response = list(),
+      prompt_hash = "h"
+    ),
+    .package = "pakhom"
+  )
+
+  provs <- suppressWarnings(provoke_alternative_interpretation(
+    "Adherence", data[1, ], data, provider = mock_provider()
+  ))
+  expect_length(provs, 2L)
+  alt_names <- vapply(provs, function(p) p$extra$alternative_name, character(1))
+  expect_setequal(alt_names, c("Medication Ambivalence", "Treatment Negotiation"))
+  for (p in provs) {
+    expect_null(p$provenance)
+    expect_false(p$extra$anchor_quote_verified)
+  }
+})
+
+test_that("alternative_interpretation flags anchor_quote_verified=TRUE when the anchor verifies", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+  data <- tibble::tibble(
+    std_id = "e1",
+    std_text = "I plan to take my medication every day from now on."
+  )
+  mock_response <- jsonlite::toJSON(list(
+    alternative_names = list("Medication Ambivalence"),
+    shared_quotes = list(list(
+      entry_id = "e1", char_start = 0L, char_end = 6L,
+      exact_text = "I plan", reason = "anchor"
+    ))
+  ), auto_unbox = TRUE)
+  local_mocked_bindings(
+    ai_complete = function(...) list(
+      content = mock_response, model = "mock", request_id = "req",
+      usage = list(), finish_reason = "stop", raw_response = list(),
+      prompt_hash = "h"
+    ),
+    .package = "pakhom"
+  )
+
+  provs <- provoke_alternative_interpretation(
+    "Adherence", data[1, ], data, provider = mock_provider()
+  )
+  expect_length(provs, 1L)
+  expect_s3_class(provs[[1]]$provenance, "QuoteProvenance")
+  expect_true(provs[[1]]$extra$anchor_quote_verified)
+})

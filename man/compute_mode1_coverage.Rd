@@ -42,10 +42,12 @@ truncation), Mode 1 asserts:
 \itemize{
 \item every researcher-authored theme was challenged across every
 requested provocation category (no silent theme/category skip);
-\item the AI was given the FULL corpus when searching for counter-
-evidence (no silent corpus truncation -- by construction in
-pakhom's prompt builders, which pass the entire corpus tibble to
-each per-category provocation function).
+\item the full corpus tibble is passed to each per-category
+provocation function for citation verification, and the
+counter-evidence prompts embed a bounded, deterministic sample of
+non-theme entries -- the LLM prompt never contains the whole
+corpus, and the coverage card states the prompt-context shape
+explicitly rather than claiming a full-corpus search.
 }
 
 Distinguishing legitimate empty results from silent skips matters:

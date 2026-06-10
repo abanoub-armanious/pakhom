@@ -142,7 +142,7 @@ test_that("Tier-0 smoke: all three universals compute + render together", {
   cov_md <- pakhom:::.build_corpus_coverage_card(coverage)
   expect_match(cov_md, "Corpus Coverage")
   expect_match(cov_md, "coverage-banner-ok")
-  expect_match(cov_md, "No silent truncation")
+  expect_match(cov_md, "entry-level coverage")
 
   # Sanity: combined output has the three distinct anchor strings,
   # i.e., we can render all three cards in sequence without conflict.
@@ -184,7 +184,7 @@ test_that("Tier-0 smoke: anonymous data (no std_author) -> T0.2 reports unavaila
   tier0_md <- pakhom:::.build_tier0_dashboard(prov_stats)
   expect_match(tier0_md, "Data Integrity Dashboard")
   cov_md <- pakhom:::.build_corpus_coverage_card(coverage)
-  expect_match(cov_md, "No silent truncation")
+  expect_match(cov_md, "entry-level coverage")
 })
 
 test_that("Tier-0 smoke: fabrication detected -> T0.1 dashboard reports it, T0.2/T0.3 unaffected", {

@@ -40,6 +40,12 @@ a researcher activity, not a pipeline gate -- the headline
 \code{no_silent_skip} boolean is unchanged. The fields exist so
 the methodology paper can report researcher-side burden as a
 KPI alongside AI-side coverage.
+2.2.0 -- counter-evidence candidate sampling: the counter_narrative /
+disconfirming_evidence prompts now embed a bounded, deterministic
+sample of NON-theme corpus entries, so the model can cite real
+counter-evidence. Added \code{n_candidate_entries_prompt_cap}
+(informational). \code{llm_prompt_includes_full_corpus} stays FALSE
+-- the prompt holds a bounded sample, never the whole corpus.
 }
 }
 \keyword{internal}

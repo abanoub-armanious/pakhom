@@ -57,6 +57,7 @@ test_that("compute_corpus_coverage returns a CorpusCoverage S3 object with all s
     "n_input_to_coding", "n_processed", "n_unprocessed", "unprocessed_ids",
     "n_skipped", "skip_reasons", "n_coded",
     "bytes_processed", "chars_processed", "words_processed",
+    "n_entries_truncated", "chars_sent_to_llm", "truncation_tracked",
     "coverage_rate", "no_silent_truncation",
     # stop_reason / saturation_reached / reached_at_entry
     # distinguish intentional saturation-arbiter early-stop from
@@ -279,7 +280,7 @@ test_that(".build_corpus_coverage_card renders the OK banner for complete covera
   expect_match(html, "Corpus Coverage \\(T0\\.3\\)")
   expect_match(html, "coverage-banner-ok")
   expect_match(html, "All 3 entries from the preprocessed dataset")
-  expect_match(html, "No silent truncation")
+  expect_match(html, "entry-level coverage")
 })
 
 test_that(".build_corpus_coverage_card renders the WARN banner when truncation detected", {
@@ -442,4 +443,137 @@ test_that("render_tier0_coverage_card emits saturation banner on intentional sto
   # Banner class is the saturation variant, not the warning variant
   expect_match(html, "coverage-banner-saturated")
   expect_false(grepl("Coverage is incomplete; investigate", html))
+})
+
+# ==============================================================================
+# Within-entry truncation accounting (schema 1.1.0)
+# ==============================================================================
+
+test_that("compute_corpus_coverage aggregates truncation fields when all records carry them", {
+  state <- create_coding_state()
+  state$entry_results[["e1"]] <- list(
+    codes_assigned = "code1", coded_segments = list(),
+    skipped = FALSE, skip_reason = NA_character_,
+    failure = FALSE, chars_total = 100L, chars_sent = 100L, truncated = FALSE
+  )
+  state$entry_results[["e2"]] <- list(
+    codes_assigned = "code1", coded_segments = list(),
+    skipped = FALSE, skip_reason = NA_character_,
+    failure = FALSE, chars_total = 9000L, chars_sent = 8000L, truncated = TRUE
+  )
+  data <- .make_data(c("e1", "e2"))
+  cov <- compute_corpus_coverage(state, data)
+
+  expect_true(cov$truncation_tracked)
+  expect_equal(cov$n_entries_truncated, 1L)
+  expect_equal(cov$chars_sent_to_llm, 8100L)
+  expect_equal(cov$schema_version, "1.1.0")
+})
+
+test_that("compute_corpus_coverage reports NA + untracked for legacy records (never fabricates zero)", {
+  # Hand-built legacy state: records lack chars_sent/truncated entirely.
+  state <- .make_state(coded_ids = c("e1", "e2"))
+  data  <- .make_data(c("e1", "e2"))
+  cov <- compute_corpus_coverage(state, data)
+
+  expect_false(cov$truncation_tracked)
+  expect_true(is.na(cov$n_entries_truncated))
+  expect_true(is.na(cov$chars_sent_to_llm))
+  # The card and print method must not error on the NA/untracked path
+  html <- pakhom:::.build_corpus_coverage_card(cov)
+  expect_match(html, "not tracked", fixed = TRUE)
+  expect_no_error(capture.output(print(cov)))
+})
+
+test_that("coverage card discloses truncation in the ok-banner when entries were truncated", {
+  state <- create_coding_state()
+  state$entry_results[["e1"]] <- list(
+    codes_assigned = "code1", coded_segments = list(),
+    skipped = FALSE, skip_reason = NA_character_,
+    failure = FALSE, chars_total = 9000L, chars_sent = 8000L, truncated = TRUE
+  )
+  data <- .make_data("e1")
+  cov <- compute_corpus_coverage(state, data)
+  html <- pakhom:::.build_corpus_coverage_card(cov)
+
+  expect_match(html, "1 entries exceeded the per-entry character cap", fixed = TRUE)
+  expect_match(html, "characters of source text sent to the LLM", fixed = TRUE)
+})
+
+# ==============================================================================
+# Aggregate AI-failure breaker (M-34)
+# ==============================================================================
+
+test_that(".cluster_skip_reasons routes the AI failure string to its own category", {
+  reasons <- stats::setNames(
+    c(3L, 2L, 1L),
+    c("AI response parse failure",
+      "Discusses a social network feature, unrelated to focus",
+      "Mentions a timeout in a basketball game, off-topic")
+  )
+  clusters <- pakhom:::.cluster_skip_reasons(reasons)
+  labels <- vapply(clusters, function(cl) cl$label, character(1))
+  failure_idx <- grep("AI call failure", labels)
+  expect_length(failure_idx, 1L)
+  expect_equal(clusters[[failure_idx]]$count, 3L)
+  # The free-text reasons mentioning "network"/"timeout" must NOT be
+  # bucketed as failures (they are legitimate AI-judged skips).
+  other_counts <- sum(vapply(clusters[-failure_idx], function(cl) cl$count,
+                             integer(1)))
+  expect_equal(other_counts, 3L)
+})
+
+test_that("run_progressive_coding trips the breaker on consecutive AI failures", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+  local_mocked_bindings(
+    ai_complete = function(...) stop("simulated network outage"),
+    .package = "pakhom"
+  )
+  data <- tibble::tibble(
+    std_id = paste0("e", 1:30),
+    std_text = paste("This entry has plenty of text to be coded, number", 1:30)
+  )
+  err <- tryCatch(
+    suppressWarnings(run_progressive_coding(
+      data, provider = mock_provider(),
+      config = list(max_consecutive_entry_failures = 5L),
+      research_focus = "test"
+    )),
+    error = function(e) e
+  )
+  expect_s3_class(err, "pakhom_coding_failure_breaker")
+  expect_match(conditionMessage(err), "resume = TRUE", fixed = TRUE)
+  expect_match(conditionMessage(err), "5 consecutive", fixed = TRUE)
+})
+
+test_that("legitimate AI-judged skips never trip the breaker (high-skip corpus)", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+  skip_response <- jsonlite::toJSON(list(
+    skipped = TRUE, skip_reason = "No applicable content",
+    coded_segments = list()
+  ), auto_unbox = TRUE)
+  local_mocked_bindings(
+    ai_complete = function(...) list(
+      content = skip_response, model = "mock", request_id = "req",
+      usage = list(prompt_tokens = 1L, completion_tokens = 1L, total_tokens = 2L),
+      finish_reason = "stop", raw_response = list(), prompt_hash = "h"
+    ),
+    .package = "pakhom"
+  )
+  data <- tibble::tibble(
+    std_id = paste0("e", 1:25),
+    std_text = paste("This entry has plenty of text to be skipped, number", 1:25)
+  )
+  expect_no_error(suppressWarnings(
+    state <- run_progressive_coding(
+      data, provider = mock_provider(),
+      config = list(max_consecutive_entry_failures = 5L,
+                    max_failed_entry_fraction = 0.1),
+      research_focus = "test"
+    )
+  ))
+  expect_equal(sum(vapply(state$entry_results,
+                          function(er) isTRUE(er$skipped), logical(1))), 25L)
 })

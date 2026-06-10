@@ -196,7 +196,9 @@ compute_provocation_provenance_stats <- function(reflection_log) {
     "provocation(s). The AI's role here is Socratic gadfly (Sarkar 2024) ",
     "-- it surfaces counter-narratives, absent voices, alternative ",
     "framings, disconfirming evidence, and assumption-surfacing terms ",
-    "extracted from the corpus. Theme authorship belongs to the ",
+    "extracted from each theme's supporting entries plus a bounded ",
+    "sample of non-theme corpus entries shown in the prompt. Theme ",
+    "authorship belongs to the ",
     "researcher. ", coverage_line, "\n\n",
     "**Top provocation categories:** ", top_cats, ".\n\n",
     "**Themes attracting the most disconfirming evidence:** ",
@@ -233,7 +235,10 @@ compute_provocation_provenance_stats <- function(reflection_log) {
     "interpret -- it selects evidence the researcher's framing would ",
     "want to engage with.\n\n",
     "*Verification status* on each cited quote reflects the ",
-    "verification ladder (AC7 / T0.1 universal). Fabricated provocations ",
+    "verification ladder (AC7 / T0.1 universal). A verified badge ",
+    "attests only that the cited span exists verbatim in the cited ",
+    "entry -- it does not validate the model's accompanying argument ",
+    "for why the quote challenges the theme. Fabricated provocations ",
     "are dropped silently and recorded in `fabrication_log.csv` -- they ",
     "do not appear here.\n\n"
   )
@@ -471,13 +476,19 @@ compute_provocation_provenance_stats <- function(reflection_log) {
     vstatus <- as.character(prov$verification_status %||% "unknown")
     vstatus_class <- if (vstatus %in% c("verified_exact", "verified_fuzzy"))
                        "prov-verified" else "prov-unverified"
+    # Scoped display label: the badge certifies the QUOTE's existence in
+    # the cited entry, never the challenge argument itself.
+    vstatus_label <- switch(vstatus,
+      verified_exact = "quote verified (exact)",
+      verified_fuzzy = "quote verified (fuzzy)",
+      paste0("quote unverified (", vstatus, ")"))
     paste0(
       '<div class="provocation-block">\n',
       '<div class="provocation-quote">&ldquo;', quote_txt, '&rdquo;</div>\n',
       '<div class="provocation-meta">',
       '<span class="prov-source">Cited entry: ', src_id, '</span>',
       ' &middot; <span class="', vstatus_class, '">',
-      .html_esc(vstatus), '</span>',
+      .html_esc(vstatus_label), '</span>',
       '</div>\n',
       '<div class="provocation-reason"><strong>Why this challenges the theme:</strong> ',
       reason, '</div>\n',

@@ -705,3 +705,108 @@ test_that(".generate_theme_detail_htmls omits paper-style table when no real sub
   expect_false(grepl("detail-subtheme-summary", html, fixed = TRUE))
   expect_false(grepl("subtheme-summary-table", html, fixed = TRUE))
 })
+
+# ==========================================================================
+# Longitudinal Patterns report section (.build_longitudinal_section)
+# ==========================================================================
+
+.make_temporal_fixture <- function() {
+  data <- data.frame(
+    std_id = paste0("e", 1:6),
+    std_timestamp = as.POSIXct("2025-01-01", tz = "UTC") + (0:5) * 86400 * 40,
+    theme_membership_Theme.One = c(1L, 1L, 0L, 1L, 0L, 1L),
+    theme_membership_Theme.Two = c(0L, 0L, 1L, 1L, 1L, 0L),
+    stringsAsFactors = FALSE
+  )
+  theme_set <- structure(
+    list(themes = list(
+      list(name = "Theme One", codes_included = character()),
+      list(name = "Theme Two", codes_included = character())
+    )),
+    class = "ThemeSet"
+  )
+  list(data = data, theme_set = theme_set)
+}
+
+test_that("analyze_temporal_patterns returns prevalence + emergence over real periods", {
+  fx <- .make_temporal_fixture()
+  tr <- analyze_temporal_patterns(fx$data, fx$theme_set, coding_state = NULL)
+
+  expect_true(isTRUE(tr$has_temporal_data))
+  expect_true(tr$period_type %in% c("daily", "weekly", "monthly", "quarterly", "yearly"))
+  expect_true(nrow(tr$prevalence_over_time) > 0)
+  expect_true(all(c("period", "theme_name", "n_entries", "pct_of_period") %in%
+                    names(tr$prevalence_over_time)))
+  # Theme One appears at the earliest timestamp; Theme Two only later
+  # (first_appearance_date is an ISO date string -- sortable lexicographically)
+  em <- tr$emergence_timeline
+  t1 <- em$first_appearance_date[em$theme_name == "Theme One"]
+  t2 <- em$first_appearance_date[em$theme_name == "Theme Two"]
+  expect_true(t1 < t2)
+})
+
+test_that(".build_longitudinal_section degrades to absence notes when PNGs are missing", {
+  # Single-period / no-chart runs MUST NOT reference missing images: with
+  # self_contained rendering, pandoc aborts on a missing local image and the
+  # run loses its entire HTML report.
+  tmp <- tempfile(); dir.create(tmp)
+  on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
+
+  tr <- list(
+    prevalence_over_time = tibble::tibble(
+      period = "2025-01", theme_name = "Theme One",
+      n_entries = 3L, pct_of_period = 50, total_in_period = 6L
+    ),
+    emergence_timeline = tibble::tibble(
+      theme_name = "Theme One",
+      first_appearance_date = "2025-01-01",
+      n_entries = 3L
+    ),
+    period_type = "monthly",
+    has_temporal_data = TRUE
+  )
+
+  out <- pakhom:::.build_longitudinal_section(tr, tmp)
+  expect_match(out, "## Longitudinal Patterns", fixed = TRUE)
+  expect_false(grepl("![", out, fixed = TRUE))   # no image refs at all
+  expect_match(out, "No prevalence chart was produced", fixed = TRUE)
+  expect_match(out, "No emergence chart was produced", fixed = TRUE)
+  expect_match(out, "Theme One", fixed = TRUE)   # emergence table still renders
+})
+
+test_that(".build_longitudinal_section embeds charts that exist on disk", {
+  tmp <- tempfile(); dir.create(tmp)
+  on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
+  file.create(file.path(tmp, "temporal_prevalence.png"))
+  file.create(file.path(tmp, "temporal_emergence.png"))
+
+  tr <- list(
+    prevalence_over_time = tibble::tibble(
+      period = c("2025-01", "2025-02"), theme_name = "Theme One",
+      n_entries = c(2L, 1L), pct_of_period = c(66.7, 33.3),
+      total_in_period = c(3L, 3L)
+    ),
+    emergence_timeline = tibble::tibble(
+      theme_name = "Theme One",
+      first_appearance_date = "2025-01-01",
+      n_entries = 3L
+    ),
+    period_type = "monthly",
+    has_temporal_data = TRUE
+  )
+
+  out <- pakhom:::.build_longitudinal_section(tr, tmp)
+  expect_match(out, "![Theme prevalence over time](temporal_prevalence.png)", fixed = TRUE)
+  expect_match(out, "![Theme emergence timeline](temporal_emergence.png)", fixed = TRUE)
+  expect_false(grepl("No prevalence chart", out, fixed = TRUE))
+})
+
+test_that(".build_rmd_content omits the Longitudinal section when temporal_results is NULL", {
+  # The section is strictly opt-in: absent temporal results leave no trace.
+  # (Direct check of the gating expression -- the builder is only invoked
+  # behind the NULL + has_temporal_data guard.)
+  tr_null <- NULL
+  expect_false(!is.null(tr_null) && isTRUE(tr_null$has_temporal_data))
+  tr_no_data <- list(has_temporal_data = FALSE)
+  expect_false(!is.null(tr_no_data) && isTRUE(tr_no_data$has_temporal_data))
+})

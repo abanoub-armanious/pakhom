@@ -7,10 +7,13 @@
 # first 2-3 pages of data" -- silent truncation of the corpus.
 #
 # pakhom's coding pipeline processes entries strictly one at a time (no
-# batching, no truncation in the LLM call path). The CorpusCoverage object
-# captures the proof: every entry that survived preprocessing was sent to
-# the LLM, and the report renders the funnel explicitly so reviewers don't
-# have to take that on faith.
+# batching): every entry that survived preprocessing reaches the LLM.
+# Entries longer than the per-entry character cap
+# (config$ai$max_entry_chars / .effective_max_entry_chars) are sent
+# TRUNCATED -- that truncation is measured per entry and disclosed on the
+# coverage card (n_entries_truncated, chars_sent_to_llm), never silent.
+# The CorpusCoverage object captures the proof, and the report renders the
+# funnel explicitly so reviewers don't have to take it on faith.
 #
 # Per AC1 (AI is scaffold by architecture, not by configuration), coverage
 # is computed AFTER the coding step regardless of mode. Per AC4
@@ -28,16 +31,23 @@
 # ==============================================================================
 
 #' Current schema version for the CorpusCoverage object
+#' 1.1.0: adds within-entry truncation accounting (n_entries_truncated,
+#' chars_sent_to_llm, truncation_tracked).
 #' @keywords internal
-.CORPUS_COVERAGE_SCHEMA_VERSION <- "1.0.0"
+.CORPUS_COVERAGE_SCHEMA_VERSION <- "1.1.0"
 
 #' Compute corpus coverage from a completed coding run
 #'
-#' Asserts the LLM saw every entry that survived preprocessing. Returns a
-#' \code{CorpusCoverage} S3 object summarising the funnel from preprocessed
-#' data to LLM-processed entries to coded entries, plus the
-#' \code{no_silent_truncation} flag that pakhom uses as the headline
-#' Tier-0 assertion.
+#' Asserts the LLM saw every entry that survived preprocessing
+#' (entry-level coverage). Returns a \code{CorpusCoverage} S3 object
+#' summarising the funnel from preprocessed data to LLM-processed entries
+#' to coded entries, plus the \code{no_silent_truncation} flag that pakhom
+#' uses as the headline Tier-0 assertion. Within-entry truncation against
+#' the per-entry character cap is measured separately and disclosed via
+#' \code{n_entries_truncated} / \code{chars_sent_to_llm} (or reported as
+#' untracked for coding states recorded before these fields existed) --
+#' a configurable, surfaced cap is intentional behavior, distinct from the
+#' silent corpus truncation the headline flag guards against.
 #'
 #' Pre-preprocessing counts (e.g., raw rows from the database before
 #' deduplication and length filtering) can be supplied via
@@ -127,16 +137,47 @@ compute_corpus_coverage <- function(coding_state, data,
   }
 
   # Byte and word counts over the entries actually processed (whether
-  # coded or skipped -- they were ALL sent to the LLM, which is the
-  # coverage claim). Computed from std_text in the input data so
-  # truncation in the LLM prompt (.MAX_ENTRY_CHARS cap in
-  # .build_progressive_schema_user_prompt) doesn't deflate the figure.
+  # coded or skipped). Computed from std_text in the input data: these are
+  # SOURCE-TEXT sizes. What actually reached the LLM is tracked separately
+  # below (chars_sent_to_llm), because entries over the per-entry cap are
+  # sent truncated.
   text_processed <- data$std_text[data$std_id %in% matched_ids]
   bytes_processed <- sum(nchar(text_processed, type = "bytes"),
                           na.rm = TRUE)
   chars_processed <- sum(nchar(text_processed, type = "chars"),
                           na.rm = TRUE)
   words_processed <- sum(.count_words_safe(text_processed), na.rm = TRUE)
+
+  # Within-entry truncation accounting. Coding states written by 1.1.0+
+  # carry chars_sent / truncated on every entry_results record; aggregate
+  # them when ALL matched records have the fields. When ANY record lacks
+  # them (a state recorded before the fields existed, possibly resumed),
+  # report NA + truncation_tracked = FALSE -- never fabricate a zero
+  # truncation count that was not measured.
+  has_trunc_fields <- vapply(
+    matched_ids,
+    function(id) {
+      er <- entry_results[[id]]
+      !is.null(er$chars_sent) && !is.null(er$truncated)
+    },
+    logical(1)
+  )
+  if (n_processed > 0L && all(has_trunc_fields)) {
+    truncation_tracked <- TRUE
+    n_entries_truncated <- sum(vapply(
+      matched_ids, function(id) isTRUE(entry_results[[id]]$truncated),
+      logical(1)
+    ))
+    chars_sent_to_llm <- sum(vapply(
+      matched_ids,
+      function(id) as.integer(entry_results[[id]]$chars_sent %||% 0L),
+      integer(1)
+    ))
+  } else {
+    truncation_tracked <- FALSE
+    n_entries_truncated <- NA_integer_
+    chars_sent_to_llm <- NA_integer_
+  }
 
   # Awareness of saturation-triggered early stop. The earlier
   # headline assertion (every input entry has a matching entry_result)
@@ -188,6 +229,9 @@ compute_corpus_coverage <- function(coding_state, data,
     bytes_processed          = as.integer(bytes_processed),
     chars_processed          = as.integer(chars_processed),
     words_processed          = as.integer(words_processed),
+    n_entries_truncated      = as.integer(n_entries_truncated),
+    chars_sent_to_llm        = as.integer(chars_sent_to_llm),
+    truncation_tracked       = truncation_tracked,
     coverage_rate            = coverage_rate,
     no_silent_truncation     = no_silent_truncation,
     # distinguishes saturation-triggered intentional early-stop
@@ -255,6 +299,16 @@ print.CorpusCoverage <- function(x, ...) {
               format(x$bytes_processed, big.mark = ",")))
   cat(sprintf("  Words processed (approx):  %s\n",
               format(x$words_processed, big.mark = ",")))
+  # Within-entry truncation rows -- tolerate both NA (untracked run) and
+  # NULL (coverage object built before schema 1.1.0).
+  if (isTRUE(x$truncation_tracked %||% FALSE)) {
+    cat(sprintf("  Entries sent truncated:    %s\n",
+                format(x$n_entries_truncated, big.mark = ",")))
+    cat(sprintf("  Chars sent to LLM:         %s\n",
+                format(x$chars_sent_to_llm, big.mark = ",")))
+  } else {
+    cat("  Within-entry truncation:   not tracked in this run's coding state\n")
+  }
   cat(sprintf("  Coverage rate:             %s\n",
               if (is.na(x$coverage_rate)) "n/a"
               else sprintf("%.1f%%", 100 * x$coverage_rate)))

@@ -21,7 +21,10 @@ provoke_counter_narrative(
 \item{theme_entries}{Tibble: entries the researcher believes support
 the theme (must have std_id and std_text).}
 
-\item{data}{Tibble: the FULL corpus (the model searches this).}
+\item{data}{Tibble: the full corpus. Used to resolve and verify cited
+entry_ids (T0.1) and to draw the bounded candidate sample of
+non-theme entries for the counter-evidence categories; the model is
+NOT given the full corpus to search.}
 
 \item{provider}{AIProvider object.}
 
@@ -38,7 +41,11 @@ List of \code{Provocation} objects (verified, non-fabricated).
 }
 \description{
 Given researcher-supplied theme name + supporting entries, AI returns
-up to \code{n} entries from the corpus that frame the same construct
-as not-Y. Per Sarkar 2024 / patterns doc: extractive only -- the model
-returns entries (not arguments), and a one-sentence reason per entry.
+up to \code{n} entries that frame the same construct as not-Y, drawn
+from the supporting entries plus a bounded, deterministic sample of
+non-theme corpus entries injected into the prompt (the model sees only
+what the prompt contains -- it has no retrieval access to the rest of
+the corpus). Per Sarkar 2024 / patterns doc: extractive only -- the
+model returns entries (not arguments), and a one-sentence reason per
+entry.
 }

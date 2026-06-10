@@ -37,8 +37,13 @@
 #' @return Invisible list with \code{data}, \code{analytic_data},
 #'   \code{coding_state}, \code{theme_set}, \code{correlations},
 #'   \code{insights}, \code{learning_context}, \code{comparison_result},
-#'   \code{export_files}, \code{output_dir}, \code{config},
-#'   \code{integrity}.
+#'   \code{export_files}, \code{temporal_results} (the
+#'   \code{analyze_temporal_patterns()} result, or NULL when the corpus has
+#'   no \code{std_timestamp} column or the analysis failed; when temporal
+#'   data exist, the prevalence/emergence PNGs are written to
+#'   \code{output_dir} when produced -- the prevalence chart requires more
+#'   than one time period and the emergence chart at least one dated theme),
+#'   \code{output_dir}, \code{config}, \code{integrity}.
 #' @seealso \code{\link{run_mode1}} (Mode 1 entry point);
 #'   \code{\link{create_config}} (config builder);
 #'   \code{\link{load_framework_spec}} (Mode 3 framework loader);
@@ -1045,6 +1050,40 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   }
 
   # ========================================================================
+  # STEP 8d: Longitudinal / temporal analysis (before the report so the
+  # result can be embedded; the block is fully tryCatch'd, so a temporal
+  # failure can never break report generation)
+  # ========================================================================
+  temporal_results <- NULL
+  if ("std_timestamp" %in% names(analytic_data)) {
+    log_info("\n[STEP 8d] Running temporal analysis...")
+    temporal_results <- tryCatch({
+      tr <- analyze_temporal_patterns(analytic_data, theme_set, coding_state)
+      if (isTRUE(tr$has_temporal_data)) {
+        # cap themes shown on temporal
+        # emergence chart for legibility.
+        temporal_max <- as.integer(
+          config$analysis$themes$max_inline_themes_temporal %||% 30L
+        )
+        # The plots are conditional (prevalence needs >1 period; emergence
+        # needs >=1 dated theme) -- record what was actually written so the
+        # report embeds only files that exist.
+        tr$plot_files <- generate_temporal_plots(tr, output_dir,
+                                  methodology_mode = config$methodology$mode,
+                                  run_id = basename(output_dir),
+                                  max_inline_themes = temporal_max)
+        log_info("Temporal analysis complete: {tr$period_type} periods")
+      } else {
+        log_info("No parseable timestamps -- temporal analysis skipped")
+      }
+      tr
+    }, error = function(e) {
+      log_warn("Temporal analysis failed: {e$message}")
+      NULL
+    })
+  }
+
+  # ========================================================================
   # STEP 9: Generate report
   # ========================================================================
   if (isTRUE(config$output$generate_report)) {
@@ -1090,7 +1129,11 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
       methodology_articulations = methodology_articulations,
       # where each named focus facet landed across the themes
       # (Mode 2; NULL on Mode 3 / legacy resume -> the section is omitted).
-      research_coverage = research_coverage
+      research_coverage = research_coverage,
+      # Longitudinal patterns (STEP 8d); NULL when the corpus has no
+      # std_timestamp column or the analysis failed -> section omitted
+      # (same NULL-safe pattern as irr_result).
+      temporal_results = temporal_results
     )
   }
 
@@ -1106,35 +1149,6 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
                    study_name = config$study$name %||% "pakhom export",
                    methodology_mode = config$methodology$mode)
     }, error = function(e) log_warn("QDPX export failed: {e$message}"))
-  }
-
-  # ========================================================================
-  # STEP 9c: Longitudinal / temporal analysis
-  # ========================================================================
-  temporal_results <- NULL
-  if ("std_timestamp" %in% names(analytic_data)) {
-    log_info("\n[STEP 9c] Running temporal analysis...")
-    temporal_results <- tryCatch({
-      tr <- analyze_temporal_patterns(analytic_data, theme_set, coding_state)
-      if (isTRUE(tr$has_temporal_data)) {
-        # cap themes shown on temporal
-        # emergence chart for legibility.
-        temporal_max <- as.integer(
-          config$analysis$themes$max_inline_themes_temporal %||% 30L
-        )
-        generate_temporal_plots(tr, output_dir,
-                                  methodology_mode = config$methodology$mode,
-                                  run_id = basename(output_dir),
-                                  max_inline_themes = temporal_max)
-        log_info("Temporal analysis complete: {tr$period_type} periods")
-      } else {
-        log_info("No parseable timestamps -- temporal analysis skipped")
-      }
-      tr
-    }, error = function(e) {
-      log_warn("Temporal analysis failed: {e$message}")
-      NULL
-    })
   }
 
   # ========================================================================
@@ -1181,6 +1195,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     learning_context = learning_context,
     comparison_result = comparison_result,
     export_files = export_files,
+    temporal_results = temporal_results,
     output_dir = output_dir,
     config = config,
     integrity = integrity

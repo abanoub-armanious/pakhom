@@ -218,6 +218,13 @@ run_progressive_coding <- function(data, provider, config = list(),
                                     framework_spec = NULL,
                                     live_tracker = NULL) {
   config$max_retries_per_entry <- config$max_retries_per_entry %||% 1L
+  # Aggregate AI-failure breaker knobs (M-34). NOTE: the pipeline passes
+  # config$analysis$coding AS this function's `config`, so these are read
+  # at the TOP level of the sub-config (like max_retries_per_entry above).
+  config$max_consecutive_entry_failures <-
+    as.integer(config$max_consecutive_entry_failures %||% 10L)
+  config$max_failed_entry_fraction <-
+    as.numeric(config$max_failed_entry_fraction %||% 0.25)
   config$include_in_vivo <- config$include_in_vivo %||% TRUE
   # Removed `config$code_style %||% "descriptive"` --
   # the value was set but never read.
@@ -354,9 +361,19 @@ run_progressive_coding <- function(data, provider, config = list(),
   # ai_assessment_interval / saturation_window / etc. knobs.
   saturation_cadence <- .saturation_cadence(n)
   # Consecutive AI-call failures; resets on any successful call.
-  # After 3 in a row, log a warning + continue coding (never silently
-  # saturate; never silently never-saturate).
+  # After 3 in a row, log one warning per failure streak; the arbiter
+  # keeps retrying at each cadence checkpoint (never silently saturate;
+  # never silently never-saturate).
   saturation_failure_streak <- 0L
+
+  # Aggregate AI-failure breaker (M-34): a provider/network outage
+  # mid-run must NOT be silently recorded as entry skips and reported as
+  # a substantive near-empty analysis. Counts only failure-marked records
+  # (NULL result after retries) -- never legitimate AI-judged skips, so
+  # high-skip corpora cannot false-trip.
+  n_ai_attempted <- 0L
+  n_ai_failed <- 0L
+  consecutive_ai_failures <- 0L
 
   # Use lists for O(1) append (avoid O(n^2) vector growth)
   new_processed <- list()
@@ -381,7 +398,11 @@ run_progressive_coding <- function(data, provider, config = list(),
         codes_assigned = character(0),
         coded_segments = list(),
         skipped = TRUE,
-        skip_reason = "Text too short or missing"
+        skip_reason = "Text too short or missing",
+        failure = FALSE,
+        chars_total = if (is.na(entry_text)) 0L else nchar(entry_text),
+        chars_sent = 0L,       # never sent to the LLM
+        truncated = FALSE
       )
       if (!is.null(audit_log)) {
         log_ai_decision(audit_log, "coding", "entry_skipped",
@@ -408,6 +429,40 @@ run_progressive_coding <- function(data, provider, config = list(),
       framework_spec = framework_spec,
       framework_prompt_text = framework_prompt_text
     )
+
+    # Aggregate AI-failure breaker (M-34). Trip BEFORE the periodic
+    # checkpoint merge can bake an outage's failure-skips into a saved
+    # checkpoint that resume would never retry. No partial checkpoint is
+    # written on the trip path for the same reason.
+    n_ai_attempted <- n_ai_attempted + 1L
+    entry_failed <- isTRUE(state$entry_results[[entry_id]]$failure)
+    if (entry_failed) {
+      n_ai_failed <- n_ai_failed + 1L
+      consecutive_ai_failures <- consecutive_ai_failures + 1L
+    } else {
+      consecutive_ai_failures <- 0L
+    }
+    tripped <- consecutive_ai_failures >= config$max_consecutive_entry_failures ||
+      (n_ai_attempted >= 20L &&
+         n_ai_failed / n_ai_attempted > config$max_failed_entry_fraction)
+    if (tripped) {
+      msg <- paste0(
+        "Aggregate AI-call failure breaker tripped: ", n_ai_failed, " of ",
+        n_ai_attempted, " attempted entries failed (",
+        consecutive_ai_failures, " consecutive). This is likely a ",
+        "provider/network outage or invalid credentials -- NOT a ",
+        "substantive 'no applicable content' result. Fix connectivity ",
+        "and re-run with resume = TRUE; entries not yet checkpointed ",
+        "will be retried. (Thresholds: max_consecutive_entry_failures = ",
+        config$max_consecutive_entry_failures,
+        ", max_failed_entry_fraction = ",
+        config$max_failed_entry_fraction, ".)"
+      )
+      stop(structure(
+        class = c("pakhom_coding_failure_breaker", "error", "condition"),
+        list(message = msg, call = sys.call(-1))
+      ))
+    }
 
     # every-N-new-codes description refresh pass.
     # Skips silently when conditions aren't met (cheap O(N codes)
@@ -638,8 +693,9 @@ run_progressive_coding <- function(data, provider, config = list(),
         if (saturation_failure_streak == 3L) {
           log_warn(paste0(
             "AI saturation arbiter failed 3 consecutive times; ",
-            "continuing coding without saturation detection for the ",
-            "rest of this run. The streak resets on the next success."
+            "coding continues and the arbiter will retry at the next ",
+            "cadence checkpoint. The failure streak resets on the next ",
+            "successful call."
           ))
         }
       } else {
@@ -802,8 +858,14 @@ run_progressive_coding <- function(data, provider, config = list(),
   # config$ai$max_entry_chars if user wants explicit control.
   effective_max_chars <- .effective_max_entry_chars(provider, config)
   truncated_text <- substr(text, 1, effective_max_chars)
-  if (nchar(text) > effective_max_chars) {
-    log_debug("Entry {entry_id}: text truncated from {nchar(text)} to {effective_max_chars} chars")
+  # Within-entry truncation accounting (T0.3): recorded on every
+  # entry_results write so the coverage card can disclose how many entries
+  # were sent truncated and how many characters actually reached the LLM.
+  chars_total <- nchar(text)
+  chars_sent  <- nchar(truncated_text)
+  entry_truncated <- chars_total > effective_max_chars
+  if (entry_truncated) {
+    log_debug("Entry {entry_id}: text truncated from {chars_total} to {effective_max_chars} chars")
   }
 
   # Path-specific user prompt + ai_complete kwargs.
@@ -897,7 +959,15 @@ run_progressive_coding <- function(data, provider, config = list(),
       codes_assigned = character(0),
       coded_segments = list(),
       skipped = TRUE,
-      skip_reason = skip_reason
+      skip_reason = skip_reason,
+      # failure discriminates a real AI-call breakdown (NULL result after
+      # retries: network / timeout / parse) from a legitimate AI-judged
+      # skip -- the aggregate failure breaker keys on this, never on the
+      # free-text skip_reason.
+      failure = is.null(result),
+      chars_total = chars_total,
+      chars_sent = chars_sent,
+      truncated = entry_truncated
     )
     return(state)
   }
@@ -908,7 +978,11 @@ run_progressive_coding <- function(data, provider, config = list(),
       codes_assigned = character(0),
       coded_segments = list(),
       skipped = TRUE,
-      skip_reason = "No coded segments returned"
+      skip_reason = "No coded segments returned",
+      failure = FALSE,
+      chars_total = chars_total,
+      chars_sent = chars_sent,
+      truncated = entry_truncated
     )
     return(state)
   }
@@ -943,7 +1017,11 @@ run_progressive_coding <- function(data, provider, config = list(),
     codes_assigned = acc$entry_codes,
     coded_segments = acc$entry_segments,
     skipped        = FALSE,
-    skip_reason    = NA_character_
+    skip_reason    = NA_character_,
+    failure        = FALSE,
+    chars_total    = chars_total,
+    chars_sent     = chars_sent,
+    truncated      = entry_truncated
   )
 
   state
@@ -1296,6 +1374,19 @@ run_progressive_coding <- function(data, provider, config = list(),
   # Verified -- attach provenance to the segment record so downstream
   # rendering can show verification status, and the methodology paper can
   # compute per-run fabrication rates from the codebook.
+  # Emit the quote_verified audit record (the denominator counterpart of
+  # quote_fabricated/quote_drifted above) so the transparency report's
+  # "Verifications run" counts real verification events rather than a
+  # code_assignment proxy. No exact_text -- keep the record small.
+  if (!is.null(audit_log)) {
+    log_ai_decision(audit_log, "quote_verification", "quote_verified",
+                    entry_id  = entry_id, code_name = code_name,
+                    quote_id  = quote$quote_id,
+                    ai_call_id = quote$ai_call_id %||% NA_character_,
+                    verification_status = quote$verification_status,
+                    verification_method = quote$verification_method
+                                            %||% NA_character_)
+  }
   seg_record <- list(
     entry_id   = entry_id,
     text       = seg_text,

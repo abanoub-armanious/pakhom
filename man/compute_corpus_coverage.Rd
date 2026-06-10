@@ -37,11 +37,16 @@ the sub-sample size used. \code{NA_integer_} when test mode was off.}
 A \code{CorpusCoverage} S3 object (a list with class).
 }
 \description{
-Asserts the LLM saw every entry that survived preprocessing. Returns a
-\code{CorpusCoverage} S3 object summarising the funnel from preprocessed
-data to LLM-processed entries to coded entries, plus the
-\code{no_silent_truncation} flag that pakhom uses as the headline
-Tier-0 assertion.
+Asserts the LLM saw every entry that survived preprocessing
+(entry-level coverage). Returns a \code{CorpusCoverage} S3 object
+summarising the funnel from preprocessed data to LLM-processed entries
+to coded entries, plus the \code{no_silent_truncation} flag that pakhom
+uses as the headline Tier-0 assertion. Within-entry truncation against
+the per-entry character cap is measured separately and disclosed via
+\code{n_entries_truncated} / \code{chars_sent_to_llm} (or reported as
+untracked for coding states recorded before these fields existed) --
+a configurable, surfaced cap is intentional behavior, distinct from the
+silent corpus truncation the headline flag guards against.
 }
 \details{
 Pre-preprocessing counts (e.g., raw rows from the database before

@@ -227,10 +227,12 @@ bundle_transparency_report <- function(run_dir,
     fabrication_log_path = fab_path
   )
   audit_path <- file.path(run_dir, "ai_decisions.jsonl")
-  n_verifications <- 0L
   n_verified_exact <- 0L
   n_verified_fuzzy <- 0L
   n_drifted <- 0L
+  n_code_assignment <- 0L
+  n_qv_coding <- 0L        # quote_verified records from the coding path
+  n_qv_provocateur <- 0L   # quote_verified records from Mode 1 provocations
   if (file.exists(audit_path)) {
     lines <- tryCatch(readLines(audit_path, warn = FALSE),
                        error = function(e) character(0))
@@ -241,17 +243,44 @@ bundle_transparency_report <- function(run_dir,
       dt <- rec$decision_type %||% NA_character_
       if (identical(dt, "quote_drifted")) {
         n_drifted <- n_drifted + 1L
-        n_verifications <- n_verifications + 1L
+      } else if (identical(dt, "code_assignment")) {
+        n_code_assignment <- n_code_assignment + 1L
+      } else if (identical(dt, "quote_verified")) {
+        if (!is.null(rec$provocation_category)) {
+          n_qv_provocateur <- n_qv_provocateur + 1L
+        } else {
+          n_qv_coding <- n_qv_coding + 1L
+        }
+        vs <- rec$verification_status %||% NA_character_
+        if (identical(vs, "verified_exact")) n_verified_exact <- n_verified_exact + 1L
+        if (identical(vs, "verified_fuzzy")) n_verified_fuzzy <- n_verified_fuzzy + 1L
       }
-      # code_assignment records carry verified quotes; count via step
-      if (identical(dt, "code_assignment")) n_verifications <- n_verifications + 1L
     }
+  }
+  # Count-robust combination: real quote_verified records are preferred,
+  # but a run started before they existed and resumed after (the audit log
+  # appends across resumes) has code_assignment records for ALL admitted
+  # segments and quote_verified only for the post-resume tail -- so take
+  # the larger of the two coding-side tallies rather than switching on
+  # zero/nonzero. (For pure new runs the two are equal; for pure legacy
+  # logs quote_verified is 0 and the proxy carries the count.)
+  n_verifications <- n_drifted + max(n_code_assignment, n_qv_coding) +
+    n_qv_provocateur
+  verification_count_source <- if (n_qv_coding == 0L && n_qv_provocateur == 0L) {
+    if (n_code_assignment > 0L) "code_assignment_proxy" else "no_verified_records"
+  } else if (n_qv_coding >= n_code_assignment) {
+    "quote_verified"
+  } else {
+    "mixed"
   }
   list(
     available           = file.exists(audit_path) || file.exists(fab_path),
     n_verifications     = as.integer(n_verifications),
     n_fabrications_caught = if (is.null(n_caught)) NA_integer_ else as.integer(n_caught),
     n_drifted           = as.integer(n_drifted),
+    n_verified_exact    = as.integer(n_verified_exact),
+    n_verified_fuzzy    = as.integer(n_verified_fuzzy),
+    verification_count_source = verification_count_source,
     fabrication_rate    = if (is.null(n_caught) || n_verifications + (n_caught %||% 0L) == 0L) NA_real_
                           else (n_caught %||% 0L) / (n_verifications + (n_caught %||% 0L))
   )
@@ -630,8 +659,23 @@ bundle_transparency_report <- function(run_dir,
     "embedding provider is configured). Fabrications are ",
     "dropped from rendering and logged with the failed step.</p>\n",
     "<table>\n<thead><tr><th>Metric</th><th>Value</th></tr></thead>\n<tbody>\n",
-    "<tr><td>Verifications run</td><td>",
+    "<tr><td>",
+    # Label the count honestly when it rests (partly) on the legacy
+    # code_assignment proxy rather than real quote_verified records.
+    switch(qp$verification_count_source %||% "quote_verified",
+      code_assignment_proxy = "Verifications run (proxy: admitted segments + drifted)",
+      mixed = "Verifications run (partly proxy: run predates per-quote records)",
+      "Verifications run"),
+    "</td><td>",
     format(qp$n_verifications, big.mark = ","), "</td></tr>\n",
+    if (identical(qp$verification_count_source %||% "", "quote_verified")) {
+      paste0(
+        "<tr><td>Verified exact (offset match)</td><td>",
+        format(qp$n_verified_exact %||% 0L, big.mark = ","), "</td></tr>\n",
+        "<tr><td>Verified fuzzy (normalized / substring / embedding)</td><td>",
+        format(qp$n_verified_fuzzy %||% 0L, big.mark = ","), "</td></tr>\n"
+      )
+    } else "",
     "<tr><td>Fabrications caught + excluded</td><td>",
     if (is.na(qp$n_fabrications_caught)) "n/a"
     else format(qp$n_fabrications_caught, big.mark = ","),
@@ -669,12 +713,12 @@ bundle_transparency_report <- function(run_dir,
     "</td></tr>\n",
     "<tr><td>Coded</td><td>",
     format(cov$n_coded %||% NA_integer_, big.mark = ","), "</td></tr>\n",
-    "<tr><td>Skipped (AI judged off-topic)</td><td>",
+    "<tr><td>Skipped (AI-judged or call failure)</td><td>",
     format(cov$n_skipped %||% NA_integer_, big.mark = ","), "</td></tr>\n",
     "</tbody></table>\n",
     "<p><strong>Stop reason:</strong> <code>",
     .html_esc(cov$stop_reason %||% "unknown"), "</code></p>\n",
-    "<p><strong>No silent truncation:</strong> ",
+    "<p><strong>No silent truncation (entry-level coverage):</strong> ",
     if (isTRUE(cov$no_silent_truncation)) "Yes (verified)" else "<em>flagged</em>",
     "</p>\n",
     "<p><strong>Saturation reached:</strong> ",

@@ -34,8 +34,13 @@ full leaf-vs-recurse rule.}
 Invisible list with \code{data}, \code{analytic_data},
 \code{coding_state}, \code{theme_set}, \code{correlations},
 \code{insights}, \code{learning_context}, \code{comparison_result},
-\code{export_files}, \code{output_dir}, \code{config},
-\code{integrity}.
+\code{export_files}, \code{temporal_results} (the
+\code{analyze_temporal_patterns()} result, or NULL when the corpus has
+no \code{std_timestamp} column or the analysis failed; when temporal
+data exist, the prevalence/emergence PNGs are written to
+\code{output_dir} when produced -- the prevalence chart requires more
+than one time period and the emergence chart at least one dated theme),
+\code{output_dir}, \code{config}, \code{integrity}.
 }
 \description{
 Orchestrates all steps from data loading through report generation.

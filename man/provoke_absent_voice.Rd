@@ -21,7 +21,10 @@ provoke_absent_voice(
 \item{theme_entries}{Tibble: entries the researcher believes support
 the theme (must have std_id and std_text).}
 
-\item{data}{Tibble: the FULL corpus (the model searches this).}
+\item{data}{Tibble: the full corpus. Used to resolve and verify cited
+entry_ids (T0.1) and to draw the bounded candidate sample of
+non-theme entries for the counter-evidence categories; the model is
+NOT given the full corpus to search.}
 
 \item{provider}{AIProvider object.}
 

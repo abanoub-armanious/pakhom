@@ -30,7 +30,8 @@ generate_report(
   framework_archive = NULL,
   metric_interpretation = NULL,
   methodology_articulations = NULL,
-  research_coverage = NULL
+  research_coverage = NULL,
+  temporal_results = NULL
 )
 }
 \arguments{
@@ -93,7 +94,8 @@ written to the cache and referenced from the audit log.}
 \item{coverage}{Optional \code{CorpusCoverage} object (T0.3) from
 \code{\link{compute_corpus_coverage}}. When provided, the report
 renders a Tier-0 corpus-coverage card asserting that every entry
-surviving preprocessing reached the LLM (no silent truncation).
+surviving preprocessing reached the LLM (entry-level coverage;
+within-entry truncation is measured and disclosed when tracked).
 When NULL the card renders an explicit "coverage not computed"
 notice rather than silently omitting -- absence is itself a
 transparency signal per AC4.}
@@ -130,6 +132,14 @@ only). Drives the "Research-question coverage" section -- where each named
 focus facet landed across the themes. When NULL, the renderer falls back to
 the archived \code{rules/research_coverage.json} under the output dir if
 present; when neither is available (or no separable facets were found) the
+section is omitted.}
+
+\item{temporal_results}{Optional list from
+\code{\link{analyze_temporal_patterns}}. Drives the "Longitudinal
+Patterns" section (period granularity, theme prevalence over time,
+theme emergence). Each chart is embedded only when its PNG exists in
+the output directory (the prevalence chart requires more than one time
+period; the emergence chart at least one dated theme). NULL -> the
 section is omitted.}
 }
 \value{

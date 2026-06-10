@@ -427,7 +427,8 @@ verify_run_integrity <- function(run_dir, config = list()) {
     }
   }
   # T1.4: when raw-response capture is enabled (default TRUE), the
-  # response-cache directory MUST exist for replay_run() to work.
+  # response-cache directory MUST exist for the raw-response audit
+  # trail to be complete.
   # Honor config$audit$response_cache_dir so a customized cache dir
   # doesn't surface as a false-positive missing artifact.
   if (isTRUE(config$audit$capture_raw_responses %||% TRUE)) {
@@ -689,7 +690,8 @@ export_theme_subtheme_summary_csvs <- function(theme_stats, output_dir,
 #' @param coverage Optional \code{CorpusCoverage} object (T0.3) from
 #'   \code{\link{compute_corpus_coverage}}. When provided, the report
 #'   renders a Tier-0 corpus-coverage card asserting that every entry
-#'   surviving preprocessing reached the LLM (no silent truncation).
+#'   surviving preprocessing reached the LLM (entry-level coverage;
+#'   within-entry truncation is measured and disclosed when tracked).
 #'   When NULL the card renders an explicit "coverage not computed"
 #'   notice rather than silently omitting -- absence is itself a
 #'   transparency signal per AC4.
@@ -722,6 +724,13 @@ export_theme_subtheme_summary_csvs <- function(theme_stats, output_dir,
 #'   the archived \code{rules/research_coverage.json} under the output dir if
 #'   present; when neither is available (or no separable facets were found) the
 #'   section is omitted.
+#' @param temporal_results Optional list from
+#'   \code{\link{analyze_temporal_patterns}}. Drives the "Longitudinal
+#'   Patterns" section (period granularity, theme prevalence over time,
+#'   theme emergence). Each chart is embedded only when its PNG exists in
+#'   the output directory (the prevalence chart requires more than one time
+#'   period; the emergence chart at least one dated theme). NULL -> the
+#'   section is omitted.
 #' @return Path to generated HTML report
 #' @export
 generate_report <- function(data, theme_set, correlations_df, insights,
@@ -741,7 +750,8 @@ generate_report <- function(data, theme_set, correlations_df, insights,
                              framework_archive = NULL,
                              metric_interpretation = NULL,
                              methodology_articulations = NULL,
-                             research_coverage = NULL) {
+                             research_coverage = NULL,
+                             temporal_results = NULL) {
   validate_class(theme_set, "ThemeSet")
 
   # when the full articulations bundle is supplied but the
@@ -837,7 +847,9 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     # find fabrication_log.csv to count pre-rejection fabrications.
     output_dir = output_dir,
     # research-question coverage section (Mode 2).
-    research_coverage = research_coverage
+    research_coverage = research_coverage,
+    # longitudinal patterns section (charts gated on on-disk existence).
+    temporal_results = temporal_results
   )
 
   # Write Rmd (collapse to single string to prevent duplication)
@@ -941,7 +953,8 @@ generate_report <- function(data, theme_set, correlations_df, insights,
                                 framework_archive = NULL,
                                 methodology_articulations = NULL,
                                 output_dir = NULL,
-                                research_coverage = NULL) {
+                                research_coverage = NULL,
+                                temporal_results = NULL) {
 
   theme_count <- length(theme_stats)
 
@@ -1178,6 +1191,12 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   # --- Thematic Saturation ---
   if (!is.null(coding_state) && !is.null(coding_state$saturation)) {
     content <- paste0(content, .build_saturation_section(coding_state))
+  }
+
+  # --- Longitudinal Patterns ---
+  if (!is.null(temporal_results) && isTRUE(temporal_results$has_temporal_data)) {
+    content <- paste0(content,
+                      .build_longitudinal_section(temporal_results, output_dir))
   }
 
   # --- Appendix A: Methodology ---
@@ -2589,6 +2608,13 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   # cases out before "off-topic" sweeps the rest. The "Other" bucket
   # catches anything that doesn't match a known pattern.
   patterns <- list(
+    # AI-call breakdowns must surface as failures, not hide in "Other".
+    # Anchored to the ONE failure string the code generates
+    # (R/09_coding.R failure path) -- generic keywords like "network" or
+    # "timeout" would re-bucket legitimate free-text AI skip reasons
+    # ("discusses a social network...") as failures.
+    "AI call failure (network / API / parse)" =
+      "^ai response parse failure$",
     "Media-only (image / video / GIF / emoji)" =
       "\\b(gif|emoji|sticker|emoticon|image|images|photo|video|videos|media[ -]?only|attachment|attachments|reaction[- ]?image)\\b",
     "Duplicate / near-duplicate" =
@@ -2719,8 +2745,21 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     paste0(
       "All ",
       format(coverage$n_input_to_coding, big.mark = ","),
-      " entries from the preprocessed dataset were sent to the LLM. ",
-      "No silent truncation in the coding-call path."
+      " entries from the preprocessed dataset reached the LLM ",
+      "(entry-level coverage).",
+      # Guarded: legacy coverage objects have NULL fields, untracked runs
+      # have NA -- a bare `> 0` would crash report generation for both.
+      if (isTRUE(coverage$truncation_tracked %||% FALSE) &&
+          isTRUE((coverage$n_entries_truncated %||% 0L) > 0L)) {
+        paste0(
+          " ",
+          format(coverage$n_entries_truncated, big.mark = ","),
+          " entries exceeded the per-entry character cap and were sent ",
+          "truncated; see the volume line below."
+        )
+      } else {
+        ""
+      }
     )
   } else if (coverage$n_input_to_coding == 0L) {
     "Empty dataset: coding step received zero entries."
@@ -2783,7 +2822,14 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   funnel_rows <- c(funnel_rows, sprintf(
     '<tr><td>&nbsp;&nbsp;-- of those, skipped</td><td>%s</td><td>%s</td></tr>',
     format(coverage$n_skipped, big.mark = ","),
-    "AI judged: no applicable content"
+    # Skips are not all AI judgments (an AI-call failure also records a
+    # skip); point at the breakdown rather than asserting a single cause.
+    # The breakdown block is only rendered when skips exist.
+    if ((coverage$n_skipped %||% 0L) > 0L) {
+      "Skipped (see skip-reason breakdown below)"
+    } else {
+      "Skipped"
+    }
   ))
 
   # Skip-reason breakdown -- only render when skips exist. Free-text
@@ -2843,12 +2889,27 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     '<tbody>\n', paste(funnel_rows, collapse = "\n"), '\n</tbody>\n',
     '</table>\n',
     '</div>\n',
-    sprintf(
-      '<div class="coverage-volume">%s words (%s characters / %s bytes) of source text processed by the LLM.</div>\n',
-      format(coverage$words_processed, big.mark = ","),
-      format(coverage$chars_processed, big.mark = ","),
-      format(coverage$bytes_processed, big.mark = ",")
-    ),
+    # Volume line. When within-entry truncation was tracked, distinguish
+    # what was SENT to the LLM from the source-text size (chars_sent can
+    # also fall below the total via pre-AI too-short skips, whose text
+    # counts in the source size but was never sent). Legacy/untracked
+    # states keep the source-size figures, labeled as such.
+    if (isTRUE(coverage$truncation_tracked %||% FALSE)) {
+      sprintf(
+        '<div class="coverage-volume">%s of %s characters of source text sent to the LLM (%s words / %s bytes in source).</div>\n',
+        format(coverage$chars_sent_to_llm, big.mark = ","),
+        format(coverage$chars_processed, big.mark = ","),
+        format(coverage$words_processed, big.mark = ","),
+        format(coverage$bytes_processed, big.mark = ",")
+      )
+    } else {
+      sprintf(
+        '<div class="coverage-volume">%s words (%s characters / %s bytes) of source text (per-entry characters sent to the LLM were not tracked in this run\'s coding state).</div>\n',
+        format(coverage$words_processed, big.mark = ","),
+        format(coverage$chars_processed, big.mark = ","),
+        format(coverage$bytes_processed, big.mark = ",")
+      )
+    },
     skip_block,
     '<p class="coverage-citation">Addresses Jowsey et al. 2025 ',
     '(doi:10.1371/journal.pone.0330217), which found that Microsoft ',
@@ -3519,6 +3580,75 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   content
 }
 
+#' Build the Longitudinal Patterns report section
+#'
+#' Rendered only when temporal analysis produced data
+#' (\code{has_temporal_data}). Each chart is embedded only when its PNG
+#' actually exists on disk: the prevalence chart requires more than one
+#' time period and the emergence chart at least one dated theme, and with
+#' \code{self_contained} rendering a reference to a missing local image
+#' aborts the whole pandoc render -- losing the entire report.
+#' @keywords internal
+.build_longitudinal_section <- function(temporal_results, output_dir) {
+  prev <- temporal_results$prevalence_over_time
+  emer <- temporal_results$emergence_timeline
+  n_periods <- if (!is.null(prev) && nrow(prev) > 0) {
+    length(unique(prev$period))
+  } else {
+    0L
+  }
+
+  content <- paste0(
+    "## Longitudinal Patterns\n\n",
+    "Temporal granularity: **",
+    .html_esc(as.character(temporal_results$period_type %||% "unknown")),
+    "** (", n_periods, " period", if (n_periods == 1L) "" else "s",
+    " observed).\n\n"
+  )
+
+  has_prev_png <- !is.null(output_dir) &&
+    file.exists(file.path(output_dir, "temporal_prevalence.png"))
+  content <- paste0(content, if (has_prev_png) {
+    "![Theme prevalence over time](temporal_prevalence.png)\n\n"
+  } else {
+    paste0("*No prevalence chart was produced: all entries fall in a ",
+           "single time period.*\n\n")
+  })
+
+  has_emer_png <- !is.null(output_dir) &&
+    file.exists(file.path(output_dir, "temporal_emergence.png"))
+  content <- paste0(content, if (has_emer_png) {
+    "![Theme emergence timeline](temporal_emergence.png)\n\n"
+  } else {
+    paste0("*No emergence chart was produced: no theme had a dated ",
+           "first appearance.*\n\n")
+  })
+
+  # emergence_timeline carries first_appearance_date as an ISO date string
+  # (sortable lexicographically); see .compute_theme_emergence.
+  if (!is.null(emer) && nrow(emer) > 0 &&
+      "first_appearance_date" %in% names(emer)) {
+    em <- emer[!is.na(emer$first_appearance_date), , drop = FALSE]
+    if (nrow(em) > 0) {
+      em <- em[order(em$first_appearance_date), , drop = FALSE]
+      shown <- utils::head(em, 10L)
+      content <- paste0(content,
+        "**Theme emergence** (first dated appearance",
+        if (nrow(em) > 10L) paste0("; first 10 of ", nrow(em)) else "",
+        "):\n\n",
+        "| Theme | First appearance |\n",
+        "|-------|------------------|\n",
+        paste0("| ", .html_esc(as.character(shown$theme_name)), " | ",
+               .html_esc(as.character(shown$first_appearance_date)), " |\n",
+               collapse = ""),
+        "\n"
+      )
+    }
+  }
+
+  content
+}
+
 .build_methodology_appendix <- function(stats, export_files, config,
                                          excerpt_verification = NULL) {
   # Describe the ACTUAL methodology mode -- pakhom is three-mode by
@@ -3702,7 +3832,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     if (!is.null(ss) && ss$total > 0) {
       content <- paste0(content,
         "**Substring Validation:** ", ss$valid, " of ", ss$total,
-        " coded excerpts (", ss$pct_valid, "%) are verbatim substrings of their source text.\n\n"
+        " coded excerpts (", ss$pct_valid, "%) are verbatim substrings of their (cleaned) source text.\n\n"
       )
       if (ss$invalid > 0) {
         content <- paste0(content,
@@ -4054,8 +4184,13 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     )
 
     if (nrow(cors$persistent) > 0) {
+      # Denominator = runs that exported correlation data (n_corr_runs),
+      # not all compared runs; %||% falls back for comparison objects
+      # serialized before n_corr_runs existed.
+      corr_denom <- cors$n_corr_runs %||% comparison$n_runs
       content <- paste0(content,
-        "**Persistent Correlations** (significant in all ", comparison$n_runs, " runs):\n\n",
+        "**Persistent Correlations** (significant in all ", corr_denom,
+        " runs with correlation data):\n\n",
         "| Variable Pair | Mean r | Runs Significant |\n",
         "|--------------|--------|------------------|\n"
       )
@@ -4064,7 +4199,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
         content <- paste0(content,
           "| ", .html_esc(r$var1), " &harr; ", .html_esc(r$var2),
           " | ", sprintf("%.3f", r$mean_correlation),
-          " | ", r$n_runs_significant, "/", comparison$n_runs,
+          " | ", r$n_runs_significant, "/", corr_denom,
           " |\n"
         )
       }

@@ -377,3 +377,97 @@ test_that(".tr_unwrap_payload handles both wrapped and unwrapped inputs", {
   # NULL pass-through
   expect_null(pakhom:::.tr_unwrap_payload(NULL))
 })
+
+# ==========================================================================
+# Verification-count source (real quote_verified records vs legacy proxy)
+# ==========================================================================
+
+.write_audit_jsonl <- function(run_dir, records) {
+  dir.create(run_dir, recursive = TRUE, showWarnings = FALSE)
+  lines <- vapply(records, function(r) jsonlite::toJSON(r, auto_unbox = TRUE),
+                  character(1))
+  writeLines(lines, file.path(run_dir, "ai_decisions.jsonl"))
+}
+
+test_that(".tr_summarize_quote_provenance counts real quote_verified records", {
+  td <- withr::local_tempdir()
+  run_dir <- file.path(td, "run_qv")
+  # 3 coding verifications (2 exact, 1 fuzzy) + 1 provocateur verification
+  # + 1 drifted + 3 code_assignment (equal to the coding verifications,
+  # as in any pure post-fix run).
+  recs <- list(
+    list(decision_type = "quote_verified", verification_status = "verified_exact"),
+    list(decision_type = "quote_verified", verification_status = "verified_exact"),
+    list(decision_type = "quote_verified", verification_status = "verified_fuzzy"),
+    list(decision_type = "quote_verified", verification_status = "verified_exact",
+         provocation_category = "counter_narrative"),
+    list(decision_type = "quote_drifted"),
+    list(decision_type = "code_assignment"),
+    list(decision_type = "code_assignment"),
+    list(decision_type = "code_assignment")
+  )
+  .write_audit_jsonl(run_dir, recs)
+
+  qp <- pakhom:::.tr_summarize_quote_provenance(run_dir)
+  # drifted(1) + max(code_assignment=3, qv_coding=3) + qv_provocateur(1) = 5
+  expect_equal(qp$n_verifications, 5L)
+  expect_equal(qp$verification_count_source, "quote_verified")
+  expect_equal(qp$n_verified_exact, 3L)
+  expect_equal(qp$n_verified_fuzzy, 1L)
+})
+
+test_that(".tr_summarize_quote_provenance falls back to the proxy for legacy logs", {
+  td <- withr::local_tempdir()
+  run_dir <- file.path(td, "run_legacy")
+  recs <- list(
+    list(decision_type = "code_assignment"),
+    list(decision_type = "code_assignment"),
+    list(decision_type = "quote_drifted")
+  )
+  .write_audit_jsonl(run_dir, recs)
+
+  qp <- pakhom:::.tr_summarize_quote_provenance(run_dir)
+  expect_equal(qp$n_verifications, 3L)  # 2 proxy + 1 drifted
+  expect_equal(qp$verification_count_source, "code_assignment_proxy")
+})
+
+test_that(".tr_summarize_quote_provenance is count-robust for mixed resumed logs", {
+  td <- withr::local_tempdir()
+  run_dir <- file.path(td, "run_mixed")
+  # A run started pre-fix (4 admitted segments = 4 code_assignment) and
+  # resumed post-fix (only 1 segment got a quote_verified record). The
+  # denominator must not collapse to the post-resume tail.
+  recs <- list(
+    list(decision_type = "code_assignment"),
+    list(decision_type = "code_assignment"),
+    list(decision_type = "code_assignment"),
+    list(decision_type = "code_assignment"),
+    list(decision_type = "quote_verified", verification_status = "verified_exact")
+  )
+  .write_audit_jsonl(run_dir, recs)
+
+  qp <- pakhom:::.tr_summarize_quote_provenance(run_dir)
+  expect_equal(qp$n_verifications, 4L)  # max(4, 1), not 1
+  expect_equal(qp$verification_count_source, "mixed")
+})
+
+test_that("quote-provenance section labels the proxy source honestly", {
+  td <- withr::local_tempdir()
+  run_dir <- file.path(td, "run_label")
+  .write_audit_jsonl(run_dir, list(list(decision_type = "code_assignment")))
+
+  qp <- pakhom:::.tr_summarize_quote_provenance(run_dir)
+  html <- pakhom:::.tr_quote_provenance_section(qp)
+  expect_match(html, "proxy: admitted segments", fixed = TRUE)
+  expect_false(grepl("Verified exact (offset match)", html, fixed = TRUE))
+
+  # And the pure quote_verified source gets the unqualified label + split rows
+  run_dir2 <- file.path(td, "run_label2")
+  .write_audit_jsonl(run_dir2, list(
+    list(decision_type = "quote_verified", verification_status = "verified_exact")
+  ))
+  qp2 <- pakhom:::.tr_summarize_quote_provenance(run_dir2)
+  html2 <- pakhom:::.tr_quote_provenance_section(qp2)
+  expect_false(grepl("proxy", html2, fixed = TRUE))
+  expect_match(html2, "Verified exact (offset match)", fixed = TRUE)
+})

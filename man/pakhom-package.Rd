@@ -107,7 +107,9 @@ n_distinct_contributors + Gini coefficient + top contributor share,
 so themes that look prevalent but rest on one heavy poster get
 surfaced (Jowsey et al. 2025 "Frankenstein" finding).}
 \item{T0.3 -- Whole-corpus coverage assertion}{Modes 2/3 assert
-"no silent truncation in the LLM call path" via \code{\link{compute_corpus_coverage}};
+every preprocessed entry reached the LLM (entry-level coverage;
+within-entry truncation against the per-entry character cap is
+measured and disclosed) via \code{\link{compute_corpus_coverage}};
 Mode 1 asserts "no silent skip across themes x provocation
 categories" via \code{\link{compute_mode1_coverage}}. Both inherit
 a virtual \code{Tier0Coverage} parent class so the report

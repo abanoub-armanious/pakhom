@@ -169,8 +169,9 @@ test_that(".build_mode1_rmd_content renders the cited verbatim quote in a provoc
   rmd_str <- paste(rmd, collapse = "\n")
   # The verbatim cited text "I plan" should appear in a provocation block
   expect_match(rmd_str, "I plan")
-  # Verification status badge
-  expect_match(rmd_str, "verified_exact|verified_fuzzy")
+  # Verification status badge (scoped display label: the badge certifies
+  # the QUOTE, not the challenge argument)
+  expect_match(rmd_str, "quote verified \\((exact|fuzzy)\\)")
 })
 
 test_that(".build_mode1_rmd_content includes the Skipped Themes section when skips exist", {

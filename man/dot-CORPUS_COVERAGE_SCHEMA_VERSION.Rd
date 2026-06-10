@@ -3,7 +3,9 @@
 \docType{data}
 \name{.CORPUS_COVERAGE_SCHEMA_VERSION}
 \alias{.CORPUS_COVERAGE_SCHEMA_VERSION}
-\title{Current schema version for the CorpusCoverage object}
+\title{Current schema version for the CorpusCoverage object
+1.1.0: adds within-entry truncation accounting (n_entries_truncated,
+chars_sent_to_llm, truncation_tracked).}
 \format{
 An object of class \code{character} of length 1.
 }
@@ -12,5 +14,7 @@ An object of class \code{character} of length 1.
 }
 \description{
 Current schema version for the CorpusCoverage object
+1.1.0: adds within-entry truncation accounting (n_entries_truncated,
+chars_sent_to_llm, truncation_tracked).
 }
 \keyword{internal}

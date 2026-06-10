@@ -55,8 +55,8 @@ researcher's framing might overlook.
 
 | Category | What the AI returns |
 |---|---|
-| `counter_narrative` | Up to N entries from the corpus that frame the construct as not-Y (challenges the theme's framing) |
-| `disconfirming_evidence` | Entries that directly contradict the theme |
+| `counter_narrative` | Up to N entries, drawn from the supporting entries plus a bounded sample of non-theme corpus entries shown in the prompt, that frame the construct as not-Y (challenges the theme's framing) |
+| `disconfirming_evidence` | Entries from the same prompt context that directly contradict the theme |
 | `alternative_interpretation` | Methodologically-defensible alternative theme names that the same supporting quotes could support (without saying which is better) |
 | `absent_voice` | Demographic / temporal / linguistic / topical segments of the corpus that are underrepresented in the theme's supporting entries |
 | `assumption_surfacing` | Other terms participants use for the same construct + a term the researcher's framing erases |
@@ -124,10 +124,12 @@ result <- run_mode1(
 #    in response to provocations that move you, then persist them.
 result$reflection_log <- add_memo(
   result$reflection_log,
-  body = "The AI's counter_narrative for 'Adherence' surfaces e3 + e5,
-which I had read as adherent because of the present-tense framing. Re-
-reading them: they describe ASPIRATIONAL adherence, not observed
-behavior. Theme name should probably be 'Adherence Talk' or split.",
+  body = "The AI's counter_narrative for 'Adherence' surfaces e3 + e4
+from the candidate sample of non-theme entries. I had coded both under
+Resistance, but re-reading them against Adherence: they describe FAILED
+adherence attempts rather than refusal -- which suggests Adherence and
+Resistance may be one dimension, not two themes. Consider renaming or
+merging.",
   type = "theoretical",
   linked_themes = "Adherence"
 )
@@ -590,9 +592,9 @@ corpora.
 Regardless of mode, every finalized pakhom run produces these
 **universal Tier-0 transparency artifacts** (per AC7):
 
-- **T0.1 quote provenance** — every AI-attributed verbatim claim verified via the verification ladder; fabrications dropped + logged to `fabrication_log.csv`.
+- **T0.1 quote provenance** — every AI-attributed verbatim claim verified via the verification ladder against the cleaned analytic text the model coded (the raw platform text is preserved in `original_text`); fabrications dropped + logged to `fabrication_log.csv`.
 - **T0.2 participant spread** — every theme reports n_distinct_contributors + Gini + top contributor share. Themes that look prevalent but rest on one heavy poster get a warning on the report.
-- **T0.3 corpus coverage** — Modes 2/3 assert "no silent truncation in the LLM call path"; Mode 1 asserts "no silent skip across themes × provocation categories." Both are surfaced via a coverage card on the HTML report.
+- **T0.3 corpus coverage** — Modes 2/3 assert every preprocessed entry reached the LLM (entry-level coverage; entries over the per-entry character cap are sent truncated, measured and disclosed on the coverage card); Mode 1 asserts "no silent skip across themes × provocation categories." Both are surfaced via a coverage card on the HTML report.
 
 These commitments are load-bearing: a finalized pakhom run that lacks
 any of them is a transparency failure surfaced by

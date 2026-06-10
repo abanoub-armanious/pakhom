@@ -2014,3 +2014,61 @@ test_that(".effective_max_entry_chars is robust to NULL/missing provider (R-quir
   prov_no_cw <- structure(list(), class = "AIProvider")
   expect_equal(pakhom:::.effective_max_entry_chars(prov_no_cw, list()), 8000L)
 })
+
+test_that("verified coded segment emits a quote_verified audit record (T0.1 denominator)", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  entry_text <- "I struggle with food addiction every single day."
+
+  # Offsets chosen so the quoted span verifies (exact substring of the entry)
+  mock_response <- jsonlite::toJSON(list(
+    skipped        = FALSE,
+    skip_reason    = "",
+    coded_segments = list(list(
+      text             = "food addiction",
+      start_char       = 18L,
+      end_char         = 32L,
+      code             = "Food Addiction",
+      code_description = "Compulsive food consumption",
+      code_type        = "descriptive"
+    ))
+  ), auto_unbox = TRUE)
+
+  local_mocked_bindings(
+    ai_complete = function(...) list(
+      content       = mock_response,
+      model         = "gpt-4o-mock",
+      request_id    = "req_mock_quote_verified",
+      usage         = list(prompt_tokens = 10L, completion_tokens = 10L,
+                            total_tokens = 20L),
+      finish_reason = "stop",
+      raw_response  = list(),
+      prompt_hash   = "hash-qv"
+    ),
+    compute_embeddings = function(provider, texts, model = NULL) NULL,
+    .package = "pakhom"
+  )
+
+  tmp <- tempfile(); dir.create(tmp)
+  on.exit(unlink(tmp, recursive = TRUE), add = TRUE)
+  audit <- init_audit_log(tmp)
+
+  state <- create_coding_state()
+  state <- pakhom:::.code_entry_progressive(
+    text = entry_text, entry_id = "e1", entry_index = 1L,
+    state = state, provider = mock_provider(),
+    config = list(max_retries_per_entry = 1L),
+    base_system_prompt = "test",
+    audit_log = audit
+  )
+
+  lines <- readLines(file.path(tmp, "ai_decisions.jsonl"), warn = FALSE)
+  recs <- lapply(lines, jsonlite::fromJSON)
+  qv <- Filter(function(r) identical(r$decision_type, "quote_verified"), recs)
+  expect_length(qv, 1L)
+  expect_equal(qv[[1]]$entry_id, "e1")
+  expect_equal(qv[[1]]$code_name, "Food Addiction")
+  expect_true(qv[[1]]$verification_status %in% c("verified_exact", "verified_fuzzy"))
+  expect_false(is.null(qv[[1]]$quote_id))
+})
