@@ -57,7 +57,8 @@ methodology:
 # -----------------------------------------------------------------------------
 # Audit (raw-response capture for replay)
 # Controls how AI request/response provenance is captured. Disabling
-# capture_raw_responses saves storage but breaks replay_run() reproducibility.
+# capture_raw_responses saves storage but forfeits the raw-response audit
+# trail -- and the inputs any future replay tooling would need.
 # -----------------------------------------------------------------------------
 audit:
   capture_raw_responses: true
@@ -163,7 +164,7 @@ data:
 
   preprocessing:
     remove_urls: true
-    remove_mentions: true
+    remove_mentions: true           # Deletes u/ and at-mentions; r/<name> becomes the redaction token [subreddit].
     remove_hashtags: false
     lowercase: false
     min_text_length: 10
@@ -243,6 +244,8 @@ analysis:
     # code_style removed (was "descriptive" -- it was set in
     # .config_defaults but never read by any caller).
     max_retries_per_entry: 2
+    max_consecutive_entry_failures: 10   # Stop (with a resume hint) after this many consecutive AI-call failures.
+    max_failed_entry_fraction: 0.25      # ... or when this fraction of attempted entries failed (checked from 20 attempts).
     use_fallback_extraction: true
     fallback_keyword_patterns: ~
     clean_excerpts: true

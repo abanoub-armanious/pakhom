@@ -7,6 +7,23 @@
 #' Cleans text, removes artifacts, filters by length, and removes duplicates.
 #' Supports platform-specific cleaning rules and custom regex patterns.
 #'
+#' @details
+#' Default transforms (with \code{source_type = "reddit"}, the default when
+#' unset): URLs are removed; \code{u/} and at-mentions are deleted;
+#' \code{r/<name>} references are replaced by the literal redaction token
+#' \code{[subreddit]} (a privacy marker; bracketed editorial insertions are
+#' standard qualitative-research convention); markdown bold / italic /
+#' strikethrough markup is stripped and quoted (\code{>}) lines are dropped;
+#' \code{[removed]} / \code{[deleted]} placeholders are removed; HTML
+#' entities and unicode escapes are decoded; text is NFC-normalized and
+#' whitespace is collapsed.
+#'
+#' All downstream coding, T0.1 quote verification, report excerpts, and
+#' QDPX export operate on this cleaned \code{std_text} -- so "verbatim" in
+#' the T0.1 guarantee means verbatim with respect to the cleaned analytic
+#' text. The raw platform text is preserved unchanged in
+#' \code{original_text}.
+#'
 #' @param data Standardized tibble (must have std_text column)
 #' @param config Preprocessing config section from YAML
 #' @return Filtered tibble with cleaned text

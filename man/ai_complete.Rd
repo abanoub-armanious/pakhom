@@ -104,7 +104,7 @@ replay and debugging.
 \item \code{prompt_hash}: character. SHA-256 hex digest of the request
 inputs (prompt + system_prompt + model + temperature + max_tokens +
 json_mode + response_schema + documents). Used as the cache key for
-the planned \code{replay_run()}; stable across R versions and platforms because
+planned replay tooling; stable across R versions and platforms because
 the underlying hash is computed over a JSON serialization of the
 inputs, not the R object.
 \item \code{request_id}: character or \code{NA_character_}.
@@ -131,14 +131,14 @@ Returns a structured list with the response \code{$content} alongside
 provenance metadata (model, usage, raw_response, finish_reason,
 prompt_hash, request_id). Callers that only need the response text should
 extract \code{$content}; downstream audit-log capture (T1.4) and
-\code{replay_run()} consume the other fields.
+the response cache consume the other fields.
 }
 \details{
 Note: This is the T1.1 refactor. Prior to T1.1 this function
 returned a bare character string; the structured-list return is the
 single most leveraged change because it unblocks T1.4
 (audit log raw-response capture), T1.2 (Structured Outputs migration),
-and replay (replay_run from cached responses) simultaneously. The function
+and future replay from cached responses simultaneously. The function
 is internal (not exported), so the change touches only in-package callers.
 }
 \keyword{internal}

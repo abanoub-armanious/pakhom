@@ -67,14 +67,15 @@ every config -- this helper writes it for you given the
 \code{methodology} argument.
 }
 \examples{
-\dontrun{
+cfg <- tempfile(fileext = ".yaml")
+
 # Mode 2 (Codebook Collaborative)
 create_config(
   methodology = "codebook_collaborative",
   study_name = "My Study",
   research_focus = "How does X relate to Y?",
   database_path = "my_data.db",
-  output_path = "config.yaml"
+  output_path = cfg
 )
 
 # Mode 3 (Framework Applied) with a built-in framework
@@ -84,7 +85,7 @@ create_config(
   study_name = "TPB analysis",
   research_focus = "Behavioral intention -> behavior",
   database_path = "my_data.db",
-  output_path = "config.yaml"
+  output_path = cfg
 )
 
 # Mode 1 (Reflexive Scaffold) -- corpus is supplied at run_mode1() time
@@ -92,7 +93,8 @@ create_config(
   methodology = "reflexive_scaffold",
   study_name = "Reflexive analysis",
   research_focus = "Provocation against my coded themes",
-  output_path = "config.yaml"
+  output_path = cfg
 )
-}
+
+unlink(cfg)
 }

@@ -29,7 +29,9 @@ make_quote(
 \code{"interview_segment"}).}
 
 \item{source_text}{Character. The FULL source document text. Used to
-compute \code{source_text_sha256}; not stored on the quote.}
+compute \code{source_text_sha256}; not stored on the quote. In the
+pipeline path this is the cleaned analytic \code{std_text} the model
+coded (see \code{preprocess_text}), not the raw platform text.}
 
 \item{start_char}{Integer. 0-indexed inclusive start offset (matches
 Anthropic Citations API conventions).}

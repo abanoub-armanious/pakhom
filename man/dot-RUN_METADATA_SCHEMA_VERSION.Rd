@@ -11,7 +11,7 @@ An object of class \code{character} of length 1.
 .RUN_METADATA_SCHEMA_VERSION
 }
 \description{
-Consumers (replay_run, summarize_audit_log) read this to gate
+Consumers (summarize_audit_log(), planned replay tooling) read this to gate
 back-compat reads. Bumped when the metadata schema changes
 incompatibly.
 }

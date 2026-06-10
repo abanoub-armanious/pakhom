@@ -2,7 +2,10 @@
 # Quote Provenance + Verification Ladder
 # ==============================================================================
 # Every AI-attributed quote in pakhom must carry full provenance metadata
-# AND be verified offline against the source corpus. This is the package's
+# AND be verified offline against the source corpus (in the pipeline path,
+# the cleaned analytic std_text the model coded -- see preprocess_text's
+# @details; the raw platform text is preserved in original_text). This is
+# the package's
 # direct response to the most-cited empirical critique of LLM-for-TA tools:
 # Jowsey et al. 2025 (PLOS One, doi:10.1371/journal.pone.0330217) found that
 # Microsoft Copilot fabricated quotes that appeared verbatim in the data but
@@ -31,7 +34,7 @@
 #    foundation those extensions consume.
 #
 # Schema versioning: .QUOTE_PROVENANCE_SCHEMA_VERSION lets downstream
-# consumers (replay_run, methodology paper analyses) detect when the quote
+# consumers (planned replay tooling, methodology paper analyses) detect when the quote
 # object shape has evolved. Treat all bumps as additive unless explicitly
 # noted; the verification ladder may add new methods without bumping.
 # ==============================================================================
@@ -54,7 +57,7 @@
 #'     source_text_sha256_mismatch, etc.). NA on verified or
 #'     unverified quotes.
 #' }
-#' Bumping the version lets downstream tools (replay_run, cross-run
+#' Bumping the version lets downstream tools (planned replay tooling, cross-run
 #' compare_runs) detect that a loaded QuoteProvenance was produced
 #' under a different schema generation.
 #' @keywords internal
@@ -124,7 +127,9 @@
 #'   (e.g., \code{"reddit_post"}, \code{"reddit_comment"},
 #'   \code{"interview_segment"}).
 #' @param source_text Character. The FULL source document text. Used to
-#'   compute \code{source_text_sha256}; not stored on the quote.
+#'   compute \code{source_text_sha256}; not stored on the quote. In the
+#'   pipeline path this is the cleaned analytic \code{std_text} the model
+#'   coded (see \code{preprocess_text}), not the raw platform text.
 #' @param start_char Integer. 0-indexed inclusive start offset (matches
 #'   Anthropic Citations API conventions).
 #' @param end_char Integer. 0-indexed exclusive end offset.

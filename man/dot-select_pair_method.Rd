@@ -20,8 +20,11 @@ Character: "pearson" or "spearman"
 }
 \description{
 Hardening: binary x ordinal pairs now route
-through Spearman (which yields the rank-biserial coefficient in that
-degenerate case). They previously routed to Pearson via the
+through Spearman. The ordinal side is rank-orderable but not
+interval-scaled, so the interval assumption behind point-biserial
+(Pearson with a binary variable) does not hold; the reported
+coefficient is Spearman's rho computed on (mid)ranks and is labeled
+as such. They previously routed to Pearson via the
 general binary+non-binary rule, which produces point-biserial -- a
 coefficient that assumes the non-binary side is interval-scaled. For
 AI-elicited sentiment / intensity / Likert scores the support is

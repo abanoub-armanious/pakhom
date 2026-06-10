@@ -50,9 +50,10 @@ Per AC3, there is no default methodology mode in
 informed choice rather than picking arbitrarily.
 }
 \examples{
-\dontrun{
-# Interactive (when running in a console):
-result <- methodology_decision_aid()
+# Interactive (prompts in a console, so only run when one is attached):
+if (interactive()) {
+  result <- methodology_decision_aid()
+}
 
 # Non-interactive (deterministic):
 result <- methodology_decision_aid(
@@ -63,5 +64,4 @@ result <- methodology_decision_aid(
 
 # Print-only comparison:
 methodology_decision_aid(interactive = FALSE)
-}
 }

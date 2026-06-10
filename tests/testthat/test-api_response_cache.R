@@ -1,6 +1,7 @@
 # Tests for content-addressable response cache (T1.4)
 # api_response_cache.R provides on-disk storage of raw_response keyed by
-# prompt_hash; the planned replay_run() consumes it.
+# prompt_hash; read_cached_response() is the manual-audit consumer and
+# planned replay tooling will build on it.
 
 # ---- Helpers ----------------------------------------------------------------
 
@@ -196,4 +197,45 @@ test_that("print.ResponseCache reports state without error", {
   expect_output(print(cache), "ResponseCache")
   expect_output(print(cache), "Enabled.*TRUE")
   expect_output(print(cache), "Written.*1")
+})
+
+# ---- Manual-audit consumer story + phantom-reference guard ------------------
+
+test_that("read_cached_response recovers the raw response behind an audit-log record", {
+  # The documented consumer story: an audit-log line carries a prompt_hash;
+  # read_cached_response() looks up the raw API response behind it. This is
+  # the REAL, shipping consumer of the response cache (planned replay
+  # tooling builds on the same lookup).
+  td <- withr::local_tempdir()
+  cache <- init_response_cache(td)
+  payload <- list(id = "msg_audit", model = "gpt-4o",
+                  choices = list(list(text = "the cached answer")))
+  ai_result <- mk_ai_result(prompt_hash = "audithash01", raw_response = payload)
+  cache_response(cache, ai_result)
+
+  # Recover using the hash exactly as an audit-log record would carry it
+  recovered <- read_cached_response(cache, "audithash01")
+  expect_false(is.null(recovered))
+  expect_equal(recovered$id, "msg_audit")
+  expect_equal(recovered$choices[[1]]$text, "the cached answer")
+})
+
+test_that("no source file or shipped config references the phantom replay_run()", {
+  # replay_run() was referenced ~26 times across the codebase but never
+  # implemented. All references were demoted to 'planned replay tooling'
+  # (no promised API name). This guard prevents the phantom from regrowing.
+  r_files <- list.files(file.path("..", ".."), pattern = "\\.R$",
+                        recursive = FALSE, full.names = TRUE)
+  # testthat working dir is tests/testthat -> package root is ../..
+  r_files <- list.files(file.path("..", "..", "R"), pattern = "\\.R$",
+                        full.names = TRUE)
+  cfg <- file.path("..", "..", "inst", "config", "default_config.yaml")
+  files <- c(r_files, cfg[file.exists(cfg)])
+  offenders <- character(0)
+  for (f in files) {
+    if (any(grepl("replay_run", readLines(f, warn = FALSE), fixed = TRUE))) {
+      offenders <- c(offenders, basename(f))
+    }
+  }
+  expect_length(offenders, 0L)
 })

@@ -7,8 +7,8 @@
 #
 # The arbiter is the C1 replacement for the former multi-signal
 # triangulation (six hardcoded knobs + 0.05 slope threshold). Tests cover
-# the three verdict paths, articulation enforcement, circuit-breaker
-# failure path, schema validity, cadence formula, and prompt assembly.
+# the three verdict paths, articulation enforcement, failure-streak
+# warning path, schema validity, cadence formula, and prompt assembly.
 # ==============================================================================
 
 # ---- Cadence formula --------------------------------------------------------

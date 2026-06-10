@@ -47,9 +47,10 @@
 #'   Invisibly NULL when called in print-only mode.
 #' @export
 #' @examples
-#' \dontrun{
-#' # Interactive (when running in a console):
-#' result <- methodology_decision_aid()
+#' # Interactive (prompts in a console, so only run when one is attached):
+#' if (interactive()) {
+#'   result <- methodology_decision_aid()
+#' }
 #'
 #' # Non-interactive (deterministic):
 #' result <- methodology_decision_aid(
@@ -60,7 +61,6 @@
 #'
 #' # Print-only comparison:
 #' methodology_decision_aid(interactive = FALSE)
-#' }
 methodology_decision_aid <- function(interactive = base::interactive(),
                                      ta_family = NULL,
                                      has_apriori_framework = NULL,
@@ -296,7 +296,6 @@ methodology_decision_aid <- function(interactive = base::interactive(),
 #'   \code{notes}.
 #' @export
 #' @examples
-#' \dontrun{
 #' # A 250-entry corpus on a narrow medication x sleep question:
 #' configuration_selection_aid(
 #'   mode = "codebook_collaborative",
@@ -310,7 +309,6 @@ methodology_decision_aid <- function(interactive = base::interactive(),
 #'   corpus_size = 1000,
 #'   focus_shape = "broad"
 #' )
-#' }
 configuration_selection_aid <- function(mode,
                                           corpus_size,
                                           estimated_codebook_size = NULL,

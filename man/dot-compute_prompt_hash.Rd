@@ -34,7 +34,7 @@ structured output was requested.}
 \item{documents}{Optional list of source documents (Anthropic Citations
 API). NULL or empty list when citations were not requested. Hashing
 documents is required because the same prompt over different source
-corpora must produce different cache keys (otherwise replay_run()
+corpora must produce different cache keys (otherwise a cache lookup
 would silently return a citation-less response for a citations
 request, or vice versa).}
 }
@@ -48,7 +48,7 @@ serialization-format changes. The set of fields hashed is exactly those
 that determine the response: prompt + system_prompt + model + temperature
 \itemize{
 \item max_tokens + json_mode + response_schema + documents. Used as the cache
-key for replay_run().
+key consumed by read_cached_response() and planned replay tooling.
 }
 }
 \details{

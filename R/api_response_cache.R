@@ -1,13 +1,15 @@
 # ==============================================================================
 # Content-Addressable Raw Response Cache
 # ==============================================================================
-# Stores raw API responses on disk indexed by prompt_hash so replay_run()
+# Stores raw API responses on disk indexed by prompt_hash so the raw
+# response behind any audit-log line
 # can recover a prior response from the audit log without re-issuing the
 # request. Inline storage in the JSONL audit log was rejected because typical
 # raw responses are 2-10 KB and a 1000-call run would balloon ai_decisions.jsonl
 # to hundreds of MB; content-addressable external storage keeps the JSONL light,
 # deduplicates identical requests across the run (the saturation_check prompt
-# in particular fires repeatedly with identical inputs), and gives replay_run()
+# in particular fires repeatedly with identical inputs), and gives planned
+# replay tooling
 # a clean key-to-file lookup.
 #
 # Cache layout:
@@ -135,7 +137,8 @@ cache_response <- function(cache, ai_result) {
 
 #' Read a cached raw response by prompt_hash
 #'
-#' Looks up a previously-cached response. Used by \code{replay_run()}
+#' Looks up the raw API response behind an audit-log record by its
+#' prompt_hash (manual audit); planned replay tooling
 #' (planned) to reproduce a prior run's AI calls from on-disk artifacts.
 #'
 #' @param cache A ResponseCache object

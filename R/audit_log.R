@@ -48,7 +48,7 @@
 .valid_decision_types <- c(
   # Pre-T1.4 decision types. "saturation_signal" is retained in the
   # allowlist for back-compat: audit logs from earlier runs use it,
-  # and replay_run() validates each historical line against this
+  # and historical log lines are validated against this
   # allowlist. Newer runs emit "saturation_judgment" (see below)
   # instead; "saturation_signal" should not be written by new code.
   "code_assignment", "new_code_created", "entry_skipped", "merge_decision",

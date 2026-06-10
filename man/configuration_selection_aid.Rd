@@ -52,7 +52,6 @@ The function returns a list with: \code{expected_themes} (range),
 post-themes researcher review pause should be enabled).
 }
 \examples{
-\dontrun{
 # A 250-entry corpus on a narrow medication x sleep question:
 configuration_selection_aid(
   mode = "codebook_collaborative",
@@ -66,5 +65,4 @@ configuration_selection_aid(
   corpus_size = 1000,
   focus_shape = "broad"
 )
-}
 }

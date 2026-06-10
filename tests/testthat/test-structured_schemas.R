@@ -170,7 +170,7 @@ test_that(".compute_prompt_hash distinguishes requests by response_schema", {
 
 test_that(".compute_prompt_hash is deterministic across schema instances", {
   # Calling the schema function multiple times produces identical R lists,
-  # so the prompt_hash should be stable. Critical for replay_run cache hits
+  # so the prompt_hash should be stable. Critical for stable cache keys
   # to work correctly across runs.
   h1 <- pakhom:::.compute_prompt_hash(
     "p", NULL, "gpt-4o", 0.3, 1000L, FALSE,

@@ -27,7 +27,7 @@ step3_substring_not_found, step4_embedding_below_threshold,
 source_text_sha256_mismatch, etc.). NA on verified or
 unverified quotes.
 }
-Bumping the version lets downstream tools (replay_run, cross-run
+Bumping the version lets downstream tools (planned replay tooling, cross-run
 compare_runs) detect that a loaded QuoteProvenance was produced
 under a different schema generation.
 }

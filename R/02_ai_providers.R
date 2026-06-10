@@ -100,13 +100,13 @@ create_ai_provider <- function(provider = "openai", config = NULL) {
 #' provenance metadata (model, usage, raw_response, finish_reason,
 #' prompt_hash, request_id). Callers that only need the response text should
 #' extract \code{$content}; downstream audit-log capture (T1.4) and
-#' \code{replay_run()} consume the other fields.
+#' the response cache consume the other fields.
 #'
 #' Note: This is the T1.1 refactor. Prior to T1.1 this function
 #' returned a bare character string; the structured-list return is the
 #' single most leveraged change because it unblocks T1.4
 #' (audit log raw-response capture), T1.2 (Structured Outputs migration),
-#' and replay (replay_run from cached responses) simultaneously. The function
+#' and future replay from cached responses simultaneously. The function
 #' is internal (not exported), so the change touches only in-package callers.
 #'
 #' @param provider AIProvider object
@@ -180,7 +180,7 @@ create_ai_provider <- function(provider = "openai", config = NULL) {
 #'     \item \code{prompt_hash}: character. SHA-256 hex digest of the request
 #'       inputs (prompt + system_prompt + model + temperature + max_tokens +
 #'       json_mode + response_schema + documents). Used as the cache key for
-#'       the planned \code{replay_run()}; stable across R versions and platforms because
+#'       planned replay tooling; stable across R versions and platforms because
 #'       the underlying hash is computed over a JSON serialization of the
 #'       inputs, not the R object.
 #'     \item \code{request_id}: character or \code{NA_character_}.
@@ -606,7 +606,7 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 # Internal Helpers -- Response Structuring
 # ==============================================================================
 # These helpers shape the structured return value of ai_complete(). The goal
-# is to give the audit log (T1.4) and replay_run() deterministic,
+# is to give the audit log (T1.4) and the response cache deterministic,
 # provider-agnostic access to provenance metadata while keeping the bare
 # content extraction trivial for existing callers (response$content).
 
@@ -617,7 +617,7 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 #' serialization-format changes. The set of fields hashed is exactly those
 #' that determine the response: prompt + system_prompt + model + temperature
 #' + max_tokens + json_mode + response_schema + documents. Used as the cache
-#' key for replay_run().
+#' key consumed by read_cached_response() and planned replay tooling.
 #'
 #' T1.2 added response_schema; T0.1 part 3b added documents. Pre-
 #' addition callers (NULL for the new arg) produce the same hashes as
@@ -635,7 +635,7 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 #' @param documents Optional list of source documents (Anthropic Citations
 #'   API). NULL or empty list when citations were not requested. Hashing
 #'   documents is required because the same prompt over different source
-#'   corpora must produce different cache keys (otherwise replay_run()
+#'   corpora must produce different cache keys (otherwise a cache lookup
 #'   would silently return a citation-less response for a citations
 #'   request, or vice versa).
 #' @return Character: SHA-256 hex digest (64 chars)

@@ -85,12 +85,20 @@ empirical critiques of LLM-for-TA tools:
   logged to `fabrication_log.csv`. Mode 1 verifies provocation citations;
   Mode 2/3 verify coded-segment quotes. On Anthropic, the Citations API serves
   as a prevention layer; the verification ladder is detection-in-depth.
+  Quotes are verified against the cleaned analytic text produced by
+  preprocessing (with default Reddit cleaning, `r/<name>` appears as the
+  redaction token `[subreddit]` and `u/` mentions are removed), so verified
+  quotes reflect the analytic corpus rather than byte-identical raw posts;
+  the raw text is preserved in `original_text`.
 - **T0.2 participant spread per theme** — every theme reports
   n_distinct_contributors + Gini coefficient + top contributor share. Themes
   that look prevalent but rest on one heavy poster get an explicit warning
   on the report.
-- **T0.3 corpus coverage assertion** — Modes 2/3 assert "no silent truncation
-  in the LLM call path"; Mode 1 asserts "no silent skip across themes ×
+- **T0.3 corpus coverage assertion** — Modes 2/3 assert that every entry
+  surviving preprocessing reached the LLM (entry-level coverage; entries
+  longer than the configurable per-entry character cap are sent truncated,
+  with the truncation measured and disclosed on the coverage card); Mode 1
+  asserts "no silent skip across themes ×
   provocation categories." The Mode 3 + Anthropic Citations API silent bypass
   (forced tool_use schema + Citations API are mutually exclusive at the
   response level) is disclosed via an explicit footnote rather than left

@@ -272,3 +272,27 @@ test_that("audit followup H-T7-3: schema prompt protects against tag-injection",
   n_close <- length(gregexpr("</entry_text>", prompt, fixed = TRUE)[[1L]])
   expect_equal(n_close, 1L)
 })
+
+test_that("T0.1 verbatim is relative to the CLEANED analytic text (redaction token verifies)", {
+  # Executable documentation of the scoping in preprocess_text's @details:
+  # coding and verification run on cleaned std_text, where r/<name> has been
+  # replaced by the literal redaction token [subreddit]. A quote spanning the
+  # token verifies, because the token IS part of the analytic corpus.
+  raw <- tibble::tibble(
+    std_id = "e1",
+    std_text = "I posted this in r/sleepresearch yesterday and felt heard."
+  )
+  cleaned <- preprocess_text(raw, config = list(source_type = "reddit"))
+  expect_match(cleaned$std_text[1], "[subreddit]", fixed = TRUE)
+
+  src <- cleaned$std_text[1]
+  target <- "posted this in [subreddit] yesterday"
+  start0 <- as.integer(regexpr(target, src, fixed = TRUE)) - 1L
+  q <- make_quote(
+    source_doc_id = "e1", source_doc_type = "reddit_post", source_text = src,
+    start_char = start0, end_char = start0 + nchar(target),
+    exact_text = target
+  )
+  v <- verify_quote(q, src, provider = NULL)
+  expect_equal(v$verification_status, "verified_exact")
+})

@@ -452,10 +452,10 @@ print.ThematicConfig <- function(x, ...) {
       mode_changed_from = NULL        # set if methodology was changed mid-pipeline (audit)
     ),
 
-    # Audit configuration (T1.4 -- raw-response capture for replay_run).
+    # Audit configuration (T1.4 -- raw-response capture for auditability).
     # Defaults are conservative; users running in cost-sensitive environments
     # can disable raw response capture but forfeit the cached responses the
-    # planned replay_run() will need.
+    # planned replay tooling will need.
     audit = list(
       capture_raw_responses = TRUE,
       response_cache_dir = "api_responses"
@@ -638,6 +638,14 @@ print.ThematicConfig <- function(x, ...) {
         include_in_vivo = TRUE,    # Live: gates "in vivo codes" prompt
                                     #   sentence at R/09_coding.R:1190
         max_retries_per_entry = 2,
+        # Aggregate AI-failure breaker: stop the run (with a resume hint)
+        # when AI calls fail for this many CONSECUTIVE entries, or when
+        # more than this fraction of attempted entries failed (checked
+        # once >= 20 entries were attempted). Counts only real call
+        # failures (network/timeout/parse after retries), never
+        # AI-judged "not applicable" skips.
+        max_consecutive_entry_failures = 10,
+        max_failed_entry_fraction = 0.25,
         # Coding guideline parameters (NULL = use benchmarks from prior analyses, or package defaults)
         segment_length_min = NULL,   # Min coded segment length in characters (default: 30)
         segment_length_max = NULL,   # Max coded segment length in characters (default: 200)
@@ -988,14 +996,15 @@ print.ThematicConfig <- function(x, ...) {
 #'   (e.g., \code{analysis.test_mode.enabled = TRUE}).
 #' @return The path to the created config file (invisibly).
 #' @examples
-#' \dontrun{
+#' cfg <- tempfile(fileext = ".yaml")
+#'
 #' # Mode 2 (Codebook Collaborative)
 #' create_config(
 #'   methodology = "codebook_collaborative",
 #'   study_name = "My Study",
 #'   research_focus = "How does X relate to Y?",
 #'   database_path = "my_data.db",
-#'   output_path = "config.yaml"
+#'   output_path = cfg
 #' )
 #'
 #' # Mode 3 (Framework Applied) with a built-in framework
@@ -1005,7 +1014,7 @@ print.ThematicConfig <- function(x, ...) {
 #'   study_name = "TPB analysis",
 #'   research_focus = "Behavioral intention -> behavior",
 #'   database_path = "my_data.db",
-#'   output_path = "config.yaml"
+#'   output_path = cfg
 #' )
 #'
 #' # Mode 1 (Reflexive Scaffold) -- corpus is supplied at run_mode1() time
@@ -1013,9 +1022,10 @@ print.ThematicConfig <- function(x, ...) {
 #'   methodology = "reflexive_scaffold",
 #'   study_name = "Reflexive analysis",
 #'   research_focus = "Provocation against my coded themes",
-#'   output_path = "config.yaml"
+#'   output_path = cfg
 #' )
-#' }
+#'
+#' unlink(cfg)
 #' @export
 create_config <- function(methodology = NULL,
                           study_name = "Untitled Study",

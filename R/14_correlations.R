@@ -197,8 +197,11 @@ detect_variable_types <- function(corr_data, ordinal_max = 21L) {
 #' Select appropriate correlation method for a variable pair
 #'
 #' Hardening: binary x ordinal pairs now route
-#' through Spearman (which yields the rank-biserial coefficient in that
-#' degenerate case). They previously routed to Pearson via the
+#' through Spearman. The ordinal side is rank-orderable but not
+#' interval-scaled, so the interval assumption behind point-biserial
+#' (Pearson with a binary variable) does not hold; the reported
+#' coefficient is Spearman's rho computed on (mid)ranks and is labeled
+#' as such. They previously routed to Pearson via the
 #' general binary+non-binary rule, which produces point-biserial -- a
 #' coefficient that assumes the non-binary side is interval-scaled. For
 #' AI-elicited sentiment / intensity / Likert scores the support is
@@ -217,7 +220,8 @@ detect_variable_types <- function(corr_data, ordinal_max = 21L) {
   # Both binary -> Pearson (phi coefficient)
   if (type_x == "binary" && type_y == "binary") return("pearson")
 
-  # H-13: binary + ordinal -> Spearman (rank-biserial).
+  # H-13: binary + ordinal -> Spearman (rho on midranks; ordinal side is
+  # not interval-scaled).
   if ((type_x == "binary" && type_y == "ordinal") ||
       (type_x == "ordinal" && type_y == "binary")) return("spearman")
 

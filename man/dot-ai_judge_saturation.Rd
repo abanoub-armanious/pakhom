@@ -43,6 +43,6 @@ articulation, rationale, and a success flag (FALSE on parse/API failure).
 \details{
 Articulations under 30 chars downgrade "reached" to "not_yet" --
 The anti-vacuous pattern. Failures are NOT counted against the
-verdict (the caller's circuit breaker tracks failures separately).
+verdict (the caller's failure-streak counter tracks failures separately).
 }
 \keyword{internal}

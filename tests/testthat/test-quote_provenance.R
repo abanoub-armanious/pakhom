@@ -154,6 +154,126 @@ test_that("verify_quote step 4 (embedding) is skipped silently when provider is 
   expect_equal(v$verification_status, "fabricated")
 })
 
+# ---- verify_quote step 4: embedding-cosine rung (mocked provider) -----------
+# compute_embeddings(provider, c(quote_text, source_text)) must return a
+# 2-row numeric matrix; .quote_embedding_similarity takes the [1,2] cosine
+# of the row-normalized matrix. Each mock lives inside its own test_that so
+# the package-wide rebinding cannot leak into other tests.
+
+test_that("verify_quote step 4 verifies a paraphrase above the cosine threshold", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+  q <- make_quote("doc1", "test", SRC, 0L, 5L, "paraphrased version")
+  seen_texts <- NULL
+  local_mocked_bindings(
+    compute_embeddings = function(provider, texts, model = NULL) {
+      seen_texts <<- texts
+      rbind(c(1, 0), c(1, 0))  # identical unit vectors -> cosine 1.0
+    },
+    .package = "pakhom"
+  )
+  v <- verify_quote(q, SRC, provider = mock_provider("openai"))
+  expect_identical(seen_texts, c(q$exact_text, SRC))
+  expect_equal(v$verification_status, "verified_fuzzy")
+  expect_equal(v$verification_method, "embedding_cosine")
+  expect_equal(v$verification_score, 1.0)  # the actual cosine, propagated
+  expect_identical(v$verification_failure_reason, NA_character_)
+})
+
+test_that("verify_quote step 4 rejects below the cosine threshold with an attributable reason", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+  q <- make_quote("doc1", "test", SRC, 0L, 5L, "paraphrased version")
+  local_mocked_bindings(
+    compute_embeddings = function(provider, texts, model = NULL) {
+      rbind(c(1, 0), c(0.8, 0.6))  # unit vectors -> cosine 0.8 < 0.85
+    },
+    .package = "pakhom"
+  )
+  v <- verify_quote(q, SRC, provider = mock_provider("openai"))
+  expect_equal(v$verification_status, "fabricated")
+  expect_identical(v$verification_method, NA_character_)
+  expect_identical(v$verification_score, NA_real_)
+  expect_equal(v$verification_failure_reason, "step4_embedding_below_threshold")
+})
+
+test_that("verify_quote step 4 threshold boundary is >= (0.85 passes, just-below fails)", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+  # Mock the similarity helper directly so the boundary value is exact
+  # (cosine through row normalization can land a float-ulp off).
+  q <- make_quote("doc1", "test", SRC, 0L, 5L, "paraphrased version")
+  local_mocked_bindings(
+    .quote_embedding_similarity = function(...) 0.85,
+    .package = "pakhom"
+  )
+  v <- verify_quote(q, SRC, provider = mock_provider("openai"))
+  expect_equal(v$verification_status, "verified_fuzzy")
+  expect_equal(v$verification_score, 0.85)
+
+  local_mocked_bindings(
+    .quote_embedding_similarity = function(...) 0.8499,
+    .package = "pakhom"
+  )
+  v2 <- verify_quote(q, SRC, provider = mock_provider("openai"))
+  expect_equal(v2$verification_status, "fabricated")
+  expect_equal(v2$verification_failure_reason, "step4_embedding_below_threshold")
+})
+
+test_that("verify_quote step 4 treats unavailable embeddings as unverified, not verified", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+  q <- make_quote("doc1", "test", SRC, 0L, 5L, "paraphrased version")
+  # NULL return (provider has no embedding support)
+  local_mocked_bindings(
+    compute_embeddings = function(provider, texts, model = NULL) NULL,
+    .package = "pakhom"
+  )
+  v <- verify_quote(q, SRC, provider = mock_provider("openai"))
+  expect_equal(v$verification_status, "fabricated")
+  expect_equal(v$verification_failure_reason, "step4_embedding_unavailable")
+
+  # Malformed return (1 row instead of 2) hits the nrow != 2 guard
+  local_mocked_bindings(
+    compute_embeddings = function(provider, texts, model = NULL) rbind(c(1, 0)),
+    .package = "pakhom"
+  )
+  v2 <- verify_quote(q, SRC, provider = mock_provider("openai"))
+  expect_equal(v2$verification_status, "fabricated")
+  expect_equal(v2$verification_failure_reason, "step4_embedding_unavailable")
+})
+
+test_that("verify_quote step 4 contains an embedding-call error (no error escapes)", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+  q <- make_quote("doc1", "test", SRC, 0L, 5L, "paraphrased version")
+  local_mocked_bindings(
+    compute_embeddings = function(provider, texts, model = NULL) stop("API down"),
+    .package = "pakhom"
+  )
+  expect_no_error(v <- verify_quote(q, SRC, provider = mock_provider("openai")))
+  expect_equal(v$verification_status, "fabricated")
+  expect_equal(v$verification_failure_reason, "step4_embedding_unavailable")
+})
+
+test_that("verify_quote drift verdict wins over a step-4 below-threshold reason", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+  # Attributed against one source, verified against another: ladder fails
+  # AND hash mismatch -> drifted (not fabricated), reason names the drift.
+  q <- make_quote("doc1", "test", "ORIGINAL SOURCE TEXT", 0L, 5L, "missing words here")
+  local_mocked_bindings(
+    compute_embeddings = function(provider, texts, model = NULL) {
+      rbind(c(1, 0), c(0.8, 0.6))  # cosine 0.8 < threshold
+    },
+    .package = "pakhom"
+  )
+  v <- verify_quote(q, "a completely different new source text",
+                    provider = mock_provider("openai"))
+  expect_equal(v$verification_status, "drifted")
+  expect_equal(v$verification_failure_reason, "source_text_sha256_mismatch")
+})
+
 # ---- verify_quotes (batch) -------------------------------------------------
 
 test_that("verify_quotes batch-verifies against a corpus lookup", {

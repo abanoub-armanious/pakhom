@@ -28,9 +28,11 @@
 # Articulations under 30 chars downgrade "reached" -> "not_yet" so the
 # AI can't declare saturation without substantive reasoning.
 #
-# Circuit breaker: 3 consecutive AI call failures -> log warning,
-# continue coding (never silently saturate; never silently never-
-# saturate). The breaker resets on any successful call.
+# Failure handling: 3 consecutive AI call failures -> one warning is
+# logged per failure streak and coding continues; the arbiter retries at
+# each subsequent cadence checkpoint (never silently saturate; never
+# silently never-saturate). The failure streak resets on any successful
+# call.
 #
 # Audit trail: decision_type = "saturation_judgment" recorded in
 # ai_decisions.jsonl with verdict, n_coded, articulation excerpt, and
@@ -189,7 +191,7 @@
 #'
 #' Articulations under 30 chars downgrade "reached" to "not_yet" --
 #' The anti-vacuous pattern. Failures are NOT counted against the
-#' verdict (the caller's circuit breaker tracks failures separately).
+#' verdict (the caller's failure-streak counter tracks failures separately).
 #'
 #' @param state ProgressiveCodingState with codebook + curve
 #' @param provider AIProvider
@@ -298,7 +300,7 @@
 
   # Verdict must be one of the three valid values. Anything else is
   # treated as a parse failure (verdict = uncertain, success = FALSE)
-  # so the circuit breaker counts it.
+  # so the caller's failure streak counts it.
   if (!verdict %in% c("reached", "not_yet", "uncertain")) {
     log_warn(paste0(
       "Saturation judgment: unknown verdict '", verdict, "'; ",

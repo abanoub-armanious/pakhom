@@ -17,6 +17,7 @@ The parsed \code{raw_response} list that was cached, or \code{NULL}
 if the cache is disabled or no matching file exists.
 }
 \description{
-Looks up a previously-cached response. Used by \code{replay_run()}
+Looks up the raw API response behind an audit-log record by its
+prompt_hash (manual audit); planned replay tooling
 (planned) to reproduce a prior run's AI calls from on-disk artifacts.
 }
