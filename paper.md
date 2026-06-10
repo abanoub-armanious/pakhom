@@ -45,7 +45,8 @@ and which transparency artifacts are mandatory — is enforced at the code and s
 level rather than left to prompt-writing discipline.
 
 A mandatory transparency layer binds every run in every mode. Each AI-attributed
-quotation is verified verbatim against the source corpus through a multi-step
+quotation is verified verbatim against the analytic corpus (the cleaned text the
+model coded; the raw platform text is preserved alongside it) through a multi-step
 provenance ladder; a quotation that cannot be traced to its source is dropped and
 logged rather than rendered. Representative quotes are spread across contributors,
 whole-corpus coverage is asserted rather than silently truncated, and every model
@@ -134,10 +135,15 @@ walkthrough and a methodology-modes vignette.
 
 # State of the field
 
-General-purpose qualitative-coding tools support manual or rule-based coding but do
-not orchestrate LLMs under methodological constraint, while general LLM "wrapper"
-packages expose model calls without a thematic-analysis methodology or a provenance
-guarantee. `pakhom`'s contribution is the integration of an LLM-driven TA pipeline
+Established QDA environments — NVivo [@nvivo], ATLAS.ti [@atlasti], and MAXQDA
+[@maxqda] — support qualitative coding at scale but do not orchestrate LLMs under
+methodological constraint; `pakhom` interoperates with them rather than replacing
+them, exchanging codebooks and coded segments via the REFI-QDA (QDPX) standard
+[@evers2020refi]. Within R, RQDA [@rqda] offered manual qualitative coding but was
+archived from CRAN in 2020. Conversely, general-purpose R interfaces to LLM APIs —
+ellmer [@ellmer], tidyllm [@tidyllm], and gptstudio [@gptstudio] — expose model
+calls without a thematic-analysis methodology or a provenance guarantee.
+`pakhom`'s contribution is the integration of an LLM-driven TA pipeline
 with architecturally enforced methodological modes and a mandatory transparency
 layer, grounded in the documented failure modes of unconstrained LLM analysis
 [@jowsey2025frankenstein; @sarkar2024challenge] and in established reflexive-TA
