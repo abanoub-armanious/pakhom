@@ -1,10 +1,10 @@
 # qdpx_export coverage
 #
-# covr revealed `R/qdpx_export.R` had 0% test coverage despite being
-# 235 lines and recently modified for the meta-audit M4 UTC sweep
-# (.qdpx_guid + creationDateTime). This file closes that gap with
-# focused tests that exercise the constructor + GUID + XML build + zip
-# packaging paths.
+# Exercises the constructor + GUID + XML build + zip packaging paths,
+# plus REFI-QDA Project 1.0 structural conformance (RFC-4122 v4 GUIDs,
+# Users block, PlainTextSelection offsets, internal:// GUID source
+# paths, ProjectType element order) and an export -> import round-trip
+# through the package's own .parse_qdpx_deep reader.
 
 # Helper: build a minimal valid ProgressiveCodingState + data fixture.
 .qdpx_minimal_fixture <- function() {
@@ -24,8 +24,8 @@
     source_doc_id      = "e1",
     source_doc_type    = "post",
     source_text        = data$std_text[1],
-    start_char         = 14L,
-    end_char           = 31L,
+    start_char         = 23L,
+    end_char           = 40L,
     exact_text         = "exercise routines",
     citation_source    = "pipeline_derived"
   )
@@ -46,7 +46,7 @@
     codes_assigned = "routines",
     coded_segments = list(list(
       code_key = "routines", code_name = "Routines",
-      text = "exercise routines", start_char = 14L, end_char = 31L
+      text = "exercise routines", start_char = 23L, end_char = 40L
     ))
   )
   state$entries_processed <- c(state$entries_processed, "e1")
@@ -61,27 +61,22 @@
 }
 
 # ==========================================================================
-# .qdpx_guid: UTC + uniqueness + tag suffix
+# .qdpx_guid: RFC-4122 v4 (REFI-QDA GUIDType) + uniqueness
 # ==========================================================================
 
-test_that(".qdpx_guid emits UTC YYYYMMDDHHMMSS prefix (meta-audit M4)", {
-  set.seed(42L)
+test_that(".qdpx_guid emits an RFC-4122 version-4 UUID (REFI-QDA GUIDType)", {
   g <- pakhom:::.qdpx_guid()
-  # Format: TA-YYYYMMDDHHMMSS-NNNNNN
-  expect_match(g, "^TA-[0-9]{14}-[0-9]{6}$", perl = TRUE)
-})
-
-test_that(".qdpx_guid appends sanitised tag suffix when given", {
-  g <- pakhom:::.qdpx_guid("project")
-  expect_match(g, "-project$")
-  # Invalid chars stripped
-  g2 <- pakhom:::.qdpx_guid("hello/world! 123")
-  expect_match(g2, "-helloworld123$")
+  # 8-4-4-4-12 hex, version nibble '4', variant nibble [89ab]
+  expect_match(
+    g,
+    "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+    perl = TRUE
+  )
 })
 
 test_that(".qdpx_guid produces unique IDs across rapid calls", {
-  ids <- replicate(20L, pakhom:::.qdpx_guid())
-  expect_length(unique(ids), 20L)
+  ids <- replicate(200L, pakhom:::.qdpx_guid())
+  expect_length(unique(ids), 200L)
 })
 
 # ==========================================================================
@@ -169,7 +164,7 @@ test_that("QDPX project.qde XML carries UTC creationDateTime (meta-audit M4)", {
                perl = TRUE)
 })
 
-test_that("QDPX project.qde declares the REFI-QDA namespace on <Project> (conformance)", {
+test_that("QDPX project.qde declares the REFI-QDA namespace on <Project>", {
   skip_if_not_installed("xml2")
   fx <- .qdpx_minimal_fixture()
   out <- withr::local_tempfile(fileext = ".qdpx")
@@ -320,4 +315,122 @@ test_that("export_qdpx survives XML metachars + control chars + unicode", {
   # Source text files are written (the post bodies live in plain-text sources).
   txts <- list.files(ex, pattern = "\\.txt$", recursive = TRUE)
   expect_gte(length(txts), 1L)
+})
+
+
+# ==========================================================================
+# REFI-QDA Project 1.0 structural conformance + round-trip
+# ==========================================================================
+
+test_that("QDPX project.qde is structurally conformant to REFI-QDA Project 1.0", {
+  skip_if_not_installed("xml2")
+  fx <- .qdpx_minimal_fixture()
+  out <- withr::local_tempfile(fileext = ".qdpx")
+  export_qdpx(coding_state = fx$state, data = fx$data, output_path = out)
+  tmp_dir <- withr::local_tempdir()
+  utils::unzip(out, exdir = tmp_dir)
+  doc <- xml2::read_xml(file.path(tmp_dir, "project.qde"))
+  guid_re <- "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+
+  # (a) every GUID-typed attribute matches GUIDType
+  all_nodes <- xml2::xml_find_all(doc, "//*")
+  for (attr_name in c("guid", "targetGUID", "creatingUser")) {
+    vals <- xml2::xml_attr(all_nodes, attr_name)
+    vals <- vals[!is.na(vals)]
+    expect_true(length(vals) > 0L,
+                info = sprintf("no %s attributes found", attr_name))
+    for (v in vals) expect_match(v, guid_re, perl = TRUE)
+  }
+  expect_match(xml2::xml_attr(doc, "creatingUserGUID"), guid_re, perl = TRUE)
+  # the misspelled/miscased legacy attribute must be gone
+  expect_true(is.na(xml2::xml_attr(doc, "creatingUserGuid")))
+
+  # (b) no nonexistent <TextSelection>; all element names in the schema set
+  local_names <- unique(xml2::xml_name(all_nodes))
+  expect_false("TextSelection" %in% local_names)
+  allowed <- c("Project", "Users", "User", "CodeBook", "Codes", "Code",
+               "Description", "Sources", "TextSource", "PlainTextSelection",
+               "Coding", "CodeRef")
+  expect_true(all(local_names %in% allowed),
+              info = paste("unexpected elements:",
+                           paste(setdiff(local_names, allowed), collapse = ", ")))
+
+  # (c) ProjectType sequence: Users < CodeBook < Sources < Description
+  child_names <- xml2::xml_name(xml2::xml_children(doc))
+  pos <- function(nm) match(nm, child_names)
+  expect_lt(pos("Users"), pos("CodeBook"))
+  expect_lt(pos("CodeBook"), pos("Sources"))
+  expect_lt(pos("Sources"), pos("Description"))
+
+  # (d) PlainTextSelection shape: required attrs, TextSource parent,
+  #     Coding > CodeRef resolving to a declared Code guid; creatingUser
+  #     and creatingUserGUID resolve to a declared User guid
+  sels <- xml2::xml_find_all(doc, ".//*[local-name()=\'PlainTextSelection\']")
+  expect_gte(length(sels), 1L)
+  code_guids <- xml2::xml_attr(
+    xml2::xml_find_all(doc, ".//*[local-name()=\'Code\']"), "guid")
+  user_guids <- xml2::xml_attr(
+    xml2::xml_find_all(doc, ".//*[local-name()=\'User\']"), "guid")
+  expect_true(xml2::xml_attr(doc, "creatingUserGUID") %in% user_guids)
+  for (sel in sels) {
+    expect_false(is.na(xml2::xml_attr(sel, "guid")))
+    expect_false(is.na(xml2::xml_attr(sel, "startPosition")))
+    expect_false(is.na(xml2::xml_attr(sel, "endPosition")))
+    expect_equal(xml2::xml_name(xml2::xml_parent(sel)), "TextSource")
+    codings <- xml2::xml_find_all(sel, "./*[local-name()=\'Coding\']")
+    expect_gte(length(codings), 1L)
+    for (cd in codings) {
+      expect_true(xml2::xml_attr(cd, "creatingUser") %in% user_guids)
+      refs <- xml2::xml_find_all(cd, "./*[local-name()=\'CodeRef\']")
+      expect_length(refs, 1L)
+      expect_true(xml2::xml_attr(refs[[1]], "targetGUID") %in% code_guids)
+    }
+  }
+
+  # (e) internal:// GUID source paths matching files in the archive
+  srcs <- xml2::xml_find_all(doc, ".//*[local-name()=\'TextSource\']")
+  entries <- utils::unzip(out, list = TRUE)$Name
+  for (src in srcs) {
+    p <- xml2::xml_attr(src, "plainTextPath")
+    expect_match(p, paste0("^internal://[0-9a-fA-F-]{36}\\.txt$"), perl = TRUE)
+    expect_true(paste0("sources/", sub("^internal://", "", p)) %in% entries)
+    # the TextSource guid IS the file name (spec 8.3)
+    expect_equal(paste0(xml2::xml_attr(src, "guid"), ".txt"),
+                 sub("^internal://", "", p))
+  }
+})
+
+test_that("QDPX export round-trips through pakhom's own .parse_qdpx_deep reader", {
+  skip_if_not_installed("xml2")
+  fx <- .qdpx_minimal_fixture()
+  out <- withr::local_tempfile(fileext = ".qdpx")
+  export_qdpx(coding_state = fx$state, data = fx$data, output_path = out)
+
+  parsed <- pakhom:::.parse_qdpx_deep(out)
+  # The code comes back
+  expect_true("Routines" %in% parsed$codebook$code_name)
+  # The coding reference comes back with offsets + coded text intact
+  # (pre-fix this was empty: offsets lived in a nonexistent <TextSelection>
+  # element the reader never looked at)
+  refs <- parsed$coding_references
+  expect_gte(nrow(refs), 1L)
+  r <- refs[refs$code_name == "Routines", ][1, ]
+  expect_equal(as.integer(r$start_pos), 23L)
+  expect_equal(as.integer(r$end_pos), 40L)
+  expect_equal(r$coded_text, "exercise routines")
+})
+
+test_that("QDPX project.qde validates against the official XSD when available", {
+  skip_if_not_installed("xml2")
+  xsd_path <- Sys.getenv("REFI_QDA_PROJECT_XSD", "")
+  skip_if(!nzchar(xsd_path) || !file.exists(xsd_path),
+          "Set REFI_QDA_PROJECT_XSD to a local copy of the official Project.xsd")
+  fx <- .qdpx_minimal_fixture()
+  out <- withr::local_tempfile(fileext = ".qdpx")
+  export_qdpx(coding_state = fx$state, data = fx$data, output_path = out)
+  tmp_dir <- withr::local_tempdir()
+  utils::unzip(out, files = "project.qde", exdir = tmp_dir)
+  doc <- xml2::read_xml(file.path(tmp_dir, "project.qde"))
+  schema <- xml2::read_xml(xsd_path)
+  expect_true(xml2::xml_validate(doc, schema))
 })

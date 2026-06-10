@@ -10,7 +10,8 @@
   source_paths,
   theme_set = NULL,
   study_name = "pakhom export",
-  output_path = NULL
+  output_path = NULL,
+  source_guids = NULL
 )
 }
 \arguments{
@@ -23,6 +24,9 @@
 \item{theme_set}{Optional ThemeSet for hierarchical codes}
 
 \item{study_name}{Character study name}
+
+\item{source_guids}{Named character vector (entry_id -> GUID); must be
+the same vector \code{.write_source_files} used to name the files.}
 }
 \value{
 xml2 document

@@ -2,19 +2,19 @@
 % Please edit documentation in R/qdpx_export.R
 \name{.qdpx_guid}
 \alias{.qdpx_guid}
-\title{Generate a unique GUID for QDPX elements}
+\title{Generate a GUID for QDPX elements}
 \usage{
-.qdpx_guid(tag = NULL)
-}
-\arguments{
-\item{tag}{Optional character string appended for readability}
+.qdpx_guid()
 }
 \value{
-Character scalar, e.g. "TA-20250520143012-472913-code"
+Character scalar, e.g. "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 }
 \description{
-Produces a deterministic-looking but unique identifier prefixed with "TA-"
-(for pakhom).  Uniqueness is ensured by combining the current timestamp,
-a random integer, and an optional tag.
+Produces an RFC-4122 version-4 UUID as required by the REFI-QDA
+\code{GUIDType} (8-4-4-4-12 hex with version nibble 4 and variant
+8/9/a/b). Generated from R's RNG; unique within an export (the 122
+random bits make collisions negligible, unlike the previous
+timestamp+6-digit scheme whose within-second draws collided with ~43\%
+probability at 1,000 ids).
 }
 \keyword{internal}

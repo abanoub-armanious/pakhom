@@ -4,17 +4,23 @@
 \alias{.write_source_files}
 \title{Write plain-text source files into the sources/ directory}
 \usage{
-.write_source_files(data, sources_dir)
+.write_source_files(data, sources_dir, source_guids)
 }
 \arguments{
 \item{data}{Tibble with std_id, std_text columns}
 
 \item{sources_dir}{Path to sources/ directory inside the staging area}
+
+\item{source_guids}{Named character vector (entry_id -> GUID); the same
+vector must be used by \code{.build_qde_xml} so the on-disk file and
+the XML reference can never diverge.}
 }
 \value{
 Named character vector: entry_id -> file path (relative to archive root)
 }
 \description{
-Write plain-text source files into the sources/ directory
+Files are GUID-named per REFI-QDA spec 8.3 ("Internal files ... use a
+unique GUID as the file name"); the entry id stays visible to QDA-tool
+users via the TextSource display name (\code{entry_<id>}).
 }
 \keyword{internal}

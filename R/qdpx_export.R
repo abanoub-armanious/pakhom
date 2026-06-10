@@ -5,7 +5,9 @@
 # ThemeSet (hierarchical theme > subtheme > code structure) to the open QDPX
 # exchange format.  QDPX is a ZIP archive containing:
 #   - project.qde  (XML codebook + coding references)
-#   - sources/      (plain-text source files, one per entry)
+#   - sources/      (plain-text source files, one per entry; GUID-named per
+#                    REFI-QDA spec 8.3 -- the entry id remains visible as the
+#                    TextSource display name)
 #
 # Uses xml2 for XML construction and utils::zip() for the archive.
 # ==============================================================================
@@ -14,26 +16,29 @@
 # GUID generation
 # ==============================================================================
 
-#' Generate a unique GUID for QDPX elements
+#' Generate a GUID for QDPX elements
 #'
-#' Produces a deterministic-looking but unique identifier prefixed with "TA-"
-#' (for pakhom).  Uniqueness is ensured by combining the current timestamp,
-#' a random integer, and an optional tag.
+#' Produces an RFC-4122 version-4 UUID as required by the REFI-QDA
+#' \code{GUIDType} (8-4-4-4-12 hex with version nibble 4 and variant
+#' 8/9/a/b). Generated from R's RNG; unique within an export (the 122
+#' random bits make collisions negligible, unlike the previous
+#' timestamp+6-digit scheme whose within-second draws collided with ~43%
+#' probability at 1,000 ids).
 #'
-#' @param tag Optional character string appended for readability
-#' @return Character scalar, e.g. "TA-20250520143012-472913-code"
+#' @return Character scalar, e.g. "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 #' @keywords internal
-.qdpx_guid <- function(tag = NULL) {
-  base <- paste0(
-    "TA-",
-    format(Sys.time(), "%Y%m%d%H%M%S", tz = "UTC"),
-    "-",
-    sample(100000:999999, 1)
+.qdpx_guid <- function() {
+  b <- sample.int(256L, 16L, replace = TRUE) - 1L
+  b[7] <- bitwOr(bitwAnd(b[7], 0x0fL), 0x40L)  # version 4
+  b[9] <- bitwOr(bitwAnd(b[9], 0x3fL), 0x80L)  # variant 10xx
+  hex <- sprintf("%02x", b)
+  paste0(
+    paste(hex[1:4], collapse = ""), "-",
+    paste(hex[5:6], collapse = ""), "-",
+    paste(hex[7:8], collapse = ""), "-",
+    paste(hex[9:10], collapse = ""), "-",
+    paste(hex[11:16], collapse = "")
   )
-  if (!is.null(tag) && nchar(tag) > 0) {
-    base <- paste0(base, "-", gsub("[^a-zA-Z0-9_-]", "", tag))
-  }
-  base
 }
 
 # ==============================================================================
@@ -187,11 +192,18 @@
 
 #' Write plain-text source files into the sources/ directory
 #'
+#' Files are GUID-named per REFI-QDA spec 8.3 ("Internal files ... use a
+#' unique GUID as the file name"); the entry id stays visible to QDA-tool
+#' users via the TextSource display name (\code{entry_<id>}).
+#'
 #' @param data Tibble with std_id, std_text columns
 #' @param sources_dir Path to sources/ directory inside the staging area
+#' @param source_guids Named character vector (entry_id -> GUID); the same
+#'   vector must be used by \code{.build_qde_xml} so the on-disk file and
+#'   the XML reference can never diverge.
 #' @return Named character vector: entry_id -> file path (relative to archive root)
 #' @keywords internal
-.write_source_files <- function(data, sources_dir) {
+.write_source_files <- function(data, sources_dir, source_guids) {
   dir.create(sources_dir, recursive = TRUE, showWarnings = FALSE)
   paths <- character(nrow(data))
   names(paths) <- as.character(data$std_id)
@@ -201,7 +213,7 @@
     entry_text <- as.character(data$std_text[i])
     if (is.na(entry_text)) entry_text <- ""
 
-    fname <- paste0("entry_", entry_id, ".txt")
+    fname <- paste0(source_guids[[entry_id]], ".txt")
     fpath <- file.path(sources_dir, fname)
     writeLines(entry_text, fpath, useBytes = TRUE)
     paths[entry_id] <- paste0("sources/", fname)
@@ -221,43 +233,54 @@
 #' @param source_paths Named character vector from \code{.write_source_files}
 #' @param theme_set Optional ThemeSet for hierarchical codes
 #' @param study_name Character study name
+#' @param source_guids Named character vector (entry_id -> GUID); must be
+#'   the same vector \code{.write_source_files} used to name the files.
 #' @return xml2 document
 #' @keywords internal
 .build_qde_xml <- function(coding_state, data, source_paths,
                             theme_set = NULL, study_name = "pakhom export",
-                            output_path = NULL) {
+                            output_path = NULL, source_guids = NULL) {
 
   # QDPX creationDateTime in UTC so the value is unambiguous when imported
   # into NVivo / MAXQDA across timezones.
   creation_dt <- format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
-  project_guid <- .qdpx_guid("project")
-  user_guid <- .qdpx_guid("user")
+  project_guid <- .qdpx_guid()
+  user_guid <- .qdpx_guid()
 
   # Create root document. The REFI-QDA Project Exchange schema has target
   # namespace urn:QDA-XML:project:1.0; declaring it as the default namespace
   # on <Project> places every descendant in that namespace (xml2 children
-  # inherit the parent's default namespace), so the .qde validates against
-  # the official .xsd and imports into strict QDA software that schema-checks
-  # on read (NVivo / ATLAS.ti / MAXQDA).
+  # inherit the parent's default namespace), so the .qde is structured per
+  # the REFI-QDA Project 1.0 schema (GUIDType ids, Users block,
+  # PlainTextSelection offsets, internal:// GUID source paths).
   doc <- xml2::read_xml(paste0(
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<Project xmlns="urn:QDA-XML:project:1.0" ',
     'name="', .xml_escape(study_name), '" ',
     'origin="pakhom" ',
-    'creatingUserGuid="', user_guid, '" ',
+    'creatingUserGUID="', user_guid, '" ',
     'creationDateTime="', creation_dt, '">',
     '</Project>'
   ))
 
   project_node <- xml2::xml_root(doc)
 
-  # T0.1 + T1.7 (AC4) transparency: stamp the project's Description with
-  # the methodology mode AND Tier-0 verification stats so a reviewer
-  # importing this QDPX into ATLAS.ti / NVivo / MAXQDA sees the
-  # methodology declaration AND the anti-fabrication stats at the project
-  # level. Per AC4 (methodology stamped on every output), QDPX is itself
-  # an output that gets the methodology stamp.
-  tryCatch({
+  # ProjectType is a SEQUENCE: Users, CodeBook, ..., Sources, ...,
+  # Description. Users must come first; the Description is appended after
+  # the Sources loop at the end of this builder.
+  users_node <- xml2::xml_add_child(project_node, "Users")
+  xml2::xml_add_child(users_node, "User",
+                       guid = user_guid, name = "pakhom")
+
+  # T0.1 + T1.7 (AC4) transparency: the project's Description carries the
+  # methodology mode AND Tier-0 verification stats so a reviewer importing
+  # this QDPX into ATLAS.ti / NVivo / MAXQDA sees the methodology
+  # declaration AND the anti-fabrication stats at the project level. Per
+  # AC4 (methodology stamped on every output), QDPX is itself an output
+  # that gets the methodology stamp. Built HERE but appended at the END of
+  # this function -- ProjectType is a sequence and Description comes after
+  # Sources.
+  description_text <- tryCatch({
     # Methodology mode is read from the coding_state's run metadata when
     # available; otherwise stamps "Methodology not declared". This avoids
     # threading mode through every QDPX call site at the cost of a tiny
@@ -322,11 +345,11 @@
       "AI-assisted thematic analysis tools must report quote-fabrication",
       "rates and corpus-coverage transparency."
     )
-    desc_node <- xml2::xml_add_child(project_node, "Description")
-    xml2::xml_set_text(desc_node, paste(desc_parts, collapse = " "))
+    paste(desc_parts, collapse = " ")
   }, error = function(e) {
     # Non-fatal: keep building the QDPX even if verification stats fail
     log_debug("QDPX: skipping Tier-0 description ({e$message})")
+    NULL
   })
 
   # ------------------------------------------------------------------
@@ -338,7 +361,7 @@
   # Build GUID map for every code in the codebook (keyed by code_key)
   code_guid_map <- list()
   for (code_key in names(coding_state$codebook)) {
-    code_guid_map[[code_key]] <- .qdpx_guid("code")
+    code_guid_map[[code_key]] <- .qdpx_guid()
   }
 
   if (!is.null(theme_set) && length(theme_set$themes) > 0) {
@@ -347,7 +370,7 @@
     placed_codes <- character(0)
 
     for (theme in theme_set$themes) {
-      theme_guid <- .qdpx_guid("theme")
+      theme_guid <- .qdpx_guid()
       theme_node <- .add_code_node(codes_node,
                                     guid = theme_guid,
                                     name = theme$name,
@@ -390,7 +413,7 @@
               break
             }
           }
-          sub_guid <- .qdpx_guid("subtheme")
+          sub_guid <- .qdpx_guid()
           sub_node <- .add_code_node(theme_node,
                                       guid = sub_guid,
                                       name = sname,
@@ -456,8 +479,16 @@
     if (is.na(entry_text)) entry_text <- ""
 
     source_name <- paste0("entry_", entry_id)
-    source_path <- source_paths[entry_id]
-    source_guid <- .qdpx_guid("source")
+    # The TextSource guid IS the source file's name (spec 8.3:
+    # internal:// scheme + GUID filename); source_guids is the same
+    # vector .write_source_files used, so the reference cannot diverge
+    # from the file on disk.
+    source_guid <- if (!is.null(source_guids)) {
+      source_guids[[entry_id]]
+    } else {
+      .qdpx_guid()
+    }
+    source_path <- paste0("internal://", basename(source_paths[[entry_id]]))
 
     src_node <- xml2::xml_add_child(sources_node, "TextSource",
                                      guid = source_guid,
@@ -506,18 +537,28 @@
         end_pos <- nchar(entry_text)
       }
 
-      coding_guid <- .qdpx_guid("coding")
-      coding_node <- xml2::xml_add_child(src_node, "Coding",
-                                          guid = coding_guid,
-                                          creatingUser = "pakhom")
-
+      # Schema-correct structure (PlainTextSelectionType): offsets live on
+      # PlainTextSelection (guid/startPosition/endPosition all required),
+      # with Coding > CodeRef nested inside. The previous shape wrote a
+      # nonexistent <TextSelection> under Coding -- structurally invalid,
+      # and the offsets were lost on import (including by pakhom's own
+      # .parse_qdpx_deep, which reads PlainTextSelection).
+      sel_node <- xml2::xml_add_child(src_node, "PlainTextSelection",
+                                       guid = .qdpx_guid(),
+                                       startPosition = as.character(start_pos),
+                                       endPosition = as.character(end_pos))
+      coding_node <- xml2::xml_add_child(sel_node, "Coding",
+                                          guid = .qdpx_guid(),
+                                          creatingUser = user_guid)
       xml2::xml_add_child(coding_node, "CodeRef",
                            targetGUID = code_guid_map[[code_key]])
-
-      xml2::xml_add_child(coding_node, "TextSelection",
-                           startPosition = as.character(start_pos),
-                           endPosition = as.character(end_pos))
     }
+  }
+
+  # Description last, per the ProjectType sequence (built above).
+  if (!is.null(description_text)) {
+    desc_node <- xml2::xml_add_child(project_node, "Description")
+    xml2::xml_set_text(desc_node, description_text)
   }
 
   doc
@@ -612,8 +653,15 @@ export_qdpx <- function(coding_state, data, output_path,
   on.exit(unlink(staging_dir, recursive = TRUE), add = TRUE)
 
   # --- Write source text files ------------------------------------------------
+  # One GUID per entry, shared between the file writer (file naming) and
+  # the XML builder (TextSource guid + internal:// plainTextPath) so the
+  # on-disk file and the XML reference can never diverge. Named explicitly
+  # (vapply only auto-names character inputs; std_id may be numeric).
   sources_dir <- file.path(staging_dir, "sources")
-  source_paths <- .write_source_files(data, sources_dir)
+  source_guids <- vapply(seq_len(nrow(data)), function(i) .qdpx_guid(),
+                          character(1))
+  names(source_guids) <- as.character(data$std_id)
+  source_paths <- .write_source_files(data, sources_dir, source_guids)
   log_info("QDPX export: wrote {length(source_paths)} source files")
 
   # --- Build and write project.qde --------------------------------------------
@@ -625,7 +673,8 @@ export_qdpx <- function(coding_state, data, output_path,
     study_name = study_name,
     # pass the .qdpx path so the description
     # can read fabrication_log.csv from the same directory.
-    output_path = output_path
+    output_path = output_path,
+    source_guids = source_guids
   )
 
   qde_path <- file.path(staging_dir, "project.qde")
