@@ -2320,12 +2320,22 @@ get_analytic_sample <- function(state, data) {
     stop("state must be a ProgressiveCodingState object")
   }
 
+  # The analytic sample is the entries that actually received >=1 surviving
+  # code -- not merely the entries that were "not skipped". An entry examined
+  # but left with no code (all segments dropped by quote verification, too
+  # short, or normalized to empty) contributes nothing to the code -> theme
+  # cascade or the correlations, and including it would inflate every
+  # prevalence denominator in the report.
   coded_ids <- names(state$entry_results)[
-    !vapply(state$entry_results, function(r) isTRUE(r$skipped), logical(1))
+    vapply(state$entry_results, function(r) {
+      if (isTRUE(r$skipped)) return(FALSE)
+      ca <- r$codes_assigned
+      any(!is.na(ca) & nzchar(as.character(ca)))
+    }, logical(1))
   ]
 
   filtered <- data[data$std_id %in% coded_ids, ]
-  log_info("Analytic sample: {nrow(filtered)}/{nrow(data)} entries received codes")
+  log_info("Analytic sample: {nrow(filtered)}/{nrow(data)} entries received >=1 code")
   filtered
 }
 

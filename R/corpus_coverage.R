@@ -33,8 +33,11 @@
 #' Current schema version for the CorpusCoverage object
 #' 1.1.0: adds within-entry truncation accounting (n_entries_truncated,
 #' chars_sent_to_llm, truncation_tracked).
+#' 1.2.0: adds n_examined_no_codes (entries examined but left with no surviving
+#'   code -- now excluded from n_coded); bytes/chars/words totals stored as
+#'   doubles to avoid 32-bit integer overflow on large corpora.
 #' @keywords internal
-.CORPUS_COVERAGE_SCHEMA_VERSION <- "1.1.0"
+.CORPUS_COVERAGE_SCHEMA_VERSION <- "1.2.0"
 
 #' Compute corpus coverage from a completed coding run
 #'
@@ -120,7 +123,20 @@ compute_corpus_coverage <- function(coding_state, data,
     logical(1)
   )
   n_skipped <- sum(skipped_flags)
-  n_coded   <- n_processed - n_skipped
+
+  # "Coded" means the entry was examined (not skipped) AND retained at least
+  # one code. An entry the AI examined but that yielded no surviving code (all
+  # segments dropped by quote verification, too short, or normalized to empty)
+  # is neither skipped nor coded -- count it as its own category so the
+  # coverage card does not overstate the coded total (and so the analytic
+  # sample, computed the same way, stays honest).
+  code_counts <- vapply(matched_ids, function(id) {
+    ca <- entry_results[[id]]$codes_assigned
+    as.integer(sum(!is.na(ca) & nzchar(as.character(ca))))
+  }, integer(1))
+  coded_flags         <- (!skipped_flags) & (code_counts > 0L)
+  n_coded             <- sum(coded_flags)
+  n_examined_no_codes <- n_processed - n_skipped - n_coded
 
   skip_reasons <- vapply(
     matched_ids[skipped_flags],
@@ -227,11 +243,15 @@ compute_corpus_coverage <- function(coding_state, data,
     n_skipped                = as.integer(n_skipped),
     skip_reasons             = skip_reason_table,
     n_coded                  = as.integer(n_coded),
-    bytes_processed          = as.integer(bytes_processed),
-    chars_processed          = as.integer(chars_processed),
-    words_processed          = as.integer(words_processed),
+    n_examined_no_codes      = as.integer(n_examined_no_codes),
+    # bytes/chars/words totals are stored as doubles, not integers: on a large
+    # corpus a character or byte sum can exceed R's 32-bit integer range, and
+    # as.integer() would have silently coerced it to NA.
+    bytes_processed          = as.numeric(bytes_processed),
+    chars_processed          = as.numeric(chars_processed),
+    words_processed          = as.numeric(words_processed),
     n_entries_truncated      = as.integer(n_entries_truncated),
-    chars_sent_to_llm        = as.integer(chars_sent_to_llm),
+    chars_sent_to_llm        = as.numeric(chars_sent_to_llm),
     truncation_tracked       = truncation_tracked,
     coverage_rate            = coverage_rate,
     no_silent_truncation     = no_silent_truncation,

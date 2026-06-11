@@ -453,6 +453,41 @@ create_theme_set <- function(themes, thematic_map = "",
     t
   })
 
+  # Enforce cross-theme uniqueness at the make.names() key the rest of the
+  # pipeline derives the per-theme membership column from
+  # (theme_membership_<make.names(name)> is written by cascade_theme_assignments
+  # and read by aggregate_theme_statistics, the subtheme tables, and the three
+  # correlation layers). Two themes whose names collapse to the same key --
+  # identical names, or names differing only in characters make.names() folds
+  # (e.g. "A/B" vs "A.B") -- would share ONE membership column and silently
+  # double-count. Disambiguate later duplicates with a numeric suffix so both
+  # the display name and the derived column become distinct; warn so the
+  # upstream labeling failure (the AI is asked for distinct names) is visible.
+  if (length(themes) > 1L) {
+    seen_keys <- character(0)
+    for (i in seq_along(themes)) {
+      key <- make.names(themes[[i]]$name)
+      if (key %in% seen_keys) {
+        base <- themes[[i]]$name
+        j <- 2L
+        repeat {
+          cand <- paste0(base, " (", j, ")")
+          if (!make.names(cand) %in% seen_keys) break
+          j <- j + 1L
+        }
+        log_warn(sprintf(
+          paste0("create_theme_set: duplicate theme name/key for '%s' -> ",
+                 "renamed to '%s' so it does not collide with another theme's ",
+                 "membership column."),
+          themes[[i]]$name, cand))
+        themes[[i]]$name <- cand
+        seen_keys <- c(seen_keys, make.names(cand))
+      } else {
+        seen_keys <- c(seen_keys, key)
+      }
+    }
+  }
+
   obj <- list(
     themes         = themes,
     thematic_map   = thematic_map %||% "",

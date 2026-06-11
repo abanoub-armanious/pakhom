@@ -557,10 +557,14 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
     # Entries within this subtheme: filter the theme's entries by the
     # subtheme_assignments column (semicolon-separated names; same
     # serialization cascade_theme_assignments produces).
+    # Exact token membership against the ";"-joined subtheme_assignments list
+    # (reuse .entry_in_theme, the same exact-match helper aggregate_theme_
+    # statistics uses for themes). A raw substring grepl(snm, ...) would treat
+    # any subtheme whose name is a substring of another ("Sleep" in "Sleep
+    # quality") as a member, inflating n, medians, and the example quotes in
+    # the paper-style per-subtheme table.
     sub_entries <- if ("subtheme_assignments" %in% names(theme_entries)) {
-      theme_entries[
-        !is.na(theme_entries$subtheme_assignments) &
-          grepl(snm, theme_entries$subtheme_assignments, fixed = TRUE), ]
+      theme_entries[.entry_in_theme(theme_entries$subtheme_assignments, snm), ]
     } else {
       theme_entries  # fallback: theme-wide
     }
@@ -1658,13 +1662,15 @@ generate_downloads_section <- function(export_files, theme_stats) {
   }
 
   tbl <- sort(table(all_labels), decreasing = TRUE)
-  # Percentages relative to number of entries (not total labels),
-  # since one entry can have multiple emotions
-  n_entries_with_emotion <- length(raw)
+  # Percentages are of ALL entries in scope (n = nrow(entries)), not just the
+  # entries that carry an emotion label -- this matches the adjacent sentiment
+  # percentages (which use all entries) and avoids inflating prevalence when a
+  # subset of entries went unlabelled. One entry can contribute to several
+  # emotions, so columns need not sum to 100.
   tibble::tibble(
     emotion = names(tbl),
     n = as.integer(tbl),
-    pct = round(100 * as.integer(tbl) / max(n_entries_with_emotion, 1), 1)
+    pct = round(100 * as.integer(tbl) / max(n, 1), 1)
   )
 }
 

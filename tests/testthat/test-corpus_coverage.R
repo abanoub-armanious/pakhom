@@ -55,7 +55,7 @@ test_that("compute_corpus_coverage returns a CorpusCoverage S3 object with all s
   expected_fields <- c(
     "n_raw_loaded", "n_after_preprocessing", "test_mode_sample_size",
     "n_input_to_coding", "n_processed", "n_unprocessed", "unprocessed_ids",
-    "n_skipped", "skip_reasons", "n_coded",
+    "n_skipped", "skip_reasons", "n_coded", "n_examined_no_codes",
     "bytes_processed", "chars_processed", "words_processed",
     "n_entries_truncated", "chars_sent_to_llm", "truncation_tracked",
     "coverage_rate", "no_silent_truncation",
@@ -466,8 +466,8 @@ test_that("compute_corpus_coverage aggregates truncation fields when all records
 
   expect_true(cov$truncation_tracked)
   expect_equal(cov$n_entries_truncated, 1L)
-  expect_equal(cov$chars_sent_to_llm, 8100L)
-  expect_equal(cov$schema_version, "1.1.0")
+  expect_equal(cov$chars_sent_to_llm, 8100)
+  expect_equal(cov$schema_version, "1.2.0")
 })
 
 test_that("compute_corpus_coverage reports NA + untracked for legacy records (never fabricates zero)", {

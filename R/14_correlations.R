@@ -1637,7 +1637,11 @@ test_theme_cooccurrence <- function(data, theme_set, min_expected = 5,
     # 2x2 contingency table
     ct <- table(factor(a, levels = c(0, 1)), factor(b, levels = c(0, 1)))
     observed_both <- ct[2, 2]
-    expected_both <- round(sum(a == 1) * sum(b == 1) / n, 1)
+    # as.double() on the first factor promotes the product to double so it
+    # cannot overflow R's 32-bit integer range: sum(logical) returns an
+    # integer, and integer*integer silently overflows to NA past ~2.1e9
+    # (reachable when two common themes co-occur across a large corpus).
+    expected_both <- round(as.double(sum(a == 1)) * sum(b == 1) / n, 1)
 
     # skip pairs with too-low observed co-occurrence.
     # On a large saturation run, 93.2% of Fisher pairs had
