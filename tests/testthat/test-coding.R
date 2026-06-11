@@ -996,6 +996,72 @@ test_that("C-5: no-provider short-circuits without errors", {
   expect_identical(out$codebook[["a"]]$description, "d")
 })
 
+test_that("C-5 regression: refresh works WITH an active audit log (step allowlisted)", {
+  # Regression for a silent-failure bug: .refresh_code_description records
+  # its AI call via log_ai_request(audit_log, "description_refresh", ...),
+  # but "description_refresh" was missing from .valid_audit_steps -- so with
+  # an audit log active (every real pipeline run), log_ai_decision stop()ed
+  # AFTER the paid ai_complete call, the surrounding tryCatch swallowed it
+  # as "Description refresh failed", and the refreshed description was
+  # discarded. The other C-5 tests pass audit_log = NULL and never reached
+  # this path.
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  state <- create_coding_state()
+  for (i in seq_len(100)) {
+    key <- paste0("c", i)
+    state$codebook[[key]] <- list(
+      code_name = paste("Code", i), description = "low",
+      type = "descriptive", frequency = 5L,
+      entry_ids = paste0("e", i),
+      coded_segments = list(list(entry_id = paste0("e", i), text = "x"))
+    )
+  }
+  state$codebook[["hifreq"]] <- list(
+    code_name = "Hifreq",
+    description = "Original (must be refreshed even with audit log on)",
+    type = "descriptive", frequency = 100L,
+    entry_ids = "e_x",
+    coded_segments = list(list(entry_id = "e_x", text = "segment text"))
+  )
+
+  testthat::local_mocked_bindings(
+    ai_complete = function(provider, prompt, system_prompt, task,
+                            temperature, response_schema, ...) {
+      stopifnot(identical(task, "description_refresh"))
+      list(content = jsonlite::toJSON(list(
+        description = "Refreshed under an active audit log"
+      ), auto_unbox = TRUE), usage = list())
+    },
+    .package = "pakhom"
+  )
+
+  audit_dir <- withr::local_tempdir()
+  audit_log <- init_audit_log(audit_dir)
+  on.exit(close_audit_log(audit_log), add = TRUE)
+
+  out <- pakhom:::.maybe_refresh_high_freq_descriptions(
+    state, provider = mock_provider(),
+    audit_log = audit_log,
+    refresh_interval = 100L, min_freq = 50L
+  )
+
+  # The refreshed description lands (previously discarded because the
+  # allowlist stop() was swallowed by the tryCatch).
+  expect_equal(out$codebook[["hifreq"]]$description,
+               "Refreshed under an active audit log")
+
+  # And the AI call is on the audit trail: an ai_request line with
+  # step = "description_refresh" in ai_decisions.jsonl.
+  close_audit_log(audit_log)  # flush before reading (close is idempotent)
+  lines <- readLines(file.path(audit_dir, "ai_decisions.jsonl"))
+  recs <- lapply(lines, jsonlite::fromJSON)
+  steps <- vapply(recs, function(r) r$step %||% "", character(1))
+  types <- vapply(recs, function(r) r$decision_type %||% "", character(1))
+  expect_true(any(steps == "description_refresh" & types == "ai_request"))
+})
+
 # C-5 / D-7 audit followup tests --------------------------------------------
 
 test_that("D-7 audit followup LOW F2: NA AI description triggers backfill (not a crash)", {

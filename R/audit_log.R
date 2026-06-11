@@ -42,7 +42,9 @@
   "mode_change",           # T1.5  : methodology re-declaration with parent_run_id
   "quote_verification",    # T0.1  : Tier-0 quote provenance verification ladder
   "coverage",              # T0.3  : Tier-0 corpus-coverage computation
-  "methodology_assistant"  # Step 2.5 relevance + metric articulation
+  "methodology_assistant", # Step 2.5 relevance + metric articulation
+  "description_refresh"    # C-5   : every-N-new-codes description refresh
+                           #         (.refresh_code_description, R/09_coding.R)
 )
 
 .valid_decision_types <- c(
