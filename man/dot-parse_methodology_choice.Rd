@@ -4,19 +4,16 @@
 \alias{.parse_methodology_choice}
 \title{Map a CLI methodology choice to a canonical mode name}
 \usage{
-.parse_methodology_choice(
-  raw,
-  default = .METHODOLOGY_MODE_CODEBOOK_COLLABORATIVE
-)
+.parse_methodology_choice(raw)
 }
 \arguments{
 \item{raw}{The raw user input (a single string from \code{readline()}).}
-
-\item{default}{Mode returned when \code{raw} is blank.}
 }
 \description{
-Accepts a menu number ("1"/"2"/"3"), a canonical mode name, or blank
-(Enter = default). Returns the canonical mode string, or \code{NULL} for
-an unrecognized choice so the caller can raise an actionable error.
+Accepts a menu number ("1"/"2"/"3") or a canonical mode name and returns
+the canonical mode string. Returns \code{NULL} for blank or unrecognized
+input so the caller can re-prompt or raise an actionable error. Per AC3
+(no default mode; explicit declaration mandatory) blank input does NOT
+resolve to a mode -- there is no default.
 }
 \keyword{internal}

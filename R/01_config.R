@@ -1132,16 +1132,17 @@ create_config <- function(methodology = NULL,
 
 #' Map a CLI methodology choice to a canonical mode name
 #'
-#' Accepts a menu number ("1"/"2"/"3"), a canonical mode name, or blank
-#' (Enter = default). Returns the canonical mode string, or \code{NULL} for
-#' an unrecognized choice so the caller can raise an actionable error.
+#' Accepts a menu number ("1"/"2"/"3") or a canonical mode name and returns
+#' the canonical mode string. Returns \code{NULL} for blank or unrecognized
+#' input so the caller can re-prompt or raise an actionable error. Per AC3
+#' (no default mode; explicit declaration mandatory) blank input does NOT
+#' resolve to a mode -- there is no default.
 #'
 #' @param raw The raw user input (a single string from \code{readline()}).
-#' @param default Mode returned when \code{raw} is blank.
 #' @keywords internal
-.parse_methodology_choice <- function(raw, default = .METHODOLOGY_MODE_CODEBOOK_COLLABORATIVE) {
+.parse_methodology_choice <- function(raw) {
   raw <- trimws(raw)
-  if (nchar(raw) == 0) return(default)  # Enter = default (Mode 2)
+  if (nchar(raw) == 0) return(NULL)  # AC3: blank does not select a mode (no default)
   switch(raw,
     "1" = .METHODOLOGY_MODE_REFLEXIVE_SCAFFOLD,
     "2" = .METHODOLOGY_MODE_CODEBOOK_COLLABORATIVE,
@@ -1183,12 +1184,29 @@ config_wizard <- function(output_path = "config.yaml") {
   cat("  1. reflexive_scaffold      (Mode 1) inductive reflexive TA; AI as provocateur\n")
   cat("  2. codebook_collaborative  (Mode 2) AI proposes codes, researcher gates; shared codebook\n")
   cat("  3. framework_applied       (Mode 3) deductive coding against a framework you supply\n")
-  methodology_raw <- readline("Choose [1/2/3 or name] (default: 2): ")
-  methodology <- .parse_methodology_choice(methodology_raw)
+  # AC3 (no default mode; explicit declaration mandatory): methodology has NO
+  # default. Blank input must not silently select a mode -- re-prompt until the
+  # user makes a conscious choice, mirroring the Shiny wizard, which blocks
+  # advancing while the methodology radio is unselected. Bounded so a piped /
+  # EOF stdin (where readline() returns "") aborts cleanly rather than looping.
+  methodology <- NULL
+  max_attempts <- 5L
+  for (attempt in seq_len(max_attempts)) {
+    methodology_raw <- readline("Choose [1/2/3 or name] (required -- no default): ")
+    methodology <- .parse_methodology_choice(methodology_raw)
+    if (!is.null(methodology)) break
+    msg <- if (nchar(trimws(methodology_raw)) == 0) {
+      "A methodology mode is required; there is no default. "
+    } else {
+      paste0("Invalid methodology choice: '", trimws(methodology_raw), "'. ")
+    }
+    cat(msg, "Enter 1/2/3 or one of: reflexive_scaffold, ",
+        "codebook_collaborative, framework_applied.\n", sep = "")
+  }
   if (is.null(methodology)) {
-    stop("Invalid methodology choice: '", trimws(methodology_raw), "'. Choose ",
-         "1/2/3 or one of: reflexive_scaffold, codebook_collaborative, ",
-         "framework_applied.", call. = FALSE)
+    stop("No valid methodology mode chosen after ", max_attempts,
+         " attempts; config_wizard() aborted. Methodology is mandatory ",
+         "(AC3: no default mode).", call. = FALSE)
   }
 
   framework_spec_path <- NULL

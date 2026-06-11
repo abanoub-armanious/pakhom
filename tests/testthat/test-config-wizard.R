@@ -149,13 +149,14 @@ test_that("CLI path: create_config writes a loadable config, all 3 modes (bug 2 
   }
 })
 
-test_that(".parse_methodology_choice maps numbers, names, and blank input", {
+test_that(".parse_methodology_choice maps numbers and names; blank yields NULL (AC3)", {
   expect_equal(pakhom:::.parse_methodology_choice("1"), "reflexive_scaffold")
   expect_equal(pakhom:::.parse_methodology_choice("2"), "codebook_collaborative")
   expect_equal(pakhom:::.parse_methodology_choice("3"), "framework_applied")
-  # Blank (Enter) -> default Mode 2.
-  expect_equal(pakhom:::.parse_methodology_choice(""), "codebook_collaborative")
-  expect_equal(pakhom:::.parse_methodology_choice("   "), "codebook_collaborative")
+  # AC3 (no default mode): blank / whitespace input does NOT resolve to a mode --
+  # there is no default. It returns NULL so config_wizard() re-prompts.
+  expect_null(pakhom:::.parse_methodology_choice(""))
+  expect_null(pakhom:::.parse_methodology_choice("   "))
   # Canonical names pass through; surrounding whitespace tolerated.
   expect_equal(pakhom:::.parse_methodology_choice("reflexive_scaffold"), "reflexive_scaffold")
   expect_equal(pakhom:::.parse_methodology_choice("  framework_applied  "), "framework_applied")
