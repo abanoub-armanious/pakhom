@@ -1279,6 +1279,28 @@ run_progressive_coding <- function(data, provider, config = list(),
   if (isTRUE(use_framework)) {
     construct_id   <- as.character(seg$construct_id %||% "")[1]
     anomaly_reason <- as.character(seg$anomaly_reason %||% "")[1]
+    valid_ids      <- framework_spec$construct_ids %||% character(0)
+    # Mode 3 applies a FIXED framework: the model may only return a real
+    # construct_id or the literal "anomaly". A construct_id outside the
+    # framework must NOT be silently admitted as a new construct -- that would
+    # let the model invent constructs and quietly drop those entries out of
+    # every framework theme. Re-route it to the anomaly bucket (the
+    # methodologically-required home for framework-resistant content) and
+    # record the model's out-of-framework proposal in the reason.
+    if (nchar(construct_id) > 0 && !identical(construct_id, "anomaly") &&
+        !(construct_id %in% valid_ids)) {
+      log_warn(sprintf(
+        paste0("Mode 3: model returned construct_id '%s' not in the framework ",
+               "(%s); routing the segment to the anomaly bucket."),
+        construct_id, paste(valid_ids, collapse = ", ")))
+      anomaly_reason <- if (nzchar(anomaly_reason)) {
+        paste0(anomaly_reason, " [model proposed out-of-framework construct '",
+               construct_id, "']")
+      } else {
+        paste0("Model proposed out-of-framework construct '", construct_id, "'")
+      }
+      construct_id <- "anomaly"
+    }
     seg_code <- construct_id
     seg_desc <- if (identical(construct_id, "anomaly")) {
       paste0("Anomaly: ", anomaly_reason)

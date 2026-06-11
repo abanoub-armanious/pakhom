@@ -4,7 +4,7 @@
 \alias{compare_runs}
 \title{Compare the current run against all previous runs}
 \usage{
-compare_runs(current_dir, results_base, config = NULL)
+compare_runs(current_dir, results_base, config = NULL, run_dirs = NULL)
 }
 \arguments{
 \item{current_dir}{Path to the current run's output directory}
@@ -12,6 +12,12 @@ compare_runs(current_dir, results_base, config = NULL)
 \item{results_base}{Path to the parent directory containing all run folders}
 
 \item{config}{ThematicConfig object (or NULL)}
+
+\item{run_dirs}{Optional explicit, ordered character vector of run
+directories to compare instead of discovering all runs under
+\code{results_base}. The LAST element is treated as the "current" run.
+\code{\link{compare_models}} uses this to compare a specific cross-model
+pair rather than the two chronologically-latest runs.}
 }
 \value{
 A ComparisonResult S3 object, or NULL if fewer than 2 runs exist

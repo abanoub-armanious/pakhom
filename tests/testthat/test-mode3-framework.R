@@ -80,6 +80,47 @@ test_that("run_progressive_coding (Mode 3) pre-populates codebook with framework
   expect_equal(state$codebook[["attitude"]]$frequency, 0L)
 })
 
+test_that("run_progressive_coding (Mode 3) routes an OUT-OF-FRAMEWORK construct_id to the anomaly bucket (defensive)", {
+  # The response schema enum-constrains construct_id, but if a provider/json_mode
+  # path lets an out-of-framework id slip through, the runtime must NOT admit it
+  # as a new construct (which would let the model invent constructs and drop
+  # those entries out of every framework theme). It is re-routed to anomaly.
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+
+  spec <- load_framework_spec("tpb")
+  data <- tibble::tibble(std_id = "e1", std_text = "Some text the model mislabels.")
+
+  mock_response <- jsonlite::toJSON(list(
+    skipped = FALSE, skip_reason = "",
+    coded_segments = list(list(
+      text = "Some text the model", start_char = 0L, end_char = 19L,
+      construct_id = "invented_construct",   # NOT a TPB construct and not "anomaly"
+      anomaly_reason = ""
+    ))
+  ), auto_unbox = TRUE)
+
+  local_mocked_bindings(
+    ai_complete = function(...) list(
+      content = mock_response, model = "claude-mock", request_id = "req_1",
+      usage = list(prompt_tokens = 1L, completion_tokens = 1L, total_tokens = 2L),
+      finish_reason = "stop", raw_response = list(), prompt_hash = "h",
+      citations = list()
+    ),
+    .package = "pakhom"
+  )
+
+  state <- suppressWarnings(run_progressive_coding(
+    data = data, provider = mock_provider("anthropic"),
+    config = list(max_retries_per_entry = 1L),
+    research_focus = "x", framework_spec = spec
+  ))
+
+  expect_false("invented_construct" %in% names(state$codebook))
+  expect_setequal(names(state$codebook), c(spec$construct_ids, "anomaly"))
+  expect_equal(state$codebook[["anomaly"]]$frequency, 1L)
+})
+
 test_that("run_progressive_coding (Mode 3) routes anomaly responses into the anomaly bucket", {
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")

@@ -58,8 +58,16 @@ compute_provocation_provenance_stats <- function(reflection_log) {
     return(quote_provenance_summary(list()))
   }
   quotes <- list()
+  seen_ids <- character(0)
   for (p in reflection_log$provocations) {
     if (!is.null(p$provenance) && inherits(p$provenance, "QuoteProvenance")) {
+      # alternative_interpretation emits one provocation per alternative name,
+      # all sharing ONE anchor quote's provenance object. Count each distinct
+      # verified quote once (by quote_id) so the verification totals are not
+      # inflated by the number of alternatives proposed.
+      qid <- p$provenance$quote_id %||% NA_character_
+      if (!is.na(qid) && qid %in% seen_ids) next
+      if (!is.na(qid)) seen_ids <- c(seen_ids, qid)
       quotes[[length(quotes) + 1L]] <- p$provenance
     }
   }

@@ -929,10 +929,11 @@ provoke_absent_voice <- function(theme_name, theme_entries, data, provider,
     if (has_authors) sprintf("Distinct contributors in theme support: %d",
                               length(unique(stats::na.omit(theme_entries$std_author))))
     else "",
-    if (has_timestamps) sprintf("Time span in corpus: %s..%s",
-                                  min(data$std_timestamp, na.rm = TRUE),
-                                  max(data$std_timestamp, na.rm = TRUE))
-    else "",
+    if (has_timestamps && any(!is.na(data$std_timestamp)))
+      sprintf("Time span in corpus: %s..%s",
+              min(data$std_timestamp, na.rm = TRUE),
+              max(data$std_timestamp, na.rm = TRUE))
+    else "",  # all-NA timestamps would otherwise print "Inf..-Inf"
     if (has_source) sprintf("Sources in corpus: %s",
                               paste(sort(unique(data$source_table)),
                                     collapse = ", "))

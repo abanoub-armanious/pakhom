@@ -3876,6 +3876,32 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     comparison$n_runs - 1, " previous run(s)**.\n\n"
   )
 
+  # Disclose WHICH models were compared so a reader can verify the headline
+  # inter-model reliability statistics are between two distinct models (and
+  # not, e.g., two runs of the same model).
+  if (isTRUE(comparison$is_inter_model)) {
+    if (!is.null(comparison$compared_models) &&
+        length(comparison$compared_models) == 2L) {
+      cm <- comparison$compared_models
+      cr <- comparison$compared_run_ids %||% c("", "")
+      content <- paste0(content,
+        "**Models compared:** ", .html_esc(cm[1]),
+        " (run ", .html_esc(cr[1]), ") vs ", .html_esc(cm[2]),
+        " (run ", .html_esc(cr[2]), ").\n\n")
+    } else if (!is.null(comparison$unique_models)) {
+      content <- paste0(content,
+        "**Models across runs:** ",
+        .html_esc(paste(comparison$unique_models, collapse = ", ")), ".\n\n")
+    }
+  } else if (!is.null(comparison$models_used) &&
+             length(comparison$models_used) > 0L) {
+    content <- paste0(content,
+      "**Model:** ",
+      .html_esc(paste(unique(unlist(comparison$models_used)), collapse = ", ")),
+      " -- all runs used the same model, so this is a same-model stability ",
+      "check, not an inter-model comparison.\n\n")
+  }
+
   # --- 1. Sample Overlap ---
   if (!is.null(comparison$sample_overlap)) {
     so <- comparison$sample_overlap

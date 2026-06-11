@@ -5,7 +5,10 @@
 \alias{.CORPUS_COVERAGE_SCHEMA_VERSION}
 \title{Current schema version for the CorpusCoverage object
 1.1.0: adds within-entry truncation accounting (n_entries_truncated,
-chars_sent_to_llm, truncation_tracked).}
+chars_sent_to_llm, truncation_tracked).
+1.2.0: adds n_examined_no_codes (entries examined but left with no surviving
+code -- now excluded from n_coded); bytes/chars/words totals stored as
+doubles to avoid 32-bit integer overflow on large corpora.}
 \format{
 An object of class \code{character} of length 1.
 }
@@ -16,5 +19,8 @@ An object of class \code{character} of length 1.
 Current schema version for the CorpusCoverage object
 1.1.0: adds within-entry truncation accounting (n_entries_truncated,
 chars_sent_to_llm, truncation_tracked).
+1.2.0: adds n_examined_no_codes (entries examined but left with no surviving
+code -- now excluded from n_coded); bytes/chars/words totals stored as
+doubles to avoid 32-bit integer overflow on large corpora.
 }
 \keyword{internal}

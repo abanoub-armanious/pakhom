@@ -79,14 +79,26 @@
 #' @param current_dir Path to the current run's output directory
 #' @param results_base Path to the parent directory containing all run folders
 #' @param config ThematicConfig object (or NULL)
+#' @param run_dirs Optional explicit, ordered character vector of run
+#'   directories to compare instead of discovering all runs under
+#'   \code{results_base}. The LAST element is treated as the "current" run.
+#'   \code{\link{compare_models}} uses this to compare a specific cross-model
+#'   pair rather than the two chronologically-latest runs.
 #' @return A ComparisonResult S3 object, or NULL if fewer than 2 runs exist
 #' @export
-compare_runs <- function(current_dir, results_base, config = NULL) {
+compare_runs <- function(current_dir, results_base, config = NULL,
+                         run_dirs = NULL) {
   threshold <- config$output$comparison_similarity_threshold %||% 0.75
 
-  # Discover all run directories
-
-  all_dirs <- .discover_run_dirs(results_base)
+  # Discover all run directories -- or use an explicit, ordered subset when the
+  # caller supplies one (compare_models passes a deliberate cross-model pair so
+  # the comparison is between two DIFFERENT models, not merely the two
+  # chronologically-latest runs, which could be the same model).
+  all_dirs <- if (!is.null(run_dirs) && length(run_dirs) >= 2L) {
+    run_dirs
+  } else {
+    .discover_run_dirs(results_base)
+  }
 
   if (length(all_dirs) < 2) {
     log_info("Only {length(all_dirs)} run(s) found -- skipping comparison")
@@ -505,14 +517,18 @@ list_available_runs <- function(results_base) {
       } else NA_character_
     } else NA_character_
 
+    # Guard the denominator: a run whose scores are all NA (sentiment step
+    # skipped/failed) would otherwise produce NaN means and 0/0 = NaN
+    # percentages that render as "NaN%" in the report.
+    n_scored <- sum(!is.na(scores))
     tibble::tibble(
       run_id = s$run_id,
-      mean_sentiment = round(mean(scores, na.rm = TRUE), 3),
-      median_sentiment = round(stats::median(scores, na.rm = TRUE), 3),
+      mean_sentiment = if (n_scored > 0) round(mean(scores, na.rm = TRUE), 3) else NA_real_,
+      median_sentiment = if (n_scored > 0) round(stats::median(scores, na.rm = TRUE), 3) else NA_real_,
       sd_sentiment = round(stats::sd(scores, na.rm = TRUE), 3),
       top_emotions = emotion_dist,
-      pct_negative = round(sum(scores < 0, na.rm = TRUE) / sum(!is.na(scores)) * 100, 1),
-      pct_positive = round(sum(scores > 0, na.rm = TRUE) / sum(!is.na(scores)) * 100, 1)
+      pct_negative = if (n_scored > 0) round(sum(scores < 0, na.rm = TRUE) / n_scored * 100, 1) else NA_real_,
+      pct_positive = if (n_scored > 0) round(sum(scores > 0, na.rm = TRUE) / n_scored * 100, 1) else NA_real_
     )
   })
   per_run <- dplyr::bind_rows(per_run_list)
@@ -638,7 +654,13 @@ list_available_runs <- function(results_base) {
           freq_curr = if ("frequency" %in% names(current$codes)) current$codes$frequency[ci] else NA_integer_
         )
 
-        if (max_sim >= 0.95) {
+        # A matched pair is "stable" only when the two code texts are
+        # essentially identical; matched-but-changed text is "renamed". This
+        # near-identity boundary is intentionally distinct from (and stricter
+        # than) `threshold`, which is the looser cutoff for counting a pair as
+        # matched at all.
+        stable_cutoff <- 0.95
+        if (max_sim >= stable_cutoff) {
           stable_pairs[[length(stable_pairs) + 1]] <- pair
         } else {
           renamed_pairs[[length(renamed_pairs) + 1]] <- pair
@@ -846,8 +868,14 @@ list_available_runs <- function(results_base) {
     }
   }
 
-  # Combined score
-  combined <- 0.6 * name_sim + 0.4 * code_sim
+  # Combined score. Theme identity is defined by CODE membership (C2: themes
+  # are groups of codes), not by the model-chosen label. Weight code overlap
+  # heavily and let a high code overlap stand on its own, so two runs --
+  # especially two DIFFERENT models -- that grouped the same codes under
+  # differently-worded labels are recognized as the SAME theme rather than
+  # scored as one disappearing and a new one appearing (which deflated
+  # cross-model theme reliability under the old 0.6*name + 0.4*code blend).
+  combined <- pmax(code_sim, 0.3 * name_sim + 0.7 * code_sim)
 
   # Greedy best-match
   matched_a <- rep(FALSE, length(names_a))
@@ -1270,15 +1298,72 @@ compare_models <- function(results_dir, config = NULL) {
     }
   }
 
-  # Run standard comparison (already includes code/theme/sentiment comparison)
-  current_dir <- all_dirs[length(all_dirs)]
-  result <- compare_runs(current_dir, results_dir, config)
+  # Select a genuine cross-model pair: the most recent run, paired with the
+  # most recent run that used a DIFFERENT model. The old behavior compared the
+  # two chronologically-latest runs, which could silently be two runs of the
+  # SAME model (e.g. runs ordered [anthropic, openai, openai] would compare
+  # openai-vs-openai), making the headline "inter-model reliability" statistic
+  # meaningless. We pass the chosen pair explicitly to compare_runs.
+  pair <- .select_cross_model_pair(all_dirs, models_used)
+
+  if (is.null(pair$partner)) {
+    # No run with a different model is available -- fall back to the standard
+    # latest-vs-previous comparison (and the same-model warning above stands).
+    log_info("compare_models: no second model among the runs; ",
+             "comparing the two most recent runs.")
+    result <- compare_runs(pair$current, results_dir, config)
+  } else {
+    log_info("compare_models: cross-model pair {basename(pair$partner)} ",
+             "({pair$partner_model}) vs {basename(pair$current)} ({pair$current_model}).")
+    # Order so `previous` = partner (model A) and `current` = newest (model B).
+    result <- compare_runs(pair$current, results_dir, config,
+                           run_dirs = c(pair$partner, pair$current))
+  }
 
   if (!is.null(result)) {
     result$is_inter_model <- length(unique_models) >= 2
     result$models_used <- models_used
     result$unique_models <- unique_models
+    if (!is.null(pair$partner)) {
+      result$compared_models <- c(pair$partner_model, pair$current_model)
+      result$compared_run_ids <- c(basename(pair$partner), basename(pair$current))
+    }
   }
 
   result
+}
+
+#' Choose a cross-model pair from discovered run directories
+#'
+#' Returns the newest run and the newest run that used a DIFFERENT model, so
+#' \code{\link{compare_models}} compares two distinct models rather than the
+#' two chronologically-latest runs (which could be the same model).
+#'
+#' @param all_dirs Character vector of run directories in chronological
+#'   (oldest-first) order, as returned by \code{.discover_run_dirs}.
+#' @param models_used Named list mapping \code{basename(dir)} to a
+#'   \code{"provider/model"} key.
+#' @return A list with \code{current} (newest dir), \code{partner} (newest
+#'   different-model dir, or \code{NULL} if none), and the two model keys.
+#' @keywords internal
+.select_cross_model_pair <- function(all_dirs, models_used) {
+  model_of <- function(d) models_used[[basename(d)]] %||% NA_character_
+  newest       <- all_dirs[length(all_dirs)]
+  newest_model <- model_of(newest)
+  partner <- NULL
+  if (length(all_dirs) >= 2L) {
+    for (d in rev(all_dirs[-length(all_dirs)])) {
+      dm <- model_of(d)
+      if (!is.na(dm) && !is.na(newest_model) && dm != newest_model) {
+        partner <- d
+        break
+      }
+    }
+  }
+  list(
+    current       = newest,
+    partner       = partner,
+    current_model = newest_model,
+    partner_model = if (is.null(partner)) NA_character_ else model_of(partner)
+  )
 }
