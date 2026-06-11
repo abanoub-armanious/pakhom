@@ -89,8 +89,13 @@ parse_json_safely <- function(response, expected_key = NULL,
 
   if (is.null(parsed)) return(NULL)
 
-  if (!is.null(expected_key) && is.null(parsed[[expected_key]])) {
-    return(NULL)
+  # Guard the key check: when the model returns a bare scalar/array (42, "hi",
+  # [1,2,3], true), fromJSON yields an ATOMIC value and `atomic[[expected_key]]`
+  # throws "subscript out of bounds", which would propagate and crash the caller
+  # -- violating this function's contract of returning NULL (never erroring) on
+  # failure. Treat any non-list, or a list missing the key, as a parse failure.
+  if (!is.null(expected_key)) {
+    if (!is.list(parsed) || is.null(parsed[[expected_key]])) return(NULL)
   }
 
   parsed

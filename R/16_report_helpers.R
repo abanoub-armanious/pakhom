@@ -1044,13 +1044,22 @@ aggregate_overall_statistics <- function(data, theme_set, consolidated = NULL,
     themes_df <- tibble(theme_name = character(), n = integer(), pct = numeric())
   }
 
-  # Sentiment summary
+  # Sentiment summary. Guard the column: a standalone generate_report() call or
+  # a hand-edited checkpoint may lack sentiment_score (or carry it as strings).
+  # Without the guard, mean()/sd() on a missing or character column raise
+  # "non-numeric argument to mathematical function" and abort the report.
+  ss <- if ("sentiment_score" %in% names(data)) {
+    suppressWarnings(as.numeric(data$sentiment_score))
+  } else {
+    numeric(0)
+  }
+  has_sent <- any(!is.na(ss))
   sent <- list(
-    mean = round(mean(data$sentiment_score, na.rm = TRUE), 2),
-    sd = round(sd(data$sentiment_score, na.rm = TRUE), 2),
-    median = round(median(data$sentiment_score, na.rm = TRUE), 2),
-    pct_negative = round(100 * sum(data$sentiment_score < -0.2, na.rm = TRUE) / max(total, 1), 1),
-    pct_positive = round(100 * sum(data$sentiment_score > 0.2, na.rm = TRUE) / max(total, 1), 1)
+    mean   = if (has_sent) round(mean(ss, na.rm = TRUE), 2) else NA_real_,
+    sd     = if (has_sent) round(sd(ss, na.rm = TRUE), 2) else NA_real_,
+    median = if (has_sent) round(median(ss, na.rm = TRUE), 2) else NA_real_,
+    pct_negative = if (has_sent) round(100 * sum(ss < -0.2, na.rm = TRUE) / max(total, 1), 1) else NA_real_,
+    pct_positive = if (has_sent) round(100 * sum(ss > 0.2, na.rm = TRUE) / max(total, 1), 1) else NA_real_
   )
 
   # Emotion distribution (multi-label: split all_emotions and count each)
@@ -1195,18 +1204,27 @@ generate_ai_synthesis <- function(overall_stats, theme_stats, correlations_df,
     log_warn("No AI provider available for synthesis -- using statistical fallback")
   }
 
-  # Fallback: generate without AI
+  # Fallback: generate without AI. Guard against an NA sentiment mean (a
+  # zero-coded / zero-theme corpus, or a run with no sentiment step): a bare
+  # `if (NA < -0.2)` would raise "missing value where TRUE/FALSE needed".
+  sm <- overall_stats$sentiment$mean
+  sentiment_phrase <- if (is.na(sm)) "not scored"
+                      else if (sm < -0.2) "predominantly negative"
+                      else if (sm > 0.2) "predominantly positive"
+                      else "mixed"
+  sentiment_detail <- if (is.na(sm)) {
+    "."
+  } else {
+    paste0(" (M = ", sm, ", SD = ", overall_stats$sentiment$sd, "), with ",
+           overall_stats$sentiment$pct_negative,
+           "% of entries showing negative sentiment.")
+  }
   list(
     executive_summary = paste0(
       "This thematic analysis examined ", overall_stats$total_entries,
       " entries, identifying ", overall_stats$n_themes,
       " distinct themes. The overall sentiment was ",
-      if (overall_stats$sentiment$mean < -0.2) "predominantly negative"
-      else if (overall_stats$sentiment$mean > 0.2) "predominantly positive"
-      else "mixed",
-      " (M = ", overall_stats$sentiment$mean,
-      ", SD = ", overall_stats$sentiment$sd, "), with ",
-      overall_stats$sentiment$pct_negative, "% of entries showing negative sentiment."
+      sentiment_phrase, sentiment_detail
     ),
     conclusion = paste0(
       "The analysis identified ", overall_stats$n_themes,

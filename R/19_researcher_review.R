@@ -706,5 +706,10 @@ read_review_disposition <- function(output_dir) {
   if (is.null(disp) || !"disposition" %in% names(disp) || nrow(disp) == 0) {
     return("continue")
   }
-  tolower(trimws(disp$disposition[1]))
+  # A present-but-NA disposition cell (e.g. the researcher cleared the value but
+  # left the row) would return NA, and the pipeline's `if (disposition == ...)`
+  # branch would then error on a missing value. Default a blank/NA to "continue".
+  d <- tolower(trimws(disp$disposition[1]))
+  if (is.na(d) || !nzchar(d)) return("continue")
+  d
 }

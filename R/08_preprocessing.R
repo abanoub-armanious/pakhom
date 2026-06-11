@@ -110,6 +110,11 @@ preprocess_text <- function(data, config = list()) {
       intToUtf8(strtoi(hex, base = 16L)),
       error = function(e) esc  # keep original if conversion fails
     )
+    # intToUtf8 returns NA (WITHOUT erroring, so the tryCatch fallback never
+    # fires) for an invalid codepoint such as a lone surrogate (<U+D800>).
+    # gsub(esc, NA, ...) would then replace the WHOLE entry with NA and silently
+    # drop it from the corpus. Fall back to keeping the original escape text.
+    if (length(char) != 1L || is.na(char)) char <- esc
     result <- gsub(esc, char, result, fixed = TRUE)
   }
   result

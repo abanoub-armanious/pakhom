@@ -158,7 +158,7 @@
 .assign_period_labels <- function(timestamps, period_type) {
   dates <- as.Date(timestamps)
 
-  switch(period_type,
+  labels <- switch(period_type,
     daily     = format(dates, "%Y-%m-%d"),
     weekly    = {
       # ISO week: Monday-based
@@ -174,6 +174,14 @@
     },
     format(dates, "%Y-%m-%d")
   )
+  # An NA / unparseable timestamp must NOT become a junk "NA-WNA" / "00NA-Q.."
+  # label: under sprintf the NA year/week format to literal text that sorts to
+  # the FRONT, fabricating an earliest time bucket in every prevalence and
+  # emergence figure. Mark NA timestamps with an NA period so the downstream
+  # sort(unique(.period)) drops them (entries with no valid time cannot be
+  # placed on the timeline).
+  labels[is.na(dates)] <- NA_character_
+  labels
 }
 
 # ==============================================================================
@@ -205,7 +213,10 @@
   idx     <- 0L
 
   for (p in periods) {
-    rows_in_period <- data[data$.period == p, , drop = FALSE]
+    # which() (not a bare logical index) so rows with an NA .period -- entries
+    # with no valid timestamp -- are excluded rather than injected as spurious
+    # all-NA rows (data[c(TRUE, NA), ] would add an NA row).
+    rows_in_period <- data[which(data$.period == p), , drop = FALSE]
     total_in_period <- nrow(rows_in_period)
 
     for (tn in valid_themes) {

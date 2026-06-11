@@ -217,7 +217,11 @@ new_methodology_articulations <- function(relevance,
     if (temporal) {
       v <- as.character(v)
     }
-    keep <- !is.na(v)
+    # For numeric columns keep only FINITE values: an Inf/-Inf survives !is.na
+    # and then `abs(Inf - round(Inf))` = NaN makes `if (NaN < 1e-9)` raise
+    # "missing value where TRUE/FALSE needed", aborting the whole Methodology
+    # Assistant step. (Temporal values are stringified, so keep the NA filter.)
+    keep <- if (temporal) !is.na(v) else is.finite(v)
     n_obs <- sum(keep)
     v <- v[keep]
     if (length(v) == 0L) return(sprintf("- %s: (no non-missing values)", col))
