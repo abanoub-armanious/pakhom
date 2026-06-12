@@ -64,7 +64,7 @@ Suggests:
     readxl,
     shiny,
     testthat (>= 3.0.0),
-    withr,
+    withr (>= 2.4.0),
     xml2,
     DT,
     igraph

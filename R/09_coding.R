@@ -361,7 +361,8 @@ run_progressive_coding <- function(data, provider, config = list(),
     research_focus = research_focus,
     concepts = concepts,
     config = config,
-    learning_context = learning_context
+    learning_context = learning_context,
+    framework_spec = framework_spec
   )
 
   # Mode 3: framework prompt block is loop-invariant (depends only on
@@ -952,6 +953,12 @@ run_progressive_coding <- function(data, provider, config = list(),
   ai_meta$citations <- list()
   retries <- config$max_retries_per_entry %||% 1L
 
+  # A coding call uses a non-zero temperature, so a JSON parse failure on one
+  # attempt may succeed on the next (a fresh sample) -- retrying it is a
+  # legitimate recovery, NOT a deterministic re-charge. This is deliberately
+  # distinct from ai_complete()'s permanent-error class (empty choices / forced
+  # tool not called / non-retryable 4xx), which IS deterministic and is never
+  # retried. max_retries_per_entry (default 1) bounds the extra paid attempts.
   for (attempt in seq_len(retries + 1)) {
     result <- tryCatch({
       ai_result <- ai_complete(provider, user_prompt, system_prompt,
@@ -1282,7 +1289,7 @@ run_progressive_coding <- function(data, provider, config = list(),
   # Mode 3 (framework) returns a `construct_id` field; Mode 2 returns
   # `code` (with optional NEW: prefix). Map both to a uniform code_key.
   if (isTRUE(use_framework)) {
-    construct_id   <- as.character(seg$construct_id %||% "")[1]
+    construct_id   <- trimws(as.character(seg$construct_id %||% "")[1])
     anomaly_reason <- as.character(seg$anomaly_reason %||% "")[1]
     valid_ids      <- framework_spec$construct_ids %||% character(0)
     # Mode 3 applies a FIXED framework: the model may only return a real
@@ -1643,7 +1650,8 @@ run_progressive_coding <- function(data, provider, config = list(),
 
 #' @keywords internal
 .build_progressive_system_prompt <- function(research_focus, concepts, config,
-                                              learning_context) {
+                                              learning_context,
+                                              framework_spec = NULL) {
   concept_str <- if (!is.null(concepts) && length(concepts) > 0) {
     paste(concepts, collapse = ", ")
   } else {
@@ -1719,11 +1727,14 @@ run_progressive_coding <- function(data, provider, config = list(),
 
   # Learning context: codebook examples, style, discards
   if (!is.null(learning_context)) {
-    # The prior-studies codebook hierarchy is the PRIMARY learning source: send
-    # it first so the model reuses established codes where they fit rather than
-    # re-inventing them. (Previously this slice was built and logged but never
-    # injected into the coding prompt.)
-    if (nchar(learning_context$for_coding_hierarchy %||% "") > 0) {
+    # The prior-studies codebook hierarchy is the PRIMARY learning source for
+    # INDUCTIVE coding (Modes 1/2): send it first so the model reuses established
+    # codes rather than re-inventing them. In Mode 3 (framework_spec present) the
+    # codebook IS the fixed framework, so injecting a different prior codebook
+    # ("reuse these codes") would contradict deductive framework application --
+    # skip it there.
+    if (is.null(framework_spec) &&
+        nchar(learning_context$for_coding_hierarchy %||% "") > 0) {
       prompt <- paste0(prompt,
                        "\n## CODEBOOK FROM PRIOR STUDIES (reuse these codes where the text fits them)\n",
                        learning_context$for_coding_hierarchy, "\n")

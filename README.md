@@ -426,7 +426,9 @@ the contract a peer reviewer can check the package's claims against:
 - **AC2**: Three modes; no fourth.
 - **AC3**: No default mode; explicit declaration mandatory.
 - **AC4**: Methodology stamped across outputs: `run_metadata.json`, CSV and
-  JSON artifacts, the HTML report stamp, and plot captions.
+  JSON artifacts, a page-level stamp on the HTML report (covering its figures),
+  and per-plot methodology captions on the standalone correlation, coding, and
+  longitudinal figures.
 - **AC5**: Soft-lock with audit trail; methodology change creates a new
   run with `parent_run_id` linkage (REDCap dev/production pattern).
 - **AC6**: Symmetric researcher-engagement affordances across modes: reflexive

@@ -607,7 +607,7 @@ config_wizard_app <- function(output_path = "config.yaml") {
     api_key_env = api_env,
     models = list(
       primary = val("model_primary", if (provider == "openai") "gpt-4o" else "claude-sonnet-4-20250514"),
-      fast = val("model_fast", if (provider == "openai") "gpt-4o-mini" else "claude-sonnet-4-20250514")
+      fast = val("model_fast", if (provider == "openai") "gpt-4o-mini" else "claude-haiku-4-5-20251001")
     ),
     rate_limits = list(
       requests_per_minute = val("rpm", 5000),

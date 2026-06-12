@@ -121,19 +121,29 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
     # surface themes that look prevalent but actually rest on one heavy poster.
     participant_spread <- .compute_participant_spread(entries)
 
-    # Sentiment stats
+    # Sentiment stats. Guard the column as aggregate_overall_statistics does: a
+    # standalone/hand-edited data frame may lack sentiment_score or carry it as
+    # strings, which would make mean()/sd() error ("non-numeric argument").
+    ss <- if ("sentiment_score" %in% names(entries)) {
+      suppressWarnings(as.numeric(entries$sentiment_score))
+    } else numeric(0)
+    has_sent <- any(!is.na(ss))
     sent <- list(
-      mean = round(mean(entries$sentiment_score, na.rm = TRUE), 2),
-      sd = round(sd(entries$sentiment_score, na.rm = TRUE), 2),
-      median = round(median(entries$sentiment_score, na.rm = TRUE), 2),
-      pct_negative = round(100 * sum(entries$sentiment_score < -0.2, na.rm = TRUE) / max(n, 1), 1),
-      pct_positive = round(100 * sum(entries$sentiment_score > 0.2, na.rm = TRUE) / max(n, 1), 1)
+      mean = if (has_sent) round(mean(ss, na.rm = TRUE), 2) else NA_real_,
+      sd = if (has_sent) round(sd(ss, na.rm = TRUE), 2) else NA_real_,
+      median = if (has_sent) round(median(ss, na.rm = TRUE), 2) else NA_real_,
+      pct_negative = if (has_sent) round(100 * sum(ss < -0.2, na.rm = TRUE) / max(n, 1), 1) else NA_real_,
+      pct_positive = if (has_sent) round(100 * sum(ss > 0.2, na.rm = TRUE) / max(n, 1), 1) else NA_real_
     )
 
-    # Intensity stats
+    # Intensity stats (same column guard)
+    ei <- if ("emotion_intensity" %in% names(entries)) {
+      suppressWarnings(as.numeric(entries$emotion_intensity))
+    } else numeric(0)
+    has_ei <- any(!is.na(ei))
     intensity <- list(
-      mean = round(mean(entries$emotion_intensity, na.rm = TRUE), 2),
-      sd = round(sd(entries$emotion_intensity, na.rm = TRUE), 2)
+      mean = if (has_ei) round(mean(ei, na.rm = TRUE), 2) else NA_real_,
+      sd = if (has_ei) round(sd(ei, na.rm = TRUE), 2) else NA_real_
     )
 
     # Emotion distribution (multi-label: split all_emotions and count each)

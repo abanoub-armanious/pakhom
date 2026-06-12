@@ -249,6 +249,10 @@ ai_complete <- function(provider, prompt, system_prompt = NULL,
 
   last_error <- NULL
   permanent  <- FALSE
+  # Guarantee at least one attempt so the loop body always runs (and `attempt`
+  # / the final error message are always defined) even if a caller passes
+  # max_retries < 1.
+  max_retries <- max(1L, as.integer(max_retries))
 
   for (attempt in seq_len(max_retries)) {
     result <- tryCatch({
@@ -293,7 +297,7 @@ ai_complete <- function(provider, prompt, system_prompt = NULL,
   }
 
   stop(sprintf("AI request failed after %d attempt(s): %s",
-               attempt, last_error$message %||% "unknown error"))
+               max_retries, last_error$message %||% "unknown error"))
 }
 
 #' Raise a non-retryable ("permanent") API error

@@ -2857,6 +2857,15 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
       "Skipped"
     }
   ))
+  # examined-but-uncoded: reached the LLM, not skipped, but no code survived.
+  # Rendering it makes coded + skipped + this reconcile to LLM-processed.
+  if ((coverage$n_examined_no_codes %||% 0L) > 0L) {
+    funnel_rows <- c(funnel_rows, sprintf(
+      '<tr><td>&nbsp;&nbsp;-- of those, examined but uncoded</td><td>%s</td><td>%s</td></tr>',
+      format(coverage$n_examined_no_codes, big.mark = ","),
+      "Reached the LLM but yielded no surviving code (e.g. all segments dropped in verification)"
+    ))
+  }
 
   # Skip-reason breakdown -- only render when skips exist. Free-text
   # reasons are clustered into ~7 broad
@@ -2923,17 +2932,17 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     if (isTRUE(coverage$truncation_tracked %||% FALSE)) {
       sprintf(
         '<div class="coverage-volume">%s of %s characters of source text sent to the LLM (%s words / %s bytes in source).</div>\n',
-        format(coverage$chars_sent_to_llm, big.mark = ","),
-        format(coverage$chars_processed, big.mark = ","),
-        format(coverage$words_processed, big.mark = ","),
-        format(coverage$bytes_processed, big.mark = ",")
+        format(coverage$chars_sent_to_llm, big.mark = ",", scientific = FALSE),
+        format(coverage$chars_processed, big.mark = ",", scientific = FALSE),
+        format(coverage$words_processed, big.mark = ",", scientific = FALSE),
+        format(coverage$bytes_processed, big.mark = ",", scientific = FALSE)
       )
     } else {
       sprintf(
         '<div class="coverage-volume">%s words (%s characters / %s bytes) of source text (per-entry characters sent to the LLM were not tracked in this run\'s coding state).</div>\n',
-        format(coverage$words_processed, big.mark = ","),
-        format(coverage$chars_processed, big.mark = ","),
-        format(coverage$bytes_processed, big.mark = ",")
+        format(coverage$words_processed, big.mark = ",", scientific = FALSE),
+        format(coverage$chars_processed, big.mark = ",", scientific = FALSE),
+        format(coverage$bytes_processed, big.mark = ",", scientific = FALSE)
       )
     },
     skip_block,
@@ -3558,8 +3567,15 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   # the earlier saturation heuristics (Guest 2020 + De Paoli 2024)
   # instead of the actual AI saturation arbiter. Both
   # generate journal-reviewer-misleading methods text.
-  n_coded <- length(coding_state$entries_processed) -
-              length(coding_state$entries_skipped %||% integer(0))
+  # n_coded must match the coverage card: "examined (not skipped) AND retained
+  # >=1 code", computed exactly as compute_corpus_coverage / get_analytic_sample
+  # do. The looser not-skipped count contradicted the funnel in the same report.
+  .er_ms <- coding_state$entry_results %||% list()
+  n_coded <- sum(vapply(.er_ms, function(r) {
+    if (isTRUE(r$skipped)) return(FALSE)
+    ca <- r$codes_assigned
+    any(!is.na(ca) & nzchar(as.character(ca)))
+  }, logical(1)))
   n_processed <- length(coding_state$entries_processed)
   n_skipped <- length(coding_state$entries_skipped %||% integer(0))
 
@@ -3666,8 +3682,8 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
         "):\n\n",
         "| Theme | First appearance |\n",
         "|-------|------------------|\n",
-        paste0("| ", .html_esc(as.character(shown$theme_name)), " | ",
-               .html_esc(as.character(shown$first_appearance_date)), " |\n",
+        paste0("| ", .md_cell(as.character(shown$theme_name)), " | ",
+               .md_cell(as.character(shown$first_appearance_date)), " |\n",
                collapse = ""),
         "\n"
       )
@@ -4031,7 +4047,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
           " | ", sprintf("%.3f", r$mean_sentiment),
           " | ", sprintf("%.3f", r$median_sentiment),
           " | ", sprintf("%.3f", r$sd_sentiment),
-          " | ", .html_esc(r$top_emotions %||% "\u2014"),
+          " | ", .md_cell(r$top_emotions %||% "\u2014"),
           " | ", sprintf("%.1f%%", r$pct_negative),
           " | ", sprintf("%.1f%%", r$pct_positive),
           " |\n"
@@ -4099,7 +4115,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
       for (i in seq_len(min(10, nrow(cs$pairwise$renamed)))) {
         r <- cs$pairwise$renamed[i, ]
         content <- paste0(content,
-          "| ", .html_esc(r$code_prev), " | ", .html_esc(r$code_curr),
+          "| ", .md_cell(r$code_prev), " | ", .md_cell(r$code_curr),
           " | ", sprintf("%.1f%%", r$similarity * 100), " |\n"
         )
       }
@@ -4132,7 +4148,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
         } else "&mdash;"
 
         content <- paste0(content,
-          "| ", .html_esc(r$theme_prev), " | ", .html_esc(r$theme_curr),
+          "| ", .md_cell(r$theme_prev), " | ", .md_cell(r$theme_curr),
           " | ", sprintf("%.0f%%", r$name_sim * 100),
           " | ", sprintf("%.0f%%", r$code_jaccard * 100),
           " | ", ec_change,
@@ -4251,7 +4267,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
       for (i in seq_len(nrow(cors$persistent))) {
         r <- cors$persistent[i, ]
         content <- paste0(content,
-          "| ", .html_esc(r$var1), " &harr; ", .html_esc(r$var2),
+          "| ", .md_cell(r$var1), " &harr; ", .md_cell(r$var2),
           " | ", sprintf("%.3f", r$mean_correlation),
           " | ", r$n_runs_significant, "/", corr_denom,
           " |\n"

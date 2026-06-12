@@ -1321,7 +1321,12 @@ compare_models <- function(results_dir, config = NULL) {
   }
 
   if (!is.null(result)) {
-    result$is_inter_model <- length(unique_models) >= 2
+    # is_inter_model reflects whether the ACTUAL compared pair is cross-model (a
+    # different-model partner was found), not merely whether 2+ models exist
+    # among all runs -- otherwise a fallback latest-vs-previous comparison (e.g.
+    # when the newest run's metadata is unreadable, so its model is NA) could be
+    # mislabeled as inter-model in the report.
+    result$is_inter_model <- !is.null(pair$partner)
     result$models_used <- models_used
     result$unique_models <- unique_models
     if (!is.null(pair$partner)) {
