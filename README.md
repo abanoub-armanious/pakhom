@@ -136,7 +136,11 @@ voice. The author is Coptic Egyptian.
   prompts use additive semantic retrieval: top-N most-frequent codes plus
   top-K semantically similar codes per entry, so even for a large codebook the
   AI sees the codes most relevant to the current entry (rather than an
-  arbitrary truncation) and rarely re-invents existing codes
+  arbitrary truncation) and rarely re-invents existing codes. The semantic
+  top-K step uses embeddings and is therefore **OpenAI-only** (Anthropic does
+  not expose an embedding model); Anthropic runs fall back to the
+  frequency+recency codebook context, which matters mainly once the codebook
+  exceeds the per-entry cap
 - **AI saturation arbiter** -- per the architectural commitment that the AI
   decides when to stop (C1), saturation is judged by a structured AI call
   ("reached / not_yet / uncertain" with a 30+ char articulation requirement)
@@ -404,6 +408,20 @@ results2 <- run_analysis("config.yaml")
 # Compare models
 comparison <- compare_models("outputs/")
 ```
+
+**Cross-provider caveat.** An OpenAI-vs-Anthropic comparison carries a small
+*coding-path* component alongside the model. By design (the T0.1 anti-fabrication
+layer), Anthropic coding uses the Citations API prevention path while OpenAI uses
+the forced-tool_use schema path, and semantic code retrieval is OpenAI-only. A
+controlled check (same corpus and entries, the Anthropic run on each path) found
+this path component is minor -- the model is the dominant driver of
+code-granularity differences -- but it is non-zero, so don't read an
+OpenAI-vs-Anthropic result as a *pure* model contrast. Separately, label-level
+metrics (code/theme Jaccard) understate *conceptual* agreement when two coders
+use different code vocabularies; corroborate them with a content-level theme
+correspondence (entry overlap between matched themes). For inter-model
+reliability uncontaminated by either issue, prefer same-provider repeat runs.
+See `?compare_models`.
 
 ## Documentation
 

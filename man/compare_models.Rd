@@ -19,3 +19,28 @@ A convenience wrapper around \code{\link{compare_runs}} that validates
 runs used different models and focuses output on agreement metrics
 suitable for reporting inter-model reliability in publications.
 }
+\section{Cross-provider caveat (read before reporting OpenAI-vs-Anthropic)}{
+
+When the two runs used \emph{different providers} (OpenAI vs Anthropic), they
+were not produced by byte-identical coding machinery. By design (T0.1
+anti-fabrication), Anthropic coding uses the Citations API prevention path
+(free-form JSON grounded in server-returned source offsets) while OpenAI uses
+the forced-tool_use schema path; additionally, per-entry semantic code
+retrieval uses embeddings and is therefore OpenAI-only. This introduces a
+coding-path component into an OpenAI-vs-Anthropic comparison alongside the
+model itself. In practice this component is small -- a controlled check
+(same corpus, same entries, Anthropic run on each path) found the coding path
+accounted for only a minor fraction of code-granularity differences, with the
+model the dominant driver -- but it is non-zero, so do not read an
+OpenAI-vs-Anthropic result as a pure model contrast. Separately, label-level
+metrics (code/theme Jaccard) understate \emph{conceptual} agreement whenever
+two coders use different code vocabularies; corroborate them with a
+content-level theme correspondence (entry-overlap between matched themes).
+For inter-model reliability uncontaminated by either issue, prefer
+same-provider repeat runs; same-provider, same-config repeats are unaffected
+by this caveat.
+}
+
+\seealso{
+\code{\link{compare_runs}}
+}

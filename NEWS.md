@@ -85,7 +85,15 @@ provenance, coverage, and audit evidence for peer review.
 ## Workflow and interoperability
 
 - **Providers.** OpenAI and Anthropic, with provider-appropriate handling of
-  structured output and source-grounded citations.
+  structured output and source-grounded citations. By design (T0.1
+  anti-fabrication), Anthropic coding uses the Citations API prevention path
+  while OpenAI uses the forced-tool_use schema path, and semantic code retrieval
+  is OpenAI-only. This per-provider asymmetry adds a small coding-path component
+  to any OpenAI-vs-Anthropic comparison and is now disclosed wherever
+  cross-provider comparison is documented (`?compare_models`, README), with the
+  recommendation to corroborate label-level metrics with content-level theme
+  correspondence and to prefer same-provider repeats for pure inter-model
+  reliability.
 - **Reproducibility.** Checkpointed, resumable runs; soft-lock and
   `parent_run_id` for auditable, comparable re-runs.
 - **Failure containment.** An aggregate AI-failure breaker stops the run with
