@@ -30,9 +30,11 @@ method \code{"string_match"}, score 1.0)
 NFC normalization, case-folded (status \code{"verified_fuzzy"},
 method \code{"normalized_match"}, score 0.95)
 \item Substring search fallback: looks for normalized exact_text
-anywhere in the source; if found, corrects start_char/end_char
-(status \code{"verified_fuzzy"}, method
-\code{"substring_search"}, score 0.85)
+anywhere in the source; if found, the quote is accepted (status
+\code{"verified_fuzzy"}, method \code{"substring_search"}, score
+0.85). The recorded start_char/end_char are left as-is and flagged
+imprecise by the lower score -- the normalized-to-original offset
+mapping is lossy, so they are not recomputed.
 \item Embedding cosine similarity: requires \code{provider}; computes
 cosine between quote and source-text embeddings; matches if
 >= \code{.QUOTE_EMBEDDING_VERIFICATION_THRESHOLD} (status

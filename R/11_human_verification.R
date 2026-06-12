@@ -323,35 +323,6 @@ run_human_verification <- function(data, coding_state,
 # Internal: Fuzzy string matching helpers
 # ==============================================================================
 
-#' Match codes from source to target using normalized string distance
-#' @param source Character vector of codes to match
-#' @param target Character vector of codes to match against
-#' @param threshold Normalized distance threshold (0 = exact, 1 = anything matches)
-#' @return List with `matched` (target codes that were matched) and `unmatched`
-#' @keywords internal
-.fuzzy_match_codes <- function(source, target, threshold = 0.15) {
-  if (length(source) == 0 || length(target) == 0) {
-    return(list(matched = character(0), unmatched = source))
-  }
-
-  matched <- character(0)
-  unmatched <- character(0)
-
-  for (s in source) {
-    # Compute normalized string distance to each target code
-    dists <- stringdist::stringdist(s, target, method = "jw")  # Jaro-Winkler
-    best_idx <- which.min(dists)
-
-    if (length(best_idx) > 0 && dists[best_idx] <= threshold) {
-      matched <- c(matched, target[best_idx])
-    } else {
-      unmatched <- c(unmatched, s)
-    }
-  }
-
-  list(matched = unique(matched), unmatched = unmatched)
-}
-
 #' Deduplicate a list of codes by merging fuzzy near-duplicates
 #' @keywords internal
 .fuzzy_deduplicate_codes <- function(codes, threshold = 0.15) {
@@ -496,7 +467,9 @@ run_human_verification <- function(data, coding_state,
 #' @keywords internal
 .set_krippendorff_alpha <- function(human_sets, ai_sets) {
   n <- length(human_sets)
-  if (n < 1L) return(NA_real_)
+  # Alpha needs at least two coded units to be meaningful: with a single entry
+  # the chance baseline is degenerate, so report NA rather than a spurious value.
+  if (n < 2L) return(NA_real_)
 
   d_o <- mean(vapply(seq_len(n), function(i)
     .jaccard_set_distance(human_sets[[i]], ai_sets[[i]]), numeric(1)))

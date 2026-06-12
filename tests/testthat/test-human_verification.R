@@ -97,39 +97,6 @@ test_that("interpret_alpha returns correct labels", {
 })
 
 # ==============================================================================
-# .fuzzy_match_codes: String distance matching
-# ==============================================================================
-test_that("fuzzy_match_codes matches near-identical strings", {
-  result <- pakhom:::.fuzzy_match_codes(
-    source = c("sleep disruption", "medication effects"),
-    target = c("sleep disruptions", "medication effect", "unrelated code"),
-    threshold = 0.35
-  )
-  expect_true(length(result$matched) >= 2)
-  expect_equal(length(result$unmatched), 0)
-})
-
-test_that("fuzzy_match_codes rejects dissimilar strings", {
-  result <- pakhom:::.fuzzy_match_codes(
-    source = c("sleep disruption"),
-    target = c("appetite changes", "mood regulation"),
-    threshold = 0.35
-  )
-  expect_equal(length(result$matched), 0)
-  expect_equal(length(result$unmatched), 1)
-})
-
-test_that("fuzzy_match_codes handles empty inputs", {
-  result <- pakhom:::.fuzzy_match_codes(character(0), c("a", "b"))
-  expect_equal(length(result$matched), 0)
-  expect_equal(length(result$unmatched), 0)
-
-  result2 <- pakhom:::.fuzzy_match_codes(c("a"), character(0))
-  expect_equal(length(result2$matched), 0)
-  expect_equal(length(result2$unmatched), 1)
-})
-
-# ==============================================================================
 # .fuzzy_deduplicate_codes: Near-duplicate merging
 # ==============================================================================
 test_that("fuzzy_deduplicate_codes merges near-duplicates", {

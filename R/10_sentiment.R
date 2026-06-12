@@ -257,6 +257,14 @@ analyze_sentiment <- function(data, provider, config = list(),
 }
 
 #' Assign parsed sentiment results back to data
+#'
+#' The batch prompt labels each entry with its integer ROW INDEX (`[i]`), and
+#' the model echoes that index as `id`; we write back to `data[idx]`. The
+#' `idx %in% batch_rows` guard rejects any id outside the current batch (so a
+#' stray/hallucinated id cannot corrupt another batch's rows), and the
+#' end-of-batch check warns about any entry the model failed to return -- such
+#' entries keep NA sentiment and are excluded from the analytic sample
+#' downstream rather than silently scored.
 #' @keywords internal
 .assign_sentiment_results <- function(data, results_data, batch_rows) {
   if (is.data.frame(results_data)) {

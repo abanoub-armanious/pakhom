@@ -15,8 +15,11 @@
 # 1. Every quote object carries source_doc_id + char range + sha256 of the
 #    source text used at attribution time. If the source corpus changes
 #    between runs, drift is detectable (verification_status = "drifted").
-# 2. A verification ladder runs at quote-creation time and again
-#    at report-generation time:
+# 2. A verification ladder runs when a quote is created (the coding path
+#    verifies every coded-segment quote before it can enter the codebook).
+#    The same ladder can be re-applied later via verify_quote()/verify_quotes()
+#    -- e.g. for a corpus-drift re-check -- but the default pipeline verifies
+#    once, at attribution time:
 #      (a) strict offline string match
 #      (b) normalized match (whitespace + smart-quote + NFC + case)
 #      (c) substring search fallback (corrects offsets)
@@ -416,9 +419,11 @@ make_quotes_from_citations <- function(citations, documents,
 #'         NFC normalization, case-folded (status \code{"verified_fuzzy"},
 #'         method \code{"normalized_match"}, score 0.95)
 #'   \item Substring search fallback: looks for normalized exact_text
-#'         anywhere in the source; if found, corrects start_char/end_char
-#'         (status \code{"verified_fuzzy"}, method
-#'         \code{"substring_search"}, score 0.85)
+#'         anywhere in the source; if found, the quote is accepted (status
+#'         \code{"verified_fuzzy"}, method \code{"substring_search"}, score
+#'         0.85). The recorded start_char/end_char are left as-is and flagged
+#'         imprecise by the lower score -- the normalized-to-original offset
+#'         mapping is lossy, so they are not recomputed.
 #'   \item Embedding cosine similarity: requires \code{provider}; computes
 #'         cosine between quote and source-text embeddings; matches if
 #'         >= \code{.QUOTE_EMBEDDING_VERIFICATION_THRESHOLD} (status
@@ -529,7 +534,10 @@ verify_quote <- function(quote, source_text, provider = NULL) {
     } else {
       "step4_embedding_below_threshold"
     }
-  } else {
+  } else if (is.na(last_failure_reason)) {
+    # No embedding provider (the default coding path): do NOT overwrite the
+    # real reason the quote failed (set by steps 1-3, e.g. substring_not_found).
+    # "step4_skipped" only applies if no earlier step had already failed.
     last_failure_reason <- "step4_skipped_no_provider"
   }
 
@@ -563,7 +571,8 @@ verify_quotes <- function(quotes, corpus_lookup, provider = NULL) {
     src <- corpus_lookup[[q$source_doc_id]]
     if (is.null(src)) {
       now_iso <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC")
-      return(.set_verification(q, "drifted", NA_character_, NA_real_, now_iso))
+      return(.set_verification(q, "drifted", NA_character_, NA_real_, now_iso,
+                                failure_reason = "source_missing_from_corpus"))
     }
     verify_quote(q, src, provider = provider)
   })

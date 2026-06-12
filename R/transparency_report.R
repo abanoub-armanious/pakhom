@@ -281,6 +281,9 @@ bundle_transparency_report <- function(run_dir,
     n_verified_exact    = as.integer(n_verified_exact),
     n_verified_fuzzy    = as.integer(n_verified_fuzzy),
     verification_count_source = verification_count_source,
+    # Denominator is ALL attributed quotes -- survivors (n_verifications, which
+    # includes drifted + admitted) PLUS the caught fabrications -- so the rate
+    # is caught / total_attributed, NOT the survivor-biased caught / survivors.
     fabrication_rate    = if (is.null(n_caught) || n_verifications + (n_caught %||% 0L) == 0L) NA_real_
                           else (n_caught %||% 0L) / (n_verifications + (n_caught %||% 0L))
   )

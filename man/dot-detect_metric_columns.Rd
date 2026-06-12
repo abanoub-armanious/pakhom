@@ -13,8 +13,7 @@
 
 \item{explicit}{Optional character vector of metric column names to
 use verbatim (intersected with the data's columns). Bypasses the
-config dig. Used by \code{compute_correlations} which already has
-a flat \code{config$metric_columns} field at hand.}
+config dig.}
 }
 \value{
 Character vector of metric column names (possibly empty)
@@ -32,9 +31,8 @@ is non-empty, those names are used verbatim (intersected with the data's
 columns to avoid referencing missing fields). This matches the explicit
 \code{detect_columns()} mapping path in \code{R/07_data_loading.R}.
 
-Mirrors (and consolidates) the inline detection in
-\code{compute_correlations} (R/14_correlations.R:82-106).
-Future cleanup: refactor that site to call this helper.
+Mirrors (and consolidates) the metric-column detection used by
+\code{prepare_correlation_data} (R/14_correlations.R).
 }
 \section{Caveat -- sentiment_score collision}{
 

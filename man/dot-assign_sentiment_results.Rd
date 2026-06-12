@@ -7,6 +7,12 @@
 .assign_sentiment_results(data, results_data, batch_rows)
 }
 \description{
-Assign parsed sentiment results back to data
+The batch prompt labels each entry with its integer ROW INDEX (\verb{[i]}), and
+the model echoes that index as \code{id}; we write back to \code{data[idx]}. The
+\code{idx \%in\% batch_rows} guard rejects any id outside the current batch (so a
+stray/hallucinated id cannot corrupt another batch's rows), and the
+end-of-batch check warns about any entry the model failed to return -- such
+entries keep NA sentiment and are excluded from the analytic sample
+downstream rather than silently scored.
 }
 \keyword{internal}
