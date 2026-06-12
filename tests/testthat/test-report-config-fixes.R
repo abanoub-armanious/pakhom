@@ -143,7 +143,15 @@ test_that(".truncate_quote_word_boundary single-pathed branch (dedupe)", {
 
 # Helper: capture stderr lines emitted by logger::log_warn during expr.
 .capture_log_warn <- function(expr) {
-  capture.output(force(expr), type = "message")
+  # Capture logger output via a temporary appender rather than
+  # capture.output(type = "message"): the suite silences logger's console
+  # appender (setup.R), and logger emits GitHub-Actions workflow commands under
+  # CI rather than plain stderr, so the message-stream capture is unreliable.
+  logs <- character(0)
+  logger::log_appender(function(lines) logs <<- c(logs, lines))
+  on.exit(logger::log_appender(.pakhom_test_silent_appender), add = TRUE)
+  force(expr)
+  logs
 }
 
 test_that(".warn_legacy_coding_resume warns when ANY legacy QP is present (mixed-vintage)", {

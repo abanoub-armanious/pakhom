@@ -139,7 +139,10 @@ test_that("find_resume_point surfaces a config-hash mismatch but still resumes",
   # restore leaks the collector into every downstream test.
   logs <- character(0)
   logger::log_appender(function(lines) logs <<- c(logs, lines))
-  on.exit(logger::log_appender(logger::appender_console),
+  # Restore the SUITE BASELINE (the silent appender), not the console appender,
+  # so this test does not re-enable logger console output -- and the resulting
+  # GitHub Actions annotations -- for every test that runs afterward.
+  on.exit(logger::log_appender(.pakhom_test_silent_appender),
           add = TRUE, after = FALSE)
 
   resume <- find_resume_point(mgr_b)
@@ -156,7 +159,10 @@ test_that("find_resume_point stays silent when the config hash matches", {
   mgr_a2 <- init_checkpoints(tmp, config_hash = "hash_A")
   logs <- character(0)
   logger::log_appender(function(lines) logs <<- c(logs, lines))
-  on.exit(logger::log_appender(logger::appender_console),
+  # Restore the SUITE BASELINE (the silent appender), not the console appender,
+  # so this test does not re-enable logger console output -- and the resulting
+  # GitHub Actions annotations -- for every test that runs afterward.
+  on.exit(logger::log_appender(.pakhom_test_silent_appender),
           add = TRUE, after = FALSE)
 
   resume <- find_resume_point(mgr_a2)

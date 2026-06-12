@@ -523,11 +523,12 @@ test_that("compare_runs excludes schema-incompatible snapshots and warns", {
   # Strip metadata from legacy_dir (simulate pre-versioning run)
   file.remove(file.path(legacy_dir, "run_metadata.json"))
 
-  # Capture warnings emitted to verify the filter announces the exclusion
-  msgs <- capture.output(
-    result <- compare_runs(ok_dir_b, tmp),
-    type = "message"
-  )
+  # Capture logger output via a temporary appender (the suite silences logger's
+  # console appender; capture.output(type="message") would catch nothing).
+  msgs <- character(0)
+  logger::log_appender(function(lines) msgs <<- c(msgs, lines))
+  on.exit(logger::log_appender(.pakhom_test_silent_appender), add = TRUE)
+  result <- compare_runs(ok_dir_b, tmp)
   warning_text <- paste(msgs, collapse = "\n")
 
   expect_s3_class(result, "ComparisonResult")

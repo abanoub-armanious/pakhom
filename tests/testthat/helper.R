@@ -2,6 +2,17 @@
 # Shared test fixtures and helpers
 # ==============================================================================
 
+# A no-op logger appender used as the test-suite baseline. Many tests
+# deliberately exercise error / warning / failure code paths (a nonexistent IRR
+# sheet, a simulated AI-call failure, a provider misconfiguration), which call
+# log_error()/log_warn()/log_info() and then PASS. logger's default console
+# appender would write those to stderr, where GitHub Actions surfaces them as
+# ##[error]/##[warning]/##[notice] annotations -- making a clean run (R CMD
+# check Status: OK, testthat FAIL 0) look like it carries dozens of "errors".
+# setup.R installs this appender for the suite; restore to it (not the console
+# appender) when a test temporarily swaps the appender to capture log output.
+.pakhom_test_silent_appender <- function(lines) invisible(NULL)
+
 #' Create a mock AIProvider object for testing (no real API calls)
 #'
 #' Mirrors the structure produced by `create_ai_provider()` so tests can
