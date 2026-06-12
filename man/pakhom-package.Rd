@@ -92,6 +92,25 @@ injected into the model context every turn.
 }
 }
 
+\section{Algorithm-level commitments (C1-C8)}{
+
+Distinct from the mode-design ACs above, these govern how the coding,
+clustering, statistics, and reporting layers behave; see the README
+("For methodologists: rewrite-direction commitments") for the full text.
+\enumerate{
+\item \strong{C1}: The AI decides when to stop (no hardcoded theme/
+saturation thresholds).
+\item \strong{C2}: Codes are preserved through clustering (themes group
+codes, never rewrite them).
+\item \strong{C3}: Live tracking artifacts during processing.
+\item \strong{C4}: Dataset-agnostic (no hardcoded column-name allowlists).
+\item \strong{C5}: No catch-all / "Other" buckets in the inductive modes.
+\item \strong{C6}: Arbitrary research-question length/complexity.
+\item \strong{C7}: Mode-aware behaviour only where modes genuinely differ.
+\item \strong{C8}: Publication-quality per-subtheme output shape.
+}
+}
+
 \section{Tier-0 universal transparency requirements}{
 
 Three commitments mandatory in every mode, addressing the most-cited

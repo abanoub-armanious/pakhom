@@ -2354,9 +2354,9 @@ generate_report <- function(data, theme_set, correlations_df, insights,
         # identical in length + order and only the values differ. Matching by
         # name -- rather than by raw position -- additionally hardens the table
         # against any future caller whose subthemes differ in primitive order:
-        # a value can never land under the wrong header (three independent
-        # An audit flagged the positional version as a latent
-        # transposition risk; this closes it). Duplicate primitive names (e.g. a
+        # a value can never land under the wrong header. An audit flagged the
+        # positional version as a latent transposition risk; this closes it.
+        # Duplicate primitive names (e.g. a
         # pinned prim_quantile at two q's) are consumed left-to-right; a plan
         # primitive absent from this subtheme renders "n/a". The cell count
         # always equals length(plan primitives), so rows stay header-aligned.

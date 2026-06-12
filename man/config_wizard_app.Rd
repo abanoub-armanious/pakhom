@@ -16,10 +16,13 @@ user closes the app without saving.
 }
 \description{
 Opens a Shiny app that walks you through every configuration option
-with descriptions, validation, and sensible defaults. When finished,
-it writes a validated \code{config.yaml} to disk.
+with descriptions and sensible defaults. The step gates enforce the fields
+\code{\link[=validate_config]{validate_config()}} requires (an explicit methodology mode, a research
+focus, a data path, and a framework spec for Mode 3), so the \code{config.yaml}
+it writes loads cleanly.
 }
 \details{
-This is the web-based companion to the CLI-based \code{\link[=config_wizard]{config_wizard()}}.
-Both produce identical YAML output.
+This is the web-based companion to the CLI-based \code{\link[=config_wizard]{config_wizard()}}. Both
+write an equivalent \code{config.yaml} (the same required sections and methodology
+block); exact field defaults may differ between the two entry points.
 }

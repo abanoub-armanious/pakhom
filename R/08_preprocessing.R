@@ -100,7 +100,9 @@ preprocess_text <- function(data, config = list()) {
 #' @keywords internal
 .decode_unicode_escapes <- function(text) {
   # Find all unique <U+XXXX> patterns across the entire vector
-  escapes <- unique(unlist(regmatches(text, gregexpr("<U\\+[0-9A-Fa-f]{4,5}>", text))))
+  # {4,6} covers the full Unicode range: R renders astral-plane codepoints
+  # (U+10000..U+10FFFF) as 5- or 6-hex-digit <U+...> escapes, which {4,5} missed.
+  escapes <- unique(unlist(regmatches(text, gregexpr("<U\\+[0-9A-Fa-f]{4,6}>", text))))
   if (length(escapes) == 0) return(text)
 
   result <- text

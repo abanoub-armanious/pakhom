@@ -1154,7 +1154,11 @@ parse_codebook <- function(path) {
           code_name_val <- code_lookup[code_guid]
           if (is.na(code_name_val)) code_name_val <- NA_character_
 
-          # Extract coded text using character positions
+          # Extract coded text using character positions. start/end are treated
+          # as R CHARACTER offsets; these equal the REFI-QDA / NVivo UTF-16
+          # code-unit offsets for Basic-Multilingual-Plane text and can differ
+          # only when a source contains astral-plane characters (the same
+          # convention the QDPX export documents).
           coded_text <- NA_character_
           if (!is.na(src_text) && !is.na(start_pos) && !is.na(end_pos) &&
               start_pos >= 0 && end_pos > start_pos &&

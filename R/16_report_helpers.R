@@ -1,7 +1,9 @@
 # ==============================================================================
 # Report Helper Functions -- Statistics Aggregation & AI Synthesis
 # ==============================================================================
-# These functions were undefined in the old script (Bug #8). Now implemented.
+# Per-theme + overall statistics aggregation, metric-column detection, the
+# paper-style per-subtheme summary tables, and the (optional) AI executive
+# summary used by the HTML report.
 # ==============================================================================
 
 #' Does each entry's emerged_themes list contain theme `tn` exactly?
@@ -164,7 +166,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
       } else {
         meta_indices <- seq_len(min(length(enriched_quotes), n_sorted))
       }
-      # #8 follow-up: resolve EACH representative quote's true sentiment + emotion
+      # Resolve EACH representative quote's true sentiment + emotion
       # from its SOURCE ENTRY via the entry_id-linked supporting_quote_records
       # (built in the same order as supporting_quotes), rather than re-deriving by
       # sentiment-sort index. Index re-derivation could attach the wrong displayed

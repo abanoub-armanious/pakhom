@@ -661,6 +661,9 @@ run_progressive_coding <- function(data, provider, config = list(),
       total_assignments <- sum(vapply(state$codebook,
                                         function(cb) cb$frequency,
                                         integer(1)))
+      # NB: despite the name (kept for curve-column schema stability), this is
+      # the codes-to-assignments RATIO (distinct codes / total code
+      # applications), an inverse code-reuse density -- NOT a regression slope.
       slope_ratio <- if (total_assignments > 0) {
         codes_after / total_assignments
       } else 1.0

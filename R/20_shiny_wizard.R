@@ -5,11 +5,14 @@
 #' Launch the interactive configuration wizard
 #'
 #' Opens a Shiny app that walks you through every configuration option
-#' with descriptions, validation, and sensible defaults. When finished,
-#' it writes a validated `config.yaml` to disk.
+#' with descriptions and sensible defaults. The step gates enforce the fields
+#' [validate_config()] requires (an explicit methodology mode, a research
+#' focus, a data path, and a framework spec for Mode 3), so the `config.yaml`
+#' it writes loads cleanly.
 #'
-#' This is the web-based companion to the CLI-based [config_wizard()].
-#' Both produce identical YAML output.
+#' This is the web-based companion to the CLI-based [config_wizard()]. Both
+#' write an equivalent `config.yaml` (the same required sections and methodology
+#' block); exact field defaults may differ between the two entry points.
 #'
 #' @param output_path Where to save the generated config (default "config.yaml").
 #'   The user can also change this in the UI.

@@ -451,6 +451,19 @@ detect_columns <- function(data, source_type = "reddit", config = NULL) {
 standardize_data <- function(data, column_map) {
   std <- data
 
+  # Warn if the source already uses pakhom's reserved std_*/original_text column
+  # names: standardize_data is about to (re)assign them, so any pre-existing
+  # values would be silently overwritten.
+  reserved <- c("std_id", "std_text", "std_author", "std_timestamp",
+                "original_text")
+  clobbered <- intersect(reserved, names(data))
+  if (length(clobbered) > 0L) {
+    log_warn(paste0(
+      "standardize_data: source column(s) ", paste(clobbered, collapse = ", "),
+      " use pakhom's reserved names and will be overwritten by the ",
+      "standardized columns. Rename them in the source to keep their values."))
+  }
+
   # Map required columns
   if (!is.na(column_map$id)) {
     std$std_id <- as.character(std[[column_map$id]])
