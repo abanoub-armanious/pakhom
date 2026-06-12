@@ -333,7 +333,18 @@ list_available_runs <- function(results_base) {
   # Load each file, NULL if missing
   themes <- tryCatch({
     f <- file.path(run_dir, "themes.json")
-    if (file.exists(f)) tibble::as_tibble(jsonlite::fromJSON(f)) else NULL
+    if (!file.exists(f)) NULL else {
+      parsed <- jsonlite::fromJSON(f)
+      # themes.json ships wrapped in the AC4 methodology-stamp envelope
+      # {_methodology_stamp, _payload} (output_stamping.R). The theme array is
+      # _payload; unwrap it before as_tibble(). Without this, as_tibble() sees
+      # two unequal-length top-level fields ("_methodology_stamp" size 4 vs
+      # "_payload" size N), errors, and the tryCatch silently returns NULL --
+      # so theme evolution / theme-Jaccard (the core compare_models() inter-model
+      # reliability metric) is empty on EVERY real run.
+      if (is.list(parsed) && !is.null(parsed[["_payload"]])) parsed <- parsed[["_payload"]]
+      if (length(parsed) == 0L) NULL else tibble::as_tibble(parsed)
+    }
   }, error = function(e) NULL)
 
   # comment = "#" so the AC4 methodology stamp on the file head (added

@@ -102,6 +102,32 @@ test_that(".load_run_snapshot handles missing files gracefully", {
   expect_null(snap$correlations)
 })
 
+test_that(".load_run_snapshot unwraps the methodology-stamp envelope in themes.json", {
+  # Regression: real runs write themes.json wrapped in {_methodology_stamp, _payload}
+  # (output_stamping.R). A naive as_tibble(fromJSON()) errors on the two
+  # unequal-length top-level fields and silently returns NULL, emptying the
+  # theme-Jaccard / theme-evolution panel -- the core compare_models() metric.
+  tmp <- withr::local_tempdir()
+  d <- file.path(tmp, "run_2026-05-01_120000")
+  dir.create(d)
+  stamped <- list(
+    `_methodology_stamp` = list(mode = "codebook_collaborative", run_id = "run_2026-05-01_120000",
+                                schema = "themes", stamped_at = "2026-05-01T12:00:00Z"),
+    `_payload` = data.frame(
+      name = c("Sleep quality", "Side effects"),
+      entry_count = c(12L, 7L),
+      codes_included = I(list(c("good_sleep", "fell_asleep"), c("headache", "nausea"))),
+      stringsAsFactors = FALSE
+    )
+  )
+  writeLines(jsonlite::toJSON(stamped, auto_unbox = TRUE), file.path(d, "themes.json"))
+  snap <- pakhom:::.load_run_snapshot(d)
+  expect_s3_class(snap$themes, "tbl_df")
+  expect_equal(nrow(snap$themes), 2)
+  expect_true("name" %in% names(snap$themes))
+  expect_true("codes_included" %in% names(snap$themes))
+})
+
 test_that(".load_run_snapshot parses timestamp from folder name", {
   snap <- .load_run_snapshot(file.path(fixture_dir, "run_2026-01-01_120000"))
   expect_s3_class(snap$timestamp, "POSIXct")
