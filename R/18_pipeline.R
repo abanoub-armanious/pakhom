@@ -923,7 +923,8 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     # gap via the n_members column on theme_group_tests and warn the
     # user that the published prose will describe the current methods
     # while the numbers come from the older pipeline. The user can
-    # recompute by deleting outputs/<run>/checkpoint.rds step 6.
+    # recompute by deleting the cached step file
+    # outputs/<run>/checkpoints/correlations.rds and re-running.
     if (!is.null(theme_group_tests) && is.data.frame(theme_group_tests) &&
         nrow(theme_group_tests) > 0L &&
         !"n_members" %in% names(theme_group_tests)) {
@@ -932,8 +933,8 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
         "tibbles were produced by the older statistical pipeline (pre-",
         "rank-biserial effect_r, pre-negligible effect tier, pre-Fisher ",
         "Cramer's V). The published report's methodology prose describes ",
-        "the current methods. To realign, delete the 'correlations' step ",
-        "from outputs/<run>/checkpoint.rds and rerun from this point."
+        "the current methods. To realign, delete the cached step file ",
+        "outputs/<run>/checkpoints/correlations.rds and rerun from this point."
       ))
     }
   } else {
@@ -1279,8 +1280,8 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
 #' fix (JSON-escape bug) and the failure-reason field.
 #' Detect by inspecting the first quote's field set. Emit a
 #' \code{log_warn} explaining the methodology-era drift and how to
-#' realign (delete progressive_coding from checkpoint.rds and re-run
-#' from step 3). Silent on fresh runs (no checkpoint = no warning).
+#' realign (delete outputs/<run>/checkpoints/progressive_coding.rds and
+#' re-run from step 3). Silent on fresh runs (no checkpoint = no warning).
 #'
 #' @param coding_state A loaded ProgressiveCodingState, possibly NULL.
 #' @return Invisible NULL.
@@ -1320,8 +1321,8 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
       "schema gap), but the report's Tier-0 dashboard prose ",
       "describes the current ladder while the cached quotes were ",
       "produced under the older prompt + verifier pairing. To ",
-      "align, delete the 'progressive_coding' step from ",
-      "outputs/<run>/checkpoint.rds and rerun from step 3."
+      "align, delete the cached step file ",
+      "outputs/<run>/checkpoints/progressive_coding.rds and rerun from step 3."
     ))
   }
   invisible(NULL)

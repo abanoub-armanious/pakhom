@@ -494,12 +494,17 @@ run_progressive_coding <- function(data, provider, config = list(),
         provider         = provider,
         audit_log        = audit_log,
         response_cache   = response_cache,
+        # `config` here is already the analysis.coding block (see the call in
+        # 18_pipeline.R and the failure-knob reads above), so these knobs live
+        # at its top level -- NOT under config$analysis$coding (which would be
+        # double-nested and always fall back to the defaults, ignoring the
+        # user's config.yaml).
         refresh_interval = as.integer(
-          config$analysis$coding$description_refresh_interval %||% 100L),
+          config$description_refresh_interval %||% 100L),
         min_freq         = as.integer(
-          config$analysis$coding$description_refresh_min_freq %||% 50L),
+          config$description_refresh_min_freq %||% 50L),
         sample_segments  = as.integer(
-          config$analysis$coding$description_refresh_sample_segments %||% 5L)
+          config$description_refresh_sample_segments %||% 5L)
       )
     }
 

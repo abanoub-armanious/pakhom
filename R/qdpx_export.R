@@ -244,7 +244,9 @@
   # QDPX creationDateTime in UTC so the value is unambiguous when imported
   # into NVivo / MAXQDA across timezones.
   creation_dt <- format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
-  project_guid <- .qdpx_guid()
+  # NB: the REFI-QDA 1.0 ProjectType has no GUID attribute on <Project> itself
+  # (only name/origin/creatingUserGUID/creationDateTime), so no project-level
+  # GUID is generated here -- a stray one was previously created and unused.
   user_guid <- .qdpx_guid()
 
   # Create root document. The REFI-QDA Project Exchange schema has target
@@ -506,14 +508,25 @@
       code_key <- seg$code_key
       if (is.null(code_key) || !(code_key %in% names(code_guid_map))) next
 
-      # Determine text positions
+      # Determine text positions. Trust the model-supplied offsets only when
+      # they actually point at the coded text; otherwise (missing, NA, out of
+      # range, or simply WRONG -- the model's char offsets are frequently off)
+      # recompute by locating the segment text in the entry. This keeps the
+      # exported QDPX TextSelection aligned with the quote a QDA tool will show
+      # (the original code emitted the raw offsets verbatim and only recomputed
+      # when they were NULL/NA, so a present-but-wrong offset shipped as-is).
       start_pos <- seg$start_char
       end_pos <- seg$end_char
-
-      # If positions are missing, try to locate the segment text in the entry
-      if (is.null(start_pos) || is.na(start_pos) ||
-          is.null(end_pos) || is.na(end_pos)) {
-        seg_text <- seg$text %||% ""
+      seg_text <- seg$text %||% ""
+      offsets_ok <- !is.null(start_pos) && !is.null(end_pos) &&
+        !is.na(start_pos) && !is.na(end_pos) &&
+        as.integer(start_pos) >= 0L &&
+        as.integer(end_pos) <= nchar(entry_text) &&
+        as.integer(end_pos) > as.integer(start_pos) &&
+        nzchar(seg_text) &&
+        identical(substr(entry_text, as.integer(start_pos) + 1L,
+                         as.integer(end_pos)), seg_text)
+      if (!offsets_ok) {
         if (nchar(seg_text) > 0) {
           match_pos <- regexpr(seg_text, entry_text, fixed = TRUE)
           if (match_pos > 0) {
@@ -530,7 +543,12 @@
         }
       }
 
-      # Ensure positions are valid integers
+      # Ensure positions are valid integers. NB: these are CHARACTER offsets
+      # (R nchar/regexpr units). They equal UTF-16 code-unit offsets -- the
+      # REFI-QDA / NVivo convention -- for all Basic-Multilingual-Plane text;
+      # they can differ only when a source contains astral-plane characters
+      # (e.g. emoji), where a selection may shift by one unit per such char in
+      # some importers. (Full UTF-16 re-indexing is a possible future refinement.)
       start_pos <- max(0L, as.integer(start_pos))
       end_pos <- min(nchar(entry_text), as.integer(end_pos))
       if (end_pos <= start_pos) {

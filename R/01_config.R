@@ -516,7 +516,10 @@ print.ThematicConfig <- function(x, ...) {
         api_key_env = "ANTHROPIC_API_KEY",
         models = list(
           primary = "claude-sonnet-4-20250514",
-          fast = "claude-sonnet-4-20250514"
+          # A distinct, cheaper fast model for batch ops (sentiment); the
+          # previous value duplicated primary, defeating ai_complete_fast() and
+          # disagreeing with .default_models("anthropic").
+          fast = "claude-haiku-4-5-20251001"
         ),
         rate_limits = list(
           requests_per_minute = 1000,

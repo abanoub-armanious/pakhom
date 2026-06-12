@@ -209,6 +209,12 @@ review_progressive_codebook <- function(coding_state, output_dir,
         # halves and left the copied codebook-level segments pointing at the OLD
         # key; instead rebuild frequency / entry_ids / coded_segments from the
         # entries actually assigned the new code in the loop below.
+        #
+        # NB (split semantics): this is a SCAFFOLD split -- the new code is
+        # applied to ALL of the original's entries (the system cannot know which
+        # entries belong to which half without re-coding), and the renamed
+        # original retains them too. The researcher is expected to curate the
+        # two halves afterward; until they do, both codes cover the same entries.
         new_code <- original
         new_code$code_name <- split_name
         new_code$entry_ids <- character(0)

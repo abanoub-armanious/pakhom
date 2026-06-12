@@ -406,7 +406,11 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
         schema = response_schema
       )
     )
-  } else if (isTRUE(json_mode)) {
+  } else if (isTRUE(json_mode) || (!is.null(response_schema) && is_reasoning)) {
+    # Reasoning models (o1/o3/o4) don't support strict json_schema, so when the
+    # caller asked for a schema (or json_mode) honor the documented fallback to
+    # json_object mode -- previously a reasoning model + response_schema got NO
+    # structured-output enforcement at all.
     body$response_format <- list(type = "json_object")
   }
 

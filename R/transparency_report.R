@@ -412,7 +412,7 @@ bundle_transparency_report <- function(run_dir,
       criterion = "Dependability (reliability equivalent)",
       pakhom_mechanisms = c(
         "AC9: every AI call audit-logged with methodology stamp",
-        "AC10: stage-gating via filesystem state (checkpoint.rds)",
+        "AC10: stage-gating via filesystem state (checkpoints/*.rds)",
         "T1.5 soft-lock + parent_run_id (REDCap-style dev/production)",
         "Schema versioning on every persisted artifact"
       ),
