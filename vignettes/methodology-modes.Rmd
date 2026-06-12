@@ -205,7 +205,7 @@ A finalized run directory at `outputs/<run-id>_M1/` containing:
 - You are conducting reflexive thematic analysis (Braun & Clarke 2022) and want AI to challenge your interpretation, not produce it.
 - You have a constructionist or critical-realist epistemology where AI-generated themes would be epistemically incoherent with the methodology.
 - Your codebook is small (under ~150 codes) so you can author it manually and want depth over scale.
-- You're worried about Vikan et al. 2026's *engagement collapse* finding and want the package to force you back into the data via provocations.
+- You take seriously Vikan et al. 2025's finding that LLMs give only limited support for reflexive TA and that high-quality RTA still requires human interpretive engagement, and you want the package to keep you in the data via provocations rather than hand interpretation to the model.
 
 ## Mode 2: Codebook Collaborative (the auto-pipeline)
 

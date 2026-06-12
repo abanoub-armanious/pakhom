@@ -76,8 +76,9 @@
 #'   \item \strong{AC7}: Universal Tier-0 transparency requirements
 #'     (T0.1 quote provenance, T0.2 participant spread, T0.3 coverage)
 #'     in all modes.
-#'   \item \strong{AC8}: Modes are configurations of one architecture,
-#'     never separate code paths.
+#'   \item \strong{AC8}: Modes share one architecture and primitive layer;
+#'     Modes 2 and 3 are config branches of \code{run_analysis()} and Mode 1
+#'     (\code{run_mode1()}) layers its provocateur loop on the same primitives.
 #'   \item \strong{AC9}: Methodology rules generated from config and
 #'     injected into the model context every turn.
 #'   \item \strong{AC10}: Stage-gating via filesystem state.

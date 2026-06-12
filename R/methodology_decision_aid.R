@@ -80,7 +80,7 @@ methodology_decision_aid <- function(interactive = base::interactive(),
 
   # Interactive path: short prompt sequence.
   cat("\n=== pakhom methodology decision aid ===\n\n")
-  cat("Five short questions to help you pick a methodology mode.\n")
+  cat("Three short questions to help you pick a methodology mode.\n")
   cat("Run methodology_decision_aid(interactive = FALSE) for a comparison\n")
   cat("of the three modes without prompts.\n\n")
 

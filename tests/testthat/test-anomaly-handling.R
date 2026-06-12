@@ -209,8 +209,9 @@ test_that("revise policy writes framework_review.csv to output_dir", {
                                  output_dir = tmp_dir)
 
   expect_true(file.exists(file.path(tmp_dir, "framework_review.csv")))
+  # comment = "#" skips the AC4 methodology stamp header now prepended to the CSV.
   rev <- readr::read_csv(file.path(tmp_dir, "framework_review.csv"),
-                          show_col_types = FALSE)
+                          show_col_types = FALSE, comment = "#")
   expect_equal(nrow(rev), 3L)  # one row per anomaly segment
   expect_true("suggested_construct_edit" %in% names(rev))
   expect_true("accepted" %in% names(rev))

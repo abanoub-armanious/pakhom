@@ -18,7 +18,7 @@ A legacy coding state carries
 fix (JSON-escape bug) and the failure-reason field.
 Detect by inspecting the first quote's field set. Emit a
 \code{log_warn} explaining the methodology-era drift and how to
-realign (delete progressive_coding from checkpoint.rds and re-run
-from step 3). Silent on fresh runs (no checkpoint = no warning).
+realign (delete outputs/\if{html}{\out{<run>}}/checkpoints/progressive_coding.rds and
+re-run from step 3). Silent on fresh runs (no checkpoint = no warning).
 }
 \keyword{internal}

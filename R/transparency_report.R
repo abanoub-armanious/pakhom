@@ -808,13 +808,6 @@ bundle_transparency_report <- function(run_dir,
     "for the artifacts themselves (audit log, fabrication log, ",
     "coverage card, themes.json) -- all live in the same run ",
     "directory. The JSON companion (transparency_report.json) is ",
-    "wrapped in the AC4 file-level envelope.</p>\n",
-    "<p class='citation'><em>Planned for a future release:</em> the ",
-    "spec also envisaged surfacing M1.4 positionality drift, ",
-    "AC6 engagement-affordances summary, and the M1.6 counter-narrative ",
-    "log. The underlying data exists in the audit log + memos + ",
-    "provocations.csv but is not yet aggregated into this report. ",
-    "Tracked for a future tier; intentionally deferred to keep the ",
-    "Stage 1A scope tight.</p>\n"
+    "wrapped in the AC4 file-level envelope.</p>\n"
   )
 }

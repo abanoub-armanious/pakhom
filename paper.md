@@ -36,8 +36,9 @@ increasingly enlist large language models (LLMs) to assist or automate it.
 Unconstrained automation is risky: a recent evaluation of generative-AI thematic
 analysis reported multiple errors and between-method discrepancies serious enough
 that the tool could not be recommended for the task [@jowsey2025frankenstein], and
-assistant-tuned models tend to agree with and flatter the user rather than challenge
-them — a disposition that is corrosive to critical interpretation [@sarkar2024challenge].
+assistant-tuned models are optimized to complete the user's task and tend to go along
+with the user's framing rather than challenge it — a disposition that is corrosive to
+critical interpretation [@sarkar2024challenge].
 `pakhom` responds by encoding the *methodology itself* into the software
 architecture: the researcher declares one of three methodologically distinct modes,
 and the AI's permitted role — what it may propose, what the researcher must author,
@@ -73,9 +74,9 @@ authors to conclude that the tool could not be recommended for thematic analysis
 that the human analysts also produced fabricated quotes, at a substantially lower
 rate. Fabrication and selective reading are failure modes of qualitative analysis in
 general, which the scale and fluency of AI only amplify.
-These failures are compounded by the sycophancy of assistant-tuned models, whose
-inclination to agree rather than challenge undermines the critical stance that
-qualitative interpretation requires [@sarkar2024challenge]. `pakhom`'s mandatory
+These failures are compounded by the disposition of assistant-tuned models to advance
+the user's task rather than interrogate its premises, which undermines the critical
+stance that qualitative interpretation requires [@sarkar2024challenge]. `pakhom`'s mandatory
 transparency layer answers each failure architecturally: verbatim quote provenance,
 whole-corpus coverage, and per-theme participant spread.
 
@@ -127,7 +128,12 @@ qualitative work.
 - **Transparency and reproducibility.** Quote provenance, participant spread, and
   whole-corpus coverage are mandatory; runs are stamped with a methodology mode,
   configuration hash, and provider, supporting auditable comparison across re-runs;
-  and reflexive memos are first-class, round-trippable data.
+  and reflexive memos are first-class, round-trippable data. Because the underlying
+  models are generative, individual coding, sentiment, and synthesis outputs are not
+  bit-for-bit reproducible across runs (and the AI-judged saturation and clustering
+  convergence are model decisions, not threshold gates); the package therefore makes
+  runs *auditable and comparable* — through provenance, stamping, and cross-run
+  comparison — rather than claiming deterministic replay.
 
 The package is covered by a test suite of more than 4,900 expectations that runs
 entirely offline (all model calls are mocked) and is documented by a getting-started

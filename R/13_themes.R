@@ -1,6 +1,10 @@
 # ==============================================================================
 # Theme Generation: dispatch, deterministic cascade, and shared helpers
 # ==============================================================================
+
+# Per-session warning state (so the algorithm='v1' deprecation note is emitted
+# once per session, not on every theme-generation call).
+.themes_warn_state <- new.env(parent = emptyenv())
 # Theme generation runs the multi-pass, embedding-free clustering engine in
 # R/theme_algorithm_v2.R: the AI proposes a partition of the whole codebook,
 # regroups those clusters over further passes until it declares the partition
@@ -16,7 +20,7 @@
 #     each entry is mapped to themes / subthemes through its assigned codes with
 #     no AI re-reading of raw text, so given a fixed coding_state it reproduces
 #     exactly (pure R; the upstream coding that produced the codes is not).
-#   - shared helpers (.extract_codes_from_state, .fallback_theme_name) plus the
+#   - shared helpers (.extract_codes_from_state) plus the
 #     deterministic theme post-processing (keyword + sentiment-tendency
 #     enrichment) layered on the engine's output for the report.
 #
@@ -102,8 +106,10 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
   # algorithm was removed; a config that still pins algorithm = "v1" (or any
   # value other than "v2") is honored as v2 with a one-time deprecation note.
   algorithm <- as.character(config$algorithm %||% "v2")
-  if (!identical(algorithm, "v2")) {
+  if (!identical(algorithm, "v2") &&
+      !isTRUE(.themes_warn_state$v1_deprecation_warned)) {
     log_warn("themes algorithm '{algorithm}' is no longer available; using v2 (the only supported theme-generation engine).")
+    .themes_warn_state$v1_deprecation_warned <- TRUE
   }
   return(generate_themes_multipass(
     coding_state          = coding_state,
@@ -155,15 +161,6 @@ generate_themes_iterative <- function(coding_state, provider, config = list(),
   out[keep]
 }
 
-#' Fallback theme name when AI returns null name
-#' @keywords internal
-.fallback_theme_name <- function(leaf_indices, codes) {
-  if (length(leaf_indices) == 1L) return(codes[[leaf_indices]]$name)
-  # Pick the highest-frequency code in the cluster as a stand-in
-  freqs <- vapply(leaf_indices, function(i) codes[[i]]$frequency, integer(1))
-  top <- leaf_indices[which.max(freqs)]
-  paste(codes[[top]]$name, "(and related)")
-}
 
 
 # ==============================================================================
@@ -776,6 +773,12 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
   df <- do.call(rbind, lapply(rows, as.data.frame, stringsAsFactors = FALSE))
   out_path <- file.path(output_dir, "framework_review.csv")
   readr::write_csv(df, out_path)
+  # AC4: stamp the methodology mode onto this CSV like every other artifact.
+  # This path is Mode 3 only (it requires a framework_spec), so the mode is
+  # framework_applied.
+  tryCatch(stamp_methodology_csv(out_path, "framework_applied",
+                                  run_id = basename(output_dir)),
+           error = function(e) log_debug("CSV stamp skipped: {e$message}"))
   log_info("revise policy: framework_review.csv written to {out_path} ({nrow(df)} rows)")
 
   if (!is.null(audit_log)) {

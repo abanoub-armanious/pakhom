@@ -729,6 +729,7 @@ This runs the full pipeline on just 20 entries in a few minutes.
 
 If you use this package in published research, please cite:
 
-> [Armanious, A. J.](https://www.linkedin.com/in/abanoubarmanious/) (2026).
+> Armanious, A. J. (2026).
 > pakhom: AI-Assisted Thematic Analysis with
 > Methodology-as-Architecture [R package]. Version 1.0.0.
+> <https://orcid.org/0000-0002-7005-8297>

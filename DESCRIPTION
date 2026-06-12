@@ -69,4 +69,6 @@ Suggests:
     DT,
     igraph
 VignetteBuilder: knitr
+SystemRequirements: pandoc (>= 1.12.3) - for rendering the HTML analysis and
+    transparency reports (via rmarkdown)
 Config/testthat/edition: 3

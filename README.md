@@ -40,11 +40,14 @@ The empirical motivation comes from three lines of evidence:
   first 2-3 pages of data. pakhom's Tier-0 transparency layer (T0.1 quote
   provenance + T0.2 participant spread + T0.3 corpus coverage) is
   the architectural answer.
-- **Vikan et al. 2026** (Sage, doi:10.1177/10497323251365211) — under
-  prolonged AI use, researcher engagement collapses to verification mode.
-  Mode 1 forces the researcher back into the data through provocations;
-  Modes 2/3 provide the same re-engagement levers (review pause-points and
-  reflexive memos), opt-in rather than automatic.
+- **Vikan et al. 2025** (Qualitative Health Research,
+  doi:10.1177/10497323251365211) — an exploratory study finding that base LLMs
+  give only limited support for reflexive TA, do not improve efficiency, and
+  produce errors, exclusions, and fabrications across all analytical phases, so
+  high-quality reflexive TA still requires a human familiarization phase and
+  methodological competence. pakhom reflects this: Mode 1 keeps interpretive
+  authorship with the researcher, and the Tier-0 layer guards against the kind
+  of fabrication the study documents.
 
 The package's name, **pakhom**, is the Coptic Egyptian form of *Pachomius*
 — the desert abbot whose written **Rule** (c. 320 CE) established the genre
@@ -131,8 +134,9 @@ voice. The author is Coptic Egyptian.
   a human researcher would in NVivo. The AI codes applicable text segments
   inline, building and reusing a codebook organically as it goes. Per-entry
   prompts use additive semantic retrieval: top-N most-frequent codes plus
-  top-K semantically similar codes per entry, so the
-  AI never sees a truncated codebook and rarely re-invents existing codes
+  top-K semantically similar codes per entry, so even for a large codebook the
+  AI sees the codes most relevant to the current entry (rather than an
+  arbitrary truncation) and rarely re-invents existing codes
 - **AI saturation arbiter** -- per the architectural commitment that the AI
   decides when to stop (C1), saturation is judged by a structured AI call
   ("reached / not_yet / uncertain" with a 30+ char articulation requirement)
@@ -421,16 +425,18 @@ the contract a peer reviewer can check the package's claims against:
 - **AC1**: AI is scaffold by architecture, not by configuration.
 - **AC2**: Three modes; no fourth.
 - **AC3**: No default mode; explicit declaration mandatory.
-- **AC4**: Methodology stamped on every output (`run_metadata.json`,
-  every CSV/JSON header, HTML stamp, plot watermarks).
+- **AC4**: Methodology stamped across outputs: `run_metadata.json`, CSV and
+  JSON artifacts, the HTML report stamp, and plot captions.
 - **AC5**: Soft-lock with audit trail; methodology change creates a new
   run with `parent_run_id` linkage (REDCap dev/production pattern).
 - **AC6**: Symmetric researcher-engagement affordances across modes: reflexive
   memos and review pause-points exist in every mode (the Modes 2/3
   pause-points are opt-in, off by default).
 - **AC7**: Universal Tier-0 transparency requirements in all modes.
-- **AC8**: Modes are configurations of one architecture, never separate
-  code paths.
+- **AC8**: Modes share one architecture and primitive layer (run state, audit
+  log, coverage, output stamping, the `run_metadata.json` schema). Modes 2 and
+  3 are config branches of the same `run_analysis()`; Mode 1 (`run_mode1()`)
+  layers its provocateur loop on those same primitives rather than forking them.
 - **AC9**: Methodology rules generated from config and injected into
   the model context every turn (Lin and Corley 2025 pattern).
 - **AC10**: Stage-gating via filesystem state.
