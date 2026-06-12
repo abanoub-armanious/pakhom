@@ -1015,7 +1015,7 @@ provoke_absent_voice <- function(theme_name, theme_entries, data, provider,
 #' framing erases.
 #' @inheritParams provoke_counter_narrative
 #' @param key_term Character: the researcher's term to challenge (e.g.,
-#'   "binge-eating"). Defaults to the theme name itself.
+#'   "remote work"). Defaults to the theme name itself.
 #' @param n_alternatives Integer: how many alternative-term provocations
 #'   to request from the model (default 3).
 #' @export

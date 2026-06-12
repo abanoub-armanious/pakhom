@@ -111,22 +111,34 @@ generate_run_id <- function() {
 #' @keywords internal
 #' @noRd
 .with_seed <- function(seed, code) {
+  # Pin the RNG kind so a seeded result is portable regardless of the caller's
+  # global RNGkind() setting (the same seed gives the same draw on any session).
   if (requireNamespace("withr", quietly = TRUE)) {
-    return(withr::with_seed(seed, code))
+    return(withr::with_seed(
+      seed, code,
+      .rng_kind        = "Mersenne-Twister",
+      .rng_normal_kind = "Inversion",
+      .rng_sample_kind = "Rejection"
+    ))
   }
-  # Fallback: replicate withr::with_seed -- seed the RNG for `code`, then
-  # restore the caller's prior RNG state so the global stream is untouched.
+  # Fallback (withr absent): pin the kind + seed for `code`, then restore the
+  # caller's prior RNG kind AND state so the global stream is untouched.
+  old_kind <- RNGkind()
   if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
     old_seed <- get(".Random.seed", envir = globalenv(), inherits = FALSE)
-    on.exit(assign(".Random.seed", old_seed, envir = globalenv()), add = TRUE)
+    on.exit({
+      RNGkind(old_kind[1], old_kind[2], old_kind[3])
+      assign(".Random.seed", old_seed, envir = globalenv())
+    }, add = TRUE)
   } else {
-    on.exit(
+    on.exit({
+      RNGkind(old_kind[1], old_kind[2], old_kind[3])
       if (exists(".Random.seed", envir = globalenv(), inherits = FALSE)) {
         rm(".Random.seed", envir = globalenv())
-      },
-      add = TRUE
-    )
+      }
+    }, add = TRUE)
   }
+  suppressWarnings(RNGkind("Mersenne-Twister", "Inversion", "Rejection"))
   set.seed(seed)
   code
 }

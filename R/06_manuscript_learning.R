@@ -396,9 +396,9 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
   # ordering of studies so no single study is consistently in the
   # first-iterated position. Earlier iteration used `for (study
   # in studies$studies)`, which always put the first-registered
-  # study (e.g. Dayvigo) first. Plain alphabetical sort would not
-  # help if alphabetical order happens to match registration order
-  # (Dayvigo < Ozempic < Vyvanse), so each study name is hashed and
+  # study first. Plain alphabetical sort would not
+  # help if alphabetical order happens to match registration order,
+  # so each study name is hashed and
   # iteration order is set by the hash. The hash is deterministic
   # (R7 replay-equivalence preserved) AND uncorrelated with
   # registration / alphabetical order.
@@ -690,6 +690,13 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
 
   ctx <- list(
     for_coding = paste(c(coding_parts, coding_style_parts), collapse = "\n\n"),
+    # The codebook hierarchy + cross-study patterns -- the "primary learning
+    # source" for coding. Exposed as its own field so the per-entry coding
+    # prompt can inject it: for_coding bundles it with the style guidance, which
+    # is injected separately, so injecting for_coding wholesale would duplicate
+    # the style block. Without this field the hierarchy was never sent to the
+    # coding model at all (built, logged, but unused).
+    for_coding_hierarchy = paste(coding_parts, collapse = "\n\n"),
     for_coding_calibration = paste(calibration_parts, collapse = "\n\n"),
     for_coding_style = paste(coding_style_parts, collapse = "\n\n"),
     for_coding_discards = paste(coding_discard_parts, collapse = "\n\n"),
@@ -698,9 +705,9 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
     # context so every prior study appears equally prominent at the
     # TOP of the AI's prompt context. Earlier the per-study
     # chunks were concatenated in iteration order; the AI's attention
-    # disproportionately referenced whichever study was first
-    # (Dayvigo named 3x in the audit's calibration reflection;
-    # Ozempic + Vyvanse never named). The roster forces equal
+    # disproportionately referenced whichever study was first (one
+    # study was named three times in the audit's calibration reflection
+    # while the others were never named). The roster forces equal
     # mention up front; the depth chunks below give the AI specifics.
     for_theming = paste(
       c(.build_study_roster(studies), theming_parts),
@@ -744,8 +751,8 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
 #' \code{ctx$for_theming} so every study name appears at the TOP of the
 #' AI's context window with equal prominence. An audit found
 #' that without this, the AI's "synthesis reflection" referenced
-#' whichever study was iterated first (Dayvigo, 3x) and never named
-#' Ozempic or Vyvanse despite all three being in the context.
+#' whichever study was iterated first (one study, three times) and
+#' never named the others despite all being in the context.
 #'
 #' Returns "" when fewer than 2 studies are available (a single
 #' study trivially gets full attention; no balancing needed).
@@ -789,6 +796,7 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
 .empty_learning_context <- function() {
   ctx <- list(
     for_coding = "",
+    for_coding_hierarchy = "",
     for_theming = "",
     for_review = "",
     for_coding_calibration = "",
@@ -1504,6 +1512,28 @@ parse_codebook <- function(path) {
   if (any(!is.na(codebook$parent_code) & nchar(trimws(codebook$parent_code)) > 0)) {
     has_parent <- !is.na(codebook$parent_code) & nchar(trimws(codebook$parent_code)) > 0
     codebook$hierarchy_level[has_parent] <- 1L
+    return(codebook)
+  }
+
+  # NVivo / ATLAS.ti "Hierarchical Name" exports encode the tree as a delimited
+  # PATH in the name itself ("Parent\\Child\\Leaf", "Parent::Child", or
+  # "Parent > Child"). Recover parent_code + hierarchy_level from the path and
+  # reduce code_name to the leaf, so a path-style export is not collapsed to a
+  # single un-nested level. The delimiters are unambiguous (backslash / "::" /
+  # spaced " > "), so a plain code name like "score>5" is left untouched.
+  nm <- as.character(codebook$code_name)
+  path_delim <- "\\\\|::| > "
+  has_path <- !is.na(nm) & grepl(path_delim, nm)
+  if (any(has_path)) {
+    for (i in which(has_path)) {
+      segs <- trimws(strsplit(nm[i], path_delim)[[1]])
+      segs <- segs[nzchar(segs)]
+      if (length(segs) >= 2L) {
+        codebook$code_name[i]       <- segs[length(segs)]
+        codebook$parent_code[i]     <- segs[length(segs) - 1L]
+        codebook$hierarchy_level[i] <- as.integer(length(segs) - 1L)
+      }
+    }
     return(codebook)
   }
 

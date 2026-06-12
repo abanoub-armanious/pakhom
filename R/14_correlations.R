@@ -244,12 +244,9 @@ detect_variable_types <- function(corr_data, ordinal_max = 21L) {
     # Shapiro-Wilk on subsample if n > 5000 (seeded for reproducibility)
     test_n <- min(n, 5000)
     if (test_n < n) {
-      withr_available <- requireNamespace("withr", quietly = TRUE)
-      if (withr_available) {
-        idx <- withr::with_seed(42, sample(n, test_n))
-      } else {
-        idx <- seq(1, n, length.out = test_n) |> round() |> unique()
-      }
+      # .with_seed yields the same seeded random subsample with or without withr
+      # (its fallback no longer switches to a different deterministic stride).
+      idx <- .with_seed(42, sample(n, test_n))
       x_test <- x_complete[idx]
       y_test <- y_complete[idx]
     } else {

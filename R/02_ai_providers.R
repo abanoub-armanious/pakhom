@@ -248,6 +248,7 @@ ai_complete <- function(provider, prompt, system_prompt = NULL,
   }
 
   last_error <- NULL
+  permanent  <- FALSE
 
   for (attempt in seq_len(max_retries)) {
     result <- tryCatch({
@@ -264,6 +265,15 @@ ai_complete <- function(provider, prompt, system_prompt = NULL,
       }
     }, error = function(e) {
       last_error <<- e
+      # A "permanent" error is a deterministic failure AFTER a billed 200
+      # response (empty choices/content, forced tool not called) or a
+      # non-retryable HTTP status (400/401/403/...). Retrying only re-charges
+      # for the same result, so fail fast -- no retry, no backoff.
+      if (inherits(e, "pakhom_permanent_error")) {
+        permanent <<- TRUE
+        log_warn("AI request failed permanently (attempt {attempt}): {e$message}")
+        return(NULL)
+      }
       log_warn("AI request failed (attempt {attempt}/{max_retries}): {e$message}")
 
       # Rate limit backoff (capped at 60s)
@@ -279,10 +289,27 @@ ai_complete <- function(provider, prompt, system_prompt = NULL,
     })
 
     if (!is.null(result)) return(result)
+    if (permanent) break  # do not re-charge for a deterministic failure
   }
 
-  stop(sprintf("AI request failed after %d attempts: %s",
-               max_retries, last_error$message %||% "unknown error"))
+  stop(sprintf("AI request failed after %d attempt(s): %s",
+               attempt, last_error$message %||% "unknown error"))
+}
+
+#' Raise a non-retryable ("permanent") API error
+#'
+#' Signals a failure that retrying cannot fix -- a deterministic post-200
+#' extraction failure, or a non-retryable HTTP status -- so
+#' \code{\link{ai_complete}}'s retry loop fails fast instead of re-charging for
+#' the same result. Carries the same message text as a plain \code{stop()} (so
+#' \code{expect_error()} matchers and user-facing messages are unchanged) plus
+#' the \code{pakhom_permanent_error} condition class.
+#' @keywords internal
+.stop_permanent <- function(message) {
+  stop(structure(
+    class = c("pakhom_permanent_error", "error", "condition"),
+    list(message = message, call = NULL)
+  ))
 }
 
 #' Send a quick completion using the fast/cheap model
@@ -398,12 +425,15 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
   status <- resp_status(resp)
   if (status != 200) {
     body_text <- resp_body_string(resp)
-    stop(sprintf("OpenAI API error (HTTP %d): %s", status, substr(body_text, 1, 500)))
+    msg <- sprintf("OpenAI API error (HTTP %d): %s", status, substr(body_text, 1, 500))
+    # 4xx client errors (bad request / auth / forbidden / not found / model)
+    # will not change on retry; 429 + 5xx are transient and retryable.
+    if (status %in% c(400, 401, 403, 404, 405, 422)) .stop_permanent(msg) else stop(msg)
   }
 
   parsed <- resp_body_json(resp)
   if (length(parsed$choices) == 0) {
-    stop("OpenAI API returned empty choices array")
+    .stop_permanent("OpenAI API returned empty choices array")
   }
   content <- parsed$choices[[1]]$message$content
   finish_reason <- parsed$choices[[1]]$finish_reason %||% "stop"
@@ -526,12 +556,13 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
   status <- resp_status(resp)
   if (status != 200) {
     body_text <- resp_body_string(resp)
-    stop(sprintf("Anthropic API error (HTTP %d): %s", status, substr(body_text, 1, 500)))
+    msg <- sprintf("Anthropic API error (HTTP %d): %s", status, substr(body_text, 1, 500))
+    if (status %in% c(400, 401, 403, 404, 405, 422)) .stop_permanent(msg) else stop(msg)
   }
 
   parsed <- resp_body_json(resp)
   if (length(parsed$content) == 0) {
-    stop("Anthropic API returned empty content array")
+    .stop_permanent("Anthropic API returned empty content array")
   }
 
   # T1.2: when response_schema is set tool_use was forced, so extract the
@@ -554,7 +585,7 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
       }
     }
     if (is.null(tool_block) || is.null(tool_block$input)) {
-      stop("Anthropic API: forced tool_use returned no record_analysis call")
+      .stop_permanent("Anthropic API: forced tool_use returned no record_analysis call")
     }
     content <- as.character(jsonlite::toJSON(tool_block$input, auto_unbox = TRUE))
     # tool_use was forced so stop_reason is always "tool_use" -- map to "stop"

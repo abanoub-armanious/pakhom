@@ -209,8 +209,9 @@ load_corpus_from_config <- function(config, apply_test_mode = TRUE) {
     test_n <- config$analysis$test_mode$sample_size %||% 100
     test_seed <- config$analysis$test_mode$seed %||% 42
     if (test_n < nrow(data)) {
-      set.seed(test_seed)
-      data <- data[sample(nrow(data), test_n), ]
+      # .with_seed (not a bare set.seed) so this exported loader does not leave
+      # the caller's global RNG stream reset to a fixed state.
+      data <- .with_seed(test_seed, data[sample(nrow(data), test_n), ])
       log_info("TEST MODE: sampled {test_n} entries (seed={test_seed})")
     }
   }

@@ -240,7 +240,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
 # ==============================================================================
 # dataset-agnostic metric helpers + per-subtheme stats
 # ==============================================================================
-# The paper-style per-theme tables in dayvigo / ozempic / vyvanse-quality
+# The paper-style per-theme tables in publication-quality
 # analyses show one row per subtheme with: n, Median(MAD) <metric>,
 # Mean(SD) <metric>, Examples of comments tagged [metric: value; ...].
 # pakhom implements that surface while staying dataset-

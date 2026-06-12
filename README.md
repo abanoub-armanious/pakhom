@@ -495,7 +495,7 @@ output rendering must honour them:
   Surface-level decisions (sentiment cutoff, prevalence bins, etc.)
   should NOT branch on mode — only deep architectural decisions do.
 - **C8 — Publication-quality output shape.** The output target
-  approximates the Eaton 2020 / dayvigo-paper per-theme subtheme
+  approximates an Eaton 2020-style per-theme subtheme
   table: subtheme name, n, Median(MAD) + Mean(SD) on the most
   interesting metrics, supporting quotes with metric tags. The
   package picks summary statistics appropriately for each metric —

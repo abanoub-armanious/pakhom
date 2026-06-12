@@ -531,11 +531,11 @@ prim_shapiro_p <- function(x) {
   n <- length(v)
   if (n < 3L || length(unique(v)) < 3L) return(NA_real_)
   if (n > 5000L) {
-    idx <- if (requireNamespace("withr", quietly = TRUE)) {
-      withr::with_seed(42, sample(n, 5000))
-    } else {
-      unique(round(seq(1, n, length.out = 5000)))
-    }
+    # .with_seed gives the SAME seeded random subsample whether or not withr is
+    # installed (it has a withr-free RNG fallback); the previous else-branch
+    # used a different (deterministic stride) sample, so results diverged across
+    # environments.
+    idx <- .with_seed(42, sample(n, 5000))
     v <- v[idx]
   }
   tryCatch(stats::shapiro.test(v)$p.value, error = function(e) NA_real_)

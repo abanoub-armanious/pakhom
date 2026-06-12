@@ -30,7 +30,7 @@ NOT given the full corpus to search.}
 \item{provider}{AIProvider object.}
 
 \item{key_term}{Character: the researcher's term to challenge (e.g.,
-"binge-eating"). Defaults to the theme name itself.}
+"remote work"). Defaults to the theme name itself.}
 
 \item{n_alternatives}{Integer: how many alternative-term provocations
 to request from the model (default 3).}

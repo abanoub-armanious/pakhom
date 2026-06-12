@@ -1714,6 +1714,15 @@ run_progressive_coding <- function(data, provider, config = list(),
 
   # Learning context: codebook examples, style, discards
   if (!is.null(learning_context)) {
+    # The prior-studies codebook hierarchy is the PRIMARY learning source: send
+    # it first so the model reuses established codes where they fit rather than
+    # re-inventing them. (Previously this slice was built and logged but never
+    # injected into the coding prompt.)
+    if (nchar(learning_context$for_coding_hierarchy %||% "") > 0) {
+      prompt <- paste0(prompt,
+                       "\n## CODEBOOK FROM PRIOR STUDIES (reuse these codes where the text fits them)\n",
+                       learning_context$for_coding_hierarchy, "\n")
+    }
     if (nchar(learning_context$for_coding_style %||% "") > 0) {
       prompt <- paste0(prompt, "\n## CODING STYLE (from previous analyses)\n",
                         learning_context$for_coding_style, "\n")

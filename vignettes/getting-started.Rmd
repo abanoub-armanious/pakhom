@@ -487,12 +487,12 @@ should have its own subfolder ending with the word "study":
 
 ```
 manual analyses/
-  dayvigo_study/
+  first_study/
     manuscript.docx     <- Your completed analysis
     raw data/           <- Optional: original coded entries
       2024-01-15_user1_Rating 4.5.docx
       2024-02-20_user2_Rating 3.0.docx
-  ozempic_study/
+  second_study/
     manuscript.docx
     raw data/
 ```

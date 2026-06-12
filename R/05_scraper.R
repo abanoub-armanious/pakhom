@@ -274,10 +274,16 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
   )
 
   while (posts_added + posts_skipped < max_posts) {
-    # Build URL
+    # Build URL. URL-encode the externally-derived path/query components
+    # (subreddit, after cursor) so a name with reserved characters cannot
+    # alter the request path or inject query parameters.
     url <- sprintf("https://oauth.reddit.com/r/%s/%s.json?limit=%d&t=%s",
-                    subreddit, sort_by, chunk_size, time_filter)
-    if (!is.null(after)) url <- paste0(url, "&after=", after)
+                    utils::URLencode(as.character(subreddit), reserved = TRUE),
+                    sort_by, chunk_size, time_filter)
+    if (!is.null(after)) {
+      url <- paste0(url, "&after=",
+                    utils::URLencode(as.character(after), reserved = TRUE))
+    }
 
     data <- .reddit_api_get(url, token, creds)
     if (is.null(data)) break
@@ -355,7 +361,8 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
 
 .scrape_post_comments <- function(db, subreddit, post_id, token, creds) {
   url <- sprintf("https://oauth.reddit.com/r/%s/comments/%s.json?limit=200",
-                  subreddit, post_id)
+                  utils::URLencode(as.character(subreddit), reserved = TRUE),
+                  utils::URLencode(as.character(post_id), reserved = TRUE))
 
   data <- .reddit_api_get(url, token, creds)
   if (is.null(data) || length(data) < 2) return(0L)

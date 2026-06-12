@@ -12,8 +12,8 @@ one-line characterization (n_codes, top theme count). Prepended to
 \code{ctx$for_theming} so every study name appears at the TOP of the
 AI's context window with equal prominence. An audit found
 that without this, the AI's "synthesis reflection" referenced
-whichever study was iterated first (Dayvigo, 3x) and never named
-Ozempic or Vyvanse despite all three being in the context.
+whichever study was iterated first (one study, three times) and
+never named the others despite all being in the context.
 }
 \details{
 Returns "" when fewer than 2 studies are available (a single

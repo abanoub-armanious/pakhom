@@ -27,6 +27,20 @@
   }
 }
 
+#' Escape a value for safe embedding in a Markdown (pipe) table cell
+#'
+#' Applies \code{.html_esc} (so AI- or user-supplied text cannot inject HTML
+#' once pandoc renders the table) and escapes the pipe character -- a literal
+#' \code{"|"} would otherwise split the row into extra columns and corrupt the
+#' table structure. Newlines are collapsed so a multi-line value cannot break
+#' the single-row cell.
+#' @keywords internal
+.md_cell <- function(x) {
+  x <- .html_esc(x)
+  x <- gsub("[\r\n]+", " ", x)
+  gsub("|", "\\|", x, fixed = TRUE)
+}
+
 # Allowlisted URL schemes for links embedded in AI-generated prose (consumed by
 # .url_scheme_unsafe / .defang_unsafe_links below). Everything else --
 # javascript:, data:, vbscript:, file:, ... -- is defanged, because pandoc turns
@@ -976,6 +990,11 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     "    theme: flatly\n",
     "    highlight: pygments\n",
     "    self_contained: ", sc_flag, "\n",
+    # mathjax: null keeps the report genuinely offline: rmarkdown otherwise
+    # injects its default MathJax from a remote CDN even when self_contained,
+    # contradicting the no-CDN / offline claim. The report contains no LaTeX
+    # math, so disabling it has no visible effect.
+    "    mathjax: null\n",
     "    css: styles.css\n",
     "---\n\n"
   )
@@ -1133,7 +1152,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     for (i in seq_len(nrow(overall_stats$source_breakdown))) {
       row <- overall_stats$source_breakdown[i, ]
       content <- paste0(content,
-        "| ", row$source_table, " | ", format(row$n, big.mark = ","),
+        "| ", .md_cell(row$source_table), " | ", format(row$n, big.mark = ","),
         " | ", row$pct, "% |\n"
       )
     }
@@ -1571,8 +1590,8 @@ generate_report <- function(data, theme_set, correlations_df, insights,
       row <- stats$emotions[i, ]
       interp <- get_emotion_interpretation(row$emotion)
       content <- paste0(content,
-        "| ", row$emotion, " | ", format(row$n, big.mark = ","),
-        " | ", row$pct, "% | ", stringr::str_to_sentence(interp), " |\n"
+        "| ", .md_cell(row$emotion), " | ", format(row$n, big.mark = ","),
+        " | ", row$pct, "% | ", .md_cell(stringr::str_to_sentence(interp)), " |\n"
       )
     }
     content <- paste0(content, "\n")
@@ -1853,7 +1872,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     # per-subtheme paper-style table. One row per real
     # subtheme: name, n, Median(MAD) + Mean(SD) for each auto-detected
     # metric column, examples-of-comments column with quotes tagged
-    # [metric: value; ...]. Matches the dayvigo/ozempic/vyvanse paper
+    # [metric: value; ...]. Matches the target publication paper
     # layout. Skipped when the theme has no real subthemes (only the
     # virtual NA-named wrapper from the hierarchy) or when no metrics
     # were auto-detected.
@@ -1906,7 +1925,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
           '<div class="quote-meta">\n',
           '<span class="sentiment-pill ', qclass, '">', slabel, '</span>\n',
           'Sentiment: ', if (is.na(q_sent)) "N/A" else round(q_sent, 2),
-          ' &bull; ', q$emotion %||% "N/A", '\n',
+          ' &bull; ', .html_esc(q$emotion %||% "N/A"), '\n',
           '</div>\n',
           '</div>\n\n'
         )

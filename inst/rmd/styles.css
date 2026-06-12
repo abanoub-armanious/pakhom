@@ -3,9 +3,11 @@
    ============================================================================== */
 
 /* ============================================
-   IMPORTS & CSS VARIABLES
+   CSS VARIABLES
    ============================================ */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap");
+/* No remote @import: the report is self-contained and offline (no CDN), so
+   web fonts are NOT fetched from fonts.googleapis.com. The font-family stacks
+   below fall back to the reader's system sans-serif / serif faces. */
 
 :root {
   --primary: #2C3E50;
