@@ -16,6 +16,18 @@ test_that(".html_esc handles numeric input", {
   expect_equal(pakhom:::.html_esc(42), "42")
 })
 
+test_that(".html_esc is vectorized (longitudinal emergence-table regression)", {
+  # The longitudinal emergence table renders a whole column at once via
+  # paste0(.md_cell(col), collapse = ""); a length > 1 vector must escape
+  # element-wise, not error in is.na() coercion to logical(1).
+  expect_equal(pakhom:::.html_esc(c("a & b", "<x>", "c")),
+               c("a &amp; b", "&lt;x&gt;", "c"))
+  expect_equal(pakhom:::.html_esc(c("ok", NA, "x")), c("ok", "", "x"))
+  expect_equal(pakhom:::.html_esc(character(0)), "")
+  # .md_cell over a vector likewise does not error
+  expect_equal(pakhom:::.md_cell(c("a|b", "c")), c("a\\|b", "c"))
+})
+
 # Regression guard: the report's knit-time chunks read the AC4-stamped output
 # CSVs (sentiment/correlations/codes). If a generated read_csv omits comment='#',
 # the stamp's "# methodology:" line is parsed as the header, every real column

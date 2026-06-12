@@ -10,8 +10,14 @@
 #' @return HTML-safe string
 #' @keywords internal
 .html_esc <- function(x) {
-  if (is.null(x) || is.na(x)) return("")
+  if (is.null(x)) return("")
   x <- as.character(x)
+  # Vectorized: callers render whole table columns at once via
+  # paste0(..., collapse = "") (e.g. the longitudinal emergence table), so a
+  # length > 1 x must escape element-wise rather than error in is.na(). NA
+  # elements become "" so a missing cell renders empty, not the string "NA".
+  x[is.na(x)] <- ""
+  if (length(x) == 0L) return("")
   if (requireNamespace("htmltools", quietly = TRUE)) {
     # htmltools::htmlEscape doesn't escape quotes by default
     out <- as.character(htmltools::htmlEscape(x))
