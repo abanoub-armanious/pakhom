@@ -454,6 +454,43 @@ test_that("create_correlation_plot dispatches to lollipop above max_inline_vars"
 
 
 # ==========================================================================
+# Regression: a non-finite correlation matrix (real corpora produce
+# zero-variance code pairs -> NA correlations) must NOT abort the run. The
+# corrplot "hclust" ordering dies on NA/NaN/Inf, and the methodology-stamp
+# mtext footer then threw "plot.new has not been called yet" (uncaught),
+# aborting a run whose coding + theming were already done.
+# ==========================================================================
+
+test_that("create_correlation_plot survives a non-finite correlation matrix", {
+  skip_if_not_installed("corrplot")  # the heatmap path is where the abort lived
+  n <- 5L
+  cm <- matrix(runif(n * n, -1, 1), nrow = n)
+  cm <- (cm + t(cm)) / 2
+  diag(cm) <- 1
+  # zero-variance code pair -> NA correlation (and an Inf for good measure)
+  cm[1L, 4L] <- cm[4L, 1L] <- NA_real_
+  cm[2L, 5L] <- cm[5L, 2L] <- Inf
+  rownames(cm) <- colnames(cm) <- paste0("theme_membership_v", seq_len(n))
+  pa <- matrix(runif(n * n, 0, 0.5), nrow = n)
+  rownames(pa) <- colnames(pa) <- rownames(cm)
+  results <- list(correlation_matrix = cm, p_adjusted = pa)
+
+  tmp <- tempfile(fileext = ".png")
+  on.exit(unlink(tmp), add = TRUE)
+  dev_before <- grDevices::dev.cur()
+
+  # methodology_mode set so the mtext footer path (the abort site) is exercised.
+  expect_no_error(
+    create_correlation_plot(results, tmp, max_inline_vars = 100L,
+                            methodology_mode = "framework_applied",
+                            run_id = "regression_run")
+  )
+  # and the graphics device must be closed, not leaked
+  expect_identical(grDevices::dev.cur(), dev_before)
+})
+
+
+# ==========================================================================
 # H-23 per-theme detail HTML embeds the paper-style subtheme table
 # ==========================================================================
 

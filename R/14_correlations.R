@@ -853,6 +853,10 @@ create_correlation_plot <- function(results, output_path,
   bottom_margin <- max(2, ceiling(max(nchar(colnames(cm))) * 0.15))
 
   png(output_path, width = plot_size, height = plot_size, res = 120)
+  # Guarantee the graphics device closes even if a downstream call errors. A
+  # failed *cosmetic* correlation plot must never leak a device or abort a run
+  # whose coding + theming are already done.
+  on.exit(if (grDevices::dev.cur() > 1L) grDevices::dev.off(), add = TRUE)
 
   # #2b consistency: blank excluded (analyst-internal / circular) pairs so they
   # are not shown as significant. Their colour + coefficient would otherwise
@@ -860,9 +864,16 @@ create_correlation_plot <- function(results, output_path,
   # and exclusion_reason.
   pa_plot <- .mask_excluded_pvalues(pa, excluded_mat)
 
+  # order = "hclust" runs dist()/hclust() on the matrix, which dies with
+  # "NA/NaN/Inf in foreign function call" on any non-finite cell. Real corpora
+  # produce zero-variance code pairs -> NA correlations, so fall back to the
+  # unordered layout when the matrix isn't all-finite; the plot still renders.
+  cm_order <- if (all(is.finite(cm))) "hclust" else "original"
+
+  plot_drawn <- FALSE
   tryCatch({
     corrplot::corrplot(
-      cm, method = "color", type = "upper", order = "hclust",
+      cm, method = "color", type = "upper", order = cm_order,
       tl.col = "black", tl.srt = 45, tl.cex = max(0.5, 0.9 - n_vars * 0.03),
       addCoef.col = "black", number.cex = max(0.4, 0.7 - n_vars * 0.02),
       col = grDevices::colorRampPalette(
@@ -871,12 +882,17 @@ create_correlation_plot <- function(results, output_path,
       title = "Correlation Matrix with Significance",
       mar = c(bottom_margin, 0, 2, 0)
     )
+    plot_drawn <- TRUE
   }, error = function(e) {
     log_warn("Corrplot failed: {e$message}")
   })
 
-  # T1.7 (AC4): methodology stamp footer
-  if (!is.null(methodology_mode)) {
+  # The mtext footers require an ACTIVE high-level plot; calling mtext on an
+  # empty device throws "plot.new has not been called yet", which (uncaught)
+  # previously aborted the whole pipeline after a failed corrplot. Only add the
+  # captions when corrplot actually drew a plot.
+  if (plot_drawn && !is.null(methodology_mode)) {
+    # T1.7 (AC4): methodology stamp footer
     graphics::mtext(
       methodology_plot_caption(methodology_mode, run_id),
       side = 1, line = bottom_margin - 1, cex = 0.7, col = "#7F8C8D", adj = 1,
@@ -886,7 +902,7 @@ create_correlation_plot <- function(results, output_path,
 
   # #2b consistency: disclose the blanked circular pairs (kept in the CSV) so
   # the heatmap's omission is transparent rather than silent.
-  if (n_excluded_shown > 0L) {
+  if (plot_drawn && n_excluded_shown > 0L) {
     graphics::mtext(
       sprintf("%d analyst-internal/circular pair(s) excluded from findings (shown in correlations.csv with exclusion_reason).",
               n_excluded_shown),
@@ -896,7 +912,12 @@ create_correlation_plot <- function(results, output_path,
   }
 
   grDevices::dev.off()
-  log_info("Correlation plot saved: {output_path}")
+  if (plot_drawn) {
+    log_info("Correlation plot saved: {output_path}")
+  } else {
+    log_warn("Correlation plot not rendered (corrplot failed); ",
+             "correlations.csv still has the full results.")
+  }
 }
 
 #' Top-N effect-size lollipop chart for large correlation matrices
