@@ -242,6 +242,7 @@ reference:
       - get_analytic_sample
       - analyze_sentiment
       - generate_themes_iterative
+      - generate_themes_multipass
       - cascade_theme_assignments
       - enrich_themes
       - calculate_correlations

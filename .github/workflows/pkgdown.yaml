@@ -1,0 +1,63 @@
+# Build and deploy the pkgdown documentation site to GitHub Pages.
+#
+# The site at the URL advertised in DESCRIPTION / README / CITATION.cff
+# (https://abanoub-armanious.github.io/pakhom/) is built here rather than
+# committed to a docs/ folder, so the published reference is always in sync with
+# the source and never goes stale.
+#
+# Prerequisites (one-time, maintainer): the repository must be PUBLIC and
+# Settings > Pages > Source must be set to "GitHub Actions". Until then this
+# workflow runs the build but the deploy step is a no-op / fails to publish.
+
+name: pkgdown
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pkgdown-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pkgdown:
+    runs-on: ubuntu-latest
+    # Only deploy on push/release to the default branch (or tags), not on PRs.
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::pkgdown, local::.
+          needs: website
+
+      - name: Build site
+        run: pkgdown::build_site_github_pages(new_process = FALSE, install = FALSE)
+        shell: Rscript {0}
+
+      - name: Deploy to GitHub Pages
+        if: github.event_name != 'pull_request'
+        uses: JamesIves/github-pages-deploy-action@v4.5.0
+        with:
+          clean: false
+          branch: gh-pages
+          folder: docs

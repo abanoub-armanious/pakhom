@@ -1,5 +1,11 @@
 # pakhom
 
+<!-- badges: start -->
+[![R-CMD-check](https://github.com/abanoub-armanious/pakhom/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/abanoub-armanious/pakhom/actions/workflows/R-CMD-check.yaml)
+[![Lifecycle: stable](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+<!-- badges: end -->
+
 > AI-Assisted Thematic Analysis (reflexive · codebook · framework modes) with Methodology-as-Architecture
 
 **pakhom** is an R package that conducts AI-assisted thematic analysis across three

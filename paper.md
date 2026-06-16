@@ -1,10 +1,3 @@
-<!--
-NOTE TO MAINTAINER, before any JOSS submission:
-  1. ORCID is set below. Confirm the `affiliation` (currently "Independent
-     Researcher") is how you want to be listed, or set an institution.
-  2. JOSS requires the software repository to be PUBLIC; make it public first.
-This paper.md / paper.bib are excluded from the built package tarball via .Rbuildignore.
--->
 ---
 title: 'pakhom: AI-Assisted Thematic Analysis with Methodology-as-Architecture'
 tags:
@@ -18,10 +11,12 @@ tags:
 authors:
   - name: Abanoub J. Armanious
     orcid: 0000-0002-7005-8297
-    affiliation: 1
+    affiliation: "1, 2"
 affiliations:
-  - name: Independent Researcher
+  - name: Department of Psychiatry, Robert Wood Johnson Medical School, Rutgers University, Piscataway, NJ, USA
     index: 1
+  - name: Brain Health Institute, Rutgers Biomedical and Health Sciences, Rutgers University, Piscataway, NJ, USA
+    index: 2
 date: 4 June 2026
 bibliography: paper.bib
 ---
@@ -37,12 +32,12 @@ Unconstrained automation is risky: a recent evaluation of generative-AI thematic
 analysis reported multiple errors and between-method discrepancies serious enough
 that the tool could not be recommended for the task [@jowsey2025frankenstein], and
 assistant-tuned models are optimized to complete the user's task and tend to go along
-with the user's framing rather than challenge it — a disposition that is corrosive to
+with the user's framing rather than challenge it, a disposition that is corrosive to
 critical interpretation [@sarkar2024challenge].
 `pakhom` responds by encoding the *methodology itself* into the software
 architecture: the researcher declares one of three methodologically distinct modes,
-and the AI's permitted role — what it may propose, what the researcher must author,
-and which transparency artifacts are mandatory — is enforced at the code and schema
+and the AI's permitted role (what it may propose, what the researcher must author,
+and which transparency artifacts are mandatory) is enforced at the code and schema
 level rather than left to prompt-writing discipline.
 
 A mandatory transparency layer binds every run in every mode. Each AI-attributed
@@ -60,13 +55,13 @@ provenance-checked exemplar quotes, and an auto-generated methodology appendix.
 # Statement of need
 
 Qualitative researchers face growing pressure to apply LLMs to coding and theme
-development at a scale that manual analysis cannot match. The most direct route —
-pasting transcripts into a general-purpose chat interface — provides no
+development at a scale that manual analysis cannot match. The most direct route,
+pasting transcripts into a general-purpose chat interface, provides no
 methodological guardrails, no guarantee that quoted evidence is genuine, no record
 of how conclusions were reached, and no path to a reproducible, peer-reviewable
 analysis. The consequences are concrete: in a systematic appraisal across five
 studies, over half of the supporting quotations a leading assistant produced were
-modified or fabricated — absent from or altered relative to the source data — its
+modified or fabricated, meaning absent from or altered relative to the source data; its
 themes were drawn largely from the first two to three pages of datasets running to
 150 pages, and it did not report the spread of participants represented, leading the
 authors to conclude that the tool could not be recommended for thematic analysis
@@ -84,9 +79,9 @@ whole-corpus coverage, and per-theme participant spread.
 modes span the methodological spectrum and constrain the model accordingly:
 
 - **Reflexive Scaffold (Mode 1)** keeps interpretive authorship entirely with the
-  researcher; the model is restricted to extractive and *adversarial* operations —
-  surfacing counter-evidence, blind spots, and questions the analyst may have missed
-  — operationalizing the call for AI that challenges rather than obeys
+  researcher; the model is restricted to extractive and *adversarial* operations
+  (surfacing counter-evidence, blind spots, and questions the analyst may have missed),
+  operationalizing the call for AI that challenges rather than obeys
   [@sarkar2024challenge]. It never proposes themes.
 - **Codebook Collaborative (Mode 2)** lets the model propose codes and cluster-level
   groupings inductively, with the researcher accepting, editing, or rejecting each;
@@ -100,7 +95,7 @@ Because these commitments are enforced architecturally rather than by prompt, th
 integrity does not depend on the user remembering to ask for them. The clustering
 step, for instance, can only return a partition of the existing codes and carries no
 field through which the model could invent or rename one, so codes are *grouped*,
-never silently rewritten — preserving entry-to-code-to-theme traceability. The result
+never silently rewritten, preserving entry-to-code-to-theme traceability. The result
 is an analysis whose provenance, coverage, and decision trail a reviewer can inspect,
 which directly addresses the trust gap limiting scholarly acceptance of AI-assisted
 qualitative work.
@@ -116,7 +111,7 @@ qualitative work.
 - **The AI as analyst, the package as its calculator.** Before coding, an AI
   "methodology assistant" articulates a relevance criterion and, for each numeric or
   temporal variable, chooses summary statistics that are *honest* for that variable's
-  distribution — a right-skewed count is summarized by a median and tail measures,
+  distribution: a right-skewed count is summarized by a median and tail measures,
   not a mean and standard deviation. The package performs the computation: every
   statistic in the structured report is the package's, with the model choosing the
   method rather than the value. (The narrative executive summary is interpretive
@@ -132,8 +127,8 @@ qualitative work.
   models are generative, individual coding, sentiment, and synthesis outputs are not
   bit-for-bit reproducible across runs (and the AI-judged saturation and clustering
   convergence are model decisions, not threshold gates); the package therefore makes
-  runs *auditable and comparable* — through provenance, stamping, and cross-run
-  comparison — rather than claiming deterministic replay.
+  runs *auditable and comparable* (through provenance, stamping, and cross-run
+  comparison) rather than claiming deterministic replay.
 
 The package is covered by a test suite of more than 4,900 expectations that runs
 entirely offline (all model calls are mocked) and is documented by a getting-started
@@ -141,13 +136,13 @@ walkthrough and a methodology-modes vignette.
 
 # State of the field
 
-Established QDA environments — NVivo [@nvivo], ATLAS.ti [@atlasti], and MAXQDA
-[@maxqda] — support qualitative coding at scale but do not orchestrate LLMs under
+Established QDA environments (NVivo [@nvivo], ATLAS.ti [@atlasti], and MAXQDA
+[@maxqda]) support qualitative coding at scale but do not orchestrate LLMs under
 methodological constraint; `pakhom` interoperates with them rather than replacing
 them, exchanging codebooks and coded segments via the REFI-QDA (QDPX) standard
 [@evers2020refi]. Within R, RQDA [@rqda] offered manual qualitative coding but was
-archived from CRAN in 2020. Conversely, general-purpose R interfaces to LLM APIs —
-ellmer [@ellmer], tidyllm [@tidyllm], and gptstudio [@gptstudio] — expose model
+archived from CRAN in 2020. Conversely, general-purpose R interfaces to LLM APIs
+(ellmer [@ellmer], tidyllm [@tidyllm], and gptstudio [@gptstudio]) expose model
 calls without a thematic-analysis methodology or a provenance guarantee.
 `pakhom`'s contribution is the integration of an LLM-driven TA pipeline
 with architecturally enforced methodological modes and a mandatory transparency
@@ -157,7 +152,7 @@ practice [@braun2022thematic].
 
 # Acknowledgements
 
-The package name, *pakhom*, is the Coptic Egyptian form of Pachomius (c. 292–348 CE),
+The package name, *pakhom*, is the Coptic Egyptian form of Pachomius (c. 292-348 CE),
 whose written *Rule* of communal discipline established the genre of
 methodology-as-written-document.
 
