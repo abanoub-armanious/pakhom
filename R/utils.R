@@ -181,7 +181,7 @@ safe_progress_bar <- function(format, total) {
 `%||%` <- rlang::`%||%`
 
 # ==============================================================================
-# Concept Context Builder — Dynamic multi-concept support
+# Concept Context Builder: dynamic multi-concept support
 # ==============================================================================
 
 # ==============================================================================

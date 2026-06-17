@@ -14,11 +14,11 @@
            supporting_codes = list("Fatigue", "Stomach pain"),
            landed_in_themes = list("Emotional Aftermath", "Behavioral Coping"),
            coverage_note = "Coded but spread across themes -- a valid emergent outcome."),
-      list(facet = "sleep", coverage_level = "not_surfaced",
+      list(facet = "focus", coverage_level = "not_surfaced",
            supporting_codes = list(), landed_in_themes = list(),
-           coverage_note = "The corpus did not raise sleep.")
+           coverage_note = "The corpus did not raise focus.")
     ),
-    overall_note = "Most facets addressed; sleep was not surfaced."
+    overall_note = "Most facets addressed; focus was not surfaced."
   )
 }
 
@@ -34,7 +34,7 @@
   # A minimal object with non-empty $themes is enough; ai_complete is mocked, so
   # the prompt's theme block content is irrelevant to these tests.
   list(themes = list(
-    list(name = "Emotional Aftermath", description = "guilt + shame after a binge"),
+    list(name = "Emotional Aftermath", description = "guilt + shame after a overwork"),
     list(name = "Behavioral Coping",   description = "restriction, exercise, hiding")
   ))
 }
@@ -69,15 +69,15 @@ test_that(".coerce_coverage_facet keeps facets, vectorizes, and is defensive", {
 test_that("assess_research_coverage parses the AI response into a ResearchCoverage", {
   testthat::local_mocked_bindings(ai_complete = .rc_mock_ai())
   cov <- assess_research_coverage(
-    research_focus = "lived experience: emotional triggers, physical effects, sleep",
-    concepts = c("binge eating", "sleep"),
+    research_focus = "lived experience: emotional triggers, physical effects, focus",
+    concepts = c("overwork", "focus"),
     theme_set = .rc_theme_set(), provider = list())
   expect_s3_class(cov, "ResearchCoverage")
   expect_equal(length(cov$facets), 2L)
   expect_identical(cov$facets[[1]]$facet, "physical effects")
   expect_identical(cov$facets[[1]]$coverage_level, "dispersed")
   expect_identical(cov$facets[[2]]$coverage_level, "not_surfaced")
-  expect_match(cov$overall_note, "sleep")
+  expect_match(cov$overall_note, "focus")
 })
 
 test_that("assess_research_coverage returns empty coverage (NO AI call) when there are no themes", {
@@ -98,7 +98,7 @@ test_that("assess_research_coverage AUDITED path does not crash (research_covera
   audit <- init_audit_log(td, config = NULL)
   testthat::local_mocked_bindings(ai_complete = .rc_mock_ai())
   expect_no_error(
-    cov <- assess_research_coverage("focus: physical effects, sleep", c("a"),
+    cov <- assess_research_coverage("focus: physical effects, focus", c("a"),
              .rc_theme_set(), provider = list(), audit_log = audit)
   )
   expect_s3_class(cov, "ResearchCoverage")
@@ -134,9 +134,9 @@ test_that(".build_research_coverage_section renders facets + frames dispersion a
          supporting_codes = c("Fatigue", "Stomach pain"),
          landed_in_themes = c("Emotional Aftermath", "Behavioral Coping"),
          coverage_note = "Spread across themes -- valid emergent grouping."),
-    list(facet = "sleep", coverage_level = "not_surfaced",
+    list(facet = "focus", coverage_level = "not_surfaced",
          supporting_codes = character(0), landed_in_themes = character(0),
-         coverage_note = "Corpus did not raise sleep.")),
+         coverage_note = "Corpus did not raise focus.")),
     overall_note = "Most facets addressed.")
   html <- .build_research_coverage_section(cov)
   expect_match(html, "research-coverage-table", fixed = TRUE)

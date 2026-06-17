@@ -6,20 +6,20 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 <!-- badges: end -->
 
-> AI-Assisted Thematic Analysis (reflexive · codebook · framework modes) with Methodology-as-Architecture
+> AI-Assisted Thematic Analysis (reflexive, codebook, framework modes) with Methodology-as-Architecture
 
 **pakhom** is an R package that conducts AI-assisted thematic analysis across three
 methodologically-distinct operating modes (reflexive, codebook, framework). Methodology is
-codified at the **architectural** level — the AI's role is shaped by the mode
-you declare, not by user discipline at the configuration level. Every output
-carries the methodology stamp, every AI-attributed verbatim claim is verified
-against the analytic corpus, and every run is fully auditable and comparable
-across re-runs (same data, config, framework, and provider).
+codified at the **architectural** level, where the AI's role is shaped by the mode
+you declare rather than by user discipline at the configuration level. Every output
+carries the methodology stamp. Each AI-attributed verbatim claim is checked
+against the analytic corpus, and a run stays auditable and comparable across
+re-runs on the same data, config, framework, and provider.
 
 You give it your data, your research question, and the methodological posture
-you've chosen. It gives you back a complete thematic analysis — themes, codes,
-sentiment, correlations, supporting evidence, full audit trail — that a peer
-reviewer can read on the same epistemic terms as a hand-coded analysis.
+you've chosen. It hands back a complete thematic analysis (themes, codes, sentiment,
+correlations, supporting evidence, and a full audit trail) that a peer reviewer
+can read on the same epistemic terms as a hand-coded analysis.
 
 ## Why pakhom?
 
@@ -38,25 +38,25 @@ that ships with its methodology *as data*, not as prose.
 
 The empirical motivation comes from three lines of evidence:
 
-- **Sarkar 2024** (CACM, *AI Should Challenge, Not Obey*) — when AI agrees,
-  three failure modes follow: dilution, distortion, deskilling. Mode 1
-  inverts this: AI as Socratic gadfly only.
-- **Jowsey et al. 2025** (PLOS One, doi:10.1371/journal.pone.0330217) — the
-  "Frankenstein" finding that Microsoft Copilot drew themes from only the
-  first 2-3 pages of data. pakhom's Tier-0 transparency layer (T0.1 quote
-  provenance + T0.2 participant spread + T0.3 corpus coverage) is
-  the architectural answer.
+- **Sarkar 2024** (CACM, *AI Should Challenge, Not Obey*) shows that an AI
+  which simply agrees dilutes and distorts the analysis while deskilling the
+  analyst. Mode 1 inverts that, holding the AI to a purely challenging role.
+- **Jowsey et al. 2025** (PLOS One, doi:10.1371/journal.pone.0330217) reports
+  the "Frankenstein" finding that Microsoft Copilot drew its themes from only the
+  first two or three pages of data. pakhom's mandatory transparency layer is the
+  architectural answer: quote provenance (T0.1), participant spread (T0.2), and
+  corpus coverage (T0.3).
 - **Vikan et al. 2025** (Qualitative Health Research,
-  doi:10.1177/10497323251365211) — an exploratory study finding that base LLMs
-  give only limited support for reflexive TA, do not improve efficiency, and
-  produce errors, exclusions, and fabrications across all analytical phases, so
-  high-quality reflexive TA still requires a human familiarization phase and
-  methodological competence. pakhom reflects this: Mode 1 keeps interpretive
-  authorship with the researcher, and the Tier-0 layer guards against the kind
-  of fabrication the study documents.
+  doi:10.1177/10497323251365211), an exploratory study, finds that base LLMs
+  give only limited support for reflexive TA and do not improve efficiency,
+  producing errors, omissions, and fabricated content across every analytical
+  phase. High-quality reflexive TA therefore still needs a human familiarization
+  phase and real methodological competence. pakhom reflects this: Mode 1 keeps
+  interpretive authorship with the researcher, and the transparency layer guards
+  against the kind of fabrication the study documents.
 
-The package's name, **pakhom**, is the Coptic Egyptian form of *Pachomius*
-— the desert abbot whose written **Rule** (c. 320 CE) established the genre
+The package's name, **pakhom**, is the Coptic Egyptian form of *Pachomius*,
+the desert abbot whose written **Rule** (c. 320 CE) established the genre
 of methodology-as-written-document. Pakhom (the saint) wrote the Rule that
 made monasticism reproducible; pakhom (the package) writes the rules that
 make AI-assisted thematic analysis methodologically reproducible.
@@ -81,16 +81,16 @@ methodology rules archive, and HTML report.
 See [`vignette("methodology-modes")`](https://abanoub-armanious.github.io/pakhom/articles/methodology-modes.html)
 for a worked example of each mode.
 
-## Tier-0 transparency
+## The mandatory transparency layer
 
 Every mode produces three transparency artifacts addressing the most-cited
 empirical critiques of LLM-for-TA tools:
 
-- **T0.1 quote provenance + verification ladder** — every AI-attributed
-  verbatim claim runs through strict offline match → normalized match →
-  substring search → embedding similarity (this fourth step is optional -- it
-  runs only when an embedding provider is supplied; the default coding path uses
-  the first three). Fabricated quotes are dropped and
+- **Quote provenance and a verification ladder (T0.1).** Every AI-attributed
+  verbatim claim runs through a strict offline match, then a normalized match,
+  then a substring search, and finally an optional embedding-similarity step
+  (that fourth step runs only when an embedding provider is supplied; the default
+  coding path uses the first three). Fabricated quotes are dropped and
   logged to `fabrication_log.csv`. Mode 1 verifies provocation citations;
   Mode 2/3 verify coded-segment quotes. On Anthropic, the Citations API serves
   as a prevention layer; the verification ladder is detection-in-depth.
@@ -99,16 +99,16 @@ empirical critiques of LLM-for-TA tools:
   redaction token `[subreddit]` and `u/` mentions are removed), so verified
   quotes reflect the analytic corpus rather than byte-identical raw posts;
   the raw text is preserved in `original_text`.
-- **T0.2 participant spread per theme** — every theme reports
+- **Participant spread per theme (T0.2).** Every theme reports
   n_distinct_contributors + Gini coefficient + top contributor share. Themes
   that look prevalent but rest on one heavy poster get an explicit warning
   on the report.
-- **T0.3 corpus coverage assertion** — Modes 2/3 assert that every entry
+- **Whole-corpus coverage assertion (T0.3).** Modes 2/3 assert that every entry
   surviving preprocessing reached the LLM (entry-level coverage; entries
   longer than the configurable per-entry character cap are sent truncated,
   with the truncation measured and disclosed on the coverage card); Mode 1
-  asserts "no silent skip across themes ×
-  provocation categories." The Mode 3 + Anthropic Citations API silent bypass
+  asserts that there is no silent skip across themes and
+  provocation categories. The Mode 3 + Anthropic Citations API silent bypass
   (forced tool_use schema + Citations API are mutually exclusive at the
   response level) is disclosed via an explicit footnote rather than left
   invisible.
@@ -116,16 +116,16 @@ empirical critiques of LLM-for-TA tools:
 ## About the name
 
 **pakhom** (Coptic ⲡⲁϩⲱⲙ, "eagle") honors Saint Pachomius the Great
-(c. 292–348 CE), the Coptic Egyptian abbot whose written **Rule** of communal
+(c. 292-348 CE), the Coptic Egyptian abbot whose written **Rule** of communal
 discipline established the genre of *methodology-as-written-document*. Before
-Pachomius, monastic life was anchorite — solitary and unstructured. Pachomius
-codified the first reproducible, inspectable, transmissible framework for
-shared practice, transforming an unruly tradition into something that could
-be taught, replicated across communities, and held to account.
+him, monastic life was anchoritic, solitary and largely unstructured. He
+codified the first reproducible and inspectable framework for shared practice,
+turning an unruly tradition into something that could be taught, replicated
+across communities, and held to account.
 
-This package is a digital descendent of that move. AI behavior in qualitative
-analysis is constrained at the **architectural** level by methodologically-
-coherent rules — not at the configuration level by user discipline. The
+This package is a digital descendant of that move. AI behavior in qualitative
+analysis is constrained at the **architectural** level by methodologically
+coherent rules, not at the configuration level by user discipline. The
 methodology is the permission structure. Pakhom (the saint) wrote the Rule
 that made monasticism reproducible; pakhom (the package) writes the rules
 that make AI-assisted thematic analysis methodologically reproducible.
@@ -136,7 +136,7 @@ voice. The author is Coptic Egyptian.
 
 ## Key Features
 
-- **Progressive sequential coding** -- entries are read one at a time, just as
+- **Progressive sequential coding:** entries are read one at a time, just as
   a human researcher would in NVivo. The AI codes applicable text segments
   inline, building and reusing a codebook organically as it goes. Per-entry
   prompts use additive semantic retrieval: top-N most-frequent codes plus
@@ -147,13 +147,13 @@ voice. The author is Coptic Egyptian.
   not expose an embedding model); Anthropic runs fall back to the
   frequency+recency codebook context, which matters mainly once the codebook
   exceeds the per-entry cap
-- **AI saturation arbiter** -- per the architectural commitment that the AI
+- **AI saturation arbiter:** per the architectural commitment that the AI
   decides when to stop (C1), saturation is judged by a structured AI call
   ("reached / not_yet / uncertain" with a 30+ char articulation requirement)
   every cadence ticks; no hardcoded windows / thresholds / confirmation
   counts. Cadence auto-scales with corpus size; the arbiter
   refuses vacuous articulations
-- **Multi-pass clustering with label-after-clustering for themes** -- the AI
+- **Multi-pass clustering with label-after-clustering for themes:** the AI
   sees ALL codes at once and proposes a partition into top-level clusters
   (pass 1); pass 2+ takes prior-pass clusters as new "leaves" and the AI
   may group them further or declare convergence. NO hardcoded
@@ -167,7 +167,7 @@ voice. The author is Coptic Egyptian.
   clustering is the only theme-generation engine; a config still pinning
   `config$analysis$themes$algorithm = "v1"` is honored with a
   one-time deprecation notice.
-- **Emergent subtheme structure** -- subthemes arise from the
+- **Emergent subtheme structure:** subthemes arise from the
   multi-pass grouping itself (a penultimate-pass cluster becomes a theme's
   subthemes); their depth is the AI's dynamic call, not a fixed recursion
   limit. Paper-style
@@ -175,81 +175,81 @@ voice. The author is Coptic Egyptian.
   chosen primitives (Median(MAD) + Mean(SD) kept as a per-column
   fallback), small-n spread/shape cells flagged against the analyst's
   per-column reliability floor, and quotes tagged `[metric: value]`
-- **Deterministic code-path cascading** -- entries map to themes through their
+- **Deterministic code-path cascading:** entries map to themes through their
   codes (no AI re-reading of raw text), faithful to the inductive process
-- **Code-aware sentiment analysis** -- sentiment is scored after coding, using
+- **Code-aware sentiment analysis:** sentiment is scored after coding, using
   assigned codes as context for more accurate emotional valence detection
-- **Codebook-first learning from prior studies** -- learns coding conventions,
+- **Codebook-first learning from prior studies:** learns coding conventions,
   structural relationships, and discarded patterns from QDPX codebooks (NVivo),
   Excel, or CSV files. Manuscripts serve as supplementary clarification
-- **Live tracking artifacts** -- per-entry codebook snapshot + per-decision
+- **Live tracking artifacts:** per-entry codebook snapshot + per-decision
   cluster snapshot are streamed to `outputs/<run>/live/` so a researcher
   can `tail -F` mid-run and watch the codebook + theme hierarchy grow
   (C3 commitment)
-- **Methodology-grade statistical layer** -- Spearman/Kendall for ordinal
+- **Methodology-grade statistical layer:** Spearman/Kendall for ordinal
   sentiment, 4-tier effect-size labels including
   "negligible" (|r| < 0.10), rank-biserial effect_r (sign-aware,
   numerically stable on extreme p-values), Cramer's V populated on the
-  Fisher dispatch path, `meaningful_effect ∩ significant` headline counts
-- **AI as analyst with a calculator** -- a Methodology Assistant
+  Fisher dispatch path, and headline counts of effects that are both meaningful and significant
+- **AI as analyst with a calculator:** a Methodology Assistant
   articulates a relevance criterion that keeps coding on-focus, and for each
   numeric / timestamp column chooses, by free-form request (never a fixed
-  menu), which computational primitives are an honest summary -- a right-skewed
-  count gets a median + tail measures, not a mean+SD. Choices are archived and
+  menu), which computational primitives are an honest summary (a right-skewed
+  count gets a median and tail measures, not a mean and SD). Choices are archived and
   can be pinned to re-apply the same metric interpretations in a confirmatory
   re-run, backed by a ~45-primitive backend catalog the researcher never has to
   configure
-- **Credibility / honesty layer** -- the report is built to survive review:
+- **Credibility / honesty layer:** the report is built to survive review:
   metrics are judged substantive vs source/platform metadata and grouped
   accordingly; circular correlations between two AI codings of the
   same text are excluded from findings but kept in the exported matrix with an
   `exclusion_reason` (flag-don't-drop), and never headline the
   correlation plot; saturation reporting distinguishes entries coded / examined
-  / sampled; and no n-floor ever suppresses a value -- small-n statistics are
-  marked, never hidden
-- **Researcher review points** -- pause the pipeline after coding or theme
+  / sampled; and no n-floor ever suppresses a value, so small-n statistics are
+  marked rather than hidden
+- **Researcher review points:** pause the pipeline after coding or theme
   generation to curate the AI's output before continuing. The Subtheme
   hierarchy is preserved across rename + description-only edits; only
   code-mutating edits trigger a re-flatten
-- **Checkpoint/resume** -- long-running analyses can be interrupted and
+- **Checkpoint/resume:** long-running analyses can be interrupted and
   resumed without losing progress. Flat checkpoint architecture ensures
   reliable resume across retries. Resume paths emit explicit
   WARN banners describing methodology-era drift
-- **Inter-rater reliability** -- built-in IRR computation (Cohen's kappa,
+- **Inter-rater reliability:** built-in IRR computation (Cohen's kappa,
   Krippendorff's alpha) for human verification of AI-generated codes
-- **Multiple AI providers** -- works with OpenAI (GPT-4o) or Anthropic (Claude)
-- **Inter-model reliability** -- run the pipeline with different AI models and
+- **Multiple AI providers:** works with OpenAI (GPT-4o) or Anthropic (Claude)
+- **Inter-model reliability:** run the pipeline with different AI models and
   compare results via `compare_models()` (theme Jaccard similarity, code
   stability/churn, sentiment drift, and correlation persistence across the runs)
-- **Researcher reflexivity** -- injects researcher positionality, research
+- **Researcher reflexivity:** injects researcher positionality, research
   paradigm, and reflexive notes into all AI prompts, aligning with Braun &
   Clarke's emphasis on reflexive practice and Olmos-Vega AMEE Guide 149
-- **Full audit trail** -- every AI decision (code assignments, code groupings, skips,
+- **Full audit trail:** every AI decision (code assignments, code groupings, skips,
   saturation judgments, fabrication catches) is logged to JSONL with
   methodology stamp + schema_version + rationale. Pre-rejection fabrication
   attempts are logged to `fabrication_log.csv` with a structured
   `failure_reason` field (which ladder step failed) for methodology-paper
   attribution
-- **QDPX export** -- exports codebook and coded segments in QDPX format for
+- **QDPX export:** exports codebook and coded segments in QDPX format for
   import into NVivo, ATLAS.ti, or MAXQDA. Project Description honestly
   reports pre-rejection fabrication-caught counts
-- **Longitudinal analysis** -- when entries have timestamps, tracks theme
+- **Longitudinal analysis:** when entries have timestamps, tracks theme
   prevalence trends and emergence timelines within a single run; figures
   filter to top-N by entry count to stay legible at scale
-- **Publication-quality reports** -- generates self-contained HTML reports with
+- **Publication-quality reports:** generates self-contained HTML reports with
   paper-style per-subtheme summary tables, representative quotes (sentiment-
   positioned + author-spread-aware), saturation arbiter rationale,
   effect-size lollipop charts for large correlation matrices, theme network
   filtered to top-N by weighted degree with an explanatory legend, top-N
   inline cards plus compact-row tail for large theme inventories
-- **Methodological transparency report bundler** --
+- **Methodological transparency report bundler:**
   `bundle_transparency_report(run_dir)` produces a single self-contained HTML + JSON companion
   bundling audit log + Lincoln & Guba (1985) credibility / dependability /
   confirmability / transferability mapping + reflexivity scaffold + T0.1
   dashboard + T0.3 coverage card + theme set summary. The "AI does the
   bookkeeping so the human does the reflexivity, here is the receipt for
   everything" artifact
-- **Run comparison** -- compare results across pipeline runs to assess
+- **Run comparison:** compare results across pipeline runs to assess
   stability and track how themes evolve. Coverage card persistence
   (`coverage_card.json`) lets reproducibility audits
   reconstruct the funnel without re-running the pipeline
@@ -283,7 +283,7 @@ config_wizard_app()
 If you'd rather build the config programmatically, the per-mode
 examples below produce equivalent output.
 
-### Mode 2 (Codebook Collaborative) — the auto-pipeline
+### Mode 2 (Codebook Collaborative): the auto-pipeline
 
 ```r
 # Create config (declares methodology mode + study + data + output)
@@ -300,14 +300,14 @@ pakhom::create_config(
 results <- pakhom::run_analysis("config.yaml")
 ```
 
-### Mode 3 (Framework Applied) — apply a theoretical framework
+### Mode 3 (Framework Applied): apply a theoretical framework
 
 ```r
 # Pick a built-in framework (or supply your own YAML/JSON spec)
 pakhom::list_builtin_frameworks()
 # [1] "tpb"  "comb" "tdf"
 
-# Create a Mode 3 config -- framework is applied verbatim, anomalies
+# Create a Mode 3 config; framework is applied verbatim, anomalies
 # (entries that resist the framework) get flagged per the framework's
 # anomaly_handling policy
 pakhom::create_config(
@@ -321,7 +321,7 @@ pakhom::create_config(
 results <- pakhom::run_analysis("config.yaml")
 ```
 
-### Mode 1 (Reflexive Scaffold) — AI as provocateur
+### Mode 1 (Reflexive Scaffold): AI as provocateur
 
 ```r
 # Mode 1 expects you to author themes (e.g., in NVivo) and feed them to
@@ -335,7 +335,7 @@ my_themes <- pakhom::create_theme_set(list(
        codes_included = c("medication", "routine"))
 ))
 
-# Drive the provocateur loop with full Tier-0/Tier-1 scaffolding
+# Drive the provocateur loop with full transparency and run-state scaffolding
 result <- pakhom::run_mode1(
   data        = my_corpus,        # tibble with std_id + std_text
   theme_set   = my_themes,
@@ -431,13 +431,13 @@ See `?compare_models`.
 
 ## Documentation
 
-- **[Getting Started vignette](articles/getting-started.html)** -- step-by-step
+- **[Getting Started vignette](articles/getting-started.html):** step-by-step
   guide from installation to interpreting results
-- **[Methodology Modes vignette](articles/methodology-modes.html)** -- choosing
+- **[Methodology Modes vignette](articles/methodology-modes.html):** choosing
   among the three modes with worked examples + a decision rubric
-- **[Function reference](reference/index.html)** -- documentation for all
+- **[Function reference](reference/index.html):** documentation for all
   exported functions
-- **`config_wizard_app()`** -- interactive web-based config builder
+- **`config_wizard_app()`:** interactive web-based config builder
 
 ## For methodologists / reviewers: architectural commitments
 
@@ -458,7 +458,7 @@ the contract a peer reviewer can check the package's claims against:
 - **AC6**: Symmetric researcher-engagement affordances across modes: reflexive
   memos and review pause-points exist in every mode (the Modes 2/3
   pause-points are opt-in, off by default).
-- **AC7**: Universal Tier-0 transparency requirements in all modes.
+- **AC7**: Universal transparency requirements in all modes.
 - **AC8**: Modes share one architecture and primitive layer (run state, audit
   log, coverage, output stamping, the `run_metadata.json` schema). Modes 2 and
   3 are config branches of the same `run_analysis()`; Mode 1 (`run_mode1()`)
@@ -470,35 +470,34 @@ the contract a peer reviewer can check the package's claims against:
 The methodology-modes vignette covers each commitment in narrative
 context.
 
-## For methodologists: rewrite-direction commitments (C1–C8)
+## For methodologists: rewrite-direction commitments (C1-C8)
 
 Distinct from the mode-design commitments above, the package's
-**algorithm-level** behaviour is governed by eight commitments — C1
-through C8 — distilled from the rewrite-direction conversations that
-shaped the package's design. These are *how the package thinks*, not *what modes
+**algorithm-level** behavior is governed by eight commitments, C1 through
+C8, distilled from the rewrite-direction conversations that shaped the design. These are *how the package thinks*, not *what modes
 it offers*. They are equally load-bearing and equally regression-tested,
 and any code change that touches coding, clustering, statistics, or
-output rendering must honour them:
+output rendering must honor them:
 
-- **C1 — AI decides when to stop.** No hardcoded `n_themes`,
+- **C1: AI decides when to stop.** No hardcoded `n_themes`,
   `max_themes`, `max_passes`, `min_codes_per_theme`, or saturation
   thresholds. The AI judges saturation and clustering convergence;
   pakhom records the AI's articulation but never overrides it with a
   count gate. Enforced in `R/saturation_arbiter.R` (coding saturation)
   and `R/theme_algorithm_v2.R` (multi-pass clustering convergence).
-- **C2 — Codes preserved through clustering.** Codes are atomic
+- **C2: Codes preserved through clustering.** Codes are atomic
   leaves; themes and subthemes are GROUPS of codes, not summaries that
   replace them. Clustering never mutates code names, descriptions, or
-  segment assignments. This preserves entry → code → theme traceability
+  segment assignments. This preserves entry-to-code-to-theme traceability
   and protects code-level nuance. Enforced by the `Code` S3 class in
   `R/12_theme_data.R`.
-- **C3 — Live tracking artifacts during processing.** Researchers can
+- **C3: Live tracking artifacts during processing.** Researchers can
   `tail -F outputs/<run>/live/` mid-run and watch the codebook + theme
   hierarchy grow in real time. Three streamed files
   (`code_assignments.jsonl`, `codebook_live.json`,
-  `code_to_cluster.json`) capture entry → code → cluster mappings as
+  `code_to_cluster.json`) capture entry-to-code-to-cluster mappings as
   they happen. Enforced in `R/live_tracking.R`.
-- **C4 — Dataset-agnostic.** Works with any corpus shape and any
+- **C4: Dataset-agnostic.** Works with any corpus shape and any
   metric columns. No hardcoded column-name allowlists; auto-detect
   column types; statistics adapt to whatever numeric columns the data
   provides. A clinical-interview corpus with `age` + `medication_dose`
@@ -506,7 +505,7 @@ output rendering must honour them:
   `score` + `upvote_ratio`. Enforced by `.detect_metric_columns()` in
   `R/16_report_helpers.R` and by the dynamic
   `compare_theme_groups()` in `R/14_correlations.R`.
-- **C5 — No catch-all / "Other" buckets.** In the inductive modes
+- **C5: No catch-all / "Other" buckets.** In the inductive modes
   (Mode 2), the AI is never given an "Other" or "Miscellaneous" code
   to dump uncertain segments into. Every coded segment must articulate
   what it represents. During theme clustering, the AI's
@@ -514,28 +513,28 @@ output rendering must honour them:
   openers ("Various aspects of X", "Mixed experiences with Y"); the
   `.clustering_schema()` has no name/description fields at all so
   labeling pressure cannot leak into structural decisions. In Mode 3,
-  the `anomaly` bucket is intentional and methodologically required —
+  the `anomaly` bucket is intentional and methodologically required, since
   it surfaces framework-resistant data rather than hiding it.
-- **C6 — Arbitrary research-question length/complexity.** No
+- **C6: Arbitrary research-question length/complexity.** No
   hardcoded character limits on the research focus; no assumption
   that the question is a single sentence. Multi-paragraph research
   briefs work the same as one-line questions.
-- **C7 — Mode-aware behaviour.** Architecture-level branches on
+- **C7: Mode-aware behavior.** Architecture-level branches on
   methodology mode where the modes genuinely require different
-  behaviour (e.g., Mode 1 has no codebook + invokes the provocateur
+  behavior (e.g., Mode 1 has no codebook + invokes the provocateur
   loop; Mode 3 pre-populates the codebook with framework constructs).
   Surface-level decisions (sentiment cutoff, prevalence bins, etc.)
-  should NOT branch on mode — only deep architectural decisions do.
-- **C8 — Publication-quality output shape.** The output target
+  should not branch on mode; only deep architectural decisions do.
+- **C8: Publication-quality output shape.** The output target
   approximates an Eaton 2020-style per-theme subtheme
   table: subtheme name, n, Median(MAD) + Mean(SD) on the most
   interesting metrics, supporting quotes with metric tags. The
-  package picks summary statistics appropriately for each metric —
-  never hardcoded to particular column names. Enforced in
+  package picks summary statistics appropriately for each metric, never
+  hardcoded to particular column names. Enforced in
   `R/16_report_helpers.R::.build_subtheme_summary_table`.
 
-**Any future contributor should re-read both AC1–AC10
-and C1–C8 before changing the coding loop, the theme algorithm, the
+**Any future contributor should re-read both AC1-AC10
+and C1-C8 before changing the coding loop, the theme algorithm, the
 statistical layer, or the report renderer.** These eighteen
 commitments together are the contract the package promises peer
 reviewers.

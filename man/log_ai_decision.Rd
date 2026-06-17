@@ -10,15 +10,15 @@ log_ai_decision(audit, step, decision_type, ...)
 \item{audit}{An \code{AuditLog} object returned by
 \code{\link{init_audit_log}}.}
 
-\item{step}{Character. Pipeline step — one of \code{"coding"},
-\code{"sentiment"}, \code{"theming"}, \code{"saturation"},
-\code{"insight"}, or \code{"synthesis"}.}
+\item{step}{Character. The pipeline step the decision belongs to. Accepts
+\code{"coding"}, \code{"sentiment"}, \code{"theming"},
+\code{"saturation"}, \code{"insight"}, or \code{"synthesis"}.}
 
-\item{decision_type}{Character. Type of decision — one of
-\code{"code_assignment"}, \code{"new_code_created"},
-\code{"entry_skipped"}, \code{"merge_decision"},
-\code{"sentiment_assignment"}, \code{"saturation_signal"},
-\code{"theme_structure"}, or \code{"insight_generation"}.}
+\item{decision_type}{Character. One of \code{"code_assignment"},
+\code{"new_code_created"}, \code{"entry_skipped"},
+\code{"merge_decision"}, \code{"sentiment_assignment"},
+\code{"saturation_signal"}, \code{"theme_structure"}, or
+\code{"insight_generation"}.}
 
 \item{...}{Additional named fields to include in the JSON record (e.g.
 \code{entry_id}, \code{code_name}, \code{rationale}, \code{model},

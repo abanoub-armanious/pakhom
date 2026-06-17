@@ -30,7 +30,7 @@
 #' @param coding_state ProgressiveCodingState
 #' @param output_dir Pipeline output directory
 #' @param audit_log Optional AuditLog
-#' @param methodology_mode Optional methodology mode (T1.7 / AC4). When
+#' @param methodology_mode Optional methodology mode. When
 #'   non-NULL, the exported review CSV is stamped with a comment header
 #'   identifying the mode and run id. NULL skips stamping (legacy /
 #'   test callers).
@@ -342,7 +342,7 @@ review_progressive_codebook <- function(coding_state, output_dir,
 #' @param theme_set ThemeSet S3 object
 #' @param output_dir Pipeline output directory
 #' @param audit_log Optional AuditLog
-#' @param methodology_mode Optional methodology mode (T1.7 / AC4). When
+#' @param methodology_mode Optional methodology mode. When
 #'   non-NULL, the exported review and disposition CSVs are stamped with
 #'   a comment header. NULL skips stamping (legacy / test callers).
 #' @return List with status and updated theme_set

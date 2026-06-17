@@ -1136,9 +1136,9 @@ test_that("v2 clustering prompt carries the singleton-vs-specific-instance steer
   )
   codes <- list(
     list(key = "c1", name = "Trigger food",
-         description = "A specific food that triggers a binge."),
+         description = "A specific food that triggers a overwork."),
     list(key = "c2", name = "Emotional trigger",
-         description = "An emotion that precedes a binge.")
+         description = "An emotion that precedes a overwork.")
   )
   leaves <- lapply(seq_along(codes), function(i) list(
     leaf_id = sprintf("leaf_p0_%d", i), leaf_type = "code",
@@ -1147,7 +1147,7 @@ test_that("v2 clustering prompt carries the singleton-vs-specific-instance steer
 
   ai_propose_clustering(leaves, pass_index = 1L, prior_history = list(),
                         codes = codes, provider = .v2_provider(),
-                        research_focus = "binge eating triggers")
+                        research_focus = "overwork triggers")
 
   sp <- captured$system_prompt
   expect_true(is.character(sp) && nzchar(sp))

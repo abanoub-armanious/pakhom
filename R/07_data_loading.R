@@ -1,5 +1,5 @@
 # ==============================================================================
-# Data Loading — SQLite, Column Detection, Standardization
+# Data Loading: SQLite, Column Detection, Standardization
 # ==============================================================================
 
 #' Explore a SQLite database schema
@@ -156,7 +156,7 @@ load_data <- function(db_path, table_name = NULL, query = NULL) {
 #'
 #'   themes <- create_theme_set(list(
 #'     list(id = 1, name = "Adherence",
-#'          description = "Researcher-authored: medication adherence",
+#'          description = "Researcher-authored: remote-work flexibility",
 #'          codes_included = c("med_routine", "daily_pills"))
 #'   ))
 #'
@@ -387,7 +387,7 @@ detect_columns <- function(data, source_type = "reddit", config = NULL) {
   }
 
   # --- Auto-detection fallback ---
-  # Get mapping candidates — config may be ThematicConfig or the $data subsection
+  # Get the mapping candidates. The config may be a ThematicConfig or the $data subsection
   col_mappings <- NULL
   if (!is.null(config)) {
     if (inherits(config, "ThematicConfig")) {

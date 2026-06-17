@@ -1329,7 +1329,7 @@ table:not(.dataTable) tr:hover td {
   margin: 0.2rem 0;
 }
 .metric-interpretation-notes .prim-gap {
-  color: #b9770e;          /* amber: an honest "we couldn't compute this" flag */
+  color: #b9770e;          /* amber: an honest 'statistic not computable' flag */
 }
 
 /* Methodology Setup section (relevance criterion + metric interpretations). */

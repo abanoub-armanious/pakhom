@@ -13,7 +13,7 @@
 
 \item{name}{Character code/theme name}
 
-\item{is_codable}{Logical — TRUE for leaf codes, FALSE for grouping nodes}
+\item{is_codable}{Logical. TRUE for leaf codes, FALSE for grouping nodes.}
 
 \item{description}{Optional character description}
 }

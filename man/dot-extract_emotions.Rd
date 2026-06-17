@@ -17,7 +17,7 @@
 character scalar: semicolon-separated emotions string, or NA_character_
 }
 \description{
-Handles the structured-outputs "emotions" array format (T1.2 schema lock:
+Handles the structured-outputs "emotions" array format (schema lock:
 .sentiment_schema requires \code{emotions} and forbids extra properties, so a
 legacy \code{primary_emotion} field is architecturally unreachable here).
 Returns a semicolon-separated all_emotions string.

@@ -7,8 +7,8 @@ and harassment-free experience for everyone, regardless of background or
 identity. To that end, this project has adopted the **Contributor Covenant,
 version 2.1**, as its code of conduct.
 
-The full text — including the expected standards of behaviour, the
-responsibilities of maintainers, scope, and the enforcement guidelines — is
+The full text, which covers the expected standards of behavior, the
+responsibilities of maintainers, scope, and the enforcement guidelines, is
 published at:
 
 <https://www.contributor-covenant.org/version/2/1/code_of_conduct/>
@@ -17,8 +17,8 @@ By participating in this project, you agree to abide by that document.
 
 ## Scope
 
-This Code of Conduct applies within all project spaces — the repository, its
-issue tracker, pull requests, and any other official project channel — and
+This Code of Conduct applies within all project spaces, including the repository,
+its issue tracker, pull requests, and any other official project channel, and
 also applies when an individual is officially representing the project in
 public spaces.
 

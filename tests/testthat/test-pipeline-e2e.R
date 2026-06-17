@@ -166,9 +166,9 @@
       # shape-valid JSON for each so Step 2.5 does not (correctly) abort.
       "methodology" = if (grepl("CORPUS SAMPLE", prompt, fixed = TRUE)) {
         jsonlite::toJSON(list(
-          research_focus_paraphrase = "Medication, sleep, and binge eating.",
+          research_focus_paraphrase = "Scheduling, focus, and overwork.",
           relevance_criterion = "A segment is on-focus when it concerns the research focus directly.",
-          on_focus_examples  = list("medication affected my sleep"),
+          on_focus_examples  = list("scheduling affected my focus"),
           off_focus_examples = list("unrelated small talk"),
           discrimination_principle = "On-focus segments tie to the focus; adjacent ones do not."
         ), auto_unbox = TRUE)
@@ -206,11 +206,11 @@
     subreddit    = "test",
     title        = paste0("Test title ", seq_len(n_posts)),
     body = c(
-      "I have trouble sleeping after taking my medication at night.",
-      "Binge eating episodes have decreased since starting treatment.",
-      "The side effects of the drug make me feel exhausted all day.",
-      "My sleep quality improved significantly with the new dosage.",
-      "I feel anxious about eating and it affects my sleep patterns."
+      "I have trouble focusing after taking my scheduling at night.",
+      "Overwork episodes have decreased since starting program.",
+      "The side effects of the policy make me feel exhausted all day.",
+      "My deep-work quality improved significantly with the new schedule.",
+      "I feel anxious about overworking and it affects my focus patterns."
     )[seq_len(n_posts)],
     author       = paste0("user_", seq_len(n_posts)),
     score        = seq_len(n_posts) * 10L,
@@ -241,7 +241,7 @@
       name = "E2E Test",
       research_focus = "integration e2e",
       research_context = "integration tests",
-      concepts = c("sleep", "medication")
+      concepts = c("focus", "scheduling")
     ),
     ai = list(
       provider = provider,
@@ -713,7 +713,7 @@ test_that("Mode 1 public-API contract: config_path -> load_corpus_from_config ->
   # ---- ACCEPTANCE 3: build the ThemeSet using only public API. ----
   ts <- create_theme_set(list(
     list(id = 1L, name = "Adherence",
-         description = "Researcher-authored: medication adherence",
+         description = "Researcher-authored: schedule adherence",
          codes_included = c("med_routine", "daily_pills")),
     list(id = 2L, name = "Resistance",
          description = "Researcher-authored: resistance",

@@ -46,7 +46,7 @@ server-side: OpenAI via \code{response_format = list(type = "json_schema",
 string that is guaranteed to parse and conform to the schema, so
 downstream \code{parse_json_safely()} is a near-certain success path
 rather than a failure-tolerant fallback. When NULL, falls back to the
-pre-T1.2 \code{json_mode} path (see \code{R/structured_schemas.R} for
+legacy \code{json_mode} path (see \code{R/structured_schemas.R} for
 the six task schemas the in-package callers use). Reasoning models
 (o1/o3/o4) silently fall back to \code{json_mode} because they don't
 support strict json_schema as of writing.}
@@ -130,15 +130,13 @@ or no citations were returned. The
 Returns a structured list with the response \code{$content} alongside
 provenance metadata (model, usage, raw_response, finish_reason,
 prompt_hash, request_id). Callers that only need the response text should
-extract \code{$content}; downstream audit-log capture (T1.4) and
+extract \code{$content}; downstream audit-log capture and
 the response cache consume the other fields.
 }
 \details{
-Note: This is the T1.1 refactor. Prior to T1.1 this function
-returned a bare character string; the structured-list return is the
-single most leveraged change because it unblocks T1.4
-(audit log raw-response capture), T1.2 (Structured Outputs migration),
-and future replay from cached responses simultaneously. The function
-is internal (not exported), so the change touches only in-package callers.
+The structured-list return is what lets the audit log capture raw
+responses, lets the providers enforce structured-output schemas, and leaves
+room for replay from cached responses. The function is internal, not
+exported, so it touches only in-package callers.
 }
 \keyword{internal}

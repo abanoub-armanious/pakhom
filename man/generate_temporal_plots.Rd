@@ -17,7 +17,7 @@ generate_temporal_plots(
 
 \item{output_dir}{Directory where PNGs will be saved (created if needed)}
 
-\item{methodology_mode}{Optional character (T1.7 / AC4): when supplied,
+\item{methodology_mode}{Optional character. When supplied,
 adds a caption to each plot identifying the mode + run id.}
 
 \item{run_id}{Optional character: run identifier.}

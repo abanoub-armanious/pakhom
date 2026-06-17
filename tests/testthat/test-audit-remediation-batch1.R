@@ -36,8 +36,8 @@ test_that("an examined-but-uncoded entry is counted separately, not as 'coded'",
 # --- create_theme_set: colliding membership keys are disambiguated -----------
 test_that("create_theme_set disambiguates themes whose names collapse to the same make.names() key", {
   ts <- suppressWarnings(create_theme_set(list(
-    list(id = 1, name = "Sleep/Mood", codes_included = c("a")),
-    list(id = 2, name = "Sleep.Mood", codes_included = c("b"))  # same make.names() key
+    list(id = 1, name = "Focus/Mood", codes_included = c("a")),
+    list(id = 2, name = "Focus.Mood", codes_included = c("b"))  # same make.names() key
   )))
   keys <- vapply(ts$themes, function(t) make.names(t$name), character(1))
   expect_equal(length(unique(keys)), 2L)               # no shared membership column
@@ -49,20 +49,20 @@ test_that(".compute_subtheme_statistics uses exact subtheme membership (no subst
   theme <- list(
     name = "T",
     subthemes = list(
-      create_subtheme(name = "Sleep", description = "", codes = character(0)),
-      create_subtheme(name = "Sleep quality", description = "", codes = character(0))
+      create_subtheme(name = "Focus", description = "", codes = character(0)),
+      create_subtheme(name = "Deep-work quality", description = "", codes = character(0))
     )
   )
   data <- tibble::tibble(
     std_id = c("e1", "e2", "e3"),
     std_text = c("x", "y", "z"),
     theme_membership_T = c(1L, 1L, 1L),
-    subtheme_assignments = c("Sleep", "Sleep quality", "Sleep quality"),
+    subtheme_assignments = c("Focus", "Deep-work quality", "Deep-work quality"),
     score = c(10, 20, 30)
   )
   stats <- pakhom:::.compute_subtheme_statistics(theme, data, metric_cols = "score")
-  # "Sleep" must match ONLY e1 (n=1). The old substring grepl() matched all
-  # three because "Sleep" is a substring of "Sleep quality" -> n=3.
-  expect_equal(stats[["Sleep"]]$n, 1L)
-  expect_equal(stats[["Sleep quality"]]$n, 2L)
+  # "Focus" must match ONLY e1 (n=1). The old substring grepl() matched all
+  # three because "Focus" is a substring of "Deep-work quality" -> n=3.
+  expect_equal(stats[["Focus"]]$n, 1L)
+  expect_equal(stats[["Deep-work quality"]]$n, 2L)
 })

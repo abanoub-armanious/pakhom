@@ -18,7 +18,7 @@ generate_learning_reflection(
 
 \item{audit_log}{An optional AuditLog object (from
 \code{\link{init_audit_log}}). When provided, the AI reflection call
-is recorded as an \code{ai_request} audit decision (T1.4) with full
+is recorded as an \code{ai_request} audit decision with full
 provenance (model, usage, prompt_hash). Pass \code{NULL} to skip.}
 
 \item{response_cache}{An optional ResponseCache object (from

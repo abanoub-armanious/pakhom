@@ -82,7 +82,7 @@ methodology_description_short <- function(mode) {
 #' Build a Mode N run-directory suffix for a fresh run
 #'
 #' Standard pakhom run dirs are timestamped (\code{run_2026-05-03_103415}).
-#' T1.7 appends the mode short-code so the directory name itself carries
+#' The run directory name appends the mode short-code so it carries
 #' the methodology stamp:
 #' \code{run_2026-05-03_103415_M1}.
 #'

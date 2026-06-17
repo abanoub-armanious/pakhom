@@ -1,5 +1,5 @@
 # ==============================================================================
-# AI Provider Abstraction — OpenAI + Anthropic Unified Interface
+# AI Provider Abstraction: OpenAI + Anthropic Unified Interface
 # ==============================================================================
 # No global state. Provider object is passed to every AI function.
 # ==============================================================================
@@ -99,15 +99,13 @@ create_ai_provider <- function(provider = "openai", config = NULL) {
 #' Returns a structured list with the response \code{$content} alongside
 #' provenance metadata (model, usage, raw_response, finish_reason,
 #' prompt_hash, request_id). Callers that only need the response text should
-#' extract \code{$content}; downstream audit-log capture (T1.4) and
+#' extract \code{$content}; downstream audit-log capture and
 #' the response cache consume the other fields.
 #'
-#' Note: This is the T1.1 refactor. Prior to T1.1 this function
-#' returned a bare character string; the structured-list return is the
-#' single most leveraged change because it unblocks T1.4
-#' (audit log raw-response capture), T1.2 (Structured Outputs migration),
-#' and future replay from cached responses simultaneously. The function
-#' is internal (not exported), so the change touches only in-package callers.
+#' The structured-list return is what lets the audit log capture raw
+#' responses, lets the providers enforce structured-output schemas, and leaves
+#' room for replay from cached responses. The function is internal, not
+#' exported, so it touches only in-package callers.
 #'
 #' @param provider AIProvider object
 #' @param prompt User prompt text
@@ -126,7 +124,7 @@ create_ai_provider <- function(provider = "openai", config = NULL) {
 #'   string that is guaranteed to parse and conform to the schema, so
 #'   downstream \code{parse_json_safely()} is a near-certain success path
 #'   rather than a failure-tolerant fallback. When NULL, falls back to the
-#'   pre-T1.2 \code{json_mode} path (see \code{R/structured_schemas.R} for
+#'   legacy \code{json_mode} path (see \code{R/structured_schemas.R} for
 #'   the six task schemas the in-package callers use). Reasoning models
 #'   (o1/o3/o4) silently fall back to \code{json_mode} because they don't
 #'   support strict json_schema as of writing.
@@ -658,10 +656,9 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 #' + max_tokens + json_mode + response_schema + documents. Used as the cache
 #' key consumed by read_cached_response() and planned replay tooling.
 #'
-#' T1.2 added response_schema; T0.1 part 3b added documents. Pre-
-#' addition callers (NULL for the new arg) produce the same hashes as
-#' before because NULL serializes to "null" and the field was implicitly
-#' absent.
+#' A caller that passes NULL for response_schema or documents produces the
+#' same hashes as before those arguments existed, because NULL serializes to
+#' "null" and an implicitly-absent field hashes identically.
 #'
 #' @param prompt User prompt string
 #' @param system_prompt System prompt string (NULL becomes "")

@@ -505,7 +505,7 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
     "what the framework missed.\n\n",
     "Conventions:\n",
     "- Code names should be 3-8 words, descriptive of the CONCEPT not the ",
-    "  verbatim words used (e.g., 'Spiritual coping during binges', not ",
+    "  verbatim words used (e.g., 'Coping rituals during deadlines', not ",
     "  'mentioned prayer').\n",
     "- Code descriptions should be 1-2 sentences explaining what the ",
     "  concept IS, in researcher voice.\n",

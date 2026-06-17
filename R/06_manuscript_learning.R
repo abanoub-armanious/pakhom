@@ -1,9 +1,9 @@
 # ==============================================================================
-# Manuscript Learning -- Parse Previous Analyses for Few-Shot Context
+# Manuscript Learning: Parse Previous Analyses for Few-Shot Context
 # ==============================================================================
-# Fixes the #1 bug from the old script: manuscript learning now works.
-# - Absolute paths required (no more relative path failures)
-# - Proper DOCX parsing with section extraction
+# Parses a researcher's prior analyses into few-shot context for a new run.
+# - Absolute paths required
+# - DOCX parsing with section extraction
 # - Filename metadata parsing for raw data files
 # - Task-specific context slices (coding, theming, review)
 # ==============================================================================
@@ -826,7 +826,7 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
 #' @param provider AIProvider object (or NULL for plain-text fallback)
 #' @param audit_log An optional AuditLog object (from
 #'   \code{\link{init_audit_log}}). When provided, the AI reflection call
-#'   is recorded as an \code{ai_request} audit decision (T1.4) with full
+#'   is recorded as an \code{ai_request} audit decision with full
 #'   provenance (model, usage, prompt_hash). Pass \code{NULL} to skip.
 #' @param response_cache An optional ResponseCache object (from
 #'   \code{\link{init_response_cache}}). When provided, the raw API
@@ -1910,20 +1910,7 @@ compute_coding_benchmarks <- function(studies) {
 #' Produces a domain-neutral, evidence-based summary of the prior codebooks'
 #' actual contents (theme names, hierarchy depth, coding style benchmarks).
 #'
-#' Design notes
-#' ------------
-#' An earlier version of this function (pre-1.0.0) injected hardcoded
-#' medication/health-research opinions into the AI's learning context: a
-#' regex list that matched theme names to predefined "recurring categories"
-#' (side effects, treatment efficacy, dosage timing, etc.) and an
-#' unconditional narrative-arc claim ("themes were organized to tell a
-#' coherent story: starting with direct treatment effects, moving to side
-#' effects and complications, then broader implications...") that fired
-#' whenever any prior codebook had theme descriptions. Both biased the AI
-#' toward medication-research framings regardless of the user's actual
-#' research domain. They have been removed.
-#'
-#' What this function does now: list the actual top-level theme names from
+#' What this function does: list the actual top-level theme names from
 #' each prior codebook so the AI can see what was studied without being told
 #' what the patterns "are". The numerical benchmarks (segment length, codes
 #' per entry, discarded-code percentage) are kept because they're

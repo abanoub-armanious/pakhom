@@ -34,7 +34,7 @@ publication-quality HTML report containing themes, codes, sentiment analysis,
 correlation analysis, and supporting evidence.
 
 The package's name is the Coptic word for *eagle* and honors Saint Pachomius
-the Great (c. 292–348 CE), whose written **Rule** of communal discipline
+the Great (c. 292-348 CE), whose written **Rule** of communal discipline
 established the genre of methodology-as-written-document. pakhom (the package)
 extends that lineage to AI-assisted qualitative analysis: methodology is
 codified at the architectural level, not left to user discipline at the
@@ -97,22 +97,21 @@ Collaborative, Framework Applied). The mode declaration is mandatory in
 every config; it shapes what the AI may produce, what the researcher
 must author, and which transparency artifacts are mandatory.
 
-**This getting-started vignette covers Mode 2 (Codebook Collaborative)**
-— the auto-pipeline you'd recognize from manual codebook TA. The AI
+**This getting-started vignette covers Mode 2 (Codebook Collaborative)**, the auto-pipeline you'd recognize from manual codebook TA. The AI
 proposes codes + themes; you gate each at pause-points; the package
 produces a publication-quality HTML report with full audit trail.
 
 For a worked example of all three modes plus a decision rubric for
 choosing among them, see `vignette("methodology-modes")`. In short:
 
-- **Mode 1 (`reflexive_scaffold`)** — AI as Socratic gadfly; researcher
+- **Mode 1 (`reflexive_scaffold`):** AI as Socratic gadfly; researcher
   authors all themes + codes; pakhom contributes provocations only.
   Use [`run_mode1()`](../reference/run_mode1.html). Best for reflexive
   TA + constructionist epistemology.
-- **Mode 2 (`codebook_collaborative`)** — AI proposes codes + themes;
+- **Mode 2 (`codebook_collaborative`):** AI proposes codes + themes;
   researcher gates each. Use [`run_analysis()`](../reference/run_analysis.html).
   This vignette.
-- **Mode 3 (`framework_applied`)** — Apply a researcher-supplied
+- **Mode 3 (`framework_applied`):** apply a researcher-supplied
   theoretical framework (TPB, COM-B, TDF, or your own) verbatim;
   flag anomalies. Use [`run_analysis()`](../reference/run_analysis.html)
   with `methodology.framework_spec_path` set. Best for theory-driven
@@ -174,7 +173,7 @@ one survey response). You need at minimum a column containing the text content.
 The package includes an optional Reddit scraper (`scrape_reddit()`) that can
 populate your SQLite database directly. **You don't need this if your data
 is already prepared.** If you do want to use it, note that as of November 2025
-Reddit no longer offers self-service API key creation — you must first be
+Reddit no longer offers self-service API key creation, so you must first be
 approved through Reddit's Responsible Builder Program:
 
   - Review the policy: <https://support.reddithelp.com/hc/en-us/articles/42728983564564-Responsible-Builder-Policy>

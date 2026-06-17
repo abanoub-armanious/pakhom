@@ -23,7 +23,7 @@ create_theme_network(
 
 \item{min_cooccurrence}{Minimum co-occurrence count to draw an edge (default 3)}
 
-\item{methodology_mode}{Optional character (T1.7 / AC4): when supplied,
+\item{methodology_mode}{Optional character. When supplied,
 adds a footer caption identifying the mode + run.}
 
 \item{run_id}{Optional character: run identifier.}

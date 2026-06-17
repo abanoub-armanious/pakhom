@@ -1,5 +1,5 @@
 # ==============================================================================
-# Shiny Config Wizard — interactive web-based configuration builder
+# Shiny Config Wizard: interactive web-based configuration builder
 # ==============================================================================
 
 #' Launch the interactive configuration wizard
@@ -574,7 +574,7 @@ config_wizard_app <- function(output_path = "config.yaml") {
 
 
 # ==============================================================================
-# Config builder — assembles inputs into a config list
+# Config builder: assembles the inputs into a config list
 # ==============================================================================
 
 #' @keywords internal

@@ -24,7 +24,7 @@ run_human_verification(
 
 \item{checkpoint}{CheckpointManager (or NULL)}
 
-\item{methodology_mode}{Optional methodology mode (T1.7 / AC4). When
+\item{methodology_mode}{Optional methodology mode. When
 non-NULL, every IRR CSV produced is stamped with a comment header
 identifying the mode and run id. NULL skips stamping (legacy /
 test callers).}

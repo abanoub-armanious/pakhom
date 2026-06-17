@@ -181,7 +181,7 @@ create_coding_state <- function(learning_context = NULL, config_hash = NULL) {
 #' @param response_cache An optional ResponseCache object (from
 #'   \code{\link{init_response_cache}}). When provided, raw API responses
 #'   for each per-entry coding ai_complete() call are written to the cache
-#'   and a reference is recorded in the audit log (T1.4). Pass \code{NULL}
+#'   and a reference is recorded in the audit log. Pass \code{NULL}
 #'   to skip raw-response capture.
 #' @param fabrication_log An optional FabricationLog object (from
 #'   \code{\link{init_fabrication_log}}). T0.1 verification ALWAYS runs --
@@ -1112,7 +1112,7 @@ run_progressive_coding <- function(data, provider, config = list(),
   segments_raw
 }
 
-#' Build the schema-path user prompt (existing T1.2 flow)
+#' Build the schema-path user prompt
 #'
 #' An earlier implementation JSON-escaped
 #' the entry text via \code{jsonlite::toJSON(truncated_text, auto_unbox =
@@ -2270,7 +2270,7 @@ run_progressive_coding <- function(data, provider, config = list(),
 #'
 #' @param state ProgressiveCodingState with saturation data
 #' @param output_dir Directory to save the plot
-#' @param methodology_mode Optional character (T1.7 / AC4): when supplied,
+#' @param methodology_mode Optional character. When supplied,
 #'   adds a footer caption to the plot identifying the mode + run.
 #' @param run_id Optional character: run identifier for the footer.
 #' @return Path to the generated PNG, or NULL

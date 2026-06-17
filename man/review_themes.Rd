@@ -13,7 +13,7 @@ review_themes(theme_set, output_dir, audit_log = NULL, methodology_mode = NULL)
 
 \item{audit_log}{Optional AuditLog}
 
-\item{methodology_mode}{Optional methodology mode (T1.7 / AC4). When
+\item{methodology_mode}{Optional methodology mode. When
 non-NULL, the exported review and disposition CSVs are stamped with
 a comment header. NULL skips stamping (legacy / test callers).}
 }

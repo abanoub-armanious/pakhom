@@ -24,9 +24,9 @@ test_that(".cluster_skip_reasons classifies common off-topic phrasings", {
     as.integer(c(10, 5, 3, 2)),
     c(
       "Entry is off-topic and unrelated to the research focus",
-      "Comment does not relate to sleep medication or binge eating",
+      "Comment does not relate to focus scheduling or overwork",
       "off topic personal anecdote",
-      "Off-topic; about a different drug entirely"
+      "Off-topic; about a different policy entirely"
     )
   )
 
@@ -50,7 +50,7 @@ test_that(".cluster_skip_reasons handles a mixed input across categories", {
       "Entry is too short -- only 3 words",
       "GIF reply only; no text content",
       "Just asking a question without offering any content",
-      "Subreddit tag only: /r/binge_eating",
+      "Subreddit tag only: /r/remote_work",
       "Duplicate of an earlier post in this thread",
       "Quoting another comment with no original content",
       "Some completely unparseable wording the regex won't catch"

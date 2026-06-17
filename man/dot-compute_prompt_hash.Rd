@@ -52,9 +52,8 @@ key consumed by read_cached_response() and planned replay tooling.
 }
 }
 \details{
-T1.2 added response_schema; T0.1 part 3b added documents. Pre-
-addition callers (NULL for the new arg) produce the same hashes as
-before because NULL serializes to "null" and the field was implicitly
-absent.
+A caller that passes NULL for response_schema or documents produces the
+same hashes as before those arguments existed, because NULL serializes to
+"null" and an implicitly-absent field hashes identically.
 }
 \keyword{internal}

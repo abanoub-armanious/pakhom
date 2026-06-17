@@ -1,23 +1,23 @@
 [
   {
-    "name": "Sleep Disruption and Binge Vulnerability",
-    "description": "Sleep problems increasing vulnerability to binge eating",
+    "name": "Focus Fragmentation and Overwork Risk",
+    "description": "Focus problems increasing vulnerability to overwork",
     "entry_count": 6,
     "prevalence": "40.0%",
     "sentiment_tendency": "negative",
-    "codes_included": "poor sleep quality; binge eating triggers; nighttime eating; sleep deprivation effects"
+    "codes_included": "poor deep-work quality; overwork triggers; nighttime overworking; focus deprivation effects"
   },
   {
-    "name": "Medication Side Effects and Tolerance",
-    "description": "Side effects and tolerance development with medications",
+    "name": "Scheduling Side Effects and Tolerance",
+    "description": "Side effects and tolerance development with scheduling tools",
     "entry_count": 3,
     "prevalence": "20.0%",
     "sentiment_tendency": "mixed",
-    "codes_included": "medication nausea; appetite suppression; GI issues; tolerance development"
+    "codes_included": "scheduling nausea; appetite suppression; GI issues; tolerance development"
   },
   {
     "name": "Recovery and Coping Strategies",
-    "description": "Strategies for managing binge eating recovery",
+    "description": "Strategies for managing overwork recovery",
     "entry_count": 4,
     "prevalence": "26.7%",
     "sentiment_tendency": "positive",

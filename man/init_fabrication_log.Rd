@@ -9,7 +9,7 @@ init_fabrication_log(output_dir, methodology_mode = NULL)
 \arguments{
 \item{output_dir}{Run output directory (where the CSV is written).}
 
-\item{methodology_mode}{Optional methodology mode (T1.7 / AC4). When
+\item{methodology_mode}{Optional methodology mode. When
 non-NULL, the CSV header is preceded by a comment-style methodology
 stamp identifying the mode and run id, so a reviewer picking up the
 bare CSV sees the methodology declaration. NULL skips stamping

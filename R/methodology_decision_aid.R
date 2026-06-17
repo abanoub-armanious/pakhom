@@ -1,14 +1,12 @@
 # ==============================================================================
-# Methodology Decision Aid -- T1.3
+# Methodology Decision Aid
 # ==============================================================================
 # Helps researchers choose a methodology mode appropriate for their study
-# design. Per the multi-mode investigation (Stream 6 finding), mode choice
-# under uncertainty is the single largest predicted failure path; this
-# function is the primary mitigation -- "scaffold the choice itself" per
-# Carroll & Rosson Training Wheels research.
+# design. Choosing a mode under uncertainty is one of the largest failure
+# paths in AI-assisted analysis, so this function scaffolds the choice itself,
+# in the spirit of Carroll and Rosson's Training Wheels research.
 #
-# This is intentionally minimal in v1; the full interactive 5-question
-# wizard expands in Phase C when Mode 1 ships. For now it provides:
+# It is intentionally lightweight, and provides:
 #   - A printed comparison of the three modes
 #   - A non-interactive recommendation function based on simple heuristics
 #   - An interactive prompt-driven path when run from a console
@@ -287,8 +285,8 @@ methodology_decision_aid <- function(interactive = base::interactive(),
 #'   depending on focus breadth, e.g. 40 codes from 60 coded entries
 #'   up to 157 codes from 140 coded entries).
 #' @param focus_shape One of \code{"narrow_intersection"} (e.g.,
-#'   "medication x sleep x binge"), \code{"single_focal"} (e.g.,
-#'   "medication adherence"), or \code{"broad"} (e.g., "emotional
+#'   "remote work x burnout x retention"), \code{"single_focal"} (e.g.,
+#'   "remote-work satisfaction"), or \code{"broad"} (e.g., "emotional
 #'   experiences"). Narrow foci produce fewer codes per coded entry.
 #' @return A list with elements \code{expected_themes},
 #'   \code{expected_passes}, \code{recommended_review_points},
@@ -296,7 +294,7 @@ methodology_decision_aid <- function(interactive = base::interactive(),
 #'   \code{notes}.
 #' @export
 #' @examples
-#' # A 250-entry corpus on a narrow medication x sleep question:
+#' # A 250-entry corpus on a narrow remote-work x burnout question:
 #' configuration_selection_aid(
 #'   mode = "codebook_collaborative",
 #'   corpus_size = 250,
@@ -363,8 +361,8 @@ configuration_selection_aid <- function(mode,
         "Mode 3 (framework_applied): theme count equals your framework's ",
         "construct count (+ 1 if anomaly_handling is 'bracket' / 'extend' / ",
         "'revise'). If anomaly_handling = 'extend' or 'revise', the ",
-        "anomaly-emergent themes use the v2 clustering algorithm (Phase ",
-        "60.2 wiring); their count follows the Mode 2 bracket below ",
+        "anomaly-emergent themes use the v2 clustering algorithm; their ",
+        "count follows the Mode 2 bracket below ",
         "applied to the anomaly subset."
       )
     ))

@@ -100,7 +100,7 @@ test_that("interpret_alpha returns correct labels", {
 # .fuzzy_deduplicate_codes: Near-duplicate merging
 # ==============================================================================
 test_that("fuzzy_deduplicate_codes merges near-duplicates", {
-  codes <- c("sleep problems", "sleep problem", "appetite changes", "appetite change")
+  codes <- c("focus problems", "focus problem", "appetite changes", "appetite change")
   result <- pakhom:::.fuzzy_deduplicate_codes(codes, threshold = 0.35)
 
   # Should reduce to ~2 canonical codes
@@ -109,7 +109,7 @@ test_that("fuzzy_deduplicate_codes merges near-duplicates", {
 })
 
 test_that("fuzzy_deduplicate_codes preserves distinct codes", {
-  codes <- c("insomnia", "binge eating", "depression", "medication")
+  codes <- c("autonomy", "burnout", "deadlines", "flexibility")
   result <- pakhom:::.fuzzy_deduplicate_codes(codes, threshold = 0.35)
   expect_equal(length(result), 4)
 })
@@ -122,21 +122,21 @@ test_that("fuzzy_deduplicate_codes handles single code", {
 # .map_to_canonical: Code mapping
 # ==============================================================================
 test_that("map_to_canonical maps codes to nearest canonical", {
-  canonical <- c("sleep disruption", "medication effects", "mood changes")
+  canonical <- c("focus disruption", "scheduling effects", "mood changes")
 
   mapped <- pakhom:::.map_to_canonical(
-    codes = c("sleep disruptions", "mood change"),
+    codes = c("focus disruptions", "mood change"),
     canonical = canonical,
     threshold = 0.35
   )
-  expect_true("sleep disruption" %in% mapped)
+  expect_true("focus disruption" %in% mapped)
   expect_true("mood changes" %in% mapped)
 })
 
 test_that("map_to_canonical returns empty for no matches", {
   mapped <- pakhom:::.map_to_canonical(
     codes = c("completely unrelated xyz"),
-    canonical = c("sleep", "eating"),
+    canonical = c("focus", "overworking"),
     threshold = 0.1  # Very strict threshold
   )
   expect_equal(length(mapped), 0)
@@ -162,16 +162,16 @@ test_that("run_human_verification exports blank sheet and codebook", {
 
   # Build a ProgressiveCodingState with some codes and entry results
   coding_state <- create_coding_state()
-  coding_state$codebook[["sleep_issues"]] <- list(
-    code_name = "Sleep Issues", description = "Problems with sleep",
+  coding_state$codebook[["focus_issues"]] <- list(
+    code_name = "Focus Issues", description = "Problems with focus",
     type = "descriptive", frequency = 5L,
     entry_ids = paste0("e_", 1:5),
     coded_segments = lapply(1:5, function(i) list(
-      entry_id = paste0("e_", i), text = "sleep problem", start_char = 0L, end_char = 13L
+      entry_id = paste0("e_", i), text = "focus problem", start_char = 0L, end_char = 13L
     ))
   )
-  coding_state$codebook[["medication_side_effects"]] <- list(
-    code_name = "Medication Side Effects", description = "Side effects of meds",
+  coding_state$codebook[["scheduling_side_effects"]] <- list(
+    code_name = "Scheduling Side Effects", description = "Side effects of meds",
     type = "descriptive", frequency = 3L,
     entry_ids = paste0("e_", 6:8),
     coded_segments = lapply(6:8, function(i) list(
@@ -182,15 +182,15 @@ test_that("run_human_verification exports blank sheet and codebook", {
     eid <- paste0("e_", i)
     if (i <= 5) {
       coding_state$entry_results[[eid]] <- list(
-        codes_assigned = "sleep_issues", skipped = FALSE,
-        coded_segments = list(list(code_key = "sleep_issues", code_name = "Sleep Issues",
-                                    text = "sleep problem", start_char = 0L, end_char = 13L))
+        codes_assigned = "focus_issues", skipped = FALSE,
+        coded_segments = list(list(code_key = "focus_issues", code_name = "Focus Issues",
+                                    text = "focus problem", start_char = 0L, end_char = 13L))
       )
     } else if (i <= 8) {
       coding_state$entry_results[[eid]] <- list(
-        codes_assigned = "medication_side_effects", skipped = FALSE,
-        coded_segments = list(list(code_key = "medication_side_effects",
-                                    code_name = "Medication Side Effects",
+        codes_assigned = "scheduling_side_effects", skipped = FALSE,
+        coded_segments = list(list(code_key = "scheduling_side_effects",
+                                    code_name = "Scheduling Side Effects",
                                     text = "side effect", start_char = 0L, end_char = 11L))
       )
     } else {
@@ -239,20 +239,20 @@ test_that("compute_irr_agreement produces valid stats for matching coders", {
   # Create human and AI coding sheets with high agreement
   human_df <- tibble::tibble(
     entry_id = paste0("e_", 1:5),
-    code_1 = c("sleep issues", "medication effects", "sleep issues", "mood changes", "sleep issues"),
-    code_2 = c("", "sleep issues", "", "", "medication effects"),
+    code_1 = c("focus issues", "scheduling effects", "focus issues", "mood changes", "focus issues"),
+    code_2 = c("", "focus issues", "", "", "scheduling effects"),
     code_3 = rep("", 5)
   )
 
   ai_df <- tibble::tibble(
     entry_id = paste0("e_", 1:5),
-    code_1 = c("sleep issues", "medication effects", "sleep issues", "mood changes", "sleep issues"),
-    code_2 = c("", "sleep issues", "", "", "medication effects"),
+    code_1 = c("focus issues", "scheduling effects", "focus issues", "mood changes", "focus issues"),
+    code_2 = c("", "focus issues", "", "", "scheduling effects"),
     code_3 = rep("", 5)
   )
 
   codebook_df <- tibble::tibble(
-    code_text = c("sleep issues", "medication effects", "mood changes"),
+    code_text = c("focus issues", "scheduling effects", "mood changes"),
     frequency = c(5L, 3L, 2L)
   )
 
@@ -289,18 +289,18 @@ test_that("compute_irr_agreement handles partial disagreement", {
 
   human_df <- tibble::tibble(
     entry_id = paste0("e_", 1:4),
-    code_1 = c("sleep issues", "medication effects", "mood changes", "appetite"),
+    code_1 = c("focus issues", "scheduling effects", "mood changes", "appetite"),
     code_2 = rep("", 4)
   )
 
   ai_df <- tibble::tibble(
     entry_id = paste0("e_", 1:4),
-    code_1 = c("sleep issues", "dosage problems", "mood changes", "weight gain"),
+    code_1 = c("focus issues", "schedule problems", "mood changes", "weight gain"),
     code_2 = rep("", 4)
   )
 
   codebook_df <- tibble::tibble(
-    code_text = c("sleep issues", "medication effects", "mood changes", "appetite", "dosage problems", "weight gain"),
+    code_text = c("focus issues", "scheduling effects", "mood changes", "appetite", "schedule problems", "weight gain"),
     frequency = c(3L, 2L, 2L, 1L, 1L, 1L)
   )
 
@@ -420,16 +420,16 @@ test_that(".compute_irr_agreement reads through methodology stamps in completed 
 
   human <- tibble::tibble(
     entry_id = paste0("e_", 1:3),
-    code_1 = c("sleep issues", "anxiety", "exhaustion"),
+    code_1 = c("focus issues", "anxiety", "exhaustion"),
     code_2 = rep("", 3)
   )
   ai <- tibble::tibble(
     entry_id = paste0("e_", 1:3),
-    code_1 = c("sleep issues", "anxiety", "fatigue"),
+    code_1 = c("focus issues", "anxiety", "fatigue"),
     code_2 = rep("", 3)
   )
   codebook <- tibble::tibble(
-    code_text = c("sleep issues", "anxiety", "exhaustion", "fatigue"),
+    code_text = c("focus issues", "anxiety", "exhaustion", "fatigue"),
     description = "d", code_type = "descriptive", frequency = 1L
   )
 
@@ -469,7 +469,7 @@ test_that("compute_irr_agreement aligns by entry_id even when rows are shuffled"
 
   human_df <- tibble::tibble(
     entry_id = paste0("e_", 1:5),
-    code_1 = c("sleep issues", "medication effects", "mood changes", "appetite", "anxiety"),
+    code_1 = c("focus issues", "scheduling effects", "mood changes", "appetite", "anxiety"),
     code_2 = rep("", 5)
   )
   # SAME codings keyed to the SAME entry_ids, but the AI sheet rows are in a
@@ -499,12 +499,12 @@ test_that("compute_irr_agreement drops entries present in only one sheet", {
 
   human_df <- tibble::tibble(
     entry_id = paste0("e_", 1:4),
-    code_1 = c("sleep issues", "anxiety", "mood changes", "appetite"),
+    code_1 = c("focus issues", "anxiety", "mood changes", "appetite"),
     code_2 = rep("", 4)
   )
   ai_df <- tibble::tibble(  # only e_1..e_3 in common; e_9 is AI-only
     entry_id = c("e_1", "e_2", "e_3", "e_9"),
-    code_1 = c("sleep issues", "anxiety", "mood changes", "weight gain"),
+    code_1 = c("focus issues", "anxiety", "mood changes", "weight gain"),
     code_2 = rep("", 4)
   )
   hp <- file.path(tmp_dir, "h.csv"); ap <- file.path(tmp_dir, "a.csv")
@@ -529,9 +529,9 @@ test_that("semantic variants are NOT merged (counted as disagreement)", {
   on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
 
   human_df <- tibble::tibble(entry_id = c("e_1", "e_2"),
-    code_1 = c("sleep issues", "mood changes"), code_2 = c("", ""))
+    code_1 = c("focus issues", "mood changes"), code_2 = c("", ""))
   ai_df <- tibble::tibble(entry_id = c("e_1", "e_2"),
-    code_1 = c("sleep problems", "mood swings"), code_2 = c("", ""))  # variants
+    code_1 = c("focus problems", "mood swings"), code_2 = c("", ""))  # variants
   hp <- file.path(tmp_dir, "h.csv"); ap <- file.path(tmp_dir, "a.csv")
   cp <- file.path(tmp_dir, "c.csv")
   readr::write_csv(human_df, hp); readr::write_csv(ai_df, ap)
@@ -540,7 +540,7 @@ test_that("semantic variants are NOT merged (counted as disagreement)", {
   result <- pakhom:::.compute_irr_agreement(hp, ap, cp,
     sample_ids = c("e_1", "e_2"), max_codes = 2)
 
-  # "sleep issues"/"sleep problems" (jw~0.30) and "mood changes"/"mood swings"
+  # "focus issues"/"focus problems" (jw~0.30) and "mood changes"/"mood swings"
   # (jw~0.20) are genuine labelling differences at the 0.15 threshold, so NONE
   # of the entries should be scored as agreement (the old 0.35 wrongly merged
   # them -> falsely perfect agreement).
@@ -598,11 +598,11 @@ test_that("set-based alpha is not inflated by sparse, distinct codes", {
   # words in each rater (disagreement). All 16 strings are chosen with no shared
   # 4-char prefixes so the conservative canonicalizer does not merge any of them.
   human_df <- tibble::tibble(entry_id = ids,
-    code_1 = c("insomnia", "nausea", "cravings", "bloating",
+    code_1 = c("distraction", "nausea", "overtime urges", "bloating",
                "dizziness", "fatigue", "anxiety", "weight gain"),
     code_2 = rep("", 8))
   ai_df <- tibble::tibble(entry_id = ids,
-    code_1 = c("insomnia", "nausea", "cravings", "bloating",
+    code_1 = c("distraction", "nausea", "overtime urges", "bloating",
                "headaches", "restlessness", "depression", "appetite loss"),
     code_2 = rep("", 8))
   hp <- file.path(tmp_dir, "h.csv"); ap <- file.path(tmp_dir, "a.csv")

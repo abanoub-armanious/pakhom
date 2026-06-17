@@ -83,11 +83,11 @@ correlation section gains a 'Theme Group Comparisons' subsection.}
 provided, the correlation section gains a 'Theme Co-occurrence'
 subsection.}
 
-\item{audit_log}{Optional \code{AuditLog} object (T1.4) forwarded to
+\item{audit_log}{Optional \code{AuditLog} object forwarded to
 \code{generate_ai_synthesis} so the executive-summary AI call is
 recorded as an \code{ai_request} audit decision.}
 
-\item{response_cache}{Optional \code{ResponseCache} object (T1.4)
+\item{response_cache}{Optional \code{ResponseCache} object
 forwarded to \code{generate_ai_synthesis} so the raw API response is
 written to the cache and referenced from the audit log.}
 

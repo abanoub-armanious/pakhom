@@ -1,5 +1,5 @@
 # ==============================================================================
-# JSON Parsing Utilities — Safe Parsing with Repair Strategies
+# JSON Parsing Utilities: Safe Parsing with Repair Strategies
 # ==============================================================================
 
 #' Parse JSON safely with automatic repair for truncated/malformed responses

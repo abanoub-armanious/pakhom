@@ -21,7 +21,7 @@ test_that("run_progressive_coding (Mode 3) pre-populates codebook with framework
   spec <- load_framework_spec("tpb")
   data <- tibble::tibble(
     std_id   = c("e1", "e2"),
-    std_text = c("I plan to take my medication every morning.",
+    std_text = c("I plan to take my scheduling every morning.",
                   "My doctor expects me to follow this regimen.")
   )
 
@@ -63,7 +63,7 @@ test_that("run_progressive_coding (Mode 3) pre-populates codebook with framework
   state <- run_progressive_coding(
     data = data, provider = mock_provider("anthropic"),
     config = list(max_retries_per_entry = 1L),
-    research_focus = "Medication adherence",
+    research_focus = "Schedule adherence",
     framework_spec = spec
   )
 
@@ -326,7 +326,7 @@ test_that("Mode 3 .code_entry_progressive dispatch chooses framework path when f
   )
 
   pakhom:::.code_entry_progressive(
-    text = "I plan to take medication.",
+    text = "I plan to take scheduling.",
     entry_id = "e1", entry_index = 1L, state = state,
     provider = mock_provider("anthropic"),
     config = list(max_retries_per_entry = 1L),
@@ -419,7 +419,7 @@ test_that("Mode 3 end-to-end: cascade_theme_assignments populates theme_membersh
   )
 
   ts <- apply_framework_themes(state, spec)
-  data <- tibble::tibble(std_id = "e1", std_text = "I plan to take medication.")
+  data <- tibble::tibble(std_id = "e1", std_text = "I plan to take scheduling.")
   data <- cascade_theme_assignments(data, state, ts)
 
   # cascade_theme_assignments should have produced a theme_membership_*
@@ -454,7 +454,7 @@ test_that("enrich_themes preserves Mode 3 keywords (HIGH 3 regression)", {
 
   ts <- apply_framework_themes(state, spec)
   data <- tibble::tibble(std_id = "e1",
-                          std_text = "I plan to take medication every day.",
+                          std_text = "I plan to take scheduling every day.",
                           sentiment_score = 0.5)
   data <- cascade_theme_assignments(data, state, ts)
   ts <- enrich_themes(ts, data, coding_state = state)
@@ -660,7 +660,7 @@ test_that(".build_tier0_source_block plumbs config through to bypass footnote", 
   # canonical Mode 3 + Anthropic shape), then verify the rendered
   # source block carries the bypass footnote when config indicates
   # Mode 3 + Anthropic.
-  src <- "I plan to take my medication every day."
+  src <- "I plan to take my scheduling every day."
   q <- make_quote("e1", "data_entry", src, 0L, 6L, "I plan",
                     citation_source = "model_freeform")
   q <- verify_quote(q, src)

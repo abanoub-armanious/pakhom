@@ -94,7 +94,7 @@ test_that("generate_mode1_report rejects non-data.frame data", {
          codes_included = "y")
   ))
   log <- create_reflection_log()
-  src <- "I plan to take my medication every day."
+  src <- "I plan to take my scheduling every day."
   q <- make_quote("e1", "data_entry", src, 0L, 6L, "I plan",
                     citation_source = "model_freeform")
   q <- verify_quote(q, src)

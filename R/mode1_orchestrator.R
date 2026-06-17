@@ -1097,7 +1097,7 @@ compute_mode1_theme_stats <- function(data, theme_set, reflection_log,
 #' #    pakhom never writes themes in Mode 1.
 #' my_themes <- create_theme_set(list(
 #'   list(id = 1, name = "Adherence",
-#'        description = "Researcher-authored: medication adherence",
+#'        description = "Researcher-authored: remote-work flexibility",
 #'        codes_included = c("med_routine", "daily_pills"))
 #' ))
 #'

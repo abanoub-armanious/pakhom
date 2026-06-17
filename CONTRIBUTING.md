@@ -26,8 +26,8 @@ API key.
    intact (see the "Architectural commitments" section of `README.md`):
    - the package **groups** codes into themes; it never merges them into new
      codes;
-   - clustering depth is the AI's dynamic, per-dataset call — there are no
-     hardcoded theme/cluster counts or thresholds;
+   - clustering depth is the AI's dynamic, per-dataset call, with no
+     hardcoded theme or cluster counts or thresholds;
    - the report **explains** rather than **gates** (values and their n are
      shown; nothing is silently suppressed);
    - no user-facing content (taxonomies, menus, categories) is hardcoded.

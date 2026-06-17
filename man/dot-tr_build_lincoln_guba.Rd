@@ -13,7 +13,7 @@ naturalistic-inquiry criteria from Lincoln & Guba 1985:
 \item \strong{Credibility} (~internal validity) -- T0.1 quote
 verification, methodology-rules injection, framework grounding.
 \item \strong{Dependability} (~reliability) -- audit log + AC9
-stamping + parent_run_id soft-lock (T1.5).
+stamping + parent_run_id soft-lock.
 \item \strong{Confirmability} (~objectivity) -- reflexivity
 scaffold (Olmos-Vega AMEE 149) + per-cluster organizing-concept
 rationale (audit-logged).

@@ -40,7 +40,7 @@ audit logging for this step.}
 \item{response_cache}{An optional ResponseCache object (from
 \code{\link{init_response_cache}}). When provided, raw API responses
 for each per-batch sentiment ai_complete_fast() call are written to
-the cache and referenced from the audit log (T1.4). Pass \code{NULL}
+the cache and referenced from the audit log. Pass \code{NULL}
 to skip raw-response capture.}
 }
 \value{

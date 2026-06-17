@@ -1,11 +1,11 @@
 std_id,std_text,sentiment_score,all_emotions,emotion_intensity,confidence,emerged_themes,source_table
-entry_001,I cannot sleep at all since starting this medication,-0.8,sadness,0.9,0.85,Sleep Disruption and Binge Eating,posts
-entry_002,The side effects are manageable but annoying,-0.2,anger,0.4,0.75,Medication Side Effects,posts
-entry_003,I feel so anxious about my eating patterns,-0.6,fear,0.7,0.80,Emotional Regulation Struggles,posts
-entry_004,Sleep has improved with melatonin supplement,0.5,joy,0.6,0.70,Sleep Disruption and Binge Eating,posts
-entry_005,Nausea from the medication is terrible,-0.7,disgust,0.8,0.90,Medication Side Effects,comments
-entry_006,My binge eating is getting worse at night,-0.5,sadness,0.6,0.85,Sleep Disruption and Binge Eating,comments
-entry_007,Starting to feel more in control of eating habits,0.6,trust,0.7,0.80,Emotional Regulation Struggles,posts
-entry_008,The weight gain is frustrating,-0.4,anger,0.5,0.75,Medication Side Effects,posts
-entry_009,Sleep deprivation makes everything worse,-0.6,sadness,0.8,0.85,Sleep Disruption and Binge Eating,comments
+entry_001,I cannot focus at all since starting this scheduling,-0.8,sadness,0.9,0.85,Focus Fragmentation and Overwork,posts
+entry_002,The side effects are manageable but annoying,-0.2,anger,0.4,0.75,Scheduling Side Effects,posts
+entry_003,I feel so anxious about my overworking patterns,-0.6,fear,0.7,0.80,Emotional Regulation Struggles,posts
+entry_004,Focus has improved with a planning routine,0.5,joy,0.6,0.70,Focus Fragmentation and Overwork,posts
+entry_005,Nausea from the scheduling is terrible,-0.7,disgust,0.8,0.90,Scheduling Side Effects,comments
+entry_006,My overwork is getting worse at night,-0.5,sadness,0.6,0.85,Focus Fragmentation and Overwork,comments
+entry_007,Starting to feel more in control of overworking habits,0.6,trust,0.7,0.80,Emotional Regulation Struggles,posts
+entry_008,The weight gain is frustrating,-0.4,anger,0.5,0.75,Scheduling Side Effects,posts
+entry_009,Focus deprivation makes everything worse,-0.6,sadness,0.8,0.85,Focus Fragmentation and Overwork,comments
 entry_010,I feel hopeless about recovery,-0.9,sadness,0.9,0.90,Emotional Regulation Struggles,posts

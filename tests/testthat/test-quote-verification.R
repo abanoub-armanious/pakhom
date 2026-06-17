@@ -280,7 +280,7 @@ test_that("T0.1 verbatim is relative to the CLEANED analytic text (redaction tok
   # token verifies, because the token IS part of the analytic corpus.
   raw <- tibble::tibble(
     std_id = "e1",
-    std_text = "I posted this in r/sleepresearch yesterday and felt heard."
+    std_text = "I posted this in r/remotework yesterday and felt heard."
   )
   cleaned <- preprocess_text(raw, config = list(source_type = "reddit"))
   expect_match(cleaned$std_text[1], "[subreddit]", fixed = TRUE)

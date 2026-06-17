@@ -5,17 +5,17 @@
 # (replaces a substring grepl that gave false positives across 7 modules)
 # ==============================================================================
 test_that(".entry_in_theme matches whole theme names, not substrings", {
-  em <- c("Sleep Problems; Anxiety",   # has "Sleep Problems", NOT "Sleep"
-          "Sleep",                      # exactly "Sleep"
-          "Anxiety; Sleep",             # "Sleep" as the 2nd token
+  em <- c("Focus Problems; Anxiety",   # has "Focus Problems", NOT "Focus"
+          "Focus",                      # exactly "Focus"
+          "Anxiety; Focus",             # "Focus" as the 2nd token
           NA_character_,                # NA -> not a member
           "")                           # empty -> not a member
 
-  # The crux: "Sleep" must NOT match the entry whose only theme is "Sleep
+  # The crux: "Focus" must NOT match the entry whose only theme is "Focus
   # Problems" (the old grepl(tn, ..., fixed=TRUE) wrongly did).
-  expect_equal(pakhom:::.entry_in_theme(em, "Sleep"),
+  expect_equal(pakhom:::.entry_in_theme(em, "Focus"),
                c(FALSE, TRUE, TRUE, FALSE, FALSE))
-  expect_equal(pakhom:::.entry_in_theme(em, "Sleep Problems"),
+  expect_equal(pakhom:::.entry_in_theme(em, "Focus Problems"),
                c(TRUE, FALSE, FALSE, FALSE, FALSE))
   expect_equal(pakhom:::.entry_in_theme(em, "Anxiety"),
                c(TRUE, FALSE, TRUE, FALSE, FALSE))

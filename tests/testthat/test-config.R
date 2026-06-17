@@ -414,7 +414,7 @@ test_that("AH-4: partially-populated reflexivity produces info-level signal", {
 
 test_that("AH-4: fully-populated reflexivity produces no warning", {
   cfg <- list(study = list(
-    researcher_positionality = "Clinical psychologist",
+    researcher_positionality = "Organizational researcher",
     research_paradigm        = "critical realist",
     reflexive_notes          = "Some reflexive notes"
   ))
@@ -561,12 +561,12 @@ test_that(".flatten_overrides: multiple siblings under nested parent", {
 })
 
 test_that(".flatten_overrides: character vector is a leaf (not recursed)", {
-  # study$concepts is c("med", "sleep") -- a character vector, not a
+  # study$concepts is c("med", "focus") -- a character vector, not a
   # list. Must NOT recurse on it (would fail since names() is NULL).
   result <- pakhom:::.flatten_overrides(
-    list(study = list(concepts = c("med", "sleep", "binge")))
+    list(study = list(concepts = c("med", "focus", "overwork")))
   )
-  expect_equal(result, list("study.concepts" = c("med", "sleep", "binge")))
+  expect_equal(result, list("study.concepts" = c("med", "focus", "overwork")))
 })
 
 test_that(".flatten_overrides: NULL value is a leaf (preserved)", {

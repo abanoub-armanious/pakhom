@@ -151,7 +151,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
     # Emotion distribution (multi-label: split all_emotions and count each)
     emotions <- .count_multi_label_emotions(entries)
 
-    # Representative quotes — prefer excerpt-based quotes from enriched ThemeSet
+    # Representative quotes: prefer excerpt-based quotes from an enriched ThemeSet
     enriched_quotes <- t$supporting_quotes
     if (!is.null(enriched_quotes) && length(enriched_quotes) >= 1 &&
         all(nchar(enriched_quotes) > 0, na.rm = TRUE)) {
@@ -986,7 +986,7 @@ aggregate_overall_statistics <- function(data, theme_set, consolidated = NULL,
                                           learning_context = NULL, config = NULL) {
   total <- nrow(data)
 
-  # Theme distribution — count from multi-label membership columns.
+  # Theme distribution counted from the multi-label membership columns.
   # iterate the ORIGINAL theme_set$themes names
   # instead of round-tripping membership column names through
   # make.names(). The pre-fix path used `sub("^theme_membership_",
@@ -1137,10 +1137,10 @@ aggregate_overall_statistics <- function(data, theme_set, consolidated = NULL,
 #' @param config ThematicConfig (or NULL). The reflexivity_block is read from
 #'   \code{config$study} and injected into the synthesis system prompt; pass
 #'   NULL to omit reflexivity framing.
-#' @param audit_log An optional AuditLog object (T1.4). When provided, the
+#' @param audit_log An optional AuditLog object. When provided, the
 #'   executive-summary synthesis AI call is recorded as an \code{ai_request}
 #'   audit decision with full provenance.
-#' @param response_cache An optional ResponseCache object (T1.4). When
+#' @param response_cache An optional ResponseCache object. When
 #'   provided, the raw API response is written to the cache and referenced
 #'   from the audit log.
 #' @return List with executive_summary and conclusion strings
@@ -1381,69 +1381,6 @@ get_emotion_interpretation <- function(emotion) {
 
   interpretations[[tolower(emotion)]] %||%
     paste0("reflects ", tolower(emotion), "-related emotional responses")
-}
-
-#' Generate a theme detail section for appendix
-#'
-#' @param theme_name Theme name
-#' @param ts Theme statistics (from aggregate_theme_statistics)
-#' @param theme_index Numeric index
-#' @param theme_csv_info CSV file info list (or NULL)
-#' @return R Markdown string for the section
-generate_theme_detail_section <- function(theme_name, ts, theme_index, theme_csv_info) {
-  anchor_id <- paste0("appendix-", make_anchor_id(theme_name))
-
-  content <- paste0(
-    '## ', theme_index, '. ', .html_esc(theme_name), ' {#', anchor_id, '}\n\n',
-    '<a class="appendix-back-link" href="#theme-summary-', theme_index, '">Back to summary</a>\n\n',
-    '**Description:** ', .html_esc(ts$description %||% ""), '\n\n',
-    '**Entries:** ', ts$n_entries, ' (', ts$pct_of_total, '% of total)\n\n',
-    '**Sentiment:** Mean = ', ts$sentiment$mean,
-    ' (SD = ', ts$sentiment$sd, ')\n\n'
-  )
-
-  # Subthemes
-  if (length(ts$subthemes) > 0 && !all(is.na(unlist(ts$subthemes)))) {
-    subs <- vapply(ts$subthemes, function(s) {
-      if (is.null(s)) return(NA_character_)
-      # Handle structured subthemes (list with $name) or plain strings
-      val <- if (is.list(s)) s$name %||% as.character(s[[1]]) else as.character(s)
-      if (length(val) != 1) val <- paste(val, collapse = " ")
-      if (is.na(val) || nchar(val) == 0) NA_character_ else val
-    }, character(1))
-    subs <- subs[!is.na(subs)]
-    if (length(subs) > 0) {
-      content <- paste0(content, "**Subthemes:** ", paste(vapply(subs, .html_esc, character(1)), collapse = ", "), "\n\n")
-    }
-  }
-
-  # Emotions table
-  if (nrow(ts$emotions) > 0) {
-    content <- paste0(content,
-      "### Emotion Distribution\n\n",
-      "| Emotion | Count | Percentage |\n",
-      "|---------|------:|----------:|\n"
-    )
-    for (i in seq_len(min(5, nrow(ts$emotions)))) {
-      row <- ts$emotions[i, ]
-      content <- paste0(content,
-        "| ", row$emotion, " | ", row$n, " | ", row$pct, "% |\n"
-      )
-    }
-    content <- paste0(content, "\n")
-  }
-
-  # Download link
-  if (!is.null(theme_csv_info)) {
-    content <- paste0(content,
-      '<div class="download-box">\n',
-      '<a href="', theme_csv_info$relative_path, '" class="download-link" download>',
-      'Download all ', ts$n_entries, ' entries as CSV</a>\n',
-      '</div>\n\n'
-    )
-  }
-
-  content
 }
 
 #' Generate downloads appendix section

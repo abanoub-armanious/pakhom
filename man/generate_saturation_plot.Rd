@@ -16,7 +16,7 @@ generate_saturation_plot(
 
 \item{output_dir}{Directory to save the plot}
 
-\item{methodology_mode}{Optional character (T1.7 / AC4): when supplied,
+\item{methodology_mode}{Optional character. When supplied,
 adds a footer caption to the plot identifying the mode + run.}
 
 \item{run_id}{Optional character: run identifier for the footer.}

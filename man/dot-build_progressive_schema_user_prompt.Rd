@@ -2,7 +2,7 @@
 % Please edit documentation in R/09_coding.R
 \name{.build_progressive_schema_user_prompt}
 \alias{.build_progressive_schema_user_prompt}
-\title{Build the schema-path user prompt (existing T1.2 flow)}
+\title{Build the schema-path user prompt}
 \usage{
 .build_progressive_schema_user_prompt(truncated_text)
 }

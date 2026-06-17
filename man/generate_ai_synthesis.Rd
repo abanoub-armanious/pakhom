@@ -33,11 +33,11 @@ generate_ai_synthesis(
 \code{config$study} and injected into the synthesis system prompt; pass
 NULL to omit reflexivity framing.}
 
-\item{audit_log}{An optional AuditLog object (T1.4). When provided, the
+\item{audit_log}{An optional AuditLog object. When provided, the
 executive-summary synthesis AI call is recorded as an \code{ai_request}
 audit decision with full provenance.}
 
-\item{response_cache}{An optional ResponseCache object (T1.4). When
+\item{response_cache}{An optional ResponseCache object. When
 provided, the raw API response is written to the cache and referenced
 from the audit log.}
 }

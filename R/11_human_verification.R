@@ -17,7 +17,7 @@
 #' @param config Human verification config section
 #' @param output_dir Output directory path
 #' @param checkpoint CheckpointManager (or NULL)
-#' @param methodology_mode Optional methodology mode (T1.7 / AC4). When
+#' @param methodology_mode Optional methodology mode. When
 #'   non-NULL, every IRR CSV produced is stamped with a comment header
 #'   identifying the mode and run id. NULL skips stamping (legacy /
 #'   test callers).

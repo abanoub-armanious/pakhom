@@ -259,9 +259,9 @@ test_that(".validate_documents accepts a well-formed single document and default
 
 test_that(".validate_documents preserves caller-supplied title", {
   docs <- pakhom:::.validate_documents(list(
-    list(id = "post_001", text = "Body", title = "Post about sleep")
+    list(id = "post_001", text = "Body", title = "Post about focus")
   ))
-  expect_equal(docs[[1]]$title, "Post about sleep")
+  expect_equal(docs[[1]]$title, "Post about focus")
 })
 
 test_that(".validate_documents handles multiple documents", {
@@ -359,7 +359,7 @@ test_that(".normalize_anthropic_citation coerces char_location citation correctl
   # Mimic jsonlite::fromJSON output: numeric (not integer) indices.
   raw <- list(
     type             = "char_location",
-    cited_text       = "trouble sleeping",
+    cited_text       = "trouble focusing",
     document_index   = 0,
     document_title   = "Post 1",
     start_char_index = 6,
@@ -367,7 +367,7 @@ test_that(".normalize_anthropic_citation coerces char_location citation correctl
   )
   out <- pakhom:::.normalize_anthropic_citation(raw)
   expect_equal(out$type,             "char_location")
-  expect_equal(out$cited_text,       "trouble sleeping")
+  expect_equal(out$cited_text,       "trouble focusing")
   expect_equal(out$document_index,   0L)
   expect_type(out$document_index,    "integer")
   expect_equal(out$document_title,   "Post 1")

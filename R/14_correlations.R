@@ -43,7 +43,7 @@ prepare_correlation_data <- function(data, theme_set, config = list()) {
   # honors explicit config$data$column_mappings$metric_columns first,
   # then falls back to auto-detect (any numeric column not in the
   # internal exclusion list and not theme_membership_*). A clinical
-  # corpus with `age` + `medication_dose` now correlates those against
+  # corpus with `age` and `tenure_months` now correlates those against
   # every theme; a Reddit corpus with `score` + `num_comments`
   # correlates those; etc. See pakhom/R/16_report_helpers.R::.detect_metric_columns.
   metric_cols <- .detect_metric_columns(data, config = config)
@@ -687,10 +687,10 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
 #' @param config Correlation config section (e.g. \code{config$analysis$correlations}).
 #'   Used here for the reflexivity_block injected into the insight system
 #'   prompt; pass an empty list to skip.
-#' @param audit_log An optional AuditLog object (T1.4). When provided, the
+#' @param audit_log An optional AuditLog object. When provided, the
 #'   insight-generation AI call is recorded as an \code{ai_request} audit
 #'   decision with full provenance.
-#' @param response_cache An optional ResponseCache object (T1.4). When
+#' @param response_cache An optional ResponseCache object. When
 #'   provided, the raw API response is written to the cache and referenced
 #'   from the audit log.
 #' @return Insights list
@@ -761,7 +761,7 @@ generate_insights <- function(correlations_df, theme_set, provider,
 #'
 #' @param results CorrelationResults from calculate_correlations()
 #' @param output_path File path for PNG output
-#' @param methodology_mode Optional character (T1.7 / AC4): when supplied,
+#' @param methodology_mode Optional character. When supplied,
 #'   adds a footer caption identifying the methodology mode + run.
 #' @param run_id Optional character: run identifier.
 #' @param max_inline_vars Integer; correlation matrices with more
@@ -1176,7 +1176,7 @@ create_correlation_plot <- function(results, output_path,
 #' @param theme_set ThemeSet object
 #' @param output_path File path for PNG output
 #' @param min_cooccurrence Minimum co-occurrence count to draw an edge (default 3)
-#' @param methodology_mode Optional character (T1.7 / AC4): when supplied,
+#' @param methodology_mode Optional character. When supplied,
 #'   adds a footer caption identifying the mode + run.
 #' @param run_id Optional character: run identifier.
 #' @param max_inline_themes Integer; when the graph has more nodes than
@@ -1423,8 +1423,8 @@ compare_theme_groups <- function(data, theme_set, config = list()) {
   # C4 (dataset-agnostic): test EVERY numeric
   # metric column for theme-group differences via Mann-Whitney U, not
   # just the two pakhom-engineered sentiment columns. A clinical
-  # researcher with a `medication_dose` column now sees "Theme X has
-  # significantly higher medication_dose than non-X"; pre-this-fix
+  # researcher with a `tenure_months` column now sees "Theme X has
+  # significantly higher tenure_months than non-X"; before this fix
   # they never would. See pakhom/R/16_report_helpers.R::.detect_metric_columns.
   base_continuous <- intersect(c("sentiment_score", "emotion_intensity"), names(data))
   metric_cols <- .detect_metric_columns(data, config = config)

@@ -11,11 +11,11 @@
   tibble::tibble(
     std_id   = paste0("e", 1:6),
     std_text = c(
-      "I plan to take my medication every day from now on.",
+      "I plan to take my scheduling every day from now on.",
       "My doctor told me to follow this regimen carefully.",
       "I always forget my pills; the schedule is impossible to keep up.",
-      "Side effects make me skip doses on weekends.",
-      "Honestly I don't think medication helps me at all.",
+      "Side effects make me skip shifts on weekends.",
+      "Honestly I don't think scheduling helps me at all.",
       "Taking my meds makes me feel like a different person."
     ),
     std_author = c("alice", "bob", "carol", "dave", "eve", "frank"),
@@ -27,7 +27,7 @@
 .mock_mode1_theme_set <- function() {
   create_theme_set(list(
     list(id = 1, name = "Adherence",
-         description = "Medication adherence",
+         description = "Schedule adherence",
          codes_included = "med_routine"),
     list(id = 2, name = "Resistance",
          description = "Resistance to the regimen",
@@ -597,7 +597,7 @@ test_that(".read_reflection_log_json re-classes nested Provocation + QuoteProven
   # silently emit NA-cited rows. The fix uses simplifyVector=FALSE +
   # explicit re-classing on read.
   log <- create_reflection_log()
-  src <- "I plan to take my medication every day."
+  src <- "I plan to take my scheduling every day."
   q <- make_quote("e1", "data_entry", src, 0L, 6L, "I plan",
                     citation_source = "model_freeform")
   q <- verify_quote(q, src)

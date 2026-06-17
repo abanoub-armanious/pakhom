@@ -206,11 +206,11 @@ test_that("subtheme table surfaces a fail-honest gap by name (R4) and computes n
 
 .make_methodology_bundle <- function(source = "ai") {
   rel <- new_relevance_criterion(
-    research_focus_paraphrase = "How medication timing relates to sleep quality.",
-    relevance_criterion = "On-focus if it connects medication (dose/timing) to a sleep outcome.",
-    on_focus_examples  = c("I take my pill at 9pm and sleep well."),
-    off_focus_examples = c("I love this medication."),
-    discrimination_principle = "Must tie medication to a SLEEP outcome.",
+    research_focus_paraphrase = "How meeting load relates to deep-work quality.",
+    relevance_criterion = "On-focus if it connects scheduling (shift/timing) to a focus outcome.",
+    on_focus_examples  = c("I take my pill at 9pm and focus well."),
+    off_focus_examples = c("I love this scheduling."),
+    discrimination_principle = "Must tie scheduling to a FOCUS outcome.",
     source = source)
   mi <- new_metric_interpretation(
     metrics = list(list(column_name = "score",
@@ -224,17 +224,17 @@ test_that("subtheme table surfaces a fail-honest gap by name (R4) and computes n
                                        rationale = "rhythm")),
       interpretation_note = "Evening clustering expected.")),
     source = source)
-  new_methodology_articulations(rel, mi, research_focus = "med x sleep", source = source)
+  new_methodology_articulations(rel, mi, research_focus = "med x focus", source = source)
 }
 
 test_that(".build_methodology_setup_section renders criterion, examples, and tables", {
   out <- pakhom:::.build_methodology_setup_section(.make_methodology_bundle("ai"))
   expect_match(out, "Methodology Setup", fixed = TRUE)
   expect_match(out, "AI-articulated", fixed = TRUE)
-  expect_match(out, "connects medication", fixed = TRUE)
+  expect_match(out, "connects scheduling", fixed = TRUE)
   expect_match(out, "I take my pill at 9pm", fixed = TRUE)        # on-focus
-  expect_match(out, "I love this medication", fixed = TRUE)        # off-focus
-  expect_match(out, "Must tie medication to a SLEEP", fixed = TRUE)
+  expect_match(out, "I love this scheduling", fixed = TRUE)        # off-focus
+  expect_match(out, "Must tie scheduling to a FOCUS", fixed = TRUE)
   expect_match(out, "<code>prim_median</code>", fixed = TRUE)      # auditable primitive id
   expect_match(out, "mean is misleading", fixed = TRUE)
   expect_match(out, "std_timestamp", fixed = TRUE)                 # temporal table
@@ -268,7 +268,7 @@ test_that(".load_methodology_articulations_from_run_dir round-trips the archive"
   archive_methodology_articulations(art, run_dir)
   loaded <- pakhom:::.load_methodology_articulations_from_run_dir(run_dir)
   expect_s3_class(loaded, "MethodologyArticulations")
-  expect_match(loaded$relevance$relevance_criterion, "connects medication")
+  expect_match(loaded$relevance$relevance_criterion, "connects scheduling")
   expect_identical(loaded$metric_interpretation$metrics[[1]]$column_name, "score")
   expect_identical(
     loaded$metric_interpretation$metrics[[1]]$requested_primitives[[1]]$primitive,

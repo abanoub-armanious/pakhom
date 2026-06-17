@@ -20,7 +20,7 @@
     study = list(
       researcher_positionality = "Test researcher",
       research_paradigm = "critical realist",
-      reflexive_notes = "I have prior experience with binge eating data."
+      reflexive_notes = "I have prior experience with overwork data."
     )
   )
 

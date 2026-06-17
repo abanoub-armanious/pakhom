@@ -25,8 +25,8 @@
       sprintf("Entry %d full text passes the 50-char filter; lorem ipsum dolor sit amet.", i)
     }, character(1)),
     std_author = authors,
-    emerged_themes  = rep("Sleep", n),
-    theme_membership_Sleep = rep(1L, n),
+    emerged_themes  = rep("Focus", n),
+    theme_membership_Focus = rep(1L, n),
     sentiment_score = seq(-0.9, 0.9, length.out = n),
     emotion_intensity = seq(0.2, 0.8, length.out = n),
     all_emotions = rep(c("anxiety", "neutral"), length.out = n),
@@ -49,7 +49,7 @@
       source_doc_id = id, source_doc_type = "data_entry",
       source_text = text, start_char = 0L, end_char = 7L,
       exact_text = exact_text,
-      attributed_code_id = "sleep_difficulty",
+      attributed_code_id = "focus_difficulty",
       ai_model = "claude-opus-4-7-mock", ai_call_id = paste0("req_", id),
       citation_source = "anthropic_citations_api"
     )
@@ -64,20 +64,20 @@
       start_char = 0L, end_char = 7L,
       provenance = quote
     )
-    state$codebook[["sleep_difficulty"]] <- list(
-      code_name      = "sleep_difficulty",
-      description    = "trouble sleeping",
+    state$codebook[["focus_difficulty"]] <- list(
+      code_name      = "focus_difficulty",
+      description    = "trouble focusing",
       type           = "descriptive",
-      frequency      = (state$codebook[["sleep_difficulty"]]$frequency %||% 0L) + 1L,
-      entry_ids      = unique(c(state$codebook[["sleep_difficulty"]]$entry_ids,
+      frequency      = (state$codebook[["focus_difficulty"]]$frequency %||% 0L) + 1L,
+      entry_ids      = unique(c(state$codebook[["focus_difficulty"]]$entry_ids,
                                  id)),
-      coded_segments = c(state$codebook[["sleep_difficulty"]]$coded_segments,
+      coded_segments = c(state$codebook[["focus_difficulty"]]$coded_segments,
                          list(seg_record))
     )
     state$entry_results[[id]] <- list(
-      codes_assigned = "sleep_difficulty",
+      codes_assigned = "focus_difficulty",
       coded_segments = list(list(
-        code_key = "sleep_difficulty", code_name = "sleep_difficulty",
+        code_key = "focus_difficulty", code_name = "focus_difficulty",
         text = "Entry 1", start_char = 0L, end_char = 7L,
         provenance = quote
       )),
@@ -113,15 +113,15 @@ test_that("Tier-0 smoke: all three universals compute + render together", {
 
   # ----- enrich_themes -> aggregate_theme_statistics path -------------------
   ts <- create_theme_set(list(
-    list(id = 1, name = "Sleep", description = "Sleep difficulties",
-         codes_included = "sleep_difficulty")
+    list(id = 1, name = "Focus", description = "Focus difficulties",
+         codes_included = "focus_difficulty")
   ))
   enriched <- enrich_themes(ts, data, coding_state = state)
   theme_stats <- aggregate_theme_statistics(data, enriched)
 
   # T0.2: participant_spread is on every theme
-  expect_true(!is.null(theme_stats[["Sleep"]]$participant_spread))
-  ps <- theme_stats[["Sleep"]]$participant_spread
+  expect_true(!is.null(theme_stats[["Focus"]]$participant_spread))
+  ps <- theme_stats[["Focus"]]$participant_spread
   expect_true(ps$available)
   expect_equal(ps$n_distinct_contributors, 4L)
   # Top contributor "heavy" has 5/8 entries -> 0.625 share, triggers warning
@@ -166,14 +166,14 @@ test_that("Tier-0 smoke: anonymous data (no std_author) -> T0.2 reports unavaila
   expect_true(coverage$no_silent_truncation)
 
   ts <- create_theme_set(list(
-    list(id = 1, name = "Sleep", description = "",
-         codes_included = "sleep_difficulty")
+    list(id = 1, name = "Focus", description = "",
+         codes_included = "focus_difficulty")
   ))
   enriched <- enrich_themes(ts, data, coding_state = state)
   theme_stats <- aggregate_theme_statistics(data, enriched)
 
   # T0.2 unavailable because no std_author column
-  ps <- theme_stats[["Sleep"]]$participant_spread
+  ps <- theme_stats[["Focus"]]$participant_spread
   expect_false(ps$available)
 
   # Renderer renders the unavailable variant (Tier-0 transparency)
@@ -328,7 +328,7 @@ test_that("Tier-0 smoke: long-entry quote stays verified_exact (truncation/SHA b
   # mis-categorize fabrications as "drifted". The fix passes the FULL
   # text through to make_quote so SHA matches.
   long_text <- paste(rep("Padding text. ", 800), collapse = "")  # > 8000 chars
-  long_text <- paste0(long_text, "trouble sleeping was hard")
+  long_text <- paste0(long_text, "trouble focusing was hard")
   truncated <- substr(long_text, 1, 8000)
 
   cite <- list(

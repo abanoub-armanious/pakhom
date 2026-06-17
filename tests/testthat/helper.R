@@ -64,16 +64,16 @@ sample_data <- function(n = 10) {
   tibble::tibble(
     std_id = paste0("entry_", seq_len(n)),
     std_text = c(
-      "I have trouble sleeping after taking my medication at night",
-      "Binge eating episodes have decreased since starting treatment",
-      "The side effects of the drug make me feel exhausted all day",
-      "My sleep quality improved significantly with the new dosage",
-      "I feel anxious about eating and it affects my sleep patterns",
-      "The medication helps control cravings but causes insomnia",
-      "Exercise before bed helps me sleep better and eat less",
-      "Night eating syndrome is worse when I skip my medication",
-      "The doctor adjusted my dose and my sleep normalized",
-      "Stress triggers both my binge eating and sleep problems"
+      "I have trouble focusing in the afternoon after a morning of back-to-back calls",
+      "Overtime hours have decreased since we adopted the new scheduling policy",
+      "The constant context-switching leaves me feeling drained all day",
+      "My focus improved significantly once I blocked out deep-work mornings",
+      "I feel anxious about deadlines and it affects my evenings",
+      "Async messaging helps cut meetings but makes me check email late",
+      "A short walk before work helps me concentrate and avoid burnout",
+      "Overwork is worse on the weeks I skip my planning routine",
+      "My manager adjusted my workload and my hours normalized",
+      "Tight deadlines trigger both my overtime and my stress"
     )[seq_len(n)],
     sentiment_score = round(runif(n, -1, 1), 2),
     all_emotions = sample(c("sadness", "anxiety", "frustration", "hope", "neutral"),
@@ -88,22 +88,22 @@ sample_data <- function(n = 10) {
 mock_theme_set <- function() {
   themes <- list(
     list(
-      name = "Sleep Disruption",
-      description = "Medication effects on sleep quality",
-      codes_included = c("insomnia", "sleep quality", "medication timing"),
-      subthemes = c("Drug-induced insomnia", "Sleep architecture changes"),
-      keywords = c("sleep", "insomnia", "night"),
-      narrative = "This theme captures sleep-related experiences.",
-      supporting_quotes = list("I can't sleep after taking my pills")
+      name = "Focus Fragmentation",
+      description = "Effects of meeting load on deep focus",
+      codes_included = c("context switching", "deep work", "meeting load"),
+      subthemes = c("Interruption-driven distraction", "Schedule fragmentation"),
+      keywords = c("focus", "meetings", "interruptions"),
+      narrative = "This theme captures focus-related experiences.",
+      supporting_quotes = list("I can't concentrate after a morning of calls")
     ),
     list(
-      name = "Treatment Efficacy",
-      description = "Perceived effectiveness of medication",
-      codes_included = c("craving control", "dosage adjustment", "side effects"),
-      subthemes = c("Positive outcomes", "Side effect burden"),
-      keywords = c("medication", "treatment", "dose"),
-      narrative = "This theme reflects experiences with treatment.",
-      supporting_quotes = list("The medication really helped me")
+      name = "Policy Effectiveness",
+      description = "Perceived effectiveness of the scheduling policy",
+      codes_included = c("workload control", "schedule adjustment", "side effects"),
+      subthemes = c("Positive outcomes", "Adjustment burden"),
+      keywords = c("policy", "scheduling", "workload"),
+      narrative = "This theme reflects experiences with the new policy.",
+      supporting_quotes = list("The new schedule really helped me")
     )
   )
   create_theme_set(themes)
@@ -113,8 +113,8 @@ mock_theme_set <- function() {
 mock_config <- function() {
   list(
     study = list(
-      research_focus = "medication effects on sleep and binge eating",
-      concepts = c("medication", "sleep", "binge eating")
+      research_focus = "scheduling-policy effects on focus and overwork",
+      concepts = c("scheduling", "focus", "overwork")
     ),
     ai = list(
       provider = "openai",

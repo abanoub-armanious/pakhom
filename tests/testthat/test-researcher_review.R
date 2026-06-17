@@ -265,30 +265,30 @@ test_that("codebook review applies split", {
 
 test_that("merge replaces whole code keys, not substrings (BUG 1)", {
   withr::with_tempdir({
-    # 'sleep' is a substring of the DISTINCT code 'sleep_problems'. Merging
-    # 'sleep' into 'target' must rename only the exact 'sleep' key and leave
-    # 'sleep_problems' untouched (the old substring gsub corrupted it into
+    # 'focus' is a substring of the DISTINCT code 'focus_problems'. Merging
+    # 'focus' into 'target' must rename only the exact 'focus' key and leave
+    # 'focus_problems' untouched (the old substring gsub corrupted it into
     # 'target_problems').
     cs <- structure(list(
       codebook = list(
-        sleep = list(code_name = "Sleep", description = "", type = "descriptive",
+        focus = list(code_name = "Focus", description = "", type = "descriptive",
                      frequency = 1L, entry_ids = "e1", coded_segments = list()),
-        sleep_problems = list(code_name = "Sleep Problems", description = "",
+        focus_problems = list(code_name = "Focus Problems", description = "",
                      type = "descriptive", frequency = 1L, entry_ids = "e1",
                      coded_segments = list()),
         target = list(code_name = "Target", description = "", type = "descriptive",
                      frequency = 1L, entry_ids = "e2", coded_segments = list())
       ),
       entry_results = list(
-        e1 = list(codes_assigned = c("sleep", "sleep_problems"),
+        e1 = list(codes_assigned = c("focus", "focus_problems"),
                   skipped = FALSE, coded_segments = list())
       ),
       entries_processed = 1L
     ), class = "ProgressiveCodingState")
 
     reviewed <- tibble::tibble(
-      code_key        = c("sleep", "sleep_problems", "target"),
-      code_name       = c("Sleep", "Sleep Problems", "Target"),
+      code_key        = c("focus", "focus_problems", "target"),
+      code_name       = c("Focus", "Focus Problems", "Target"),
       action          = c("merge", "keep", "keep"),
       new_name        = NA_character_,
       merge_into      = c("target", NA_character_, NA_character_),
@@ -300,10 +300,10 @@ test_that("merge replaces whole code keys, not substrings (BUG 1)", {
     result <- review_progressive_codebook(cs, getwd())
 
     e1 <- result$coding_state$entry_results[["e1"]]
-    expect_true("sleep_problems" %in% e1$codes_assigned)     # intact
+    expect_true("focus_problems" %in% e1$codes_assigned)     # intact
     expect_true("target" %in% e1$codes_assigned)             # merged
     expect_false("target_problems" %in% e1$codes_assigned)   # NOT corrupted
-    expect_false("sleep" %in% e1$codes_assigned)             # source gone
+    expect_false("focus" %in% e1$codes_assigned)             # source gone
   })
 })
 

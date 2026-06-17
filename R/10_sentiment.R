@@ -1,7 +1,7 @@
 # ==============================================================================
 # Sentiment Analysis -- Hybrid Batched Processing
 # ==============================================================================
-# Sends 10-20 entries per API call (vs. 1 per call in the old script).
+# Sends 10-20 entries per API call to keep request volume low.
 # ~90% fewer API calls for this step.
 # ==============================================================================
 
@@ -24,7 +24,7 @@
 #' @param response_cache An optional ResponseCache object (from
 #'   \code{\link{init_response_cache}}). When provided, raw API responses
 #'   for each per-batch sentiment ai_complete_fast() call are written to
-#'   the cache and referenced from the audit log (T1.4). Pass \code{NULL}
+#'   the cache and referenced from the audit log. Pass \code{NULL}
 #'   to skip raw-response capture.
 #' @return tibble with sentiment_score, confidence,
 #'   all_emotions (semicolon-separated), emotion_intensity columns added
@@ -259,7 +259,7 @@ analyze_sentiment <- function(data, provider, config = list(),
 #' Assign parsed sentiment results back to data
 #'
 #' The batch prompt labels each entry with its integer ROW INDEX (`[i]`), and
-#' the model echoes that index as `id`; we write back to `data[idx]`. The
+#' the model echoes that index as `id`, which is written back to `data[idx]`. The
 #' `idx %in% batch_rows` guard rejects any id outside the current batch (so a
 #' stray/hallucinated id cannot corrupt another batch's rows), and the
 #' end-of-batch check warns about any entry the model failed to return -- such
@@ -303,7 +303,7 @@ analyze_sentiment <- function(data, provider, config = list(),
 
 #' Extract multi-label emotions from AI response
 #'
-#' Handles the structured-outputs "emotions" array format (T1.2 schema lock:
+#' Handles the structured-outputs "emotions" array format (schema lock:
 #' .sentiment_schema requires `emotions` and forbids extra properties, so a
 #' legacy `primary_emotion` field is architecturally unreachable here).
 #' Returns a semicolon-separated all_emotions string.

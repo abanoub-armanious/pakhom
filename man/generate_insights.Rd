@@ -27,11 +27,11 @@ generate_insights(
 Used here for the reflexivity_block injected into the insight system
 prompt; pass an empty list to skip.}
 
-\item{audit_log}{An optional AuditLog object (T1.4). When provided, the
+\item{audit_log}{An optional AuditLog object. When provided, the
 insight-generation AI call is recorded as an \code{ai_request} audit
 decision with full provenance.}
 
-\item{response_cache}{An optional ResponseCache object (T1.4). When
+\item{response_cache}{An optional ResponseCache object. When
 provided, the raw API response is written to the cache and referenced
 from the audit log.}
 }

@@ -595,7 +595,7 @@ verify_quotes <- function(quotes, corpus_lookup, provider = NULL) {
 #' aggregations that are easier on a wide CSV than nested JSONL.
 #'
 #' @param output_dir Run output directory (where the CSV is written).
-#' @param methodology_mode Optional methodology mode (T1.7 / AC4). When
+#' @param methodology_mode Optional methodology mode. When
 #'   non-NULL, the CSV header is preceded by a comment-style methodology
 #'   stamp identifying the mode and run id, so a reviewer picking up the
 #'   bare CSV sees the methodology declaration. NULL skips stamping

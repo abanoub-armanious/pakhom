@@ -35,13 +35,13 @@ test_that("live_record_assignment appends JSONL line with expected fields", {
   tracker <- init_live_tracker(tmp_dir)
 
   seg <- list(
-    text = "I take my medication every morning.",
+    text = "I take my scheduling every morning.",
     start_char = 0L, end_char = 35L,
     provenance = list(verification_status = "verified")
   )
   tracker <- live_record_assignment(
     tracker, entry_id = "e1", code_key = "med_routine",
-    code_name = "Medication routine",
+    code_name = "Scheduling routine",
     segment = seg, is_new_code = TRUE, entry_index = 1L
   )
 
@@ -52,7 +52,7 @@ test_that("live_record_assignment appends JSONL line with expected fields", {
   expect_equal(rec$event_type, "code_assignment")
   expect_equal(rec$entry_id, "e1")
   expect_equal(rec$code_key, "med_routine")
-  expect_equal(rec$code_name, "Medication routine")
+  expect_equal(rec$code_name, "Scheduling routine")
   expect_true(rec$is_new_code)
   expect_equal(rec$segment$text, seg$text)
   expect_equal(rec$segment$start_char, 0L)
@@ -65,7 +65,7 @@ test_that("live_snapshot_codebook atomically rewrites JSON", {
 
   codebook <- list(
     med_helps = list(
-      code_name = "Medication helps", description = "general efficacy",
+      code_name = "Scheduling helps", description = "general efficacy",
       type = "descriptive", frequency = 5L, entry_ids = c("e1", "e2"),
       coded_segments = list(list(text = "x"), list(text = "y"))
     ),
@@ -101,12 +101,12 @@ test_that("live_snapshot_clusters records walk state + decisions", {
          name = NA_character_, rationale = "..."),
     list(call_idx = 2L, level = "THEME", parent = NA_character_,
          n_codes = 25L, decision = "coherent_theme",
-         articulation = "Strategies for managing the daily medication routine",
-         name = "Daily medication routines", rationale = "...")
+         articulation = "Strategies for managing the daily scheduling routine",
+         name = "Daily scheduling routines", rationale = "...")
   )
 
   themes <- list(
-    list(name = "Daily medication routines", description = "...",
+    list(name = "Daily scheduling routines", description = "...",
          decision_origin = "coherent_theme",
          code_indices = c(1L, 2L, 3L),
          code_keys = c("a", "b", "c"))
@@ -122,7 +122,7 @@ test_that("live_snapshot_clusters records walk state + decisions", {
   expect_equal(cl$n_decisions, 2L)
   expect_equal(cl$n_themes, 1L)
   expect_equal(cl$n_calls, 3L)
-  expect_setequal(cl$themes$name, "Daily medication routines")
+  expect_setequal(cl$themes$name, "Daily scheduling routines")
 })
 
 test_that("NULL tracker is a no-op for all writers", {

@@ -68,7 +68,7 @@ workflows. This helper closes that gap.
 
   themes <- create_theme_set(list(
     list(id = 1, name = "Adherence",
-         description = "Researcher-authored: medication adherence",
+         description = "Researcher-authored: remote-work flexibility",
          codes_included = c("med_routine", "daily_pills"))
   ))
 

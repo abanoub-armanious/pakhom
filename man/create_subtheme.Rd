@@ -16,8 +16,8 @@ create_subtheme(
 
 \item{description}{Subtheme description}
 
-\item{codes}{List of Code S3 objects (or character vector of code names —
-coerced to stub Codes for use in tests / non-coding-state contexts)}
+\item{codes}{List of Code S3 objects. A character vector of code names is
+also accepted and coerced to stub Codes for tests and non-coding contexts.}
 
 \item{subthemes}{List of nested Subtheme S3 objects (or raw lists
 coerced via recursive create_subtheme call). Nested subthemes

@@ -18,7 +18,7 @@ review_progressive_codebook(
 
 \item{audit_log}{Optional AuditLog}
 
-\item{methodology_mode}{Optional methodology mode (T1.7 / AC4). When
+\item{methodology_mode}{Optional methodology mode. When
 non-NULL, the exported review CSV is stamped with a comment header
 identifying the mode and run id. NULL skips stamping (legacy /
 test callers).}

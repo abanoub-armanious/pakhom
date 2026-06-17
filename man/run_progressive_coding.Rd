@@ -44,7 +44,7 @@ code created), or NULL to disable audit logging for this step.}
 \item{response_cache}{An optional ResponseCache object (from
 \code{\link{init_response_cache}}). When provided, raw API responses
 for each per-entry coding ai_complete() call are written to the cache
-and a reference is recorded in the audit log (T1.4). Pass \code{NULL}
+and a reference is recorded in the audit log. Pass \code{NULL}
 to skip raw-response capture.}
 
 \item{fabrication_log}{An optional FabricationLog object (from

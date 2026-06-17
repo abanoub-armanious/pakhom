@@ -13,29 +13,29 @@ summarize_audit_log(output_dir)
 \value{
 A named list with:
 \describe{
-\item{total_decisions}{Integer — total number of logged decisions.}
-\item{decisions_by_type}{Named integer vector — counts per
+\item{total_decisions}{Integer. The total number of logged decisions.}
+\item{decisions_by_type}{Named integer vector of counts per
 \code{decision_type}.}
-\item{decisions_by_step}{Named integer vector — counts per pipeline
+\item{decisions_by_step}{Named integer vector of counts per pipeline
 \code{step}.}
 \item{new_codes_timeline}{A \code{data.frame} with columns
 \code{timestamp} and \code{cumulative_codes}, showing the running total
 of new codes over time.}
-\item{entries_skipped}{Integer — number of \code{entry_skipped} decisions.}
-\item{merge_decisions_accepted}{Integer — merge decisions where
+\item{entries_skipped}{Integer. The number of \code{entry_skipped} decisions.}
+\item{merge_decisions_accepted}{Integer. Merge decisions where
 \code{action == "merge"}.}
-\item{merge_decisions_standalone}{Integer — merge decisions where
+\item{merge_decisions_standalone}{Integer. Merge decisions where
 \code{action == "standalone"}.}
-\item{total_ai_requests}{Integer (T1.4) — count of \code{ai_request}
-records (one per \code{ai_complete} call).}
-\item{total_tokens_used}{Integer (T1.4) — sum of \code{usage_total}
-across all \code{ai_request} records (NA values dropped from the sum).}
-\item{ai_requests_by_model}{Named integer vector (T1.4) — \code{ai_request}
+\item{total_ai_requests}{Integer count of \code{ai_request}
+records, one per \code{ai_complete} call.}
+\item{total_tokens_used}{Integer. The sum of \code{usage_total}
+across all \code{ai_request} records, with NA values dropped.}
+\item{ai_requests_by_model}{Named integer vector of \code{ai_request}
 counts per model name.}
-\item{methodology_modes_observed}{Character vector (T1.4) — unique
+\item{methodology_modes_observed}{Character vector of the unique
 non-NA values of the \code{methodology_mode} field across all records.
-Should normally be length-1 or length-0; length >1 indicates a run
-where the methodology was changed mid-pipeline (T1.5 mode_change flow).}
+This is normally length-1 or length-0; a length above 1 marks a run
+whose methodology was changed mid-pipeline.}
 }
 }
 \description{
@@ -43,9 +43,9 @@ Reads \code{{output_dir}/ai_decisions.jsonl} and produces a summary of all
 recorded decisions. Useful for post-analysis review and reporting.
 }
 \details{
-T1.4 additions to the returned list: \code{total_ai_requests},
-\code{total_tokens_used}, \code{ai_requests_by_model}, and
-\code{methodology_modes_observed}. Older audit logs missing these fields
-return zero/empty values for the new keys; pre-T1.4 records still surface
-in \code{decisions_by_type}/\code{decisions_by_step} as before.
+Some fields (\code{total_ai_requests}, \code{total_tokens_used},
+\code{ai_requests_by_model}, \code{methodology_modes_observed}) are absent
+from very old audit logs. For those logs the summary returns zero or empty
+values for the missing keys, while the remaining counts still surface in
+\code{decisions_by_type} and \code{decisions_by_step} as usual.
 }

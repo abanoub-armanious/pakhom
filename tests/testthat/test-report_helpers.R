@@ -88,10 +88,10 @@ test_that("C-11 audit followup LOW #6: theme names with special chars round-trip
   # safe_col = paste0("theme_membership_", make.names(t$name)) for each
   # ORIGINAL name.
   special_names <- c(
-    "Medication's Role in Appetite",                # apostrophe
+    "Scheduling's Role in Appetite",                # apostrophe
     "Self-Compassion and Recovery",                  # hyphen
     "Stress, Body Weight & Physical Health",         # comma + ampersand
-    "Sleep (Acute) Patterns / Onset Times"           # parens + slash
+    "Focus (Acute) Patterns / Onset Times"           # parens + slash
   )
   safe_cols <- paste0("theme_membership_", make.names(special_names))
   data <- tibble::tibble(
@@ -108,8 +108,8 @@ test_that("C-11 audit followup LOW #6: theme names with special chars round-trip
   }))
   result <- aggregate_overall_statistics(data, theme_set)
   # Every ORIGINAL theme name appears in the dashboard's themes_df
-  # (pre-fix, names like "Medication's Role in Appetite" would have
-  # been corrupted to "Medication s Role in Appetite").
+  # (pre-fix, names like "Scheduling's Role in Appetite" would have
+  # been corrupted to "Scheduling s Role in Appetite").
   for (n in special_names) {
     expect_true(n %in% result$themes$theme_name,
                 info = sprintf("theme '%s' missing from dashboard themes_df", n))

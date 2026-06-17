@@ -4,8 +4,8 @@ test_that("export_results and report helpers work end-to-end", {
   skip_on_cran()
 
   data <- sample_data(10)
-  data$emerged_themes <- c(rep("Sleep Disruption", 6), rep("Treatment Efficacy", 4))
-  data$theme_membership_Sleep.Disruption <- c(rep(1L, 6), rep(0L, 4))
+  data$emerged_themes <- c(rep("Focus Fragmentation", 6), rep("Policy Effectiveness", 4))
+  data$theme_membership_Focus.Disruption <- c(rep(1L, 6), rep(0L, 4))
   data$theme_membership_Treatment.Efficacy <- c(rep(0L, 6), rep(1L, 4))
   data$theme_confidence <- runif(10, 0.5, 1.0)
   data$secondary_themes <- ""
@@ -16,24 +16,24 @@ test_that("export_results and report helpers work end-to-end", {
 
   corr_df <- tibble::tibble(
     var1 = "sentiment_score",
-    var2 = "theme_membership_Sleep.Disruption",
+    var2 = "theme_membership_Focus.Disruption",
     correlation = -0.42, p_value = 0.003,
     significant = TRUE, effect_size = "moderate"
   )
 
   consolidated <- list(codes = tibble::tibble(
-    code_text = c("insomnia", "appetite change", "medication timing"),
+    code_text = c("distraction", "appetite change", "meeting load"),
     frequency = c(8L, 5L, 4L),
     code_type = c("ai", "ai", "ai")
   ))
 
   insights <- list(
     key_findings = list(
-      list(insight = "Sleep disruption is linked to medication timing",
-           explanation = "6 of 10 entries mention sleep issues.")
+      list(insight = "Focus disruption is linked to meeting load",
+           explanation = "6 of 10 entries mention focus issues.")
     ),
     theoretical_implications = "Supports the circadian disruption hypothesis.",
-    practical_implications = "Consider medication timing interventions."
+    practical_implications = "Consider meeting load interventions."
   )
 
   tmp_dir <- withr::local_tempdir()
@@ -59,8 +59,8 @@ test_that("export_results and report helpers work end-to-end", {
 
 test_that("aggregate statistics produce consistent results", {
   data <- sample_data(10)
-  data$emerged_themes <- c(rep("Sleep Disruption", 6), rep("Treatment Efficacy", 4))
-  data$theme_membership_Sleep.Disruption <- c(rep(1L, 6), rep(0L, 4))
+  data$emerged_themes <- c(rep("Focus Fragmentation", 6), rep("Policy Effectiveness", 4))
+  data$theme_membership_Focus.Disruption <- c(rep(1L, 6), rep(0L, 4))
   data$theme_membership_Treatment.Efficacy <- c(rep(0L, 6), rep(1L, 4))
   ts <- mock_theme_set()
 

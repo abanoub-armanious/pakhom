@@ -370,7 +370,7 @@ test_that("init_fabrication_log stamps the CSV when methodology_mode is set, and
 
 test_that("log_fabrication silently no-ops on non-fabricated quotes", {
   # The CSV is for fabrications only. Drifted, unverified, and verified
-  # quotes have other render-time treatments and don't go in here.
+  # quotes have other render-time programs and don't go in here.
   td <- withr::local_tempdir()
   flog <- init_fabrication_log(td)
 
@@ -1033,14 +1033,14 @@ test_that("End-to-end (mocked Anthropic): coding run -> stats -> dashboard shows
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
-  entry_text <- "I had trouble sleeping. The medication helps a lot."
+  entry_text <- "I had trouble focusing. The scheduling helps a lot."
   mock_response <- jsonlite::toJSON(list(
     skipped = FALSE, skip_reason = "",
     coded_segments = list(
-      list(text = "trouble sleeping",
-           code = "NEW: sleep_diff", code_description = "x", code_type = "descriptive"),
-      list(text = "The medication helps",
-           code = "NEW: medication_efficacy", code_description = "y", code_type = "descriptive")
+      list(text = "trouble focusing",
+           code = "NEW: focus_diff", code_description = "x", code_type = "descriptive"),
+      list(text = "The scheduling helps",
+           code = "NEW: scheduling_efficacy", code_description = "y", code_type = "descriptive")
     )
   ), auto_unbox = TRUE)
 
@@ -1057,10 +1057,10 @@ test_that("End-to-end (mocked Anthropic): coding run -> stats -> dashboard shows
         finish_reason = "stop", raw_response = list(),
         prompt_hash   = "h",
         citations     = list(
-          list(type = "char_location", cited_text = "trouble sleeping",
+          list(type = "char_location", cited_text = "trouble focusing",
                document_index = 0L, document_title = "e1",
                start_char_index = 6L, end_char_index = 22L),
-          list(type = "char_location", cited_text = "The medication helps",
+          list(type = "char_location", cited_text = "The scheduling helps",
                document_index = 0L, document_title = "e1",
                start_char_index = 24L, end_char_index = 44L)
         )
@@ -1095,12 +1095,12 @@ test_that("End-to-end (mocked OpenAI): dashboard shows model_freeform path engag
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
-  entry_text <- "I had trouble sleeping after the medication."
+  entry_text <- "I had trouble focusing after the scheduling."
   mock_response <- jsonlite::toJSON(list(
     skipped = FALSE, skip_reason = "",
     coded_segments = list(list(
-      text = "trouble sleeping", start_char = 6L, end_char = 22L,
-      code = "NEW: sleep_diff", code_description = "x", code_type = "descriptive"
+      text = "trouble focusing", start_char = 6L, end_char = 22L,
+      code = "NEW: focus_diff", code_description = "x", code_type = "descriptive"
     ))
   ), auto_unbox = TRUE)
 

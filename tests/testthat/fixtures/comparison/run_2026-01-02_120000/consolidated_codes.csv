@@ -1,6 +1,6 @@
 code_key,code_text,code_type,frequency,n_entries
-consolidated_1,Poor Sleep Quality,descriptive,9,6
-consolidated_2,Binge Eating Triggers,descriptive,7,5
-consolidated_3,Medication Nausea and GI Issues,descriptive,5,3
+consolidated_1,Poor Deep-work Quality,descriptive,9,6
+consolidated_2,Overwork Triggers,descriptive,7,5
+consolidated_3,Scheduling Nausea and GI Issues,descriptive,5,3
 consolidated_4,Recovery Progress,descriptive,4,3
 consolidated_5,Coping Mechanisms,descriptive,3,2

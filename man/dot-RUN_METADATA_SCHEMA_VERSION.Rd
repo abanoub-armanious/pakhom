@@ -3,7 +3,7 @@
 \docType{data}
 \name{.RUN_METADATA_SCHEMA_VERSION}
 \alias{.RUN_METADATA_SCHEMA_VERSION}
-\title{Schema version for run_metadata.json (T1.4 / T1.5)}
+\title{Schema version for run_metadata.json}
 \format{
 An object of class \code{character} of length 1.
 }

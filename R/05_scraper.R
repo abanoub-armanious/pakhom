@@ -1,5 +1,5 @@
 # ==============================================================================
-# Reddit Scraper — Broad Subreddit Collection for Thematic Analysis
+# Reddit Scraper: Broad Subreddit Collection for Thematic Analysis
 # ==============================================================================
 # Scrapes entire subreddits (posts + comments) into SQLite. The progressive
 # sequential coder downstream decides which entries match the research

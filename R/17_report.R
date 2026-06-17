@@ -1,8 +1,7 @@
 # ==============================================================================
-# Report Generation -- Rmd-based HTML Report with Exports
+# Report Generation: Rmd-based HTML Report with Exports
 # ==============================================================================
-# Replaces ~2000 lines of inline HTML string concatenation from the old script.
-# Uses an external Rmd template + CSS file from inst/rmd/.
+# Builds the HTML report from an external Rmd template and CSS file in inst/rmd/.
 # ==============================================================================
 
 #' Escape strings for safe HTML embedding
@@ -201,7 +200,7 @@
 #' @param insights Insights list
 #' @param consolidated ConsolidatedCodes list
 #' @param output_dir Output directory path
-#' @param methodology_mode Optional methodology mode (T1.7). When
+#' @param methodology_mode Optional methodology mode. When
 #'   non-NULL, every CSV produced is stamped with a comment header
 #'   identifying the mode and run id (per AC4). NULL skips stamping --
 #'   used by tests / legacy callers.
@@ -493,7 +492,7 @@ verify_run_integrity <- function(run_dir, config = list()) {
 #' @param data tibble with theme_membership_* or emerged_themes columns
 #' @param theme_set ThemeSet object
 #' @param output_dir Output directory
-#' @param methodology_mode Optional methodology mode (T1.7). When
+#' @param methodology_mode Optional methodology mode. When
 #'   non-NULL, every CSV produced is stamped with a comment header
 #'   identifying the mode and run id (per AC4). NULL skips stamping --
 #'   used by tests / legacy callers.
@@ -701,10 +700,10 @@ export_theme_subtheme_summary_csvs <- function(theme_stats, output_dir,
 #'   \code{test_theme_cooccurrence} (chi-square / Fisher tests). When
 #'   provided, the correlation section gains a 'Theme Co-occurrence'
 #'   subsection.
-#' @param audit_log Optional \code{AuditLog} object (T1.4) forwarded to
+#' @param audit_log Optional \code{AuditLog} object forwarded to
 #'   \code{generate_ai_synthesis} so the executive-summary AI call is
 #'   recorded as an \code{ai_request} audit decision.
-#' @param response_cache Optional \code{ResponseCache} object (T1.4)
+#' @param response_cache Optional \code{ResponseCache} object
 #'   forwarded to \code{generate_ai_synthesis} so the raw API response is
 #'   written to the cache and referenced from the audit log.
 #' @param coverage Optional \code{CorpusCoverage} object (T0.3) from
@@ -4362,14 +4361,6 @@ report_colors <- c(
   "#F39C12", "#1ABC9C", "#E67E22", "#34495E",
   "#16A085", "#8E44AD"
 )
-
-# Expand report_colors palette to n colors using interpolation
-expand_report_colors <- function(n) {
-  if (n <= length(report_colors)) {
-    return(report_colors[seq_len(n)])
-  }
-  grDevices::colorRampPalette(report_colors)(n)
-}
 
 sentiment_colors <- c(
   "negative" = "#E74C3C",

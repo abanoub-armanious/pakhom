@@ -16,7 +16,7 @@ Character run_id with mode suffix.
 }
 \description{
 Standard pakhom run dirs are timestamped (\code{run_2026-05-03_103415}).
-T1.7 appends the mode short-code so the directory name itself carries
+The run directory name appends the mode short-code so it carries
 the methodology stamp:
 \code{run_2026-05-03_103415_M1}.
 }

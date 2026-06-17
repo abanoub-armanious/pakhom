@@ -13,8 +13,8 @@
   base <- as.POSIXct("2024-01-01 18:00:00", tz = "UTC")
   tibble::tibble(
     std_id        = paste0("e", seq_len(n)),
-    std_text      = rep(c("medication keeps me up at night",
-                          "binge episodes decreased on the new dose",
+    std_text      = rep(c("scheduling keeps me up at night",
+                          "overwork episodes decreased on the new shift",
                           "went for a run this morning"),
                         length.out = n),
     std_timestamp = as.character(base + (seq_len(n) - 1L) * 3600 * 7),
@@ -25,14 +25,14 @@
 }
 
 .relevance_json <- function() jsonlite::toJSON(list(
-  research_focus_paraphrase = "How psychiatric medication affects sleep and binge eating.",
+  research_focus_paraphrase = "How flexible scheduling affects focus and overwork.",
   relevance_criterion = paste0(
-    "A segment is on-focus when it links a psychiatric medication to either ",
-    "sleep or binge-eating behavior -- timing, side effects, dosage, or efficacy."),
+    "A segment is on-focus when it links a flexible scheduling to either ",
+    "focus or overwork behavior -- timing, side effects, schedule, or efficacy."),
   on_focus_examples = list("The pills keep me up at night",
-                           "My cravings dropped after the dose change"),
+                           "My overtime urges dropped after the shift change"),
   off_focus_examples = list("I went for a run today", "The weather has been nice"),
-  discrimination_principle = "On-focus segments tie medication to sleep or eating; adjacent ones mention only one in isolation."
+  discrimination_principle = "On-focus segments tie scheduling to focus or overworking; adjacent ones mention only one in isolation."
 ), auto_unbox = TRUE)
 
 .metrics_json <- function() jsonlite::toJSON(list(
@@ -78,8 +78,8 @@
 .mk_articulations <- function(source = "ai") {
   rel <- new_relevance_criterion(
     research_focus_paraphrase = "para",
-    relevance_criterion = "A segment is on-focus if it links medication to sleep or eating.",
-    on_focus_examples = c("pills keep me up", "cravings dropped"),
+    relevance_criterion = "A segment is on-focus if it links scheduling to focus or overworking.",
+    on_focus_examples = c("pills keep me up", "overtime urges dropped"),
     off_focus_examples = c("nice weather"),                 # length 1 -> tests array shape
     discrimination_principle = "link present vs absent",
     source = source)
@@ -247,7 +247,7 @@ test_that(".warn_unknown_primitives reports catalog gaps without dropping them",
 test_that("run_methodology_assistant discovery path makes both AI calls", {
   .skip_if_no_mock()
   d <- .methodology_test_data()
-  cfg <- list(study = list(research_focus = "medication, sleep, binge eating",
+  cfg <- list(study = list(research_focus = "scheduling, focus, overwork",
                            inferred_methodology = NULL))
   local_mocked_bindings(ai_complete = .mock_ai(), .package = "pakhom")
   art <- run_methodology_assistant(d, cfg, mock_provider())
@@ -269,7 +269,7 @@ test_that("run_methodology_assistant replay path uses pinned block, NO AI call",
   expect_s3_class(art, "MethodologyArticulations")
   expect_equal(art$source, "pinned")
   expect_equal(art$relevance$relevance_criterion,
-               "A segment is on-focus if it links medication to sleep or eating.")
+               "A segment is on-focus if it links scheduling to focus or overworking.")
 })
 
 test_that("run_methodology_assistant errors when research_focus is missing", {
@@ -303,11 +303,11 @@ test_that("research_context is threaded into the metric-intelligence prompt (62.
   cap <- new.env()
   local_mocked_bindings(ai_complete = .capturing_ai(cap), .package = "pakhom")
   run_methodology_assistant(.methodology_test_data(), list(study = list(
-    research_focus = "meds & sleep",
-    research_context = "Reddit posts and comments from binge-eating subreddits",
+    research_focus = "meds & focus",
+    research_context = "Reddit posts and comments from overwork subreddits",
     inferred_methodology = NULL)), mock_provider())
   expect_match(cap$metric_user, "RESEARCH CONTEXT", fixed = TRUE)
-  expect_match(cap$metric_user, "Reddit posts and comments from binge-eating subreddits", fixed = TRUE)
+  expect_match(cap$metric_user, "Reddit posts and comments from overwork subreddits", fixed = TRUE)
   # the design's fail-honest lean-to-metadata instruction lives in the system prompt
   expect_match(cap$metric_system, "lean toward the cautious reading", fixed = TRUE)
   # 62.5b: the small-n spread reliability caution is elicited for interpretation_note
@@ -319,7 +319,7 @@ test_that("metric prompt omits the RESEARCH CONTEXT block when none configured (
   cap <- new.env()
   local_mocked_bindings(ai_complete = .capturing_ai(cap), .package = "pakhom")
   run_methodology_assistant(.methodology_test_data(), list(study = list(
-    research_focus = "meds & sleep", inferred_methodology = NULL)), mock_provider())
+    research_focus = "meds & focus", inferred_methodology = NULL)), mock_provider())
   expect_false(grepl("RESEARCH CONTEXT", cap$metric_user, fixed = TRUE))
 })
 
@@ -375,7 +375,7 @@ test_that("the methodology_assistant audit STEP is in the allowlist (C1)", {
 test_that("run_methodology_assistant does not crash WITH a real audit log (C1)", {
   .skip_if_no_mock()
   d <- .methodology_test_data()
-  cfg <- list(study = list(research_focus = "meds and sleep", inferred_methodology = NULL))
+  cfg <- list(study = list(research_focus = "meds and focus", inferred_methodology = NULL))
   audit_dir <- withr::local_tempdir()
   audit <- init_audit_log(audit_dir)
   local_mocked_bindings(ai_complete = .mock_ai(), .package = "pakhom")

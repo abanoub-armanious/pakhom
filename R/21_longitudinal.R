@@ -515,7 +515,7 @@ analyze_temporal_patterns <- function(data, theme_set, coding_state = NULL) {
 #'
 #' @param temporal_results List returned by \code{\link{analyze_temporal_patterns}}
 #' @param output_dir Directory where PNGs will be saved (created if needed)
-#' @param methodology_mode Optional character (T1.7 / AC4): when supplied,
+#' @param methodology_mode Optional character. When supplied,
 #'   adds a caption to each plot identifying the mode + run id.
 #' @param run_id Optional character: run identifier.
 #' @param max_inline_themes Integer; the temporal emergence chart filters

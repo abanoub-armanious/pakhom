@@ -26,8 +26,8 @@ depending on focus breadth, e.g. 40 codes from 60 coded entries
 up to 157 codes from 140 coded entries).}
 
 \item{focus_shape}{One of \code{"narrow_intersection"} (e.g.,
-"medication x sleep x binge"), \code{"single_focal"} (e.g.,
-"medication adherence"), or \code{"broad"} (e.g., "emotional
+"remote work x burnout x retention"), \code{"single_focal"} (e.g.,
+"remote-work satisfaction"), or \code{"broad"} (e.g., "emotional
 experiences"). Narrow foci produce fewer codes per coded entry.}
 }
 \value{
@@ -52,7 +52,7 @@ The function returns a list with: \code{expected_themes} (range),
 post-themes researcher review pause should be enabled).
 }
 \examples{
-# A 250-entry corpus on a narrow medication x sleep question:
+# A 250-entry corpus on a narrow remote-work x burnout question:
 configuration_selection_aid(
   mode = "codebook_collaborative",
   corpus_size = 250,

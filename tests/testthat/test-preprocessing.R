@@ -67,7 +67,7 @@ test_that("URL removal works correctly", {
 })
 
 test_that("mention removal works for Reddit", {
-  texts <- c("Thanks u/someuser for the tip", "Check r/sleep for more")
+  texts <- c("Thanks u/someuser for the tip", "Check r/focus for more")
   config <- list(remove_urls = FALSE, remove_mentions = TRUE,
                  remove_hashtags = FALSE, lowercase = FALSE)
   result <- pakhom:::.clean_reddit(texts, config)

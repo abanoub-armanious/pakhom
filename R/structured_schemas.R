@@ -569,7 +569,7 @@
               description = paste0(
                 "Substantive noun phrase (3-12 words) that names the theme's ",
                 "central organizing concept. Sounds like a research finding ",
-                "(e.g. 'Identity reconstruction after medication onset'). ",
+                "(e.g. 'Identity reconstruction after a role change'). ",
                 "NOT a list-of-things or bucket label (avoid 'Various aspects ",
                 "of X', 'Mixed experiences with Y'). Must be DISTINCT from ",
                 "every other theme name in this response."

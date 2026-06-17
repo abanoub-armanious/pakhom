@@ -1,5 +1,5 @@
 # ==============================================================================
-# QDPX Export — Interoperability with ATLAS.ti / NVivo / MAXQDA
+# QDPX Export: Interoperability with ATLAS.ti / NVivo / MAXQDA
 # ==============================================================================
 # Exports a ProgressiveCodingState (codebook + coded segments) and optionally a
 # ThemeSet (hierarchical theme > subtheme > code structure) to the open QDPX
@@ -92,7 +92,7 @@
 #' @param parent xml2 node to attach to
 #' @param guid Character GUID
 #' @param name Character code/theme name
-#' @param is_codable Logical — TRUE for leaf codes, FALSE for grouping nodes
+#' @param is_codable Logical. TRUE for leaf codes, FALSE for grouping nodes.
 #' @param description Optional character description
 #' @return The newly created xml2 node (invisibly)
 #' @keywords internal
@@ -594,9 +594,9 @@
 #'
 #' The archive contains:
 #' \itemize{
-#'   \item \code{project.qde} — XML file with the codebook structure and all
+#'   \item \code{project.qde}: an XML file holding the codebook structure and all
 #'     coding references (text selections linked to codes).
-#'   \item \code{sources/} — directory of plain-text files, one per entry.
+#'   \item \code{sources/}: a directory of plain-text files, one per entry.
 #' }
 #'
 #' When a \code{theme_set} is provided the codebook is exported hierarchically:
@@ -611,7 +611,7 @@
 #'   If provided, builds a hierarchical code tree (Theme > Subtheme > Code).
 #' @param study_name Character string used as the project name inside the
 #'   QDPX file.  Defaults to \code{"pakhom export"}.
-#' @param methodology_mode Optional character (T1.7 / AC4): when supplied,
+#' @param methodology_mode Optional character. When supplied,
 #'   the QDPX project's Description is stamped with the methodology mode
 #'   alongside the Tier-0 verification stats. NULL preserves legacy
 #'   behavior (no methodology stamp).

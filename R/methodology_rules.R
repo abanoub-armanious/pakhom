@@ -1,8 +1,8 @@
 # ==============================================================================
 # Methodology Rules Generation
 # ==============================================================================
-# Lin & Corley Interpretive Orchestration "methodological-rules" pattern
-# (Stream 1 of the strategic audit). Reads the methodology block of
+# Lin & Corley Interpretive Orchestration "methodological-rules" pattern.
+# Reads the methodology block of
 # config.yaml and generates per-mode rule text that ai_complete() injects
 # as a system-prompt prefix on every call.
 #

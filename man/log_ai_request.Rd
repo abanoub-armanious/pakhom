@@ -27,7 +27,7 @@ Invisibly returns \code{audit}.
 \description{
 Convenience wrapper around \code{\link{log_ai_decision}} that records an
 \code{"ai_request"} decision and unpacks the structured fields from
-\code{\link{ai_complete}}'s return value (T1.1) into the audit record:
+\code{\link{ai_complete}}'s return value into the audit record:
 model, finish_reason, prompt_hash, request_id, and per-record token usage.
 }
 \details{

@@ -70,19 +70,19 @@ test_that("make_provocation rejects non-QuoteProvenance provenance", {
 })
 
 test_that("print.Provocation shows category, theme, citation when present", {
-  src <- "I plan to take medication every day from now on."
+  src <- "I plan to take scheduling every day from now on."
   q <- make_quote("e1", "data_entry", src, 0L, 6L, "I plan",
                    citation_source = "model_freeform")
   q <- verify_quote(q, src)
   p <- make_provocation(
     category   = "counter_narrative",
-    theme_name = "Medication adherence",
-    reason     = "Frames medication taking as routine, not contested",
+    theme_name = "Schedule adherence",
+    reason     = "Frames scheduling taking as routine, not contested",
     provenance = q
   )
   out <- capture.output(print(p))
   expect_true(any(grepl("counter_narrative", out)))
-  expect_true(any(grepl("Medication adherence", out)))
+  expect_true(any(grepl("Schedule adherence", out)))
   expect_true(any(grepl("e1", out)))
 })
 
@@ -91,7 +91,7 @@ test_that("print.Provocation shows category, theme, citation when present", {
 test_that(".citation_to_provocation builds verified Provocation from real citation", {
   data <- tibble::tibble(
     std_id   = c("e1", "e2"),
-    std_text = c("I plan to take my medication every day from now on.",
+    std_text = c("I plan to take my scheduling every day from now on.",
                   "My doctor told me to follow this regimen carefully.")
   )
   ai_meta <- new.env(parent = emptyenv())
@@ -99,10 +99,10 @@ test_that(".citation_to_provocation builds verified Provocation from real citati
 
   cit <- list(entry_id = "e1", char_start = 0L, char_end = 6L,
               exact_text = "I plan",
-              reason = "Patient frames adherence as voluntary plan")
+              reason = "Respondent frames adherence as voluntary plan")
 
   p <- pakhom:::.citation_to_provocation(
-    cit = cit, theme_name = "Medication adherence",
+    cit = cit, theme_name = "Schedule adherence",
     category = "counter_narrative", data = data, ai_meta = ai_meta
   )
 
@@ -112,7 +112,7 @@ test_that(".citation_to_provocation builds verified Provocation from real citati
 })
 
 test_that(".citation_to_provocation drops citation referencing unknown entry_id", {
-  data <- tibble::tibble(std_id = "e1", std_text = "I plan to take medication.")
+  data <- tibble::tibble(std_id = "e1", std_text = "I plan to take scheduling.")
   ai_meta <- new.env(parent = emptyenv())
   ai_meta$model <- "m"; ai_meta$call_id <- "c"
   cit <- list(entry_id = "GHOST", char_start = 0L, char_end = 5L,
@@ -127,7 +127,7 @@ test_that(".citation_to_provocation drops fabricated provocation citations (T0.1
   # entry exists but the exact_text doesn't appear in the source.
   data <- tibble::tibble(
     std_id = "e1",
-    std_text = "I plan to take medication every day from now on."
+    std_text = "I plan to take scheduling every day from now on."
   )
   ai_meta <- new.env(parent = emptyenv())
   ai_meta$model <- "m"; ai_meta$call_id <- "c"
@@ -146,11 +146,11 @@ test_that(".citation_to_provocation drops fabricated provocation citations (T0.1
   data <- tibble::tibble(
     std_id   = paste0("e", 1:6),
     std_text = c(
-      "I plan to take my medication every day from now on.",
+      "I plan to take my scheduling every day from now on.",
       "My doctor told me to follow this regimen carefully.",
       "I always forget my pills; the schedule is impossible to keep up.",
-      "Side effects make me skip doses on weekends.",
-      "Honestly I don't think medication helps me at all.",
+      "Side effects make me skip shifts on weekends.",
+      "Honestly I don't think scheduling helps me at all.",
       "Taking my meds makes me feel like a different person."
     ),
     std_author = c("alice", "bob", "carol", "dave", "eve", "frank"),
@@ -166,7 +166,7 @@ test_that(".citation_to_provocation drops fabricated provocation citations (T0.1
 .smoke_theme_set <- function() {
   create_theme_set(list(list(
     id = 1, name = "Adherence",
-    description = "Medication adherence",
+    description = "Schedule adherence",
     codes_included = "med_routine"
   )))
 }
@@ -177,12 +177,12 @@ test_that("provoke_counter_narrative returns verified provocations on mocked AI"
 
   data <- .smoke_data_with_themes()
   theme_entries <- data[1:3, ]
-  # e5 = "Honestly I don't think medication helps me at all."
-  # cite "medication helps" at the position it actually appears
+  # e5 = "Honestly I don't think scheduling helps me at all."
+  # cite "scheduling helps" at the position it actually appears
   mock <- jsonlite::toJSON(list(provocations = list(
     list(entry_id = "e5", char_start = 25L, char_end = 41L,
-         exact_text = "medication helps",
-         reason = "Patient denies medication efficacy")
+         exact_text = "scheduling helps",
+         reason = "Respondent denies scheduling efficacy")
   )), auto_unbox = TRUE)
 
   local_mocked_bindings(
@@ -220,7 +220,7 @@ test_that("provoke_counter_narrative drops fabricated citations from output", {
   # Mock returns one verified + one fabricated citation
   mock <- jsonlite::toJSON(list(provocations = list(
     list(entry_id = "e5", char_start = 25L, char_end = 41L,
-         exact_text = "medication helps", reason = "verified"),
+         exact_text = "scheduling helps", reason = "verified"),
     list(entry_id = "e1", char_start = 0L, char_end = 50L,
          exact_text = "totally fabricated content not in source",
          reason = "fake")
@@ -349,9 +349,9 @@ test_that("provoke_assumption_surfacing returns alternative + erased terms", {
   data <- .smoke_data_with_themes()
   mock <- jsonlite::toJSON(list(
     alternative_terms = list(
-      list(term = "skip doses",
+      list(term = "skip shifts",
            example_entry_id = "e4",
-           exact_text = "skip doses")
+           exact_text = "skip shifts")
     ),
     erased_terms = list(
       list(term = "side effects",
@@ -378,7 +378,7 @@ test_that("provoke_assumption_surfacing returns alternative + erased terms", {
   # The alternative term provocation has provenance (citation present)
   alt <- Filter(function(p) !is.null(p$provenance), provs)
   expect_gte(length(alt), 1L)
-  expect_equal(alt[[1]]$extra$alternative_term, "skip doses")
+  expect_equal(alt[[1]]$extra$alternative_term, "skip shifts")
   # The erased term has NULL provenance
   erased <- Filter(function(p) is.null(p$provenance), provs)
   expect_gte(length(erased), 1L)
@@ -586,8 +586,8 @@ test_that("run_provocateur_questioning resume via resume_log is idempotent (no d
   # resume double-count: it would leave provocations at 0 either way.
   mock <- jsonlite::toJSON(list(provocations = list(
     list(entry_id = "e5", char_start = 25L, char_end = 41L,
-         exact_text = "medication helps",
-         reason = "Patient denies medication efficacy")
+         exact_text = "scheduling helps",
+         reason = "Respondent denies scheduling efficacy")
   )), auto_unbox = TRUE)
   local_mocked_bindings(
     ai_complete = function(...) list(
@@ -671,7 +671,7 @@ test_that("AC7: every Provocation with a citation runs through verify_quote", {
 test_that(".citation_to_provocation emits a quote_verified audit record on success", {
   data <- tibble::tibble(
     std_id   = "e1",
-    std_text = "I plan to take my medication every day from now on."
+    std_text = "I plan to take my scheduling every day from now on."
   )
   ai_meta <- new.env(parent = emptyenv())
   ai_meta$model <- "claude-mock"; ai_meta$call_id <- "msg_test_qv"
@@ -683,7 +683,7 @@ test_that(".citation_to_provocation emits a quote_verified audit record on succe
   audit <- init_audit_log(tmp)
 
   p <- pakhom:::.citation_to_provocation(
-    cit = cit, theme_name = "Medication adherence",
+    cit = cit, theme_name = "Schedule adherence",
     category = "counter_narrative", data = data, ai_meta = ai_meta,
     audit_log = audit
   )
@@ -784,12 +784,12 @@ test_that("alternative_interpretation emits names with NULL provenance when no a
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
   data <- tibble::tibble(
     std_id = "e1",
-    std_text = "I plan to take my medication every day from now on."
+    std_text = "I plan to take my scheduling every day from now on."
   )
   # The shared quote re-citation is fabricated (text not in the entry),
   # but the rival names are substantive challenges and must survive.
   mock_response <- jsonlite::toJSON(list(
-    alternative_names = list("Medication Ambivalence", "Treatment Negotiation"),
+    alternative_names = list("Scheduling Ambivalence", "Program Negotiation"),
     shared_quotes = list(list(
       entry_id = "e1", char_start = 0L, char_end = 10L,
       exact_text = "completely fabricated text", reason = "anchor"
@@ -809,7 +809,7 @@ test_that("alternative_interpretation emits names with NULL provenance when no a
   ))
   expect_length(provs, 2L)
   alt_names <- vapply(provs, function(p) p$extra$alternative_name, character(1))
-  expect_setequal(alt_names, c("Medication Ambivalence", "Treatment Negotiation"))
+  expect_setequal(alt_names, c("Scheduling Ambivalence", "Program Negotiation"))
   for (p in provs) {
     expect_null(p$provenance)
     expect_false(p$extra$anchor_quote_verified)
@@ -821,10 +821,10 @@ test_that("alternative_interpretation flags anchor_quote_verified=TRUE when the 
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
   data <- tibble::tibble(
     std_id = "e1",
-    std_text = "I plan to take my medication every day from now on."
+    std_text = "I plan to take my scheduling every day from now on."
   )
   mock_response <- jsonlite::toJSON(list(
-    alternative_names = list("Medication Ambivalence"),
+    alternative_names = list("Scheduling Ambivalence"),
     shared_quotes = list(list(
       entry_id = "e1", char_start = 0L, char_end = 6L,
       exact_text = "I plan", reason = "anchor"
@@ -855,16 +855,16 @@ test_that("candidate and supporting prompt blocks embed std_text, never original
   data <- tibble::tibble(
     std_id = c("e1", "e2"),
     std_text = c("I tracked it at home and it got worse",
-                 "Another entry about sleep"),
+                 "Another entry about focus"),
     original_text = c("I tracked it at https://myapp.example.com/log and it got worse",
-                      "Another entry about sleep u/someone")
+                      "Another entry about focus u/someone")
   )
   cand <- pakhom:::.build_candidate_counter_entries(data, data[2, ])
   expect_match(cand, "I tracked it at home", fixed = TRUE)
   expect_false(grepl("https://myapp.example.com", cand, fixed = TRUE))
 
   supp <- pakhom:::.build_theme_supporting_entries(data[2, ])
-  expect_match(supp, "Another entry about sleep", fixed = TRUE)
+  expect_match(supp, "Another entry about focus", fixed = TRUE)
   expect_false(grepl("u/someone", supp, fixed = TRUE))
 
   # End-to-end: citing the text exactly as shown in the prompt verifies.

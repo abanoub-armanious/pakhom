@@ -18,7 +18,7 @@ create_correlation_plot(
 
 \item{output_path}{File path for PNG output}
 
-\item{methodology_mode}{Optional character (T1.7 / AC4): when supplied,
+\item{methodology_mode}{Optional character. When supplied,
 adds a footer caption identifying the methodology mode + run.}
 
 \item{run_id}{Optional character: run identifier.}

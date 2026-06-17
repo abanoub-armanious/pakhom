@@ -25,7 +25,7 @@ abstract: >-
   Scaffold, Codebook Collaborative, Framework Applied). Methodology is
   codified at the architectural level: the AI's role is shaped by the
   mode declared in the config, not by user discipline at the configuration
-  level. Universal Tier-0 transparency requirements (quote provenance via
+  level. Universal transparency requirements (quote provenance via
   a 4-step verification ladder, participant spread per theme, whole-corpus
   coverage assertion) are mandatory in every mode. The package name is the
   Coptic Egyptian form of Pachomius, the desert abbot whose written Rule
@@ -83,7 +83,7 @@ references:
     volume: 20
     issue: 9
     doi: "10.1371/journal.pone.0330217"
-    notes: "Empirical motivation for the Tier-0 transparency layer."
+    notes: "Empirical motivation for the mandatory transparency layer."
   - type: book
     authors:
       - family-names: Braun

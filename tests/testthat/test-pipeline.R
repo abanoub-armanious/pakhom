@@ -17,7 +17,7 @@ create_test_config <- function(db_path, output_dir) {
       name = "Test Study",
       research_focus = "testing pipeline flow",
       research_context = "unit tests",
-      concepts = c("sleep", "medication")
+      concepts = c("focus", "scheduling")
     ),
     ai = list(
       provider = "openai",
@@ -94,16 +94,16 @@ create_test_db <- function(db_path, n_posts = 10) {
     subreddit = "test",
     title = paste0("Test title ", seq_len(n_posts)),
     body = c(
-      "I have trouble sleeping after taking my medication at night and it really affects my daily routine",
-      "Binge eating episodes have decreased since starting treatment with the new medication",
-      "The side effects of the drug make me feel exhausted all day long and I cannot function",
-      "My sleep quality improved significantly with the new dosage adjustment last week",
-      "I feel anxious about eating and it affects my sleep patterns every single night",
-      "The medication helps control cravings but causes insomnia which is very frustrating",
-      "Exercise before bed helps me sleep better and eat less during the nighttime hours",
-      "Night eating syndrome is worse when I skip my medication for even one day",
-      "The doctor adjusted my dose and my sleep finally normalized after two weeks of changes",
-      "Stress triggers both my binge eating and sleep problems making everything much worse"
+      "I have trouble focusing after taking my scheduling at night and it really affects my daily routine",
+      "Overwork episodes have decreased since starting program with the new scheduling",
+      "The side effects of the policy make me feel exhausted all day long and I cannot function",
+      "My deep-work quality improved significantly with the new schedule adjustment last week",
+      "I feel anxious about overworking and it affects my focus patterns every single night",
+      "The scheduling helps control overtime urges but causes distraction which is very frustrating",
+      "A short walk before I log off helps me focus better and overwork less in the evenings",
+      "Weekend overwork is worse when I skip my scheduling for even one day",
+      "The doctor adjusted my shift and my focus finally normalized after two weeks of changes",
+      "Stress triggers both my overwork and focus problems making everything much worse"
     )[seq_len(n_posts)],
     author = paste0("user_", seq_len(n_posts)),
     score = seq_len(n_posts) * 10L,
@@ -265,9 +265,9 @@ test_that("export_results creates expected output files", {
   on.exit(unlink(tmp_dir, recursive = TRUE), add = TRUE)
 
   data <- sample_data(10)
-  data$emerged_themes <- rep(c("Sleep Disruption", "Treatment Efficacy"), 5)
+  data$emerged_themes <- rep(c("Focus Fragmentation", "Policy Effectiveness"), 5)
   data$assigned_theme_list <- as.list(data$emerged_themes)
-  data$theme_membership_Sleep.Disruption <- rep(c(1L, 0L), 5)
+  data$theme_membership_Focus.Disruption <- rep(c(1L, 0L), 5)
   data$theme_membership_Treatment.Efficacy <- rep(c(0L, 1L), 5)
 
   ts <- mock_theme_set()
@@ -275,7 +275,7 @@ test_that("export_results creates expected output files", {
 
   consolidated <- list(
     codes = tibble::tibble(
-      code_text = c("insomnia", "craving control", "dosage adjustment"),
+      code_text = c("distraction", "workload control", "schedule adjustment"),
       frequency = c(5L, 3L, 2L),
       code_type = rep("descriptive", 3)
     )
@@ -283,7 +283,7 @@ test_that("export_results creates expected output files", {
 
   corr_df <- tibble::tibble(
     var1 = "sentiment_score",
-    var2 = "theme_Sleep Disruption",
+    var2 = "theme_Focus Fragmentation",
     correlation = 0.45,
     p_value = 0.01,
     method = "spearman",

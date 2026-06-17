@@ -1,5 +1,5 @@
 # ==============================================================================
-# Theme Hierarchy S3 Classes — Themes -> Subthemes -> Codes -> Segments
+# Theme Hierarchy S3 Classes: Themes -> Subthemes -> Codes -> Segments
 # ==============================================================================
 # Themes own first-class Subthemes which own Code objects;
 # each Code carries its own coded_segments inline so a saved themes.json is
@@ -39,7 +39,7 @@
 )
 
 # ==============================================================================
-# Code S3 — atomic leaf in the theme hierarchy
+# Code S3: the atomic leaf in the theme hierarchy
 # ==============================================================================
 
 #' Create a Code S3 object
@@ -50,7 +50,7 @@
 #' without needing the original coding_state.
 #'
 #' @param key Code key (codebook lookup key, e.g., "med_helps")
-#' @param name Human-readable code name (e.g., "Medication helps binge control")
+#' @param name Human-readable code name (e.g., "Remote work improves focus")
 #' @param description Code description
 #' @param type Code type (e.g., "descriptive", "framework_construct", "anomaly")
 #' @param frequency How many entries are coded with this code
@@ -106,7 +106,7 @@ print.Code <- function(x, ...) {
 }
 
 # ==============================================================================
-# Subtheme S3 — first-class container for codes within a Theme
+# Subtheme S3: a first-class container for codes within a Theme
 # ==============================================================================
 
 #' Create a Subtheme S3 object
@@ -117,8 +117,8 @@ print.Code <- function(x, ...) {
 #'
 #' @param name Subtheme name; NA_character_ for virtual/ungrouped
 #' @param description Subtheme description
-#' @param codes List of Code S3 objects (or character vector of code names —
-#'   coerced to stub Codes for use in tests / non-coding-state contexts)
+#' @param codes List of Code S3 objects. A character vector of code names is
+#'   also accepted and coerced to stub Codes for tests and non-coding contexts.
 #' @param subthemes List of nested Subtheme S3 objects (or raw lists
 #'   coerced via recursive create_subtheme call). Nested subthemes
 #'   support depth-N hierarchical decomposition.
@@ -257,7 +257,7 @@ print.Subtheme <- function(x, ...) {
 }
 
 # ==============================================================================
-# Theme-level getters (work on a single theme — a plain list with class fields)
+# Theme-level getters that operate on a single theme, which is a plain list with class fields
 # ==============================================================================
 
 #' Collect Code S3 objects from a Subtheme AND all its nested sub-subthemes
@@ -383,7 +383,7 @@ theme_n_subthemes_total <- function(theme) {
 }
 
 # ==============================================================================
-# ThemeSet S3 — top-level container
+# ThemeSet S3: the top-level container
 # ==============================================================================
 
 #' Create a ThemeSet object (canonical internal representation)
@@ -430,7 +430,7 @@ create_theme_set <- function(themes, thematic_map = "",
 
       st_objs <- .legacy_subthemes_to_objects(legacy_sts, legacy_codes)
       if (length(st_objs) == 0L) {
-        # No usable subtheme info — wrap all codes in one virtual Subtheme
+        # No usable subtheme info, so wrap all codes in one virtual Subtheme
         st_objs <- list(create_subtheme(
           name = NA_character_, description = "", codes = legacy_codes
         ))
@@ -438,7 +438,7 @@ create_theme_set <- function(themes, thematic_map = "",
       t$subthemes <- st_objs
     }
 
-    # Apply field defaults (skip subthemes/codes — handled above; subthemes_structured + codes_included are denormalised below)
+    # Apply field defaults. Subthemes and codes are handled above; subthemes_structured and codes_included are denormalised below
     for (field in names(.THEME_DEFAULTS)) {
       if (is.null(t[[field]])) t[[field]] <- .THEME_DEFAULTS[[field]]
     }
@@ -514,7 +514,7 @@ create_theme_set <- function(themes, thematic_map = "",
   if (is.null(legacy_sts)) return(list())
   if (is.character(legacy_sts) && length(legacy_sts) == 0L) return(list())
 
-  # Already Subtheme S3 list — pass through
+  # Already a Subtheme S3 list, so pass it through
   if (is.list(legacy_sts) && length(legacy_sts) > 0L &&
       all(vapply(legacy_sts, inherits, logical(1), "Subtheme"))) {
     return(legacy_sts)
@@ -533,7 +533,7 @@ create_theme_set <- function(themes, thematic_map = "",
     return(lapply(legacy_sts, function(s) .one_legacy_subtheme(s, all_code_names)))
   }
 
-  # Plain character vector — no code mapping known; caller will fall back to virtual
+  # Plain character vector with no known code mapping; the caller falls back to virtual
   list()
 }
 

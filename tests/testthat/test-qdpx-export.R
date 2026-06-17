@@ -193,13 +193,13 @@ test_that("QDPX project.qde XML contains the study_name + code", {
   fx <- .qdpx_minimal_fixture()
   out <- withr::local_tempfile(fileext = ".qdpx")
   export_qdpx(coding_state = fx$state, data = fx$data, output_path = out,
-              study_name = "Binge Eating Study")
+              study_name = "Overwork Study")
   tmp_dir <- withr::local_tempdir()
   utils::unzip(out, files = "project.qde", exdir = tmp_dir)
   qde_text <- paste(readLines(file.path(tmp_dir, "project.qde"),
                                 warn = FALSE),
                      collapse = "\n")
-  expect_match(qde_text, "Binge Eating Study", fixed = TRUE)
+  expect_match(qde_text, "Overwork Study", fixed = TRUE)
   expect_match(qde_text, "Routines", fixed = TRUE)
 })
 
@@ -245,7 +245,7 @@ test_that("export_qdpx survives XML metachars + control chars + unicode", {
   ctrl <- "\x01"; vtab <- "\x0B"  # both illegal in XML 1.0 text
   bad_text <- paste0("amp & lt< gt> quote\" apos' ctrl", ctrl,
                      " vtab", vtab, " emoji \U0001F600 café.")
-  bad_name <- paste0("Sleep & \"Wake\"<issues>", ctrl)
+  bad_name <- paste0("Focus & \"Wake\"<issues>", ctrl)
 
   data <- data.frame(
     std_id = c("e1", "e2"),
@@ -289,7 +289,7 @@ test_that("export_qdpx survives XML metachars + control chars + unicode", {
   # angle-bracketed "<issues>" must NOT have leaked through as a raw element.
   raw <- readChar(qde[1], file.info(qde[1])$size, useBytes = TRUE)
   expect_false(grepl("<issues>", raw, fixed = TRUE))   # escaped, not a live tag
-  expect_true(grepl("Sleep", raw, fixed = TRUE))
+  expect_true(grepl("Focus", raw, fixed = TRUE))
 
   # Platform-independent guard against the libxml2-strictness split that made
   # this export pass on macOS yet be rejected by Linux/Windows CI. The illegal

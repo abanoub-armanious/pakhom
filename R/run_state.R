@@ -1,5 +1,5 @@
 # ==============================================================================
-# Run State — Soft-Lock + parent_run_id Mechanism
+# Run State: Soft-Lock + parent_run_id Mechanism
 # ==============================================================================
 # Implements the REDCap dev/production pattern: a pakhom run lives in one of
 # two states, and methodology cannot silently change between them.
@@ -15,14 +15,14 @@
 #                 new run via clone_run_with_new_mode (which writes
 #                 parent_run_id into the new run's metadata).
 #
-# Stream 5 (PROSPERO/REDCap precedent) is the methodological motivation:
+# The PROSPERO and REDCap precedent is the methodological motivation:
 # qualitative-research methodology is the kind of decision that needs an
 # explicit, auditable trail. Silent re-declaration is exactly the
 # AsPredicted / questionable-research-practice failure mode that ACs 5
 # and 6 commit pakhom against.
 # ==============================================================================
 
-#' Schema version for run_metadata.json (T1.4 / T1.5)
+#' Schema version for run_metadata.json
 #'
 #' Consumers (summarize_audit_log(), planned replay tooling) read this to gate
 #' back-compat reads. Bumped when the metadata schema changes

@@ -25,19 +25,15 @@ returns an \code{AuditLog} S3 object that can be passed to
 If the file already exists it is opened in append mode so that resumed runs
 continue the same log.
 
-T1.4 additions:
+Two behaviours are worth noting:
 \itemize{
-\item Accepts \code{config} so methodology metadata can flow into every
+\item It accepts \code{config} so methodology metadata flows into every
 audit record. When \code{config$methodology$mode} is set,
-\code{\link{log_ai_decision}} auto-stamps it on every JSONL record.
-This is the load-bearing change for cross-mode comparison: every
-decision in the log is unambiguously attributable to the methodology
-it was made under.
-\item Counter state (\code{n_written}) is held in an internal environment
-so increments from \code{\link{log_ai_decision}} mutate correctly
-across function calls. (Pre-T1.4, \code{n_written} was a plain list
-field that suffered R's pass-by-value semantics and stayed at 0
-forever -- a latent bug in \code{close_audit_log}'s "N decisions
-recorded" log message. Fixed here.)
+\code{\link{log_ai_decision}} auto-stamps it on every JSONL record, which
+makes every logged decision unambiguously attributable to the methodology
+it was made under. Cross-mode comparison relies on this.
+\item Counter state (\code{n_written}) lives in an internal environment so
+that increments from \code{\link{log_ai_decision}} mutate correctly across
+function calls rather than being lost to R's pass-by-value semantics.
 }
 }

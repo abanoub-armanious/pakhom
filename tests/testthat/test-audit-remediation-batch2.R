@@ -33,7 +33,7 @@ test_that(".select_cross_model_pair, with 3 models, pairs newest with the most-r
 # --- theme match is code-dominant: same codes, different label -> persisted ---
 test_that("two themes with identical codes but different model-chosen names are matched, not new+disappeared", {
   themes_a <- tibble::tibble(
-    name = "Sleep Disruption",
+    name = "Focus Fragmentation",
     codes_included = list(c("waking_at_night", "cant_fall_asleep", "early_waking"))
   )
   themes_b <- tibble::tibble(

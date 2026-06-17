@@ -1,5 +1,5 @@
 # ==============================================================================
-# AI Decision Audit Trail — JSONL Logging for Transparency
+# AI Decision Audit Trail: JSONL Logging for Transparency
 # ==============================================================================
 # Records every AI decision (code assignments, new codes, merges, sentiment
 # scores, saturation signals, theme structures, insights) as one JSON line per
@@ -29,12 +29,11 @@
 .AUDIT_LOG_SCHEMA_VERSION <- "1.0.0"
 
 .valid_audit_steps <- c(
-  # Pre-T1.4 pipeline steps
+  # Core pipeline steps
   "coding", "sentiment", "theming", "saturation", "insight", "synthesis",
   "researcher_review",
-  # T1.4 additions: declared up-front so the schema is ready when the Phase
-  # B/C/D items that emit these step kinds land. The audit-log validator
-  # would otherwise reject them as unknown steps.
+  # Reflexive-scaffold (Mode 1) step kinds, declared up front so the
+  # audit-log validator accepts them rather than rejecting them as unknown.
   "provocateur",          # M1.1+ : reflexive_scaffold provocateur questioning
   "memo",                  # M1.3  : reflexive memos as data
   "positionality",         # M1.4  : repeated/dynamic positionality
@@ -48,11 +47,11 @@
 )
 
 .valid_decision_types <- c(
-  # Pre-T1.4 decision types. "saturation_signal" is retained in the
-  # allowlist for back-compat: audit logs from earlier runs use it,
-  # and historical log lines are validated against this
-  # allowlist. Newer runs emit "saturation_judgment" (see below)
-  # instead; "saturation_signal" should not be written by new code.
+  # Core decision types. "saturation_signal" stays in the allowlist for
+  # backward compatibility, because audit logs from earlier runs use it and
+  # historical log lines are validated against this allowlist. Newer runs emit
+  # "saturation_judgment" (see below) instead, so new code should not write
+  # "saturation_signal".
   "code_assignment", "new_code_created", "entry_skipped", "merge_decision",
   "sentiment_assignment", "saturation_signal", "theme_structure",
   "insight_generation",
@@ -61,11 +60,10 @@
   "code_description_updated", "theme_renamed", "theme_deleted",
   "theme_merged", "theme_restructured", "theme_created",
   "review_memo_added", "review_disposition",
-  # T1.4 additions: see the matching audit-step comments above for the future
-  # items each new decision_type belongs to. Declaring them now means
-  # downstream callers in Phases B/C/D don't bounce off validation when they
-  # land. ai_request is the most-called new type -- emitted by log_ai_request()
-  # for every ai_complete() call.
+  # The decision types below map to the audit-step comments above. Declaring
+  # them here lets downstream callers pass validation instead of bouncing off
+  # it. "ai_request" is the most frequently emitted type; log_ai_request()
+  # writes one for every ai_complete() call.
   "ai_request",                       # T1.4  : every ai_complete() call
   "provocation_emitted",              # M1.1
   "memo_added",                       # M1.3
@@ -97,20 +95,16 @@
 #' If the file already exists it is opened in append mode so that resumed runs
 #' continue the same log.
 #'
-#' T1.4 additions:
+#' Two behaviours are worth noting:
 #' \itemize{
-#'   \item Accepts \code{config} so methodology metadata can flow into every
+#'   \item It accepts \code{config} so methodology metadata flows into every
 #'     audit record. When \code{config$methodology$mode} is set,
-#'     \code{\link{log_ai_decision}} auto-stamps it on every JSONL record.
-#'     This is the load-bearing change for cross-mode comparison: every
-#'     decision in the log is unambiguously attributable to the methodology
-#'     it was made under.
-#'   \item Counter state (\code{n_written}) is held in an internal environment
-#'     so increments from \code{\link{log_ai_decision}} mutate correctly
-#'     across function calls. (Pre-T1.4, \code{n_written} was a plain list
-#'     field that suffered R's pass-by-value semantics and stayed at 0
-#'     forever -- a latent bug in \code{close_audit_log}'s "N decisions
-#'     recorded" log message. Fixed here.)
+#'     \code{\link{log_ai_decision}} auto-stamps it on every JSONL record, which
+#'     makes every logged decision unambiguously attributable to the methodology
+#'     it was made under. Cross-mode comparison relies on this.
+#'   \item Counter state (\code{n_written}) lives in an internal environment so
+#'     that increments from \code{\link{log_ai_decision}} mutate correctly across
+#'     function calls rather than being lost to R's pass-by-value semantics.
 #' }
 #'
 #' @param output_dir Character. Base output directory for the current run.
@@ -164,14 +158,14 @@ init_audit_log <- function(output_dir, config = NULL) {
 #'
 #' @param audit  An \code{AuditLog} object returned by
 #'   \code{\link{init_audit_log}}.
-#' @param step   Character. Pipeline step — one of \code{"coding"},
-#'   \code{"sentiment"}, \code{"theming"}, \code{"saturation"},
-#'   \code{"insight"}, or \code{"synthesis"}.
-#' @param decision_type Character. Type of decision — one of
-#'   \code{"code_assignment"}, \code{"new_code_created"},
-#'   \code{"entry_skipped"}, \code{"merge_decision"},
-#'   \code{"sentiment_assignment"}, \code{"saturation_signal"},
-#'   \code{"theme_structure"}, or \code{"insight_generation"}.
+#' @param step   Character. The pipeline step the decision belongs to. Accepts
+#'   \code{"coding"}, \code{"sentiment"}, \code{"theming"},
+#'   \code{"saturation"}, \code{"insight"}, or \code{"synthesis"}.
+#' @param decision_type Character. One of \code{"code_assignment"},
+#'   \code{"new_code_created"}, \code{"entry_skipped"},
+#'   \code{"merge_decision"}, \code{"sentiment_assignment"},
+#'   \code{"saturation_signal"}, \code{"theme_structure"}, or
+#'   \code{"insight_generation"}.
 #' @param ... Additional named fields to include in the JSON record (e.g.
 #'   \code{entry_id}, \code{code_name}, \code{rationale}, \code{model},
 #'   \code{tokens_used}).
@@ -255,7 +249,7 @@ log_ai_decision <- function(audit, step, decision_type, ...) {
 #'
 #' Convenience wrapper around \code{\link{log_ai_decision}} that records an
 #' \code{"ai_request"} decision and unpacks the structured fields from
-#' \code{\link{ai_complete}}'s return value (T1.1) into the audit record:
+#' \code{\link{ai_complete}}'s return value into the audit record:
 #' model, finish_reason, prompt_hash, request_id, and per-record token usage.
 #'
 #' If a \code{ResponseCache} is provided, the
@@ -345,39 +339,39 @@ close_audit_log <- function(audit) {
 #' Reads \code{{output_dir}/ai_decisions.jsonl} and produces a summary of all
 #' recorded decisions. Useful for post-analysis review and reporting.
 #'
-#' T1.4 additions to the returned list: \code{total_ai_requests},
-#' \code{total_tokens_used}, \code{ai_requests_by_model}, and
-#' \code{methodology_modes_observed}. Older audit logs missing these fields
-#' return zero/empty values for the new keys; pre-T1.4 records still surface
-#' in \code{decisions_by_type}/\code{decisions_by_step} as before.
+#' Some fields (\code{total_ai_requests}, \code{total_tokens_used},
+#' \code{ai_requests_by_model}, \code{methodology_modes_observed}) are absent
+#' from very old audit logs. For those logs the summary returns zero or empty
+#' values for the missing keys, while the remaining counts still surface in
+#' \code{decisions_by_type} and \code{decisions_by_step} as usual.
 #'
 #' @param output_dir Character. The same output directory passed to
 #'   \code{\link{init_audit_log}}.
 #' @return A named list with:
 #' \describe{
-#'   \item{total_decisions}{Integer — total number of logged decisions.}
-#'   \item{decisions_by_type}{Named integer vector — counts per
+#'   \item{total_decisions}{Integer. The total number of logged decisions.}
+#'   \item{decisions_by_type}{Named integer vector of counts per
 #'     \code{decision_type}.}
-#'   \item{decisions_by_step}{Named integer vector — counts per pipeline
+#'   \item{decisions_by_step}{Named integer vector of counts per pipeline
 #'     \code{step}.}
 #'   \item{new_codes_timeline}{A \code{data.frame} with columns
 #'     \code{timestamp} and \code{cumulative_codes}, showing the running total
 #'     of new codes over time.}
-#'   \item{entries_skipped}{Integer — number of \code{entry_skipped} decisions.}
-#'   \item{merge_decisions_accepted}{Integer — merge decisions where
+#'   \item{entries_skipped}{Integer. The number of \code{entry_skipped} decisions.}
+#'   \item{merge_decisions_accepted}{Integer. Merge decisions where
 #'     \code{action == "merge"}.}
-#'   \item{merge_decisions_standalone}{Integer — merge decisions where
+#'   \item{merge_decisions_standalone}{Integer. Merge decisions where
 #'     \code{action == "standalone"}.}
-#'   \item{total_ai_requests}{Integer (T1.4) — count of \code{ai_request}
-#'     records (one per \code{ai_complete} call).}
-#'   \item{total_tokens_used}{Integer (T1.4) — sum of \code{usage_total}
-#'     across all \code{ai_request} records (NA values dropped from the sum).}
-#'   \item{ai_requests_by_model}{Named integer vector (T1.4) — \code{ai_request}
+#'   \item{total_ai_requests}{Integer count of \code{ai_request}
+#'     records, one per \code{ai_complete} call.}
+#'   \item{total_tokens_used}{Integer. The sum of \code{usage_total}
+#'     across all \code{ai_request} records, with NA values dropped.}
+#'   \item{ai_requests_by_model}{Named integer vector of \code{ai_request}
 #'     counts per model name.}
-#'   \item{methodology_modes_observed}{Character vector (T1.4) — unique
+#'   \item{methodology_modes_observed}{Character vector of the unique
 #'     non-NA values of the \code{methodology_mode} field across all records.
-#'     Should normally be length-1 or length-0; length >1 indicates a run
-#'     where the methodology was changed mid-pipeline (T1.5 mode_change flow).}
+#'     This is normally length-1 or length-0; a length above 1 marks a run
+#'     whose methodology was changed mid-pipeline.}
 #' }
 #' @export
 summarize_audit_log <- function(output_dir) {

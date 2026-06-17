@@ -111,14 +111,14 @@ test_that("generate_methodology_rules: positionality / paradigm / notes surface 
   cfg <- list(
     methodology = list(mode = "reflexive_scaffold"),
     study = list(
-      researcher_positionality = "Clinical psychologist with eating-disorder expertise",
+      researcher_positionality = "Organizational researcher with remote-work expertise",
       research_paradigm        = "critical realist",
       reflexive_notes          = "Aware of my outsider status to Reddit communities."
     )
   )
   rules <- generate_methodology_rules(cfg)
   expect_match(rules, "Researcher reflexivity")
-  expect_match(rules, "Clinical psychologist")
+  expect_match(rules, "Organizational researcher")
   expect_match(rules, "critical realist")
   expect_match(rules, "outsider status")
 })

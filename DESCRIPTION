@@ -9,7 +9,7 @@ Description: Conducts AI-assisted thematic analysis across three
     collaborative, framework applied). Methodology is codified at the
     architectural level: the AI's role is shaped by the mode declared in
     the config, not by user discipline at the configuration level. Universal
-    Tier-0 transparency requirements (quote provenance via a 4-step
+    transparency requirements (quote provenance via a 4-step
     verification ladder, participant spread per theme, whole-corpus coverage
     assertion) are mandatory in every mode. Supports OpenAI and Anthropic
     providers, soft-lock and parent_run_id for auditable, comparable re-runs,

@@ -37,8 +37,8 @@ test_that(".html_esc is vectorized (longitudinal emergence-table regression)", {
 # smoke now also asserts no "## Error" survives in the rendered HTML.)
 test_that("generated report chunks read stamped CSVs with comment='#' (no error cascade)", {
   data <- sample_data(10)
-  data$emerged_themes <- c(rep("Sleep Disruption", 6), rep("Treatment Efficacy", 4))
-  data$theme_membership_Sleep.Disruption <- c(rep(1L, 6), rep(0L, 4))
+  data$emerged_themes <- c(rep("Focus Fragmentation", 6), rep("Policy Effectiveness", 4))
+  data$theme_membership_Focus.Disruption <- c(rep(1L, 6), rep(0L, 4))
   data$theme_membership_Treatment.Efficacy <- c(rep(0L, 6), rep(1L, 4))
   stats <- aggregate_overall_statistics(data, mock_theme_set(), consolidated = NULL,
                                         learning_context = NULL, config = mock_config())
@@ -67,8 +67,8 @@ test_that("correlation section guards the no-correlations case (no error cascade
 
 test_that("methodology appendix describes the ACTUAL mode, not hardcoded reflexive (#6)", {
   data <- sample_data(10)
-  data$emerged_themes <- c(rep("Sleep Disruption", 6), rep("Treatment Efficacy", 4))
-  data$theme_membership_Sleep.Disruption <- c(rep(1L, 6), rep(0L, 4))
+  data$emerged_themes <- c(rep("Focus Fragmentation", 6), rep("Policy Effectiveness", 4))
+  data$theme_membership_Focus.Disruption <- c(rep(1L, 6), rep(0L, 4))
   data$theme_membership_Treatment.Efficacy <- c(rep(0L, 6), rep(1L, 4))
   stats <- aggregate_overall_statistics(data, mock_theme_set(), consolidated = NULL,
                                         learning_context = NULL, config = mock_config())
@@ -84,8 +84,8 @@ test_that("methodology appendix describes the ACTUAL mode, not hardcoded reflexi
 
 test_that("aggregate_overall_statistics returns expected structure", {
   data <- sample_data(10)
-  data$emerged_themes <- c(rep("Sleep Disruption", 6), rep("Treatment Efficacy", 4))
-  data$theme_membership_Sleep.Disruption <- c(rep(1L, 6), rep(0L, 4))
+  data$emerged_themes <- c(rep("Focus Fragmentation", 6), rep("Policy Effectiveness", 4))
+  data$theme_membership_Focus.Disruption <- c(rep(1L, 6), rep(0L, 4))
   data$theme_membership_Treatment.Efficacy <- c(rep(0L, 6), rep(1L, 4))
   ts <- mock_theme_set()
 
@@ -101,18 +101,18 @@ test_that("aggregate_overall_statistics returns expected structure", {
 
 test_that("aggregate_theme_statistics returns one entry per theme", {
   data <- sample_data(10)
-  data$emerged_themes <- c(rep("Sleep Disruption", 6), rep("Treatment Efficacy", 4))
-  data$theme_membership_Sleep.Disruption <- c(rep(1L, 6), rep(0L, 4))
+  data$emerged_themes <- c(rep("Focus Fragmentation", 6), rep("Policy Effectiveness", 4))
+  data$theme_membership_Focus.Disruption <- c(rep(1L, 6), rep(0L, 4))
   data$theme_membership_Treatment.Efficacy <- c(rep(0L, 6), rep(1L, 4))
   ts <- mock_theme_set()
 
   theme_stats <- aggregate_theme_statistics(data, ts)
   expect_equal(length(theme_stats), 2)
-  expect_true("Sleep Disruption" %in% names(theme_stats))
-  expect_true("Treatment Efficacy" %in% names(theme_stats))
+  expect_true("Focus Fragmentation" %in% names(theme_stats))
+  expect_true("Policy Effectiveness" %in% names(theme_stats))
 
   # Check per-theme stats structure
-  sd_stats <- theme_stats[["Sleep Disruption"]]
+  sd_stats <- theme_stats[["Focus Fragmentation"]]
   expect_equal(sd_stats$n_entries, 6)
   expect_true(!is.null(sd_stats$sentiment))
 })
@@ -121,15 +121,15 @@ test_that("export_results creates expected files", {
   skip_on_cran()
 
   data <- sample_data(10)
-  data$emerged_themes <- c(rep("Sleep Disruption", 6), rep("Treatment Efficacy", 4))
-  data$theme_membership_Sleep.Disruption <- c(rep(1L, 6), rep(0L, 4))
+  data$emerged_themes <- c(rep("Focus Fragmentation", 6), rep("Policy Effectiveness", 4))
+  data$theme_membership_Focus.Disruption <- c(rep(1L, 6), rep(0L, 4))
   data$theme_membership_Treatment.Efficacy <- c(rep(0L, 6), rep(1L, 4))
   ts <- mock_theme_set()
 
   tmp_dir <- withr::local_tempdir()
 
   corr_df <- tibble::tibble(
-    var1 = "sentiment_score", var2 = "theme_membership_Sleep.Disruption",
+    var1 = "sentiment_score", var2 = "theme_membership_Focus.Disruption",
     correlation = 0.35, p_value = 0.01, significant = TRUE,
     effect_size = "moderate"
   )
@@ -140,7 +140,7 @@ test_that("export_results creates expected files", {
     correlations_df = corr_df,
     insights = list(key_findings = list()),
     consolidated = list(codes = tibble::tibble(
-      code_text = c("insomnia", "appetite"), frequency = c(5L, 3L),
+      code_text = c("distraction", "appetite"), frequency = c(5L, 3L),
       code_type = c("ai", "ai")
     )),
     output_dir = tmp_dir
@@ -166,10 +166,10 @@ test_that("themes.json serializes codes_included / subthemes / keywords as JSON 
     sentiment_score = c(-0.5, 0, 0.5, -0.3, 0.1, 0.4),
     all_emotions = "joy",
     emotion_intensity = 0.5,
-    emerged_themes = c(rep("Sleep Disruption", 3), rep("Treatment Efficacy", 3)),
+    emerged_themes = c(rep("Focus Fragmentation", 3), rep("Policy Effectiveness", 3)),
     n_themes = 1L,
     source_table = "posts",
-    theme_membership_Sleep.Disruption     = c(1L, 1L, 1L, 0L, 0L, 0L),
+    theme_membership_Focus.Disruption     = c(1L, 1L, 1L, 0L, 0L, 0L),
     theme_membership_Treatment.Efficacy   = c(0L, 0L, 0L, 1L, 1L, 1L)
   )
   # themes.json now serializes the canonical Theme -> Subtheme ->
@@ -177,17 +177,17 @@ test_that("themes.json serializes codes_included / subthemes / keywords as JSON 
   # objects mirroring what generate_themes_iterative() produces in
   # production.
   ts <- create_theme_set(list(
-    list(id = 1, name = "Sleep Disruption",
-         description = "Themes about sleep disturbances",
+    list(id = 1, name = "Focus Fragmentation",
+         description = "Themes about focus disturbances",
          subthemes = list(
            create_subtheme(name = "difficulty falling asleep",
                            description = "trouble onset",
-                           codes = c("insomnia", "early waking")),
+                           codes = c("distraction", "early waking")),
            create_subtheme(name = "night waking",
-                           description = "fragmented sleep cycle",
-                           codes = c("fragmented sleep"))
+                           description = "fragmented focus cycle",
+                           codes = c("fragmented focus"))
          ),
-         keywords = c("sleep", "insomnia"),
+         keywords = c("focus", "distraction"),
          supporting_quotes = c("Quote A", "Quote B"),
          entry_count = 3L,
          prevalence = "high",
@@ -222,7 +222,7 @@ test_that("themes.json serializes codes_included / subthemes / keywords as JSON 
   expect_type(t1$codes_included, "list")           # JSON array -> R list
   expect_equal(length(t1$codes_included), 3L)
   expect_setequal(unlist(t1$codes_included),
-                  c("insomnia", "fragmented sleep", "early waking"))
+                  c("distraction", "fragmented focus", "early waking"))
 
   # Theme 2 has 1 code -- the bug was that auto_unbox collapsed it to
   # a scalar string. Must STILL serialize as a 1-element array.

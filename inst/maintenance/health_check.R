@@ -70,7 +70,7 @@ suggests <- gsub("\\s*\\(.*\\)", "", suggests)
 for (pkg in suggests) {
   check(sprintf("Suggest: %s", pkg), {
     if (requireNamespace(pkg, quietly = TRUE)) TRUE
-    else sprintf("Optional package '%s' is not installed (non-critical)")
+    else sprintf("Optional package '%s' is not installed (non-critical)", pkg)
   })
 }
 

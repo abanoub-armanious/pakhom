@@ -4,7 +4,7 @@ Third-party copyright and licence notices for code bundled with pakhom
 The pakhom package bundles the following third-party, open-source client-side
 libraries under inst/rmd/. They are copied verbatim, at report-generation time,
 into each generated HTML report's theme_details/ directory, so that every report
-is fully self-contained and renders its interactive tables OFFLINE -- with no
+is fully self-contained and renders its interactive tables OFFLINE, with no
 content-delivery-network (CDN) dependency, no version "rot", and no remote-
 payload (supply-chain / MITM) surface.
 

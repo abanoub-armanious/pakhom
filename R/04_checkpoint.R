@@ -1,5 +1,5 @@
 # ==============================================================================
-# Checkpoint System — Save/Load/Resume for Long-Running Pipelines
+# Checkpoint System: Save/Load/Resume for Long-Running Pipelines
 # ==============================================================================
 # Saves .rds files after each expensive pipeline step so work isn't lost.
 # Supports partial checkpoints within steps (every N entries for coding/sentiment).

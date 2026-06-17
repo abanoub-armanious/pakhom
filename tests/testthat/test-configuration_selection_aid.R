@@ -7,7 +7,7 @@
 
 test_that("Mode 2 narrow_intersection returns 5-8 theme range for 250-entry corpus", {
   # An early calibration run was exactly this configuration: 250 entries, narrow
-  # intersection focus (medication x sleep x binge eating). It produced
+  # intersection focus (scheduling x focus x overwork). It produced
   # 6 themes from 40 codes. The aid's bracket should cover that empirical
   # data point.
   rec <- configuration_selection_aid(

@@ -87,7 +87,7 @@ test_that("parse_manuscript parses a DOCX file", {
 
   manuscript_text <- paste(
     "Introduction",
-    "This study explores the relationship between sleep and binge eating.",
+    "This study explores the relationship between focus and overwork.",
     "Methodology",
     "We conducted a thematic analysis of online forum posts.",
     "Results",
@@ -166,14 +166,14 @@ test_that("extract_manuscript_sections appends content for repeated section head
   # the last theme's content.
   text <- paste(
     "Introduction",
-    "This study examines sleep and binge eating.",
+    "This study examines focus and overwork.",
     "",
-    "Theme 1: Sleep Disruption",
-    "Content about sleep disruption patterns.",
+    "Theme 1: Focus Fragmentation",
+    "Content about focus disruption patterns.",
     "Participants reported difficulty falling asleep.",
     "",
-    "Theme 2: Medication Effects",
-    "Content about medication effects on behavior.",
+    "Theme 2: Scheduling Effects",
+    "Content about scheduling effects on behavior.",
     "Side effects were commonly reported.",
     "",
     "Discussion",
@@ -185,13 +185,13 @@ test_that("extract_manuscript_sections appends content for repeated section head
   expect_true("themes" %in% names(sections))
 
   # Both theme contents should be present (not just the last one)
-  expect_true(grepl("sleep disruption", sections$themes, ignore.case = TRUE))
-  expect_true(grepl("medication effects", sections$themes, ignore.case = TRUE))
+  expect_true(grepl("focus disruption", sections$themes, ignore.case = TRUE))
+  expect_true(grepl("scheduling effects", sections$themes, ignore.case = TRUE))
 
   # Verify other sections are also captured correctly
   expect_true("introduction" %in% names(sections))
   expect_true("discussion" %in% names(sections))
-  expect_true(grepl("sleep and binge eating", sections$introduction))
+  expect_true(grepl("focus and overwork", sections$introduction))
   expect_true(grepl("implications", sections$discussion))
 })
 
@@ -319,10 +319,10 @@ test_that("generate_learning_context injects supplementary sections", {
           full_text = "full text",
           word_count = 500,
           sections = list(
-            introduction = "This study investigates sleep-medication interactions in BED patients.",
+            introduction = "This study investigates focus-scheduling interactions in remote workers.",
             methodology = "We applied reflexive thematic analysis following Braun and Clarke.",
-            themes = "Theme 1: Sleep disruption from medication side effects.",
-            discussion = "The interplay between sleep quality and binge eating suggests a bidirectional relationship."
+            themes = "Theme 1: Focus disruption from scheduling side effects.",
+            discussion = "The interplay between deep-work quality and overwork suggests a bidirectional relationship."
           )
         ),
         raw_data = NULL
@@ -422,10 +422,10 @@ test_that("parse_raw_data_files returns NULL for empty directory", {
 # Domain-neutrality of cross-study synthesis
 #
 # Earlier versions of .synthesize_cross_study_patterns injected hardcoded
-# medication-research opinions into the AI's learning context (a regex list
+# scheduling-research opinions into the AI's learning context (a regex list
 # matching theme names to predefined "recurring categories" like 'side effects',
-# 'treatment efficacy', 'dosage timing'; plus an unconditional narrative-arc
-# claim about themes moving from 'direct treatment effects' to 'broader
+# 'program efficacy', 'schedule timing'; plus an unconditional narrative-arc
+# claim about themes moving from 'direct program effects' to 'broader
 # implications'). These tests pin that those forbidden strings never appear in
 # the function's output -- if a future change reintroduces them, these tests
 # fail loudly.
@@ -460,21 +460,21 @@ test_that("parse_raw_data_files returns NULL for empty directory", {
   studies
 }
 
-test_that("cross-study synthesis does NOT inject medication-research framing on a non-medication codebook", {
+test_that("cross-study synthesis does NOT inject scheduling-research framing on a non-scheduling codebook", {
   studies <- .make_synthetic_studies()
   hierarchies <- list(study_a = list(), study_b = list())  # placeholder, not used by current impl
   benchmarks <- NULL
 
   out <- pakhom:::.synthesize_cross_study_patterns(hierarchies, studies, benchmarks)
 
-  # These strings come from the removed medication-research priming block
+  # These strings come from the removed scheduling-research priming block
   # and must NEVER appear in the output regardless of input
   forbidden <- c(
     "RECURRING categories",
     "side effects / adverse reactions",
-    "treatment efficacy / outcomes",
-    "patient journey",
-    "direct treatment effects",
+    "program efficacy / outcomes",
+    "participant journey",
+    "direct program effects",
     "side effects and complications",
     "broader implications",
     "Apply these same organizational principles",
@@ -482,7 +482,7 @@ test_that("cross-study synthesis does NOT inject medication-research framing on 
   )
   for (s in forbidden) {
     expect_false(grepl(s, out, fixed = TRUE),
-                 info = paste("Forbidden hardcoded medication-research string reappeared:", s))
+                 info = paste("Forbidden hardcoded scheduling-research string reappeared:", s))
   }
 })
 

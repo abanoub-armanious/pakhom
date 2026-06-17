@@ -1,5 +1,5 @@
 # ==============================================================================
-# Configuration System — YAML-based with validation and defaults
+# Configuration System: YAML-based with validation and defaults
 # ==============================================================================
 
 #' Load analysis configuration from YAML file
@@ -966,7 +966,7 @@ print.ThematicConfig <- function(x, ...) {
 #' Create a minimal configuration file
 #'
 #' Generates a valid YAML config with sensible defaults and writes it to disk.
-#' Per T1.3 the \code{methodology} block is mandatory in
+#' The \code{methodology} block is mandatory in
 #' every config -- this helper writes it for you given the
 #' \code{methodology} argument.
 #'

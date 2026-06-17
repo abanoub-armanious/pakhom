@@ -87,10 +87,10 @@ test_that("init_run_state accepts and writes extra fields verbatim", {
   meta <- init_run_state(
     run_dir = d, run_id = "r1",
     methodology_mode = "reflexive_scaffold",
-    provider = "anthropic", study_name = "Sleep & Meds"
+    provider = "anthropic", study_name = "Focus & Meds"
   )
   expect_equal(meta$provider, "anthropic")
-  expect_equal(meta$study_name, "Sleep & Meds")
+  expect_equal(meta$study_name, "Focus & Meds")
 })
 
 # ---- is_run_finalized -------------------------------------------------------

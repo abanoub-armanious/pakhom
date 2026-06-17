@@ -1,4 +1,4 @@
 var1,var2,correlation,p_value,effect_size,significant,ci_lower,ci_upper
 sentiment_score,emotion_intensity,-0.45,0.001,medium,TRUE,-0.65,-0.20
-theme_membership_Sleep.Disruption,sentiment_score,-0.38,0.005,medium,TRUE,-0.58,-0.13
+theme_membership_Focus.Disruption,sentiment_score,-0.38,0.005,medium,TRUE,-0.58,-0.13
 emotion_intensity,confidence,0.52,0.0001,large,TRUE,0.30,0.69

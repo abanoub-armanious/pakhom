@@ -5,30 +5,30 @@ test_that("cascade_theme_assignments maps entries through codes deterministicall
   # Create mock coding state
   state <- create_coding_state()
   state$codebook[["med_helps"]] <- list(
-    code_name = "Medication helps binge control", description = "",
+    code_name = "Scheduling helps overwork control", description = "",
     type = "descriptive", frequency = 3L,
     entry_ids = c("e1", "e2", "e3"), coded_segments = list()
   )
-  state$codebook[["sleep_bad"]] <- list(
-    code_name = "Sleep disruption", description = "",
+  state$codebook[["focus_bad"]] <- list(
+    code_name = "Focus disruption", description = "",
     type = "descriptive", frequency = 2L,
     entry_ids = c("e1", "e4"), coded_segments = list()
   )
-  state$entry_results[["e1"]] <- list(codes_assigned = c("med_helps", "sleep_bad"), skipped = FALSE)
+  state$entry_results[["e1"]] <- list(codes_assigned = c("med_helps", "focus_bad"), skipped = FALSE)
   state$entry_results[["e2"]] <- list(codes_assigned = c("med_helps"), skipped = FALSE)
   state$entry_results[["e3"]] <- list(codes_assigned = c("med_helps"), skipped = FALSE)
-  state$entry_results[["e4"]] <- list(codes_assigned = c("sleep_bad"), skipped = FALSE)
+  state$entry_results[["e4"]] <- list(codes_assigned = c("focus_bad"), skipped = FALSE)
 
   # Create theme set with merge history
   ts <- create_theme_set(list(
-    list(id = 1, name = "Medication Benefits", description = "",
-         codes_included = "Medication helps binge control"),
-    list(id = 2, name = "Sleep Problems", description = "",
-         codes_included = "Sleep disruption")
+    list(id = 1, name = "Scheduling Benefits", description = "",
+         codes_included = "Scheduling helps overwork control"),
+    list(id = 2, name = "Focus Problems", description = "",
+         codes_included = "Focus disruption")
   ))
   ts$merge_history <- list(
-    code_to_theme_map = list(med_helps = "Medication Benefits",
-                              sleep_bad = "Sleep Problems"),
+    code_to_theme_map = list(med_helps = "Scheduling Benefits",
+                              focus_bad = "Focus Problems"),
     code_to_subtheme_map = list()
   )
 
@@ -40,15 +40,15 @@ test_that("cascade_theme_assignments maps entries through codes deterministicall
   result <- cascade_theme_assignments(data, state, ts)
 
   # e1 has both codes -> assigned to both themes (multi-label)
-  expect_true(grepl("Medication Benefits", result$emerged_themes[1]))
-  # e2, e3 -> Medication Benefits
-  expect_equal(result$emerged_themes[2], "Medication Benefits")
-  expect_equal(result$emerged_themes[3], "Medication Benefits")
-  # e4 -> Sleep Problems
-  expect_equal(result$emerged_themes[4], "Sleep Problems")
+  expect_true(grepl("Scheduling Benefits", result$emerged_themes[1]))
+  # e2, e3 -> Scheduling Benefits
+  expect_equal(result$emerged_themes[2], "Scheduling Benefits")
+  expect_equal(result$emerged_themes[3], "Scheduling Benefits")
+  # e4 -> Focus Problems
+  expect_equal(result$emerged_themes[4], "Focus Problems")
   # e1 should be assigned to both themes (multi-label)
-  expect_true(grepl("Sleep Problems", result$emerged_themes[1]))
-  expect_true(grepl("Medication Benefits", result$emerged_themes[1]))
+  expect_true(grepl("Focus Problems", result$emerged_themes[1]))
+  expect_true(grepl("Scheduling Benefits", result$emerged_themes[1]))
   # n_themes: e1 has 2, others have 1
   expect_equal(result$n_themes[1], 2L)
   expect_equal(result$n_themes[2], 1L)
@@ -470,7 +470,7 @@ test_that("Tier 1 C-13: subtheme_assignments persists in cascade output", {
     entry_ids = c("e1", "e2"),
     coded_segments = list(
       list(entry_id = "e1", text = "ate too much", start_char = 0L, end_char = 12L),
-      list(entry_id = "e2", text = "binge again", start_char = 0L, end_char = 11L)
+      list(entry_id = "e2", text = "overwork again", start_char = 0L, end_char = 11L)
     )
   )
   state$entry_results[["e1"]] <- list(
@@ -483,9 +483,9 @@ test_that("Tier 1 C-13: subtheme_assignments persists in cascade output", {
   )
 
   ts <- create_theme_set(themes = list(
-    list(name = "Eating Patterns", description = "",
+    list(name = "Overworking Patterns", description = "",
          subthemes = list(create_subtheme(
-           name = "Compulsive Eating",
+           name = "Compulsive Overworking",
            codes = list(create_code_object(key = "food_addiction",
                                             name = "Food Addiction",
                                             frequency = 2L))
@@ -498,5 +498,5 @@ test_that("Tier 1 C-13: subtheme_assignments persists in cascade output", {
 
   # subtheme_assignments column exists and is populated.
   expect_true("subtheme_assignments" %in% names(out))
-  expect_equal(out$subtheme_assignments, c("Compulsive Eating", "Compulsive Eating"))
+  expect_equal(out$subtheme_assignments, c("Compulsive Overworking", "Compulsive Overworking"))
 })

@@ -40,25 +40,25 @@ test_that("get_analytic_sample filters skipped entries", {
 
 test_that("as_coding_results converts state to legacy format", {
   state <- create_coding_state()
-  state$codebook[["sleep_issues"]] <- list(
-    code_name = "Sleep Issues", description = "Problems sleeping",
+  state$codebook[["focus_issues"]] <- list(
+    code_name = "Focus Issues", description = "Problems focusing",
     type = "descriptive", frequency = 2L,
     entry_ids = c("e1", "e2"),
     coded_segments = list(
-      list(entry_id = "e1", text = "cant sleep", start_char = 0L, end_char = 10L),
-      list(entry_id = "e2", text = "insomnia", start_char = 5L, end_char = 13L)
+      list(entry_id = "e1", text = "cant focus", start_char = 0L, end_char = 10L),
+      list(entry_id = "e2", text = "distraction", start_char = 5L, end_char = 13L)
     )
   )
   state$entry_results[["e1"]] <- list(
-    codes_assigned = "sleep_issues",
-    coded_segments = list(list(code_key = "sleep_issues", code_name = "Sleep Issues",
-                                text = "cant sleep", start_char = 0L, end_char = 10L)),
+    codes_assigned = "focus_issues",
+    coded_segments = list(list(code_key = "focus_issues", code_name = "Focus Issues",
+                                text = "cant focus", start_char = 0L, end_char = 10L)),
     skipped = FALSE
   )
   state$entry_results[["e2"]] <- list(
-    codes_assigned = "sleep_issues",
-    coded_segments = list(list(code_key = "sleep_issues", code_name = "Sleep Issues",
-                                text = "insomnia", start_char = 5L, end_char = 13L)),
+    codes_assigned = "focus_issues",
+    coded_segments = list(list(code_key = "focus_issues", code_name = "Focus Issues",
+                                text = "distraction", start_char = 5L, end_char = 13L)),
     skipped = FALSE
   )
   state$entry_results[["e3"]] <- list(codes_assigned = character(0), skipped = TRUE, skip_reason = "N/A")
@@ -70,7 +70,7 @@ test_that("as_coding_results converts state to legacy format", {
   expect_equal(cr$unique_codes, 1)
   expect_equal(cr$entries_coded, 2)
   expect_equal(cr$total_applications, 2)
-  expect_true("sleep_issues" %in% names(cr$all_codes))
+  expect_true("focus_issues" %in% names(cr$all_codes))
   expect_true("e1" %in% names(cr$entry_codes))
   expect_false("e3" %in% names(cr$entry_codes))
 })
@@ -139,8 +139,8 @@ test_that(".normalize_code_name strips numbered-list prefixes (C-4 root cause)",
                "Food Addiction")
   expect_equal(pakhom:::.normalize_code_name('1. Food Addiction'),
                "Food Addiction")
-  expect_equal(pakhom:::.normalize_code_name('  12. "Compulsive Eating"  '),
-               "Compulsive Eating")
+  expect_equal(pakhom:::.normalize_code_name('  12. "Compulsive Overworking"  '),
+               "Compulsive Overworking")
 })
 
 test_that(".normalize_code_name strips NEW: marker", {
@@ -194,15 +194,15 @@ test_that(".build_codebook_summary uses bare-bullet format (C-4 prompt fix)", {
     code_name = "Food Addiction", frequency = 100L,
     description = "Reports of food compulsion", type = "descriptive"
   )
-  state$codebook[["sleep_loss"]] <- list(
-    code_name = "Sleep Loss", frequency = 50L,
-    description = "Reports of difficulty sleeping", type = "emotional"
+  state$codebook[["focus_loss"]] <- list(
+    code_name = "Focus Loss", frequency = 50L,
+    description = "Reports of difficulty focusing", type = "emotional"
   )
   summary <- pakhom:::.build_codebook_summary(state, max_codes = 10)
 
   # New format: bare dash bullet, no numeric prefix.
   expect_true(grepl("- Food Addiction", summary, fixed = TRUE))
-  expect_true(grepl("- Sleep Loss", summary, fixed = TRUE))
+  expect_true(grepl("- Focus Loss", summary, fixed = TRUE))
 
   # Old format must be gone: no numbered list prefix on any line; no
   # surrounding quotes on the code names.
@@ -212,7 +212,7 @@ test_that(".build_codebook_summary uses bare-bullet format (C-4 prompt fix)", {
                  info = sprintf("line still has numbered prefix: %s", line))
     expect_false(grepl('"Food Addiction"', line, fixed = TRUE),
                  info = sprintf("code name still wrapped in quotes: %s", line))
-    expect_false(grepl('"Sleep Loss"', line, fixed = TRUE),
+    expect_false(grepl('"Focus Loss"', line, fixed = TRUE),
                  info = sprintf("code name still wrapped in quotes: %s", line))
   }
 })
@@ -899,17 +899,17 @@ test_that("C-5: .maybe_refresh_high_freq_descriptions refreshes high-freq codes"
     type = "descriptive", frequency = 200L,
     entry_ids = c("e_a1", "e_a2"),
     coded_segments = list(
-      list(entry_id = "e_a1", text = "compulsive eating after waking"),
-      list(entry_id = "e_a2", text = "binge at family dinner")
+      list(entry_id = "e_a1", text = "compulsive overworking after waking"),
+      list(entry_id = "e_a2", text = "overwork at family dinner")
     )
   )
   state$codebook[["hifreq_b"]] <- list(
-    code_name = "Sleep Disruption",
+    code_name = "Focus Fragmentation",
     description = "Original (high-freq, should also be refreshed)",
     type = "descriptive", frequency = 150L,
     entry_ids = c("e_b1"),
     coded_segments = list(
-      list(entry_id = "e_b1", text = "trouble sleeping after medication")
+      list(entry_id = "e_b1", text = "trouble focusing after scheduling")
     )
   )
 
@@ -1356,18 +1356,18 @@ test_that("T0.1: .code_entry_progressive attaches QuoteProvenance to verified se
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
-  entry_text <- "I had trouble sleeping after starting the new medication."
+  entry_text <- "I had trouble focusing after starting the new scheduling."
 
   # Mock returns one segment whose text IS verbatim in the entry -> verified
   mock_response <- jsonlite::toJSON(list(
     skipped        = FALSE,
     skip_reason    = "",
     coded_segments = list(list(
-      text             = "trouble sleeping",
+      text             = "trouble focusing",
       start_char       = 6L,
       end_char         = 22L,
-      code             = "NEW: sleep difficulty",
-      code_description = "Difficulty initiating or maintaining sleep",
+      code             = "NEW: focus difficulty",
+      code_description = "Difficulty initiating or maintaining focus",
       code_type        = "descriptive"
     ))
   ), auto_unbox = TRUE)
@@ -1407,7 +1407,7 @@ test_that("T0.1: .code_entry_progressive drops fabricated segments + does not po
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
-  entry_text <- "Real entry text about sleep struggles."
+  entry_text <- "Real entry text about focus struggles."
 
   # Mock returns one fabricated segment (text not in entry)
   mock_response <- jsonlite::toJSON(list(
@@ -1557,12 +1557,12 @@ test_that(".build_progressive_citations_user_prompt declares anti-fabrication ru
 })
 
 test_that(".citation_text_matches returns TRUE on exact and normalized matches", {
-  cite <- list(cited_text = "trouble sleeping")
-  expect_true(pakhom:::.citation_text_matches(cite, "trouble sleeping"))
+  cite <- list(cited_text = "trouble focusing")
+  expect_true(pakhom:::.citation_text_matches(cite, "trouble focusing"))
   # Normalized comparison handles whitespace/case
   expect_true(pakhom:::.citation_text_matches(
-    list(cited_text = "  Trouble  Sleeping "),
-    "trouble sleeping"))
+    list(cited_text = "  Trouble  Focusing "),
+    "trouble focusing"))
   # Smart quotes vs straight quotes
   expect_true(pakhom:::.citation_text_matches(
     list(cited_text = "“hello”"),
@@ -1570,7 +1570,7 @@ test_that(".citation_text_matches returns TRUE on exact and normalized matches",
   # Genuinely different text
   expect_false(pakhom:::.citation_text_matches(
     list(cited_text = "different"),
-    "trouble sleeping"))
+    "trouble focusing"))
 })
 
 # ---- Quote constructors per path --------------------------------------------
@@ -1580,15 +1580,15 @@ test_that(".build_quote_from_schema_path produces a model_freeform QuoteProvenan
   ai_meta$model <- "gpt-4o-mock"
   ai_meta$call_id <- "req_test"
   q <- pakhom:::.build_quote_from_schema_path(
-    seg_text = "trouble sleeping", seg_start = 6L, seg_end = 22L,
-    text = "I had trouble sleeping after starting the medication",
-    entry_id = "e1", code_key = "sleep_difficulty", ai_meta = ai_meta
+    seg_text = "trouble focusing", seg_start = 6L, seg_end = 22L,
+    text = "I had trouble focusing after starting the scheduling",
+    entry_id = "e1", code_key = "focus_difficulty", ai_meta = ai_meta
   )
   expect_s3_class(q, "QuoteProvenance")
   expect_equal(q$citation_source, "model_freeform")
   expect_equal(q$start_char, 6L)
   expect_equal(q$end_char,   22L)
-  expect_equal(q$exact_text, "trouble sleeping")
+  expect_equal(q$exact_text, "trouble focusing")
 })
 
 test_that(".build_quote_from_schema_path defaults bad offsets to safe values", {
@@ -1607,56 +1607,56 @@ test_that(".build_quote_from_citations_path returns anthropic_citations_api on e
   ai_meta <- new.env(parent = emptyenv())
   ai_meta$model <- "claude-mock"; ai_meta$call_id <- "msg_test"
   citations <- list(
-    list(type = "char_location", cited_text = "trouble sleeping",
+    list(type = "char_location", cited_text = "trouble focusing",
          document_index = 0L, document_title = "e1",
          start_char_index = 6L, end_char_index = 22L),
-    list(type = "char_location", cited_text = "the medication",
+    list(type = "char_location", cited_text = "the scheduling",
          document_index = 0L, document_title = "e1",
          start_char_index = 38L, end_char_index = 52L)
   )
   documents <- list(list(id = "e1",
-                         text = "I had trouble sleeping after starting the medication.",
+                         text = "I had trouble focusing after starting the scheduling.",
                          type = "data_entry"))
 
   q <- pakhom:::.build_quote_from_citations_path(
-    seg_text = "trouble sleeping", seg_index = 1L,
+    seg_text = "trouble focusing", seg_index = 1L,
     citations = citations, documents = documents,
     text = documents[[1]]$text, entry_id = "e1",
-    code_key = "sleep_difficulty", ai_meta = ai_meta
+    code_key = "focus_difficulty", ai_meta = ai_meta
   )
   expect_s3_class(q, "QuoteProvenance")
   expect_equal(q$citation_source, "anthropic_citations_api")
   expect_equal(q$start_char,      6L)
   expect_equal(q$end_char,        22L)
-  expect_equal(q$exact_text,      "trouble sleeping")
+  expect_equal(q$exact_text,      "trouble focusing")
 })
 
 test_that(".build_quote_from_citations_path falls back to string match when emission order is wrong", {
   ai_meta <- new.env(parent = emptyenv())
   ai_meta$model <- "m"; ai_meta$call_id <- "c"
   citations <- list(
-    list(type = "char_location", cited_text = "the medication",
+    list(type = "char_location", cited_text = "the scheduling",
          document_index = 0L, document_title = "e1",
          start_char_index = 38L, end_char_index = 52L),
-    list(type = "char_location", cited_text = "trouble sleeping",
+    list(type = "char_location", cited_text = "trouble focusing",
          document_index = 0L, document_title = "e1",
          start_char_index = 6L, end_char_index = 22L)
   )
   documents <- list(list(id = "e1",
-                         text = "I had trouble sleeping after starting the medication.",
+                         text = "I had trouble focusing after starting the scheduling.",
                          type = "data_entry"))
 
   # seg_index=1 would emission-order-match citations[[1]] (cited_text =
-  # "the medication"), which doesn't match seg_text. String-match fallback
+  # "the scheduling"), which doesn't match seg_text. String-match fallback
   # finds citations[[2]].
   q <- pakhom:::.build_quote_from_citations_path(
-    seg_text = "trouble sleeping", seg_index = 1L,
+    seg_text = "trouble focusing", seg_index = 1L,
     citations = citations, documents = documents,
     text = documents[[1]]$text, entry_id = "e1",
-    code_key = "sleep_difficulty", ai_meta = ai_meta
+    code_key = "focus_difficulty", ai_meta = ai_meta
   )
   expect_equal(q$citation_source, "anthropic_citations_api")
-  expect_equal(q$exact_text, "trouble sleeping")
+  expect_equal(q$exact_text, "trouble focusing")
   expect_equal(q$start_char, 6L)
 })
 
@@ -1669,28 +1669,28 @@ test_that(".build_quote_from_citations_path falls back to model_freeform when no
          start_char_index = 0L, end_char_index = 25L)
   )
   documents <- list(list(id = "e1",
-                         text = "I had trouble sleeping",
+                         text = "I had trouble focusing",
                          type = "data_entry"))
 
   q <- pakhom:::.build_quote_from_citations_path(
-    seg_text = "trouble sleeping", seg_index = 1L,
+    seg_text = "trouble focusing", seg_index = 1L,
     citations = citations, documents = documents,
     text = documents[[1]]$text, entry_id = "e1",
-    code_key = "sleep_difficulty", ai_meta = ai_meta
+    code_key = "focus_difficulty", ai_meta = ai_meta
   )
   # Pairing failed -> fell back to model_freeform; ladder will run normally
   expect_equal(q$citation_source, "model_freeform")
-  expect_equal(q$exact_text, "trouble sleeping")
+  expect_equal(q$exact_text, "trouble focusing")
 })
 
 test_that(".build_quote_from_citations_path falls back when citations list is empty", {
   ai_meta <- new.env(parent = emptyenv())
   ai_meta$model <- "m"; ai_meta$call_id <- "c"
-  documents <- list(list(id = "e1", text = "I had trouble sleeping",
+  documents <- list(list(id = "e1", text = "I had trouble focusing",
                          type = "data_entry"))
 
   q <- pakhom:::.build_quote_from_citations_path(
-    seg_text = "trouble sleeping", seg_index = 1L,
+    seg_text = "trouble focusing", seg_index = 1L,
     citations = list(), documents = documents,
     text = documents[[1]]$text, entry_id = "e1",
     code_key = "c", ai_meta = ai_meta
@@ -1704,15 +1704,15 @@ test_that("T0.1 part 3b: Anthropic provider triggers citations path; QuoteProven
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
-  entry_text <- "I had trouble sleeping after starting the new medication."
+  entry_text <- "I had trouble focusing after starting the new scheduling."
   # JSON without offsets: model returns text only; citations carry the offsets
   mock_response <- jsonlite::toJSON(list(
     skipped        = FALSE,
     skip_reason    = "",
     coded_segments = list(list(
-      text             = "trouble sleeping",
-      code             = "NEW: sleep difficulty",
-      code_description = "Difficulty initiating or maintaining sleep",
+      text             = "trouble focusing",
+      code             = "NEW: focus difficulty",
+      code_description = "Difficulty initiating or maintaining focus",
       code_type        = "descriptive"
     ))
   ), auto_unbox = TRUE)
@@ -1740,7 +1740,7 @@ test_that("T0.1 part 3b: Anthropic provider triggers citations path; QuoteProven
         # Anthropic returned a citation pointing to the verbatim claim
         citations     = list(list(
           type             = "char_location",
-          cited_text       = "trouble sleeping",
+          cited_text       = "trouble focusing",
           document_index   = 0L,
           document_title   = "e1",
           start_char_index = 6L,
@@ -1784,12 +1784,12 @@ test_that("T0.1 part 3b: OpenAI provider keeps the schema path (citation_source 
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
-  entry_text <- "I had trouble sleeping."
+  entry_text <- "I had trouble focusing."
   mock_response <- jsonlite::toJSON(list(
     skipped = FALSE, skip_reason = "",
     coded_segments = list(list(
-      text = "trouble sleeping", start_char = 6L, end_char = 22L,
-      code = "NEW: sleep_diff", code_description = "x", code_type = "descriptive"
+      text = "trouble focusing", start_char = 6L, end_char = 22L,
+      code = "NEW: focus_diff", code_description = "x", code_type = "descriptive"
     ))
   ), auto_unbox = TRUE)
 
@@ -1834,12 +1834,12 @@ test_that("T0.1 part 3b: Anthropic with no citations falls back to model_freefor
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
-  entry_text <- "I had trouble sleeping."
+  entry_text <- "I had trouble focusing."
   mock_response <- jsonlite::toJSON(list(
     skipped = FALSE, skip_reason = "",
     coded_segments = list(list(
-      text = "trouble sleeping",
-      code = "NEW: sleep_diff", code_description = "x", code_type = "descriptive"
+      text = "trouble focusing",
+      code = "NEW: focus_diff", code_description = "x", code_type = "descriptive"
     ))
   ), auto_unbox = TRUE)
 
@@ -1937,11 +1937,11 @@ test_that("T0.1 part 3b: Anthropic citations path attributes ai_call_id from res
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
-  entry_text <- "trouble sleeping is hard"
+  entry_text <- "trouble focusing is hard"
   mock_response <- jsonlite::toJSON(list(
     skipped = FALSE, skip_reason = "",
     coded_segments = list(list(
-      text = "trouble sleeping",
+      text = "trouble focusing",
       code = "NEW: x", code_description = "x", code_type = "descriptive"
     ))
   ), auto_unbox = TRUE)
@@ -1959,7 +1959,7 @@ test_that("T0.1 part 3b: Anthropic citations path attributes ai_call_id from res
         finish_reason = "stop", raw_response = list(),
         prompt_hash   = "h",
         citations     = list(list(
-          type = "char_location", cited_text = "trouble sleeping",
+          type = "char_location", cited_text = "trouble focusing",
           document_index = 0L, document_title = "e1",
           start_char_index = 0L, end_char_index = 16L
         ))
@@ -1985,15 +1985,15 @@ test_that("T0.1 part 3b: Anthropic citations path handles multiple segments with
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
-  entry_text <- "I had trouble sleeping. The medication helps."
+  entry_text <- "I had trouble focusing. The scheduling helps."
   # Two segments, two citations, properly paired by emission order
   mock_response <- jsonlite::toJSON(list(
     skipped = FALSE, skip_reason = "",
     coded_segments = list(
-      list(text = "trouble sleeping",
-           code = "NEW: sleep_diff",   code_description = "x", code_type = "descriptive"),
-      list(text = "The medication helps",
-           code = "NEW: medication_efficacy", code_description = "y", code_type = "descriptive")
+      list(text = "trouble focusing",
+           code = "NEW: focus_diff",   code_description = "x", code_type = "descriptive"),
+      list(text = "The scheduling helps",
+           code = "NEW: scheduling_efficacy", code_description = "y", code_type = "descriptive")
     )
   ), auto_unbox = TRUE)
 
@@ -2010,10 +2010,10 @@ test_that("T0.1 part 3b: Anthropic citations path handles multiple segments with
         finish_reason = "stop", raw_response = list(),
         prompt_hash   = "h",
         citations     = list(
-          list(type = "char_location", cited_text = "trouble sleeping",
+          list(type = "char_location", cited_text = "trouble focusing",
                document_index = 0L, document_title = "e1",
                start_char_index = 6L, end_char_index = 22L),
-          list(type = "char_location", cited_text = "The medication helps",
+          list(type = "char_location", cited_text = "The scheduling helps",
                document_index = 0L, document_title = "e1",
                start_char_index = 24L, end_char_index = 44L)
         )
@@ -2034,11 +2034,11 @@ test_that("T0.1 part 3b: Anthropic citations path handles multiple segments with
   expect_length(segs, 2L)
   expect_equal(segs[[1]]$provenance$citation_source, "anthropic_citations_api")
   expect_equal(segs[[2]]$provenance$citation_source, "anthropic_citations_api")
-  expect_equal(segs[[1]]$provenance$exact_text, "trouble sleeping")
-  expect_equal(segs[[2]]$provenance$exact_text, "The medication helps")
+  expect_equal(segs[[1]]$provenance$exact_text, "trouble focusing")
+  expect_equal(segs[[2]]$provenance$exact_text, "The scheduling helps")
   # Codebook has both codes
   expect_setequal(names(state$codebook),
-                  c("sleep_diff", "medication_efficacy"))
+                  c("focus_diff", "scheduling_efficacy"))
 })
 
 # ==============================================================================

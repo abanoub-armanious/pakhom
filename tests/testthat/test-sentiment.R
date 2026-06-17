@@ -116,9 +116,9 @@ test_that("analyze_sentiment populates all columns with mocked AI", {
   data <- tibble::tibble(
     std_id = paste0("e", 1:3),
     std_text = c(
-      "I feel terrible after binge eating last night",
-      "The medication really helped me sleep better",
-      "I am worried about the side effects of my treatment"
+      "I feel terrible after overwork last night",
+      "The scheduling really helped me focus better",
+      "I am worried about the side effects of my program"
     )
   )
 

@@ -13,7 +13,7 @@ export_theme_entry_csvs(data, theme_set, output_dir, methodology_mode = NULL)
 
 \item{output_dir}{Output directory}
 
-\item{methodology_mode}{Optional methodology mode (T1.7). When
+\item{methodology_mode}{Optional methodology mode. When
 non-NULL, every CSV produced is stamped with a comment header
 identifying the mode and run id (per AC4). NULL skips stamping --
 used by tests / legacy callers.}
