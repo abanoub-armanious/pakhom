@@ -714,10 +714,10 @@ test_that("Mode 1 public-API contract: config_path -> load_corpus_from_config ->
   ts <- create_theme_set(list(
     list(id = 1L, name = "Adherence",
          description = "Researcher-authored: schedule adherence",
-         codes_included = c("med_routine", "daily_pills")),
+         codes_included = c("async_routine", "daily_batching")),
     list(id = 2L, name = "Resistance",
          description = "Researcher-authored: resistance",
-         codes_included = c("skip_doses", "side_effects"))
+         codes_included = c("skips_async", "tool_friction"))
   ))
 
   # ---- ACCEPTANCE 4: run_mode1 accepts the public-API-built fixture. ----

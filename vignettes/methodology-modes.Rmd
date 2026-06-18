@@ -75,12 +75,12 @@ library(pakhom)
 # 1. Author your themes elsewhere (e.g., NVivo) and load them as a ThemeSet.
 #    pakhom never writes themes in Mode 1.
 my_themes <- create_theme_set(list(
-  list(id = 1, name = "Adherence",
-       description = "Researcher-authored: medication adherence behaviors",
-       codes_included = c("med_routine", "daily_pills")),
+  list(id = 1, name = "Adoption",
+       description = "Researcher-authored: async-communication adoption behaviors",
+       codes_included = c("async_routine", "daily_batching")),
   list(id = 2, name = "Resistance",
-       description = "Researcher-authored: resistance to the regimen",
-       codes_included = c("skip_doses", "side_effects"))
+       description = "Researcher-authored: resistance to the new norms",
+       codes_included = c("skips_async", "tool_friction"))
 ))
 
 # 2. Your corpus -- a tibble with std_id + std_text. theme_membership_*
@@ -91,13 +91,13 @@ my_themes <- create_theme_set(list(
 my_corpus <- tibble::tibble(
   std_id   = c("e1", "e2", "e3", "e4"),
   std_text = c(
-    "I plan to take my medication every day from now on.",
-    "My doctor told me to follow this regimen carefully.",
-    "I always forget my pills; the schedule is impossible.",
-    "Side effects make me skip doses on weekends."
+    "I plan to batch my messages every morning from now on.",
+    "My manager encouraged me to protect focus time carefully.",
+    "I always slip back into back-to-back calls; the calendar is impossible.",
+    "Notification overload makes me drop async habits on busy days."
   ),
   std_author = c("alice", "bob", "carol", "dave"),
-  theme_membership_Adherence  = c(1L, 1L, 0L, 0L),
+  theme_membership_Adoption  = c(1L, 1L, 0L, 0L),
   theme_membership_Resistance = c(0L, 0L, 1L, 1L)
 )
 
@@ -165,17 +165,17 @@ corpus <- load_corpus_from_config(cfg)
 #    ATLAS.ti / MAXQDA; pakhom never authors theme membership in Mode 1.)
 ids_adherence  <- readLines("nvivo_exports/adherence_ids.txt")
 ids_resistance <- readLines("nvivo_exports/resistance_ids.txt")
-corpus$theme_membership_Adherence  <- as.integer(corpus$std_id %in% ids_adherence)
+corpus$theme_membership_Adoption  <- as.integer(corpus$std_id %in% ids_adherence)
 corpus$theme_membership_Resistance <- as.integer(corpus$std_id %in% ids_resistance)
 
 # 4. Build the ThemeSet from your researcher-authored themes.
 my_themes <- create_theme_set(list(
-  list(id = 1, name = "Adherence",
-       description = "Researcher-authored: medication adherence behaviors",
-       codes_included = c("med_routine", "daily_pills")),
+  list(id = 1, name = "Adoption",
+       description = "Researcher-authored: async-communication adoption behaviors",
+       codes_included = c("async_routine", "daily_batching")),
   list(id = 2, name = "Resistance",
-       description = "Researcher-authored: resistance to the regimen",
-       codes_included = c("skip_doses", "side_effects"))
+       description = "Researcher-authored: resistance to the new norms",
+       codes_included = c("skips_async", "tool_friction"))
 ))
 
 # 5. Run the provocateur loop. Pass `config = cfg` (the already-parsed
@@ -451,8 +451,8 @@ library(pakhom)
 create_config(
   methodology = "framework_applied",
   framework_spec_path = "tpb",   # built-in alias OR path to your YAML/JSON
-  study_name = "TPB analysis: medication adherence",
-  research_focus = "Behavioral intention -> adherence behavior",
+  study_name = "TPB analysis: async-communication adoption",
+  research_focus = "Behavioral intention -> async-communication behavior",
   database_path = "reddit_data.db",
   output_path = "config.yaml"
 )

@@ -100,7 +100,7 @@ test_that("interpret_alpha returns correct labels", {
 # .fuzzy_deduplicate_codes: Near-duplicate merging
 # ==============================================================================
 test_that("fuzzy_deduplicate_codes merges near-duplicates", {
-  codes <- c("focus problems", "focus problem", "appetite changes", "appetite change")
+  codes <- c("focus problems", "focus problem", "workload changes", "workload change")
   result <- pakhom:::.fuzzy_deduplicate_codes(codes, threshold = 0.35)
 
   # Should reduce to ~2 canonical codes
@@ -170,7 +170,7 @@ test_that("run_human_verification exports blank sheet and codebook", {
       entry_id = paste0("e_", i), text = "focus problem", start_char = 0L, end_char = 13L
     ))
   )
-  coding_state$codebook[["scheduling_side_effects"]] <- list(
+  coding_state$codebook[["scheduling_tool_friction"]] <- list(
     code_name = "Scheduling Side Effects", description = "Side effects of meds",
     type = "descriptive", frequency = 3L,
     entry_ids = paste0("e_", 6:8),
@@ -188,8 +188,8 @@ test_that("run_human_verification exports blank sheet and codebook", {
       )
     } else if (i <= 8) {
       coding_state$entry_results[[eid]] <- list(
-        codes_assigned = "scheduling_side_effects", skipped = FALSE,
-        coded_segments = list(list(code_key = "scheduling_side_effects",
+        codes_assigned = "scheduling_tool_friction", skipped = FALSE,
+        coded_segments = list(list(code_key = "scheduling_tool_friction",
                                     code_name = "Scheduling Side Effects",
                                     text = "side effect", start_char = 0L, end_char = 11L))
       )
@@ -289,18 +289,18 @@ test_that("compute_irr_agreement handles partial disagreement", {
 
   human_df <- tibble::tibble(
     entry_id = paste0("e_", 1:4),
-    code_1 = c("focus issues", "scheduling effects", "mood changes", "appetite"),
+    code_1 = c("focus issues", "scheduling effects", "mood changes", "workload"),
     code_2 = rep("", 4)
   )
 
   ai_df <- tibble::tibble(
     entry_id = paste0("e_", 1:4),
-    code_1 = c("focus issues", "schedule problems", "mood changes", "weight gain"),
+    code_1 = c("focus issues", "schedule problems", "mood changes", "long hours"),
     code_2 = rep("", 4)
   )
 
   codebook_df <- tibble::tibble(
-    code_text = c("focus issues", "scheduling effects", "mood changes", "appetite", "schedule problems", "weight gain"),
+    code_text = c("focus issues", "scheduling effects", "mood changes", "workload", "schedule problems", "long hours"),
     frequency = c(3L, 2L, 2L, 1L, 1L, 1L)
   )
 
@@ -469,7 +469,7 @@ test_that("compute_irr_agreement aligns by entry_id even when rows are shuffled"
 
   human_df <- tibble::tibble(
     entry_id = paste0("e_", 1:5),
-    code_1 = c("focus issues", "scheduling effects", "mood changes", "appetite", "anxiety"),
+    code_1 = c("focus issues", "scheduling effects", "mood changes", "workload", "anxiety"),
     code_2 = rep("", 5)
   )
   # SAME codings keyed to the SAME entry_ids, but the AI sheet rows are in a
@@ -499,12 +499,12 @@ test_that("compute_irr_agreement drops entries present in only one sheet", {
 
   human_df <- tibble::tibble(
     entry_id = paste0("e_", 1:4),
-    code_1 = c("focus issues", "anxiety", "mood changes", "appetite"),
+    code_1 = c("focus issues", "anxiety", "mood changes", "workload"),
     code_2 = rep("", 4)
   )
   ai_df <- tibble::tibble(  # only e_1..e_3 in common; e_9 is AI-only
     entry_id = c("e_1", "e_2", "e_3", "e_9"),
-    code_1 = c("focus issues", "anxiety", "mood changes", "weight gain"),
+    code_1 = c("focus issues", "anxiety", "mood changes", "long hours"),
     code_2 = rep("", 4)
   )
   hp <- file.path(tmp_dir, "h.csv"); ap <- file.path(tmp_dir, "a.csv")
@@ -598,12 +598,12 @@ test_that("set-based alpha is not inflated by sparse, distinct codes", {
   # words in each rater (disagreement). All 16 strings are chosen with no shared
   # 4-char prefixes so the conservative canonicalizer does not merge any of them.
   human_df <- tibble::tibble(entry_id = ids,
-    code_1 = c("distraction", "nausea", "overtime urges", "bloating",
-               "dizziness", "fatigue", "anxiety", "weight gain"),
+    code_1 = c("distraction", "context switching", "overtime urges", "meeting fatigue",
+               "eye strain", "long hours", "irritability", "workload spikes"),
     code_2 = rep("", 8))
   ai_df <- tibble::tibble(entry_id = ids,
-    code_1 = c("distraction", "nausea", "overtime urges", "bloating",
-               "headaches", "restlessness", "depression", "appetite loss"),
+    code_1 = c("distraction", "context switching", "overtime urges", "meeting fatigue",
+               "late nights", "restlessness", "burnout", "focus loss"),
     code_2 = rep("", 8))
   hp <- file.path(tmp_dir, "h.csv"); ap <- file.path(tmp_dir, "a.csv")
   cp <- file.path(tmp_dir, "c.csv")

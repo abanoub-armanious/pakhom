@@ -196,7 +196,6 @@ reference:
       - generate_downloads_section
       - generate_insights
       - generate_run_id
-      - generate_theme_detail_section
       - get_emotion_interpretation
       - hash_config
       - load_and_combine_tables

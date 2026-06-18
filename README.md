@@ -330,9 +330,9 @@ results <- pakhom::run_analysis("config.yaml")
 # std_id + std_text, optional std_author), see
 # vignette("methodology-modes").
 my_themes <- pakhom::create_theme_set(list(
-  list(id = 1, name = "Adherence",
+  list(id = 1, name = "Async Adoption",
        description = "Researcher-authored theme",
-       codes_included = c("medication", "routine"))
+       codes_included = c("async_habit", "focus_block"))
 ))
 
 # Drive the provocateur loop with full transparency and run-state scaffolding
@@ -500,7 +500,7 @@ output rendering must honor them:
 - **C4: Dataset-agnostic.** Works with any corpus shape and any
   metric columns. No hardcoded column-name allowlists; auto-detect
   column types; statistics adapt to whatever numeric columns the data
-  provides. A clinical-interview corpus with `age` + `medication_dose`
+  provides. An employee-survey corpus with `age` + `tenure_months`
   produces the same quality of output as a Reddit corpus with
   `score` + `upvote_ratio`. Enforced by `.detect_metric_columns()` in
   `R/16_report_helpers.R` and by the dynamic

@@ -28,7 +28,7 @@
   create_theme_set(list(
     list(id = 1, name = "Adherence",
          description = "Schedule adherence",
-         codes_included = "med_routine"),
+         codes_included = "async_routine"),
     list(id = 2, name = "Resistance",
          description = "Resistance to the regimen",
          codes_included = "skip")
@@ -710,7 +710,7 @@ test_that("run_mode1 with prior memos persists them to disk + integrity reflects
   log <- add_memo(log,
                     body = "Operational decision: revisit code merge after seeing the counter-narratives above.",
                     type = "operational",
-                    linked_codes = c("med_routine"),
+                    linked_codes = c("async_routine"),
                     linked_prior_memo = log$memos[[1]]$id)
   persist_memos(log, result1$output_dir)
 

@@ -2027,7 +2027,7 @@ run_progressive_coding <- function(data, provider, config = list(),
 #' echo back from the codebook-summary prompt format. Applied once at code
 #' admission so the codebook key is canonical regardless of which prefix
 #' the AI emitted. Idempotent: two passes handle ordering variants like
-#' `"1. NEW: Food"` and `"NEW: 1. Food"`.
+#' `"1. NEW: Burnout"` and `"NEW: 1. Burnout"`.
 #'
 #' @param name Character scalar; the raw code name returned by the AI.
 #' @return Cleaned code name with all known prefix/quote noise removed.

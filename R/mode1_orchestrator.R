@@ -1098,7 +1098,7 @@ compute_mode1_theme_stats <- function(data, theme_set, reflection_log,
 #' my_themes <- create_theme_set(list(
 #'   list(id = 1, name = "Adherence",
 #'        description = "Researcher-authored: remote-work flexibility",
-#'        codes_included = c("med_routine", "daily_pills"))
+#'        codes_included = c("async_routine", "daily_batching"))
 #' ))
 #'
 #' # 2. Load + standardize + preprocess the corpus from your config,

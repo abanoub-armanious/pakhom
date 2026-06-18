@@ -111,7 +111,7 @@ test_that("prune_empty_themes removes zero-entry themes", {
 test_that("create_theme_set handles character vector subthemes (legacy)", {
   # A plain character vector of subtheme names with no per-subtheme
   # code mapping is degenerate input. The back-compat path drops the names
-  # and wraps all theme codes in one virtual Subtheme — the alternative
+  # and wraps all theme codes in one virtual Subtheme, since the alternative
   # (preserve names with no codes) creates orphan subthemes that render
   # awkwardly in reports. The clustering pass populates real subthemes
   # with codes.

@@ -1,4 +1,4 @@
-# Integration tests — end-to-end without AI calls
+# Integration tests that run end-to-end without AI calls
 
 test_that("export_results and report helpers work end-to-end", {
   skip_on_cran()
@@ -22,7 +22,7 @@ test_that("export_results and report helpers work end-to-end", {
   )
 
   consolidated <- list(codes = tibble::tibble(
-    code_text = c("distraction", "appetite change", "meeting load"),
+    code_text = c("distraction", "workload change", "meeting load"),
     frequency = c(8L, 5L, 4L),
     code_type = c("ai", "ai", "ai")
   ))

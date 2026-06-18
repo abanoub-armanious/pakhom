@@ -1,4 +1,4 @@
-# Tests for the LiveTracker (R/live_tracking.R) — three streamed/
+# Tests for the LiveTracker (R/live_tracking.R) covering three streamed/
 # snapshot artifacts written during analysis so a researcher can `tail -F`
 # or `cat` files in the run directory and watch the codebook + theme
 # clustering grow in real time.
@@ -40,7 +40,7 @@ test_that("live_record_assignment appends JSONL line with expected fields", {
     provenance = list(verification_status = "verified")
   )
   tracker <- live_record_assignment(
-    tracker, entry_id = "e1", code_key = "med_routine",
+    tracker, entry_id = "e1", code_key = "async_routine",
     code_name = "Scheduling routine",
     segment = seg, is_new_code = TRUE, entry_index = 1L
   )
@@ -51,7 +51,7 @@ test_that("live_record_assignment appends JSONL line with expected fields", {
   rec <- jsonlite::fromJSON(lines[[1]])
   expect_equal(rec$event_type, "code_assignment")
   expect_equal(rec$entry_id, "e1")
-  expect_equal(rec$code_key, "med_routine")
+  expect_equal(rec$code_key, "async_routine")
   expect_equal(rec$code_name, "Scheduling routine")
   expect_true(rec$is_new_code)
   expect_equal(rec$segment$text, seg$text)
@@ -64,12 +64,12 @@ test_that("live_snapshot_codebook atomically rewrites JSON", {
   tracker <- init_live_tracker(tmp_dir)
 
   codebook <- list(
-    med_helps = list(
+    tool_helps = list(
       code_name = "Scheduling helps", description = "general efficacy",
       type = "descriptive", frequency = 5L, entry_ids = c("e1", "e2"),
       coded_segments = list(list(text = "x"), list(text = "y"))
     ),
-    side_effects = list(
+    tool_friction = list(
       code_name = "Side effects", description = "",
       type = "descriptive", frequency = 2L, entry_ids = c("e3"),
       coded_segments = list(list(text = "z"))
@@ -82,9 +82,9 @@ test_that("live_snapshot_codebook atomically rewrites JSON", {
   cb <- jsonlite::fromJSON(tracker$paths$codebook_snapshot)
   expect_equal(cb$n_codes, 2L)
   expect_equal(cb$last_entry_index, 5L)
-  expect_setequal(cb$codes$key, c("med_helps", "side_effects"))
-  expect_setequal(cb$codes$frequency[cb$codes$key == "med_helps"], 5L)
-  expect_equal(cb$codes$n_segments[cb$codes$key == "med_helps"], 2L)
+  expect_setequal(cb$codes$key, c("tool_helps", "tool_friction"))
+  expect_setequal(cb$codes$frequency[cb$codes$key == "tool_helps"], 5L)
+  expect_equal(cb$codes$n_segments[cb$codes$key == "tool_helps"], 2L)
 })
 
 test_that("live_snapshot_clusters records walk state + decisions", {

@@ -1135,8 +1135,8 @@ test_that("v2 clustering prompt carries the singleton-vs-specific-instance steer
     }
   )
   codes <- list(
-    list(key = "c1", name = "Trigger food",
-         description = "A specific food that triggers a overwork."),
+    list(key = "c1", name = "Trigger meeting",
+         description = "A specific meeting that triggers a overwork."),
     list(key = "c2", name = "Emotional trigger",
          description = "An emotion that precedes a overwork.")
   )

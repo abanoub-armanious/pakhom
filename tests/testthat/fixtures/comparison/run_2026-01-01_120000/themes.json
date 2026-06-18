@@ -8,16 +8,16 @@
     "codes_included": "poor deep-work quality; overwork triggers; nighttime overworking"
   },
   {
-    "name": "Scheduling Side Effects",
-    "description": "Side effects from scheduling tools used to treat overwork",
+    "name": "Scheduling Tool Drawbacks",
+    "description": "Drawbacks of scheduling tools meant to curb overwork",
     "entry_count": 4,
     "prevalence": "28.6%",
     "sentiment_tendency": "mixed",
-    "codes_included": "scheduling nausea; appetite suppression; GI issues"
+    "codes_included": "calendar churn; reduced focus time; notification overload"
   },
   {
     "name": "Emotional Regulation Struggles",
-    "description": "Difficulty managing emotions leading to disordered overworking",
+    "description": "Difficulty managing stress that drives unhealthy overwork",
     "entry_count": 3,
     "prevalence": "21.4%",
     "sentiment_tendency": "negative",

@@ -4,7 +4,7 @@
 test_that("cascade_theme_assignments maps entries through codes deterministically", {
   # Create mock coding state
   state <- create_coding_state()
-  state$codebook[["med_helps"]] <- list(
+  state$codebook[["tool_helps"]] <- list(
     code_name = "Scheduling helps overwork control", description = "",
     type = "descriptive", frequency = 3L,
     entry_ids = c("e1", "e2", "e3"), coded_segments = list()
@@ -14,9 +14,9 @@ test_that("cascade_theme_assignments maps entries through codes deterministicall
     type = "descriptive", frequency = 2L,
     entry_ids = c("e1", "e4"), coded_segments = list()
   )
-  state$entry_results[["e1"]] <- list(codes_assigned = c("med_helps", "focus_bad"), skipped = FALSE)
-  state$entry_results[["e2"]] <- list(codes_assigned = c("med_helps"), skipped = FALSE)
-  state$entry_results[["e3"]] <- list(codes_assigned = c("med_helps"), skipped = FALSE)
+  state$entry_results[["e1"]] <- list(codes_assigned = c("tool_helps", "focus_bad"), skipped = FALSE)
+  state$entry_results[["e2"]] <- list(codes_assigned = c("tool_helps"), skipped = FALSE)
+  state$entry_results[["e3"]] <- list(codes_assigned = c("tool_helps"), skipped = FALSE)
   state$entry_results[["e4"]] <- list(codes_assigned = c("focus_bad"), skipped = FALSE)
 
   # Create theme set with merge history
@@ -27,7 +27,7 @@ test_that("cascade_theme_assignments maps entries through codes deterministicall
          codes_included = "Focus disruption")
   ))
   ts$merge_history <- list(
-    code_to_theme_map = list(med_helps = "Scheduling Benefits",
+    code_to_theme_map = list(tool_helps = "Scheduling Benefits",
                               focus_bad = "Focus Problems"),
     code_to_subtheme_map = list()
   )
@@ -465,7 +465,7 @@ test_that("Tier 1 C-13: subtheme_assignments persists in cascade output", {
   # Build a minimal state + theme_set where cascade can route entries.
   state <- create_coding_state()
   state$codebook[["food_addiction"]] <- list(
-    code_name = "Food Addiction", description = "x",
+    code_name = "Meeting Overload", description = "x",
     type = "descriptive", frequency = 2L,
     entry_ids = c("e1", "e2"),
     coded_segments = list(
@@ -487,7 +487,7 @@ test_that("Tier 1 C-13: subtheme_assignments persists in cascade output", {
          subthemes = list(create_subtheme(
            name = "Compulsive Overworking",
            codes = list(create_code_object(key = "food_addiction",
-                                            name = "Food Addiction",
+                                            name = "Meeting Overload",
                                             frequency = 2L))
          )))
   ))

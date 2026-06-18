@@ -1,4 +1,4 @@
-# End-to-end tests for Mode 3 (Framework Applied) — M3.x
+# End-to-end tests for Mode 3 (Framework Applied) covering M3.x
 #
 # Mode 3 dispatches at two seams:
 #   1. .code_entry_progressive: framework_spec is non-NULL -> AI applies
@@ -485,8 +485,8 @@ test_that("run_progressive_coding refuses Mode 3 resume from a Mode 2 state (BLO
   # Build a Mode 2-style resume state (free-form code keys, no framework
   # constructs)
   resume <- create_coding_state()
-  resume$codebook[["med_helps"]] <- list(
-    code_name = "med_helps", description = "x", type = "descriptive",
+  resume$codebook[["tool_helps"]] <- list(
+    code_name = "tool_helps", description = "x", type = "descriptive",
     frequency = 1L, entry_ids = "e1",
     coded_segments = list(list(text = "x", start_char = 0L, end_char = 1L))
   )

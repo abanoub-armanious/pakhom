@@ -94,7 +94,7 @@ study:
   # theming / saturation call. Leaving them empty produces a silent
   # reflexivity gap that pakhom warns about at pipeline start.
   # Recommended for ANY publication-quality analysis:
-  researcher_positionality: ~     # e.g. "Clinical psychologist with 10 years experience in eating disorders"
+  researcher_positionality: ~     # e.g. "Organizational psychologist with 10 years studying remote teams"
   research_paradigm: ~             # e.g. "critical realist" | "social constructionist" | "pragmatist"
   reflexive_notes: ~               # Free-text reflections on your assumptions, biases, and prior knowledge that may shape interpretation.
 

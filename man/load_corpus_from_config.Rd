@@ -69,7 +69,7 @@ workflows. This helper closes that gap.
   themes <- create_theme_set(list(
     list(id = 1, name = "Adherence",
          description = "Researcher-authored: remote-work flexibility",
-         codes_included = c("med_routine", "daily_pills"))
+         codes_included = c("async_routine", "daily_batching"))
   ))
 
   result <- run_mode1(data = corpus, theme_set = themes, config = cfg)

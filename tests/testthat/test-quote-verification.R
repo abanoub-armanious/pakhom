@@ -104,14 +104,14 @@ test_that("log_fabrication writes failure_reason as a CSV column", {
 
 test_that(".normalize_quote_text collapses unicode NBSP / em-space (L-2)", {
   # NBSP (U+00A0) between words
-  nbsp_text  <- "talking to a counselor"
-  plain_text <- "talking to a counselor"
+  nbsp_text  <- "talking to a manager"
+  plain_text <- "talking to a manager"
   expect_equal(
     pakhom:::.normalize_quote_text(nbsp_text),
     pakhom:::.normalize_quote_text(plain_text)
   )
   # Em space (U+2003)
-  em_text <- "talking to a counselor"
+  em_text <- "talking to a manager"
   expect_equal(
     pakhom:::.normalize_quote_text(em_text),
     pakhom:::.normalize_quote_text(plain_text)
@@ -120,8 +120,8 @@ test_that(".normalize_quote_text collapses unicode NBSP / em-space (L-2)", {
 
 test_that(".normalize_quote_text handles smart apostrophes + NFC (M-24)", {
   # Smart apostrophe (U+2019) vs ASCII apostrophe
-  smart_text <- "I’m hungry"
-  ascii_text <- "I'm hungry"
+  smart_text <- "I’m swamped"
+  ascii_text <- "I'm swamped"
   expect_equal(
     pakhom:::.normalize_quote_text(smart_text),
     pakhom:::.normalize_quote_text(ascii_text)
@@ -130,12 +130,12 @@ test_that(".normalize_quote_text handles smart apostrophes + NFC (M-24)", {
 
 test_that("verify_quote Step 3 substring-search accepts NBSP source (L-2)", {
   # Source has NBSP; quote has plain spaces -> Step 3 should still match
-  src <- paste0("Here is the part: talking to a counselor.")
+  src <- paste0("Here is the part: talking to a manager.")
   q <- make_quote(
     source_doc_id   = "d1", source_doc_type = "test", source_text = src,
     # Deliberately wrong offsets so Step 1 + 2 fail
     start_char      = 99L, end_char = 120L,
-    exact_text      = "talking to a counselor"
+    exact_text      = "talking to a manager"
   )
   # Sanity: end_char > nchar(src) so Steps 1 + 2 short-circuit
   v <- verify_quote(q, src, provider = NULL)

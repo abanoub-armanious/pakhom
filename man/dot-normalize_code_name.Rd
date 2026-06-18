@@ -18,6 +18,6 @@ markers, and surrounding ASCII or Unicode smart quotes that the AI may
 echo back from the codebook-summary prompt format. Applied once at code
 admission so the codebook key is canonical regardless of which prefix
 the AI emitted. Idempotent: two passes handle ordering variants like
-\code{"1. NEW: Food"} and \code{"NEW: 1. Food"}.
+\code{"1. NEW: Burnout"} and \code{"NEW: 1. Burnout"}.
 }
 \keyword{internal}

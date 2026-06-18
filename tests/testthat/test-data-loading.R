@@ -263,7 +263,7 @@ test_that("load_and_combine_tables works when all columns are shared (no NA-fill
   expect_equal(nrow(combined), 4L)
   # No NA in any input-supplied column. (standardize_data may add
   # internal columns like std_timestamp that are NA when no source
-  # timestamp column was detected — those are unrelated to the
+  # timestamp column was detected. Those are unrelated to the
   # intersect-vs-union behavior we're pinning here.)
   for (col in c("std_id", "std_text", "score", "source_table")) {
     expect_false(any(is.na(combined[[col]])),

@@ -1,11 +1,11 @@
 std_id,std_text,sentiment_score,all_emotions,emotion_intensity,confidence,emerged_themes,source_table
-entry_001,I cannot focus at all since starting this scheduling,-0.75,sadness,0.85,0.88,Focus Deficits and Overwork Risk,posts
-entry_002,The side effects are manageable but annoying,-0.3,anger,0.5,0.78,Scheduling Side Effects and Tolerance,posts
+entry_001,I cannot focus at all since starting this scheduling tool,-0.75,sadness,0.85,0.88,Focus Fragmentation and Overwork Risk,posts
+entry_002,The scheduling tool's downsides are manageable but annoying,-0.3,anger,0.5,0.78,Scheduling Tool Drawbacks and Fatigue,posts
 entry_003,I feel so anxious about my overworking patterns,-0.5,sadness,0.6,0.82,Recovery and Coping Strategies,posts
-entry_004,Focus has improved with a planning routine,0.6,joy,0.65,0.73,Focus Deficits and Overwork Risk,posts
-entry_005,Nausea from the scheduling is terrible,-0.65,disgust,0.75,0.92,Scheduling Side Effects and Tolerance,comments
-entry_006,My overwork is getting worse at night,-0.55,sadness,0.65,0.87,Focus Deficits and Overwork Risk,comments
+entry_004,Focus has improved with a planning routine,0.6,joy,0.65,0.73,Focus Fragmentation and Overwork Risk,posts
+entry_005,The constant rescheduling is exhausting,-0.65,disgust,0.75,0.92,Scheduling Tool Drawbacks and Fatigue,comments
+entry_006,My overwork is getting worse at night,-0.55,sadness,0.65,0.87,Focus Fragmentation and Overwork Risk,comments
 entry_007,Starting to feel more in control of overworking habits,0.65,trust,0.72,0.82,Recovery and Coping Strategies,posts
-entry_009,Focus deprivation makes everything worse,-0.55,sadness,0.75,0.88,Focus Deficits and Overwork Risk,comments
-entry_011,Therapy has been helping with my relationship with food,0.7,trust,0.8,0.85,Recovery and Coping Strategies,posts
-entry_012,The new scheduling schedule seems to work better,0.3,anticipation,0.5,0.70,Scheduling Side Effects and Tolerance,comments
+entry_009,Focus deprivation makes everything worse,-0.55,sadness,0.75,0.88,Focus Fragmentation and Overwork Risk,comments
+entry_011,Coaching has been helping with my relationship to overtime,0.7,trust,0.8,0.85,Recovery and Coping Strategies,posts
+entry_012,The new scheduling setup seems to work better,0.3,anticipation,0.5,0.70,Scheduling Tool Drawbacks and Fatigue,comments

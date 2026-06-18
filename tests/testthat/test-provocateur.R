@@ -167,7 +167,7 @@ test_that(".citation_to_provocation drops fabricated provocation citations (T0.1
   create_theme_set(list(list(
     id = 1, name = "Adherence",
     description = "Schedule adherence",
-    codes_included = "med_routine"
+    codes_included = "async_routine"
   )))
 }
 

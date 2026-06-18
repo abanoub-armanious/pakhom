@@ -119,7 +119,7 @@ test_that("codebook_summary builder works", {
 # C-4 regression: numbered-list prompt leak
 #
 # Background: in an early full-corpus run, 52 codes ended up with names
-# like `321. "Food Addiction"` because the codebook-summary prompt format
+# like `321. "Meeting Overload"` because the codebook-summary prompt format
 # used `sprintf("  %d. \"%s\" ...", i, name)`. The AI echoed the entire
 # prefix back as the code name on re-uses; the case-insensitive key matcher
 # never collapsed them to existing codes, so they shadowed the clean
@@ -135,48 +135,48 @@ test_that("codebook_summary builder works", {
 
 test_that(".normalize_code_name strips numbered-list prefixes (C-4 root cause)", {
   # The exact corruption pattern observed in an early full-corpus run.
-  expect_equal(pakhom:::.normalize_code_name('321. "Food Addiction"'),
-               "Food Addiction")
-  expect_equal(pakhom:::.normalize_code_name('1. Food Addiction'),
-               "Food Addiction")
+  expect_equal(pakhom:::.normalize_code_name('321. "Meeting Overload"'),
+               "Meeting Overload")
+  expect_equal(pakhom:::.normalize_code_name('1. Meeting Overload'),
+               "Meeting Overload")
   expect_equal(pakhom:::.normalize_code_name('  12. "Compulsive Overworking"  '),
                "Compulsive Overworking")
 })
 
 test_that(".normalize_code_name strips NEW: marker", {
-  expect_equal(pakhom:::.normalize_code_name("NEW: Food Addiction"),
-               "Food Addiction")
-  expect_equal(pakhom:::.normalize_code_name("new: food addiction"),
-               "food addiction")
+  expect_equal(pakhom:::.normalize_code_name("NEW: Meeting Overload"),
+               "Meeting Overload")
+  expect_equal(pakhom:::.normalize_code_name("new: meeting overload"),
+               "meeting overload")
 })
 
 test_that(".normalize_code_name handles combined prefix orderings", {
-  expect_equal(pakhom:::.normalize_code_name('NEW: 12. "Food Addiction"'),
-               "Food Addiction")
-  expect_equal(pakhom:::.normalize_code_name('12. NEW: "Food Addiction"'),
-               "Food Addiction")
-  expect_equal(pakhom:::.normalize_code_name('  NEW: 12. "Food Addiction" '),
-               "Food Addiction")
+  expect_equal(pakhom:::.normalize_code_name('NEW: 12. "Meeting Overload"'),
+               "Meeting Overload")
+  expect_equal(pakhom:::.normalize_code_name('12. NEW: "Meeting Overload"'),
+               "Meeting Overload")
+  expect_equal(pakhom:::.normalize_code_name('  NEW: 12. "Meeting Overload" '),
+               "Meeting Overload")
 })
 
 test_that(".normalize_code_name strips ASCII and Unicode smart quotes", {
-  expect_equal(pakhom:::.normalize_code_name('"Food Addiction"'),
-               "Food Addiction")
-  expect_equal(pakhom:::.normalize_code_name("'Food Addiction'"),
-               "Food Addiction")
+  expect_equal(pakhom:::.normalize_code_name('"Meeting Overload"'),
+               "Meeting Overload")
+  expect_equal(pakhom:::.normalize_code_name("'Meeting Overload'"),
+               "Meeting Overload")
   # Unicode left/right double quotation marks
-  expect_equal(pakhom:::.normalize_code_name("“Food Addiction”"),
-               "Food Addiction")
+  expect_equal(pakhom:::.normalize_code_name("“Meeting Overload”"),
+               "Meeting Overload")
   # Unicode left/right single quotation marks
-  expect_equal(pakhom:::.normalize_code_name("‘Food Addiction’"),
-               "Food Addiction")
+  expect_equal(pakhom:::.normalize_code_name("‘Meeting Overload’"),
+               "Meeting Overload")
 })
 
 test_that(".normalize_code_name preserves clean names + idempotent", {
-  clean <- "Food Addiction"
+  clean <- "Meeting Overload"
   expect_equal(pakhom:::.normalize_code_name(clean), clean)
   # Idempotency: applying twice produces the same result as once.
-  once <- pakhom:::.normalize_code_name('321. "Food Addiction"')
+  once <- pakhom:::.normalize_code_name('321. "Meeting Overload"')
   twice <- pakhom:::.normalize_code_name(once)
   expect_equal(once, twice)
 })
@@ -191,8 +191,8 @@ test_that(".normalize_code_name handles NULL/NA/empty defensively", {
 test_that(".build_codebook_summary uses bare-bullet format (C-4 prompt fix)", {
   state <- create_coding_state()
   state$codebook[["food_addiction"]] <- list(
-    code_name = "Food Addiction", frequency = 100L,
-    description = "Reports of food compulsion", type = "descriptive"
+    code_name = "Meeting Overload", frequency = 100L,
+    description = "Reports of meeting overload", type = "descriptive"
   )
   state$codebook[["focus_loss"]] <- list(
     code_name = "Focus Loss", frequency = 50L,
@@ -201,7 +201,7 @@ test_that(".build_codebook_summary uses bare-bullet format (C-4 prompt fix)", {
   summary <- pakhom:::.build_codebook_summary(state, max_codes = 10)
 
   # New format: bare dash bullet, no numeric prefix.
-  expect_true(grepl("- Food Addiction", summary, fixed = TRUE))
+  expect_true(grepl("- Meeting Overload", summary, fixed = TRUE))
   expect_true(grepl("- Focus Loss", summary, fixed = TRUE))
 
   # Old format must be gone: no numbered list prefix on any line; no
@@ -210,7 +210,7 @@ test_that(".build_codebook_summary uses bare-bullet format (C-4 prompt fix)", {
   for (line in lines) {
     expect_false(grepl("^\\s*\\d+\\.\\s", line),
                  info = sprintf("line still has numbered prefix: %s", line))
-    expect_false(grepl('"Food Addiction"', line, fixed = TRUE),
+    expect_false(grepl('"Meeting Overload"', line, fixed = TRUE),
                  info = sprintf("code name still wrapped in quotes: %s", line))
     expect_false(grepl('"Focus Loss"', line, fixed = TRUE),
                  info = sprintf("code name still wrapped in quotes: %s", line))
@@ -222,7 +222,7 @@ test_that(".build_codebook_summary uses bare-bullet format (C-4 prompt fix)", {
 #
 # The post-C-4 audit subagent flagged:
 #  - HIGH-2: no end-to-end test asserting that an AI returning the corrupt
-#    `321. "Food Addiction"` shape merges into an existing `food addiction`
+#    `321. "Meeting Overload"` shape merges into an existing `meeting overload`
 #    code rather than creating a new entry under a corrupt key.
 #  - MEDIUM-3: inputs that normalize to "" (e.g. "321.", "NEW:") were not
 #    explicitly guarded at the admission site -- the pre-norm guard only
@@ -235,15 +235,15 @@ test_that("C-4 integration: AI-emitted '321. \"Foo\"' merges into existing 'foo'
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
-  entry_text <- "I struggle with food addiction every single day."
+  entry_text <- "I struggle with meeting overload every single day."
 
   # Pre-populate an existing clean code in the codebook. If C-4's normalizer
-  # is wired correctly, the AI's `321. "Food Addiction"` will normalize to
-  # `Food Addiction` -> key `food addiction` -> merge with this entry.
+  # is wired correctly, the AI's `321. "Meeting Overload"` will normalize to
+  # `Meeting Overload` -> key `meeting overload` -> merge with this entry.
   state <- create_coding_state()
-  state$codebook[["food addiction"]] <- list(
-    code_name      = "Food Addiction",
-    description    = "Compulsive food consumption",
+  state$codebook[["meeting overload"]] <- list(
+    code_name      = "Meeting Overload",
+    description    = "Relentless meeting load",
     type           = "descriptive",
     frequency      = 1L,
     entry_ids      = "e_prior",
@@ -254,11 +254,11 @@ test_that("C-4 integration: AI-emitted '321. \"Foo\"' merges into existing 'foo'
     skipped        = FALSE,
     skip_reason    = "",
     coded_segments = list(list(
-      text             = "food addiction",
+      text             = "meeting overload",
       start_char       = 19L,
       end_char         = 33L,
-      code             = "321. \"Food Addiction\"",
-      code_description = "Compulsive food consumption",
+      code             = "321. \"Meeting Overload\"",
+      code_description = "Relentless meeting load",
       code_type        = "descriptive"
     ))
   ), auto_unbox = TRUE)
@@ -290,13 +290,13 @@ test_that("C-4 integration: AI-emitted '321. \"Foo\"' merges into existing 'foo'
     base_system_prompt = "test"
   )
 
-  # Codebook still has exactly ONE entry: the prior clean `food addiction`
+  # Codebook still has exactly ONE entry: the prior clean `meeting overload`
   # code, with frequency incremented to 2 (prior + this new segment).
   expect_equal(length(state$codebook), 1L,
-               info = "AI's `321. \"Food Addiction\"` should merge into the existing clean code, not create a new entry")
-  expect_true("food addiction" %in% names(state$codebook))
-  expect_equal(state$codebook[["food addiction"]]$frequency, 2L)
-  expect_setequal(state$codebook[["food addiction"]]$entry_ids,
+               info = "AI's `321. \"Meeting Overload\"` should merge into the existing clean code, not create a new entry")
+  expect_true("meeting overload" %in% names(state$codebook))
+  expect_equal(state$codebook[["meeting overload"]]$frequency, 2L)
+  expect_setequal(state$codebook[["meeting overload"]]$entry_ids,
                   c("e_prior", "e1"))
 
   # No codebook key starts with a digit-prefix or contains stray quotes.
@@ -312,7 +312,7 @@ test_that("C-4 audit MEDIUM-3: AI-emitted bare '321.' (normalizes to empty) is d
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
-  entry_text <- "Some text about food."
+  entry_text <- "Some text about meetings."
 
   mock_response <- jsonlite::toJSON(list(
     skipped        = FALSE,
@@ -677,21 +677,21 @@ test_that("C-6 audit LOW-3: state$semantic_cache populates after .code_entry_pro
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
   state <- create_coding_state()
-  state$codebook[["food addiction"]] <- list(
-    code_name = "Food Addiction", description = "Compulsive consumption",
+  state$codebook[["meeting overload"]] <- list(
+    code_name = "Meeting Overload", description = "Relentless meeting load",
     type = "descriptive", frequency = 1L,
     entry_ids = "e_prior", coded_segments = list()
   )
   # Cache starts empty -> .retrieve_semantic_codes will compute the
-  # food-addiction embedding on this call.
+  # meeting-overload embedding on this call.
   expect_length(state$semantic_cache$code_embeddings, 0L)
 
   mock_resp <- jsonlite::toJSON(list(
     skipped = FALSE, skip_reason = "",
     coded_segments = list(list(
-      text = "food addiction", start_char = 0L, end_char = 14L,
-      code = "Food Addiction",
-      code_description = "Compulsive consumption", code_type = "descriptive"
+      text = "meeting overload", start_char = 0L, end_char = 14L,
+      code = "Meeting Overload",
+      code_description = "Relentless meeting load", code_type = "descriptive"
     ))
   ), auto_unbox = TRUE)
 
@@ -715,16 +715,16 @@ test_that("C-6 audit LOW-3: state$semantic_cache populates after .code_entry_pro
   )
 
   state <- pakhom:::.code_entry_progressive(
-    text = "food addiction is rough", entry_id = "e1", entry_index = 1L,
+    text = "meeting overload is rough", entry_id = "e1", entry_index = 1L,
     state = state, provider = mock_provider(),
     config = list(max_retries_per_entry = 1L),
     base_system_prompt = "test"
   )
 
-  # Cache must now contain the food-addiction embedding.
+  # Cache must now contain the meeting-overload embedding.
   expect_length(state$semantic_cache$code_embeddings, 1L)
-  expect_true("food addiction" %in% names(state$semantic_cache$code_embeddings))
-  expect_equal(state$semantic_cache$code_embeddings[["food addiction"]],
+  expect_true("meeting overload" %in% names(state$semantic_cache$code_embeddings))
+  expect_equal(state$semantic_cache$code_embeddings[["meeting overload"]],
                c(1, 0, 0))
 })
 
@@ -789,14 +789,14 @@ test_that("D-7: new code with empty AI description gets D-7 placeholder", {
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
-  entry_text <- "I struggle with food addiction every single day."
+  entry_text <- "I struggle with meeting overload every single day."
   # AI returns a NEW code with NO code_description -- the historical
   # bug that produced 94 empty-description codes in an early run.
   mock_response <- jsonlite::toJSON(list(
     skipped = FALSE, skip_reason = "",
     coded_segments = list(list(
-      text = "food addiction", start_char = 19L, end_char = 33L,
-      code = "NEW: Food Addiction",
+      text = "meeting overload", start_char = 19L, end_char = 33L,
+      code = "NEW: Meeting Overload",
       code_description = "",   # the bug condition
       code_type = "descriptive"
     ))
@@ -828,14 +828,14 @@ test_that("D-7: new code with empty AI description gets D-7 placeholder", {
   # (description feeds paste(name, description) in R/13_themes.R). The backfill
   # now keeps the first-segment snippet as a clean human description.
   expect_length(state$codebook, 1L)
-  desc <- state$codebook[["food addiction"]]$description
+  desc <- state$codebook[["meeting overload"]]$description
   expect_true(nzchar(desc),
               info = "Empty description should have been backfilled with a provisional one")
   expect_false(grepl("D-7 placeholder", desc, fixed = TRUE),
                info = "the engineering marker must NOT leak into the description")
   expect_true(grepl("First observed in:", desc, fixed = TRUE),
               info = "Backfill is a clean 'First observed in: <snippet>' provisional description")
-  expect_true(grepl("food addiction", desc, fixed = TRUE),
+  expect_true(grepl("meeting overload", desc, fixed = TRUE),
               info = "Backfill should include the first-segment snippet for reviewer context")
 })
 
@@ -894,7 +894,7 @@ test_that("C-5: .maybe_refresh_high_freq_descriptions refreshes high-freq codes"
     )
   }
   state$codebook[["hifreq_a"]] <- list(
-    code_name = "Food Addiction",
+    code_name = "Meeting Overload",
     description = "Original (high-freq, should be refreshed)",
     type = "descriptive", frequency = 200L,
     entry_ids = c("e_a1", "e_a2"),
@@ -1070,12 +1070,12 @@ test_that("D-7 audit followup LOW F2: NA AI description triggers backfill (not a
   # TRUE/FALSE needed".
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
-  entry_text <- "I have trouble with food addiction."
+  entry_text <- "I have trouble with meeting overload."
   mock_response <- jsonlite::toJSON(list(
     skipped = FALSE, skip_reason = "",
     coded_segments = list(list(
-      text = "food addiction", start_char = 11L, end_char = 25L,
-      code = "NEW: Food Addiction",
+      text = "meeting overload", start_char = 11L, end_char = 25L,
+      code = "NEW: Meeting Overload",
       code_description = NA, code_type = "descriptive"
     ))
   ), auto_unbox = TRUE, na = "null")
@@ -1101,7 +1101,7 @@ test_that("D-7 audit followup LOW F2: NA AI description triggers backfill (not a
   })
   # Code admitted with an honest provisional description (not "" and not NA).
   # Engineering marker dropped; clean "First observed in:" default.
-  desc <- state$codebook[["food addiction"]]$description
+  desc <- state$codebook[["meeting overload"]]$description
   expect_true(nzchar(desc))
   expect_false(is.na(desc))
   expect_false(grepl("D-7 placeholder", desc, fixed = TRUE))
@@ -1111,12 +1111,12 @@ test_that("D-7 audit followup LOW F2: NA AI description triggers backfill (not a
 test_that("D-7 audit followup: whitespace-only AI description triggers backfill", {
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
-  entry_text <- "Trouble with food addiction."
+  entry_text <- "Trouble with meeting overload."
   mock_response <- jsonlite::toJSON(list(
     skipped = FALSE, skip_reason = "",
     coded_segments = list(list(
-      text = "food addiction", start_char = 13L, end_char = 27L,
-      code = "NEW: Food Addiction",
+      text = "meeting overload", start_char = 13L, end_char = 27L,
+      code = "NEW: Meeting Overload",
       code_description = "   ", code_type = "descriptive"   # whitespace only
     ))
   ), auto_unbox = TRUE)
@@ -1138,7 +1138,7 @@ test_that("D-7 audit followup: whitespace-only AI description triggers backfill"
     state = state, provider = mock_provider(),
     config = list(max_retries_per_entry = 1L), base_system_prompt = "test"
   ))
-  desc <- state$codebook[["food addiction"]]$description
+  desc <- state$codebook[["meeting overload"]]$description
   # Whitespace-only AI description -> clean provisional backfill.
   expect_false(grepl("D-7 placeholder", desc, fixed = TRUE))
   expect_true(grepl("First observed in:", desc, fixed = TRUE))
@@ -2085,18 +2085,18 @@ test_that("verified coded segment emits a quote_verified audit record (T0.1 deno
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
-  entry_text <- "I struggle with food addiction every single day."
+  entry_text <- "I struggle with meeting overload every single day."
 
   # Offsets chosen so the quoted span verifies (exact substring of the entry)
   mock_response <- jsonlite::toJSON(list(
     skipped        = FALSE,
     skip_reason    = "",
     coded_segments = list(list(
-      text             = "food addiction",
+      text             = "meeting overload",
       start_char       = 18L,
       end_char         = 32L,
-      code             = "Food Addiction",
-      code_description = "Compulsive food consumption",
+      code             = "Meeting Overload",
+      code_description = "Relentless meeting load",
       code_type        = "descriptive"
     ))
   ), auto_unbox = TRUE)
@@ -2134,7 +2134,7 @@ test_that("verified coded segment emits a quote_verified audit record (T0.1 deno
   qv <- Filter(function(r) identical(r$decision_type, "quote_verified"), recs)
   expect_length(qv, 1L)
   expect_equal(qv[[1]]$entry_id, "e1")
-  expect_equal(qv[[1]]$code_name, "Food Addiction")
+  expect_equal(qv[[1]]$code_name, "Meeting Overload")
   expect_true(qv[[1]]$verification_status %in% c("verified_exact", "verified_fuzzy"))
   expect_false(is.null(qv[[1]]$quote_id))
 })

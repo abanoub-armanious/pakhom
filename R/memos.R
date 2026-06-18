@@ -248,9 +248,9 @@ print.Memo <- function(x, ...) {
 #' # Add an operational memo as a revision of the prior
 #' log <- add_memo(
 #'   log,
-#'   body = "Merged codes med_routine + daily_pills into med_adherence.",
+#'   body = "Merged codes async_routine + daily_batching into async_adoption.",
 #'   type = "operational",
-#'   linked_codes = c("med_routine", "daily_pills"),
+#'   linked_codes = c("async_routine", "daily_batching"),
 #'   linked_prior_memo = log$memos[[1]]$id
 #' )
 #'

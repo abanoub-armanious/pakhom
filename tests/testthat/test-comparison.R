@@ -114,9 +114,9 @@ test_that(".load_run_snapshot unwraps the methodology-stamp envelope in themes.j
     `_methodology_stamp` = list(mode = "codebook_collaborative", run_id = "run_2026-05-01_120000",
                                 schema = "themes", stamped_at = "2026-05-01T12:00:00Z"),
     `_payload` = data.frame(
-      name = c("Deep-work quality", "Side effects"),
+      name = c("Deep-work quality", "Tool drawbacks"),
       entry_count = c(12L, 7L),
-      codes_included = I(list(c("good_sleep", "fell_asleep"), c("headache", "nausea"))),
+      codes_included = I(list(c("deep_work", "focus_block"), c("meeting_fatigue", "context_switch"))),
       stringsAsFactors = FALSE
     )
   )
@@ -234,7 +234,7 @@ test_that(".compare_codes classifies stable, renamed, new, dropped", {
   # "Poor Deep-work Quality" and "Overwork Triggers" should be stable
   expect_true(nrow(result$pairwise$stable) >= 2)
 
-  # "Scheduling Nausea" -> "Scheduling Nausea and GI Issues" should be renamed
+  # "Calendar Churn" -> "Calendar Churn and Notification Overload" should be renamed
   expect_true(nrow(result$pairwise$renamed) >= 0 || nrow(result$pairwise$stable) >= 2)
 
   # Stability metrics should exist
@@ -263,7 +263,7 @@ test_that(".compare_codes Jaccard mirrors the fuzzy breakdown, not exact strings
   total <- n_matched + s$n_new + s$n_dropped
   expected <- if (total > 0) round(n_matched / total, 3) else 1
   # The headline Jaccard must mirror the fuzzy stable/renamed/new/dropped table.
-  # The fixture renames "Scheduling Nausea" -> "Scheduling Nausea and GI Issues";
+  # The fixture renames "Calendar Churn" -> "Calendar Churn and Notification Overload";
   # exact-string Jaccard would drop that pair and report a lower, self-
   # contradictory number than the breakdown it sits beside.
   expect_equal(s$jaccard_overall, expected)
@@ -280,7 +280,7 @@ test_that(".match_themes_pairwise matches similar themes", {
   result <- .match_themes_pairwise(snap1$themes, snap2$themes)
 
   # "Focus Fragmentation and Overwork" -> "Focus Fragmentation and Overwork Risk"
-  # "Scheduling Side Effects" -> "Scheduling Side Effects and Tolerance"
+  # "Scheduling Tool Drawbacks" -> "Scheduling Tool Drawbacks and Fatigue"
   expect_true(nrow(result$persisted) >= 2)
 })
 

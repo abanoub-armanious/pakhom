@@ -8,12 +8,12 @@
     "codes_included": "poor deep-work quality; overwork triggers; nighttime overworking; focus deprivation effects"
   },
   {
-    "name": "Scheduling Side Effects and Tolerance",
-    "description": "Side effects and tolerance development with scheduling tools",
+    "name": "Scheduling Tool Drawbacks and Fatigue",
+    "description": "Drawbacks and growing fatigue from scheduling tools",
     "entry_count": 3,
     "prevalence": "20.0%",
     "sentiment_tendency": "mixed",
-    "codes_included": "scheduling nausea; appetite suppression; GI issues; tolerance development"
+    "codes_included": "calendar churn; reduced focus time; notification overload; habituation to reminders"
   },
   {
     "name": "Recovery and Coping Strategies",

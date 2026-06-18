@@ -15,7 +15,7 @@ create_code_object(
 )
 }
 \arguments{
-\item{key}{Code key (codebook lookup key, e.g., "med_helps")}
+\item{key}{Code key (codebook lookup key, e.g., "tool_helps")}
 
 \item{name}{Human-readable code name (e.g., "Remote work improves focus")}
 

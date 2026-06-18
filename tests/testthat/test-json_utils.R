@@ -28,7 +28,7 @@ test_that("parse_json_safely extracts JSON from markdown code blocks", {
 })
 
 test_that("parse_json_safely repairs truncated JSON with missing brackets", {
-  # Missing closing bracket and brace — repair_close_brackets should fix
+  # Missing closing bracket and brace, which repair_close_brackets should fix
   truncated <- '{"themes": [{"name": "Test"}]'
   result <- parse_json_safely(truncated)
   # This is actually valid JSON, should parse fine

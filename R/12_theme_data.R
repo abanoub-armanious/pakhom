@@ -49,7 +49,7 @@
 #' self-contained: a researcher with just themes.json can verify every quote
 #' without needing the original coding_state.
 #'
-#' @param key Code key (codebook lookup key, e.g., "med_helps")
+#' @param key Code key (codebook lookup key, e.g., "tool_helps")
 #' @param name Human-readable code name (e.g., "Remote work improves focus")
 #' @param description Code description
 #' @param type Code type (e.g., "descriptive", "framework_construct", "anomaly")

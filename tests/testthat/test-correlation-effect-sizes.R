@@ -2,7 +2,7 @@
 #
 # H-13 Spearman / Kendall routing for binary x ordinal pairs
 # H-14 negligible effect-size tier on all three statistical layers
-# H-15 meaningful_effect ∩ significant headline in interpret_correlations
+# H-15 meaningful_effect AND significant headline in interpret_correlations
 # H-16 harmonized min_theme_entries filtering across the three layers
 # H-17 n_members + n_non_members emission in theme-group tibble
 # H-18 Cramér's V for the Fisher dispatch path
@@ -89,7 +89,7 @@ test_that("extract_significant uses negligible / small / medium / large tiers", 
 
 
 # ==========================================================================
-# H-15: meaningful_effect ∩ significant headline
+# H-15: meaningful_effect AND significant headline
 # ==========================================================================
 
 test_that("interpret_correlations reports the meaningful AND significant intersection", {

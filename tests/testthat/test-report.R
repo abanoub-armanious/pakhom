@@ -140,7 +140,7 @@ test_that("export_results creates expected files", {
     correlations_df = corr_df,
     insights = list(key_findings = list()),
     consolidated = list(codes = tibble::tibble(
-      code_text = c("distraction", "appetite"), frequency = c(5L, 3L),
+      code_text = c("distraction", "workload"), frequency = c(5L, 3L),
       code_type = c("ai", "ai")
     )),
     output_dir = tmp_dir
@@ -152,7 +152,7 @@ test_that("export_results creates expected files", {
   expect_true(file.exists(files$themes_file))
 })
 
-# Regression test — themes.json preserves codes_included as
+# Regression test confirming themes.json preserves codes_included as
 # a JSON array, not as a ";"-collapsed string. An earlier output-quality
 # audit incorrectly flagged "codes_included length 1 across all themes"
 # as a merge-tree corruption; the actual cause was the tibble-then-write
@@ -192,7 +192,7 @@ test_that("themes.json serializes codes_included / subthemes / keywords as JSON 
          entry_count = 3L,
          prevalence = "high",
          sentiment_tendency = "negative"),
-    # Single-element vector — must STILL serialize as array, not unboxed scalar
+    # Single-element vector that must STILL serialize as array, not unboxed scalar
     list(id = 2, name = "Single Code Theme",
          description = "Theme with one code",
          codes_included = c("solo_code"),
@@ -268,7 +268,7 @@ test_that("verify_run_integrity detects complete run", {
 
 test_that("verify_run_integrity detects missing files", {
   tmp_dir <- withr::local_tempdir()
-  # Only create themes.json — everything else missing
+  # Only create themes.json, leaving everything else missing
   file.create(file.path(tmp_dir, "themes.json"))
 
   result <- verify_run_integrity(tmp_dir, config = list())
