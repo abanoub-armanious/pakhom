@@ -8,7 +8,7 @@
     {
       "name": "Armanious, Abanoub J.",
       "orcid": "0000-0002-7005-8297",
-      "affiliation": "Rutgers University"
+      "affiliation": "Rutgers Health"
     }
   ],
   "description": "pakhom is an R package that conducts AI-assisted thematic analysis across three methodologically-distinct operating modes (Reflexive Scaffold, Codebook Collaborative, Framework Applied). Methodology is codified at the architectural level: the AI's permitted role is shaped by the mode declared in the configuration rather than by prompt-writing discipline. Universal transparency requirements (verbatim quote provenance via a multi-step verification ladder, participant spread per theme, and whole-corpus coverage assertion) are mandatory in every mode, and runs export to the REFI-QDA (QDPX) standard for interoperability with established qualitative-analysis software.",

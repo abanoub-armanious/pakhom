@@ -373,9 +373,9 @@ The pipeline generates an interactive HTML report at
 It contains:
 
 - Study overview and methodology description
-- A Data Integrity Dashboard (T0.1): every AI-attributed quote verified
+- A Data Integrity Dashboard: every AI-attributed quote verified
   against the analytic text, with fabrications dropped and logged
-- A Corpus Coverage card (T0.3): the entry-level coverage assertion, with
+- A Corpus Coverage card: the entry-level coverage assertion, with
   within-entry truncation measured and disclosed
 - Sentiment distribution with histograms
 - Full theme descriptions with supporting quotes and code lists
@@ -390,7 +390,7 @@ All results are also exported as machine-readable files:
 | File | Contents |
 |------|----------|
 | `sentiment_scores.csv` | Every entry with sentiment score, emotion, intensity |
-| `codes.csv` | Codebook with all codes and frequencies (renamed from `consolidated_codes.csv`) |
+| `codes.csv` | Codebook with all codes and frequencies |
 | `correlations.csv` | All pairwise correlation results |
 | `themes.json` | Complete theme definitions (name, description, codes, quotes) |
 | `theme_entries/` | One CSV per theme containing its assigned entries |
@@ -571,13 +571,10 @@ analysis:
     # The default v2 algorithm groups codes across multiple AI passes and
     # stops when the AI declares the partition converged (depth is the
     # AI's dynamic call).
-    algorithm: "v2"               # multi-pass AI clustering -- the only engine
-                                  #   (a pinned "v1" is honored as v2 + warns)
+    algorithm: "v2"               # multi-pass AI clustering (the only engine)
     include_subthemes: true       # Render the emergent subtheme decomposition
     include_quotes: true          # Render representative quotes per theme
     quotes_per_theme: 3
-    max_subtheme_depth: 3         # inert: legacy knob, no longer read
-    max_codes_per_subtheme: 25    # inert: legacy knob, no longer read
     max_inline_themes: 30         # top-N theme inlining cap
     max_inline_themes_temporal: 30  # top-N cap for temporal plot
 

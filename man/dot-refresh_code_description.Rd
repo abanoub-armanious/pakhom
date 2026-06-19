@@ -19,7 +19,7 @@ re-prompts the AI with a sample of the segments
 the code has accumulated and asks for a description that captures the
 SHARED conceptual core across them. The earlier codebook anchored
 each description to the FIRST segment that created the code, so
-high-frequency codes (e.g. Compulsive Eating Behavior, freq=1127)
+high-frequency codes (e.g. Asynchronous Communication, freq=1127)
 carried descriptions that described only one of many distinct meanings
 the code accumulated.
 }

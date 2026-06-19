@@ -196,9 +196,9 @@ test_that("parse_json_safely respects max_repair_attempts = 0 (no repairs)", {
 
 test_that("parse_json_safely recovers via Strategy 3 (find valid subset) on embedded JSON", {
   # Wrapped in conversational prose. Strategy 0-2 fail; Strategy 3 extracts.
-  noisy <- 'Sure, here is the analysis: {"theme": "Adherence", "n": 5} -- hope this helps!'
+  noisy <- 'Sure, here is the analysis: {"theme": "Adoption", "n": 5} -- hope this helps!'
   out <- parse_json_safely(noisy)
-  expect_equal(out$theme, "Adherence")
+  expect_equal(out$theme, "Adoption")
   expect_equal(out$n, 5)
 })
 

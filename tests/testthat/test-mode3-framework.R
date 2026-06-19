@@ -63,7 +63,7 @@ test_that("run_progressive_coding (Mode 3) pre-populates codebook with framework
   state <- run_progressive_coding(
     data = data, provider = mock_provider("anthropic"),
     config = list(max_retries_per_entry = 1L),
-    research_focus = "Schedule adherence",
+    research_focus = "Schedule adoption",
     framework_spec = spec
   )
 

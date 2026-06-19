@@ -432,7 +432,7 @@ print.ProvocationCoverage <- function(x, ...) {
     cat(sprintf("  Candidate-sample cap per prompt: %d\n",
                 x$n_candidate_entries_prompt_cap))
   }
-  cat(sprintf("  Researcher memos (M1.3):         %d\n",
+  cat(sprintf("  Researcher memos:         %d\n",
               x$n_memos %||% 0L))
   if (length(x$memos_by_type %||% list()) > 0L) {
     for (tn in names(x$memos_by_type)) {
@@ -1096,7 +1096,7 @@ compute_mode1_theme_stats <- function(data, theme_set, reflection_log,
 #' # 1. Author your themes elsewhere (e.g., NVivo) and load them.
 #' #    pakhom never writes themes in Mode 1.
 #' my_themes <- create_theme_set(list(
-#'   list(id = 1, name = "Adherence",
+#'   list(id = 1, name = "Adoption",
 #'        description = "Researcher-authored: remote-work flexibility",
 #'        codes_included = c("async_routine", "daily_batching"))
 #' ))
@@ -1104,26 +1104,26 @@ compute_mode1_theme_stats <- function(data, theme_set, reflection_log,
 #' # 2. Load + standardize + preprocess the corpus from your config,
 #' #    then attach theme_membership_* columns that came out of your
 #' #    external coding tool (NVivo / ATLAS.ti / MAXQDA). pakhom does
-#' #    not author theme membership in Mode 1 -- you do.
+#' #    not author theme membership in Mode 1; you do.
 #' cfg <- load_config("config.yaml")  # methodology.mode = "reflexive_scaffold"
 #' my_corpus <- load_corpus_from_config(cfg)
-#' my_corpus$theme_membership_Adherence <- as.integer(
-#'   my_corpus$std_id %in% adherence_ids  # ids from your NVivo export
+#' my_corpus$theme_membership_Adoption <- as.integer(
+#'   my_corpus$std_id %in% adoption_ids  # ids from your NVivo export
 #' )
 #'
-#' # 3. Run the provocateur loop with full Tier-0/Tier-1 scaffolding
+#' # 3. Run the provocateur loop with full transparency and run-state scaffolding
 #' result <- run_mode1(
 #'   data      = my_corpus,
 #'   theme_set = my_themes,
 #'   config    = cfg
 #' )
 #'
-#' # 4. Add reflexive memos (the AC6 engagement affordance shared across modes)
+#' # 4. Add reflexive memos (available in every mode)
 #' result$reflection_log <- add_memo(
 #'   result$reflection_log,
-#'   body = "The 'Adherence' theme rests heavily on contributors 1-3.",
+#'   body = "The 'Adoption' theme rests heavily on contributors 1-3.",
 #'   type = "theoretical",
-#'   linked_themes = "Adherence"
+#'   linked_themes = "Adoption"
 #' )
 #' persist_memos(result$reflection_log, result$output_dir)
 #' }
@@ -1290,7 +1290,7 @@ run_mode1 <- function(data, theme_set,
   # cross-mode comparability of run_metadata.json.
   provider <- create_ai_provider(config$ai$provider, config)
 
-  # T1.5: init run state -- now with model_primary / model_fast for
+  # init run state -- now with model_primary / model_fast for
   # cross-mode parity per audit A L4.
   meta <- init_run_state(
     run_dir          = output_dir,

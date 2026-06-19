@@ -267,7 +267,7 @@ methodology_mismatch_status <- function(run_dir, config) {
 
 #' Clone a run directory with a new methodology mode
 #'
-#' Implements the REDCap dev/production fork: when a researcher needs to
+#' Implements the dev/production fork: when a researcher needs to
 #' re-analyze the same data under a different methodology, the prior run
 #' is preserved (frozen as the original record) and a NEW run directory
 #' is created with \code{parent_run_id} pointing at the prior run. The

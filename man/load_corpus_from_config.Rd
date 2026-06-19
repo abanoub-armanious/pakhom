@@ -63,11 +63,11 @@ workflows. This helper closes that gap.
   # Attach theme_membership_* columns from your external coding
   # tool (NVivo / ATLAS.ti / MAXQDA export). In Mode 1 pakhom
   # never authors themes -- you do, in your own workflow.
-  corpus$theme_membership_Adherence  <- as.integer(corpus$std_id \%in\% ids_a)
+  corpus$theme_membership_Adoption  <- as.integer(corpus$std_id \%in\% ids_adopt)
   corpus$theme_membership_Resistance <- as.integer(corpus$std_id \%in\% ids_r)
 
   themes <- create_theme_set(list(
-    list(id = 1, name = "Adherence",
+    list(id = 1, name = "Adoption",
          description = "Researcher-authored: remote-work flexibility",
          codes_included = c("async_routine", "daily_batching"))
   ))

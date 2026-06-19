@@ -76,13 +76,13 @@ test_that("print.Provocation shows category, theme, citation when present", {
   q <- verify_quote(q, src)
   p <- make_provocation(
     category   = "counter_narrative",
-    theme_name = "Schedule adherence",
+    theme_name = "Schedule adoption",
     reason     = "Frames scheduling taking as routine, not contested",
     provenance = q
   )
   out <- capture.output(print(p))
   expect_true(any(grepl("counter_narrative", out)))
-  expect_true(any(grepl("Schedule adherence", out)))
+  expect_true(any(grepl("Schedule adoption", out)))
   expect_true(any(grepl("e1", out)))
 })
 
@@ -99,10 +99,10 @@ test_that(".citation_to_provocation builds verified Provocation from real citati
 
   cit <- list(entry_id = "e1", char_start = 0L, char_end = 6L,
               exact_text = "I plan",
-              reason = "Respondent frames adherence as voluntary plan")
+              reason = "Respondent frames adoption as voluntary plan")
 
   p <- pakhom:::.citation_to_provocation(
-    cit = cit, theme_name = "Schedule adherence",
+    cit = cit, theme_name = "Schedule adoption",
     category = "counter_narrative", data = data, ai_meta = ai_meta
   )
 
@@ -157,16 +157,16 @@ test_that(".citation_to_provocation drops fabricated provocation citations (T0.1
     sentiment_score = c(0.5, 0.4, -0.3, -0.5, -0.7, 0.1),
     emotion_intensity = rep(0.4, 6),
     all_emotions = rep("hope", 6),
-    emerged_themes = rep("Adherence", 6),
-    theme_membership_Adherence = rep(1L, 6)
+    emerged_themes = rep("Adoption", 6),
+    theme_membership_Adoption = rep(1L, 6)
   )
   data
 }
 
 .smoke_theme_set <- function() {
   create_theme_set(list(list(
-    id = 1, name = "Adherence",
-    description = "Schedule adherence",
+    id = 1, name = "Adoption",
+    description = "Schedule adoption",
     codes_included = "async_routine"
   )))
 }
@@ -197,7 +197,7 @@ test_that("provoke_counter_narrative returns verified provocations on mocked AI"
   )
 
   provs <- provoke_counter_narrative(
-    theme_name    = "Adherence",
+    theme_name    = "Adoption",
     theme_entries = theme_entries,
     data          = data,
     provider      = mock_provider("anthropic"),
@@ -238,7 +238,7 @@ test_that("provoke_counter_narrative drops fabricated citations from output", {
   )
 
   provs <- suppressWarnings(provoke_counter_narrative(
-    theme_name = "Adherence", theme_entries = theme_entries,
+    theme_name = "Adoption", theme_entries = theme_entries,
     data = data, provider = mock_provider("anthropic")
   ))
   # Only the verified provocation survives
@@ -254,7 +254,7 @@ test_that("provoke_disconfirming_evidence returns verified provocations", {
   mock <- jsonlite::toJSON(list(provocations = list(
     list(entry_id = "e3", char_start = 19L, char_end = 27L,
          exact_text = "the sche",
-         reason = "Schedule fails contradict adherence")
+         reason = "Schedule fails contradict adoption")
   )), auto_unbox = TRUE)
   local_mocked_bindings(
     ai_complete = function(...) list(
@@ -267,7 +267,7 @@ test_that("provoke_disconfirming_evidence returns verified provocations", {
     .package = "pakhom"
   )
   provs <- provoke_disconfirming_evidence(
-    theme_name = "Adherence", theme_entries = data[1:3, ],
+    theme_name = "Adoption", theme_entries = data[1:3, ],
     data = data, provider = mock_provider("anthropic")
   )
   expect_length(provs, 1L)
@@ -298,7 +298,7 @@ test_that("provoke_alternative_interpretation returns N alternative names anchor
     .package = "pakhom"
   )
   provs <- provoke_alternative_interpretation(
-    theme_name = "Adherence", theme_entries = data[1:3, ],
+    theme_name = "Adoption", theme_entries = data[1:3, ],
     data = data, provider = mock_provider("anthropic"),
     n_alternatives = 2L
   )
@@ -333,7 +333,7 @@ test_that("provoke_absent_voice returns NULL-provenance Provocations with dimens
     .package = "pakhom"
   )
   provs <- provoke_absent_voice(
-    theme_name = "Adherence", theme_entries = data[1:3, ],
+    theme_name = "Adoption", theme_entries = data[1:3, ],
     data = data, provider = mock_provider("anthropic")
   )
   expect_length(provs, 2L)
@@ -370,9 +370,9 @@ test_that("provoke_assumption_surfacing returns alternative + erased terms", {
     .package = "pakhom"
   )
   provs <- provoke_assumption_surfacing(
-    theme_name = "Adherence", theme_entries = data[1:3, ],
+    theme_name = "Adoption", theme_entries = data[1:3, ],
     data = data, provider = mock_provider("anthropic"),
-    key_term = "adherence"
+    key_term = "adoption"
   )
   expect_gte(length(provs), 1L)
   # The alternative term provocation has provenance (citation present)
@@ -683,7 +683,7 @@ test_that(".citation_to_provocation emits a quote_verified audit record on succe
   audit <- init_audit_log(tmp)
 
   p <- pakhom:::.citation_to_provocation(
-    cit = cit, theme_name = "Schedule adherence",
+    cit = cit, theme_name = "Schedule adoption",
     category = "counter_narrative", data = data, ai_meta = ai_meta,
     audit_log = audit
   )
@@ -805,7 +805,7 @@ test_that("alternative_interpretation emits names with NULL provenance when no a
   )
 
   provs <- suppressWarnings(provoke_alternative_interpretation(
-    "Adherence", data[1, ], data, provider = mock_provider()
+    "Adoption", data[1, ], data, provider = mock_provider()
   ))
   expect_length(provs, 2L)
   alt_names <- vapply(provs, function(p) p$extra$alternative_name, character(1))
@@ -840,7 +840,7 @@ test_that("alternative_interpretation flags anchor_quote_verified=TRUE when the 
   )
 
   provs <- provoke_alternative_interpretation(
-    "Adherence", data[1, ], data, provider = mock_provider()
+    "Adoption", data[1, ], data, provider = mock_provider()
   )
   expect_length(provs, 1L)
   expect_s3_class(provs[[1]]$provenance, "QuoteProvenance")

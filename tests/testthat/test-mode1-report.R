@@ -29,11 +29,11 @@ test_that("compute_provocation_provenance_stats walks provocations + extracts Qu
                     citation_source = "model_freeform")
   q <- verify_quote(q, src)
   log$provocations[[1]] <- make_provocation(
-    category = "counter_narrative", theme_name = "Adherence",
-    reason = "denies adherence", provenance = q
+    category = "counter_narrative", theme_name = "Adoption",
+    reason = "denies adoption", provenance = q
   )
   log$provocations[[2]] <- make_provocation(
-    category = "absent_voice", theme_name = "Adherence",
+    category = "absent_voice", theme_name = "Adoption",
     reason = "no adolescent voice",
     provenance = NULL  # observational; should NOT count
   )
@@ -84,11 +84,11 @@ test_that("generate_mode1_report rejects non-data.frame data", {
     std_id = paste0("e", 1:4),
     std_text = c("a", "b", "c", "d"),
     std_author = c("alice", "bob", "alice", "carol"),
-    theme_membership_Adherence = c(1L, 1L, 0L, 0L),
+    theme_membership_Adoption = c(1L, 1L, 0L, 0L),
     theme_membership_Resistance = c(0L, 0L, 1L, 1L)
   )
   ts <- create_theme_set(list(
-    list(id = 1L, name = "Adherence", description = "Adherence theme",
+    list(id = 1L, name = "Adoption", description = "Adoption theme",
          codes_included = "x"),
     list(id = 2L, name = "Resistance", description = "Resistance theme",
          codes_included = "y")
@@ -99,11 +99,11 @@ test_that("generate_mode1_report rejects non-data.frame data", {
                     citation_source = "model_freeform")
   q <- verify_quote(q, src)
   log$provocations[[1]] <- make_provocation(
-    category = "counter_narrative", theme_name = "Adherence",
+    category = "counter_narrative", theme_name = "Adoption",
     reason = "test reason", provenance = q
   )
   log$provocation_attempts <- data.frame(
-    theme_name   = c("Adherence", "Resistance"),
+    theme_name   = c("Adoption", "Resistance"),
     category     = c("counter_narrative", "counter_narrative"),
     n_emitted    = c(1L, 0L),
     attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
@@ -138,7 +138,7 @@ test_that(".build_mode1_rmd_content includes the methodology stamp + Tier-0 dash
   # Per-theme section
   expect_match(rmd_str, "Provocations by Theme")
   # Both researcher-authored themes appear
-  expect_match(rmd_str, "Adherence")
+  expect_match(rmd_str, "Adoption")
   expect_match(rmd_str, "Resistance")
 })
 

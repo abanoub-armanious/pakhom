@@ -156,8 +156,8 @@ run_human_verification <- function(data, coding_state,
 # ==============================================================================
 # Aligns the two raters by entry_id, then canonicalizes codes with conservative
 # fuzzy matching (Jaro-Winkler <= 0.15) that bridges spelling / inflection
-# differences ("sleep issue" vs "sleep issues") but NOT semantic variants
-# ("sleep issues" vs "sleep problems"), which are real disagreements.
+# differences ("focus gap" vs "focus gaps") but NOT semantic variants
+# ("focus gaps" vs "focus problems"), which are real disagreements.
 # Headline coefficient: Krippendorff's alpha with a Jaccard set-distance -- the
 # field-standard agreement metric for set-valued (multi-label) coding (Artstein
 # & Poesio, 2008) -- reported with a bootstrap 95% CI. Also reports per-entry
@@ -253,8 +253,8 @@ run_human_verification <- function(data, coding_state,
 
   # --- Canonicalize codes so set operations are exact. ------------------------
   # The threshold is deliberately conservative (0.15 Jaro-Winkler): it bridges
-  # spelling / inflection differences ("sleep issue" vs "sleep issues",
-  # jw<=0.04) but NOT semantic variants ("sleep issues" vs "sleep problems",
+  # spelling / inflection differences ("focus gap" vs "focus gaps",
+  # jw<=0.04) but NOT semantic variants ("focus gaps" vs "focus problems",
   # jw~=0.30), which are genuine labelling disagreements and must not be hidden.
   all_observed <- unique(unlist(c(human_raw, ai_raw)))
   all_observed <- all_observed[!is.na(all_observed) & nchar(all_observed) > 0]

@@ -411,7 +411,7 @@ verify_run_integrity <- function(run_dir, config = list()) {
     # complete run. Per AC4 (methodology stamped on every output),
     # integrity check must verify these exist -- otherwise a run that
     # silently lost the audit trail would still report complete=TRUE.
-    "run_metadata.json",            # T1.5: REDCap-style state record
+    "run_metadata.json",            # REDCap-style state record
     "rules/methodology_rules.md",   # T1.6: archived rules text
     "fabrication_log.csv",          # T0.1: anti-fabrication audit trail
     "ai_decisions.jsonl"            # T1.4: AI decision audit log

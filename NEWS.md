@@ -1,8 +1,6 @@
 # pakhom 1.0.0
 
-> **Release status.** This is pakhom's initial release. The version is held at
-> 1.0.0 through pre-publication preparation (CRAN / JOSS submission pending) and
-> will be the version of the first published release.
+> This is the initial release of pakhom.
 
 pakhom conducts AI-assisted thematic analysis with *methodology as architecture*:
 what a run does is fixed by the methodology mode declared in its configuration,
@@ -85,8 +83,8 @@ provenance, coverage, and audit evidence for peer review.
 ## Workflow and interoperability
 
 - **Providers.** OpenAI and Anthropic, with provider-appropriate handling of
-  structured output and source-grounded citations. By design (T0.1
-  anti-fabrication), Anthropic coding uses the Citations API prevention path
+  structured output and source-grounded citations. By design (the
+  anti-fabrication layer), Anthropic coding uses the Citations API prevention path
   while OpenAI uses the forced-tool_use schema path, and semantic code retrieval
   is OpenAI-only. This per-provider asymmetry adds a small coding-path component
   to any OpenAI-vs-Anthropic comparison and is now disclosed wherever

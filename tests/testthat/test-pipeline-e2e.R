@@ -594,10 +594,10 @@ test_that("AC8: run_mode1 produces Mode 1 artifact set (different from run_analy
     std_text = c("plan to take", "doctor told me", "always forget",
                   "side effects", "doesn't help", "feel different"),
     std_author = c("a", "b", "c", "d", "e", "f"),
-    theme_membership_Adherence = rep(1L, 6)
+    theme_membership_Adoption = rep(1L, 6)
   )
   ts <- create_theme_set(list(list(
-    id = 1, name = "Adherence", description = "Adherence theme",
+    id = 1, name = "Adoption", description = "Adoption theme",
     codes_included = "x"
   )))
   cfg <- list(
@@ -703,7 +703,7 @@ test_that("Mode 1 public-API contract: config_path -> load_corpus_from_config ->
   # would come from the researcher's NVivo / ATLAS.ti / MAXQDA export;
   # here we synthesize a half-and-half split for testing.
   n_half <- ceiling(nrow(corpus) / 2)
-  corpus$theme_membership_Adherence  <- as.integer(
+  corpus$theme_membership_Adoption  <- as.integer(
     seq_len(nrow(corpus)) <= n_half
   )
   corpus$theme_membership_Resistance <- as.integer(
@@ -712,8 +712,8 @@ test_that("Mode 1 public-API contract: config_path -> load_corpus_from_config ->
 
   # ---- ACCEPTANCE 3: build the ThemeSet using only public API. ----
   ts <- create_theme_set(list(
-    list(id = 1L, name = "Adherence",
-         description = "Researcher-authored: schedule adherence",
+    list(id = 1L, name = "Adoption",
+         description = "Researcher-authored: schedule adoption",
          codes_included = c("async_routine", "daily_batching")),
     list(id = 2L, name = "Resistance",
          description = "Researcher-authored: resistance",

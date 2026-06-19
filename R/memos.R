@@ -238,11 +238,11 @@ print.Memo <- function(x, ...) {
 #' log <- add_memo(
 #'   log,
 #'   body = paste0(
-#'     "Adherence themes are over-weighted by contributor X's posts.\n\n",
+#'     "Adoption themes are over-weighted by contributor X's posts.\n\n",
 #'     "Need to interrogate this concentration before publishing."
 #'   ),
 #'   type = "theoretical",
-#'   linked_themes = "Adherence"
+#'   linked_themes = "Adoption"
 #' )
 #'
 #' # Add an operational memo as a revision of the prior

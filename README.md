@@ -65,7 +65,7 @@ make AI-assisted thematic analysis methodologically reproducible.
 
 The mode declaration is mandatory in every config (no default). It is locked
 at run start, stamped on every output, and any change creates a fork run with
-parent_run_id linkage (REDCap dev/production pattern).
+parent_run_id linkage.
 
 | Mode | AI's role | Researcher authors | When to use |
 |---|---|---|---|
@@ -342,12 +342,12 @@ result <- pakhom::run_mode1(
   config_path = "config.yaml"     # methodology.mode = "reflexive_scaffold"
 )
 
-# Add reflexive memos (the AC6 engagement affordance shared across modes)
+# Add reflexive memos (available in every mode)
 result$reflection_log <- pakhom::add_memo(
   result$reflection_log,
-  body = "The 'Adherence' theme rests heavily on contributors 1-3; the AI's counter_narrative provocations suggest theme reframing is warranted.",
+  body = "The 'Async Adoption' theme rests heavily on contributors 1-3; the AI's counter_narrative provocations suggest theme reframing is warranted.",
   type = "theoretical",
-  linked_themes = "Adherence"
+  linked_themes = "Async Adoption"
 )
 pakhom::persist_memos(result$reflection_log, result$output_dir)
 ```
@@ -416,12 +416,12 @@ comparison <- compare_models("outputs/")
 ```
 
 **Cross-provider caveat.** An OpenAI-vs-Anthropic comparison carries a small
-*coding-path* component alongside the model. By design (the T0.1 anti-fabrication
+*coding-path* component alongside the model. By design (the anti-fabrication
 layer), Anthropic coding uses the Citations API prevention path while OpenAI uses
 the forced-tool_use schema path, and semantic code retrieval is OpenAI-only. A
 controlled check (same corpus and entries, the Anthropic run on each path) found
-this path component is minor -- the model is the dominant driver of
-code-granularity differences -- but it is non-zero, so don't read an
+this path component is minor. The model is the dominant driver of
+code-granularity differences, but it is non-zero, so don't read an
 OpenAI-vs-Anthropic result as a *pure* model contrast. Separately, label-level
 metrics (code/theme Jaccard) understate *conceptual* agreement when two coders
 use different code vocabularies; corroborate them with a content-level theme
@@ -442,7 +442,7 @@ See `?compare_models`.
 ## For methodologists / reviewers: architectural commitments
 
 The package codifies ten load-bearing commitments. Each is regression-
-tested at the integration level (the test suite has more than 4,900 expectations
+tested at the integration level (the test suite has more than 5,000 expectations
 pinning them against silent regression). They are
 the contract a peer reviewer can check the package's claims against:
 
@@ -454,7 +454,7 @@ the contract a peer reviewer can check the package's claims against:
   and per-plot methodology captions on the standalone correlation, coding, and
   longitudinal figures.
 - **AC5**: Soft-lock with audit trail; methodology change creates a new
-  run with `parent_run_id` linkage (REDCap dev/production pattern).
+  run with `parent_run_id` linkage.
 - **AC6**: Symmetric researcher-engagement affordances across modes: reflexive
   memos and review pause-points exist in every mode (the Modes 2/3
   pause-points are opt-in, off by default).

@@ -35,8 +35,7 @@ mandatory, and which pause-points are required.
 
 The mode declaration is mandatory in every config (no default); it is
 locked at run start and stamped onto every output. Any change creates a
-**fork run** with `parent_run_id` linkage (REDCap dev/production
-pattern), so the methodology trail is always reconstructable.
+**fork run** with `parent_run_id` linkage, so the methodology trail is always reconstructable.
 
 This vignette walks through each mode with a worked example, then
 gives a decision rubric for choosing among them.
@@ -85,7 +84,7 @@ my_themes <- create_theme_set(list(
 
 # 2. Your corpus -- a tibble with std_id + std_text. theme_membership_*
 #    columns indicate which entries support each theme. (Author IDs in
-#    std_author drive the T0.2 participant-spread metric.) In practice
+#    std_author drive the participant-spread metric.) In practice
 #    you'd build this tibble from a database load + your existing NVivo
 #    coding; here a small toy corpus illustrates the shape.
 my_corpus <- tibble::tibble(
@@ -117,21 +116,21 @@ result <- run_mode1(
 #                           legitimately" from "category never attempted")
 #   - skipped_themes:  themes the orchestrator bypassed (e.g., zero
 #                      supporting entries) with explicit reasons
-#   - memos:           reflexive notes (initially empty -- you write them)
+#   - memos:           reflexive notes (initially empty; you write them)
 
-# 4. Per AC6 (symmetric engagement affordances across modes), reflexive memos
+# 4. Reflexive memos
 #    are the shared re-engagement lever, available in every mode. Add memos
 #    in response to provocations that move you, then persist them.
 result$reflection_log <- add_memo(
   result$reflection_log,
-  body = "The AI's counter_narrative for 'Adherence' surfaces e3 + e4
+  body = "The AI's counter_narrative for 'Adoption' surfaces e3 + e4
 from the candidate sample of non-theme entries. I had coded both under
-Resistance, but re-reading them against Adherence: they describe FAILED
-adherence attempts rather than refusal -- which suggests Adherence and
+Resistance, but re-reading them against Adoption: they describe failed
+adoption attempts rather than refusal, which suggests Adoption and
 Resistance may be one dimension, not two themes. Consider renaming or
 merging.",
   type = "theoretical",
-  linked_themes = "Adherence"
+  linked_themes = "Adoption"
 )
 persist_memos(result$reflection_log, result$output_dir)
 ```
@@ -163,9 +162,9 @@ corpus <- load_corpus_from_config(cfg)
 #    Each column is an integer 0/1 indicator: which entries support
 #    which researcher-authored theme. (You export these from NVivo /
 #    ATLAS.ti / MAXQDA; pakhom never authors theme membership in Mode 1.)
-ids_adherence  <- readLines("nvivo_exports/adherence_ids.txt")
+ids_adoption   <- readLines("nvivo_exports/adoption_ids.txt")
 ids_resistance <- readLines("nvivo_exports/resistance_ids.txt")
-corpus$theme_membership_Adoption  <- as.integer(corpus$std_id %in% ids_adherence)
+corpus$theme_membership_Adoption  <- as.integer(corpus$std_id %in% ids_adoption)
 corpus$theme_membership_Resistance <- as.integer(corpus$std_id %in% ids_resistance)
 
 # 4. Build the ThemeSet from your researcher-authored themes.
@@ -238,7 +237,7 @@ create_config(
   methodology = "codebook_collaborative",
   study_name = "Remote-work wellbeing forum study",
   research_focus = "How do users describe the wellbeing effects of remote work?",
-  database_path = "reddit_data.db",
+  database_path = "corpus.db",
   output_path = "config.yaml"
 )
 
@@ -453,7 +452,7 @@ create_config(
   framework_spec_path = "tpb",   # built-in alias OR path to your YAML/JSON
   study_name = "TPB analysis: async-communication adoption",
   research_focus = "Behavioral intention -> async-communication behavior",
-  database_path = "reddit_data.db",
+  database_path = "corpus.db",
   output_path = "config.yaml"
 )
 
@@ -493,8 +492,8 @@ constraint. Without the footnote, a reviewer reading "Model freeform
 the Anthropic prevention layer isn't engaged, so the footnote makes the
 architectural reason explicit rather than letting it look like a bug.
 
-A future release may explore a hybrid schema (constrained constructs
-paired with citation offsets) as a research spike.
+A hybrid schema (constrained constructs paired with citation
+offsets) is a possible future direction.
 
 ### When to use Mode 3
 
@@ -632,7 +631,7 @@ The package commits to two distinct families of architectural promises:
 
 The eighteen commitments together are the load-bearing contract.
 Every methodologist reading the package's claims should be able to
-verify both sets against the code; every contributor (human or AI)
+verify both sets against the code; anyone
 touching the algorithm layer should re-read both before changing
 behavior. The two families are orthogonal: mode-design changes
 (adding a fourth mode, say, which AC2 forbids) and algorithm

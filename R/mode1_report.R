@@ -358,7 +358,7 @@ compute_provocation_provenance_stats <- function(reflection_log) {
   typed_memos <- Filter(function(m) inherits(m, "Memo"), memos)
 
   header <- paste0(
-    "\n# Researcher Reflexive Memos (M1.3 / AC6)\n\n",
+    "\n# Researcher Reflexive Memos\n\n",
     "Per AC6 (symmetric engagement affordances across modes), Mode 1's ",
     "re-engagement lever is reflexive memos, matching the opt-in review ",
     "pauses of Modes 2 and 3. ",

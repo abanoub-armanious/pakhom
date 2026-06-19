@@ -9,7 +9,7 @@
 
 # ---- Helpers --------------------------------------------------------------
 
-.mock_theme_set <- function(names = c("Adherence", "Resistance")) {
+.mock_theme_set <- function(names = c("Adoption", "Resistance")) {
   themes <- lapply(seq_along(names), function(i) {
     list(id = i, name = names[i], description = "", codes_included = "x")
   })
@@ -139,8 +139,8 @@ test_that("compute_mode1_coverage records every documented field", {
 
 test_that("happy path: all themes attempted across all categories -> no_silent_skip = TRUE", {
   log <- create_reflection_log()
-  log <- .populate_attempts(log, c("Adherence", "Resistance"))
-  ts <- .mock_theme_set(c("Adherence", "Resistance"))
+  log <- .populate_attempts(log, c("Adoption", "Resistance"))
+  ts <- .mock_theme_set(c("Adoption", "Resistance"))
   data <- .mock_corpus()
   cov <- compute_mode1_coverage(log, ts, data)
   expect_true(cov$no_silent_theme_skip)
@@ -155,9 +155,9 @@ test_that("legitimate empty: attempt with n_emitted=0 is NOT a silent skip", {
   # All attempts present, all returned zero provocations (e.g.,
   # counter_narrative finds no qualifying entries) -- valid analytic
   # outcome, NOT a coverage failure.
-  log <- .populate_attempts(log, c("Adherence", "Resistance"),
+  log <- .populate_attempts(log, c("Adoption", "Resistance"),
                               n_emitted_by_pos = rep(0L, 10L))
-  ts <- .mock_theme_set(c("Adherence", "Resistance"))
+  ts <- .mock_theme_set(c("Adoption", "Resistance"))
   data <- .mock_corpus()
   cov <- compute_mode1_coverage(log, ts, data)
   expect_true(cov$no_silent_skip)  # headline still TRUE
@@ -168,9 +168,9 @@ test_that("legitimate empty: attempt with n_emitted=0 is NOT a silent skip", {
 
 test_that("silent theme skip: theme exists in theme_set but no attempts recorded", {
   log <- create_reflection_log()
-  # Only Adherence got attempts; Resistance was silently skipped
-  log <- .populate_attempts(log, c("Adherence"))
-  ts <- .mock_theme_set(c("Adherence", "Resistance"))
+  # Only Adoption got attempts; Resistance was silently skipped
+  log <- .populate_attempts(log, c("Adoption"))
+  ts <- .mock_theme_set(c("Adoption", "Resistance"))
   data <- .mock_corpus()
   cov <- compute_mode1_coverage(log, ts, data)
   expect_false(cov$no_silent_theme_skip)
@@ -181,7 +181,7 @@ test_that("silent theme skip: theme exists in theme_set but no attempts recorded
 
 test_that("explicit skip with reason is NOT a silent skip", {
   log <- create_reflection_log()
-  log <- .populate_attempts(log, c("Adherence"))
+  log <- .populate_attempts(log, c("Adoption"))
   # Resistance was explicitly skipped (e.g., zero supporting entries)
   log$skipped_themes <- data.frame(
     theme_name = "Resistance",
@@ -189,7 +189,7 @@ test_that("explicit skip with reason is NOT a silent skip", {
     skipped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
-  ts <- .mock_theme_set(c("Adherence", "Resistance"))
+  ts <- .mock_theme_set(c("Adoption", "Resistance"))
   data <- .mock_corpus()
   cov <- compute_mode1_coverage(log, ts, data)
   expect_true(cov$no_silent_theme_skip)
@@ -200,16 +200,16 @@ test_that("explicit skip with reason is NOT a silent skip", {
 
 test_that("attempts_complete = FALSE when attempt matrix is partial", {
   log <- create_reflection_log()
-  # Adherence got only 3 of 5 categories (mid-loop crash scenario)
+  # Adoption got only 3 of 5 categories (mid-loop crash scenario)
   log$provocation_attempts <- data.frame(
-    theme_name = "Adherence",
+    theme_name = "Adoption",
     category   = c("counter_narrative", "absent_voice",
                    "alternative_interpretation"),
     n_emitted  = c(1L, 0L, 1L),
     attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
-  ts <- .mock_theme_set(c("Adherence"))
+  ts <- .mock_theme_set(c("Adoption"))
   data <- .mock_corpus()
   cov <- compute_mode1_coverage(log, ts, data)
   expect_equal(cov$n_attempts_expected, 5L)
@@ -223,7 +223,7 @@ test_that("requested_categories subset reduces expected attempts", {
   # Only counter_narrative + disconfirming_evidence requested; both
   # attempted on each theme
   log$provocation_attempts <- data.frame(
-    theme_name = rep(c("Adherence", "Resistance"), each = 2L),
+    theme_name = rep(c("Adoption", "Resistance"), each = 2L),
     category   = rep(c("counter_narrative", "disconfirming_evidence"), 2L),
     n_emitted  = c(1L, 0L, 2L, 1L),
     attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
@@ -231,7 +231,7 @@ test_that("requested_categories subset reduces expected attempts", {
   )
   log$provocations <- replicate(4, list(category = "x", theme_name = "y"),
                                  simplify = FALSE)
-  ts <- .mock_theme_set(c("Adherence", "Resistance"))
+  ts <- .mock_theme_set(c("Adoption", "Resistance"))
   data <- .mock_corpus()
   cov <- compute_mode1_coverage(
     log, ts, data,
@@ -246,8 +246,8 @@ test_that("requested_categories subset reduces expected attempts", {
 
 test_that("attempts_per_category surfaces category-level counts", {
   log <- create_reflection_log()
-  log <- .populate_attempts(log, c("Adherence", "Resistance"))
-  ts <- .mock_theme_set(c("Adherence", "Resistance"))
+  log <- .populate_attempts(log, c("Adoption", "Resistance"))
+  ts <- .mock_theme_set(c("Adoption", "Resistance"))
   data <- .mock_corpus()
   cov <- compute_mode1_coverage(log, ts, data)
   expect_equal(length(cov$attempts_per_category),
@@ -265,7 +265,7 @@ test_that("compute_mode1_coverage handles a schema 1.0.0 log (no tracking slots)
   log <- create_reflection_log()
   log$provocation_attempts <- NULL
   log$skipped_themes <- NULL
-  ts <- .mock_theme_set(c("Adherence"))
+  ts <- .mock_theme_set(c("Adoption"))
   data <- .mock_corpus()
   cov <- compute_mode1_coverage(log, ts, data)
   expect_equal(cov$n_attempts_recorded, 0L)
@@ -311,8 +311,8 @@ test_that("AC7: ProvocationCoverage shares Tier0Coverage parent with CorpusCover
 
 test_that("render_tier0_coverage_card dispatches on ProvocationCoverage", {
   log <- create_reflection_log()
-  log <- .populate_attempts(log, c("Adherence"))
-  ts <- .mock_theme_set(c("Adherence"))
+  log <- .populate_attempts(log, c("Adoption"))
+  ts <- .mock_theme_set(c("Adoption"))
   data <- .mock_corpus()
   cov <- compute_mode1_coverage(log, ts, data)
   html <- render_tier0_coverage_card(cov)
@@ -329,8 +329,8 @@ test_that("render_tier0_coverage_card falls through to default for NULL", {
 
 test_that("render_tier0_coverage_card.ProvocationCoverage flags silent skip in banner", {
   log <- create_reflection_log()
-  log <- .populate_attempts(log, c("Adherence"))  # only 1 of 2 themes
-  ts <- .mock_theme_set(c("Adherence", "Resistance"))
+  log <- .populate_attempts(log, c("Adoption"))  # only 1 of 2 themes
+  ts <- .mock_theme_set(c("Adoption", "Resistance"))
   data <- .mock_corpus()
   cov <- compute_mode1_coverage(log, ts, data)
   html <- render_tier0_coverage_card(cov)
@@ -341,8 +341,8 @@ test_that("render_tier0_coverage_card.ProvocationCoverage flags silent skip in b
 
 test_that("render_tier0_coverage_card.ProvocationCoverage shows OK banner on full coverage", {
   log <- create_reflection_log()
-  log <- .populate_attempts(log, c("Adherence", "Resistance"))
-  ts <- .mock_theme_set(c("Adherence", "Resistance"))
+  log <- .populate_attempts(log, c("Adoption", "Resistance"))
+  ts <- .mock_theme_set(c("Adoption", "Resistance"))
   data <- .mock_corpus()
   cov <- compute_mode1_coverage(log, ts, data)
   html <- render_tier0_coverage_card(cov)
@@ -352,8 +352,8 @@ test_that("render_tier0_coverage_card.ProvocationCoverage shows OK banner on ful
 
 test_that("print.ProvocationCoverage produces a structured summary", {
   log <- create_reflection_log()
-  log <- .populate_attempts(log, c("Adherence"))
-  ts <- .mock_theme_set(c("Adherence"))
+  log <- .populate_attempts(log, c("Adoption"))
+  ts <- .mock_theme_set(c("Adoption"))
   data <- .mock_corpus()
   cov <- compute_mode1_coverage(log, ts, data)
   out <- capture.output(print(cov))
@@ -370,14 +370,14 @@ test_that("attempts_per_category and explicit_skip_reasons serialize as named JS
   # was to store these as named lists. Verify the fix sticks: round-
   # trip through JSON and confirm names survive.
   log <- create_reflection_log()
-  log <- .populate_attempts(log, c("Adherence"))
+  log <- .populate_attempts(log, c("Adoption"))
   log$skipped_themes <- data.frame(
     theme_name = "OtherTheme",
     reason     = "no_supporting_entries",
     skipped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
-  ts <- .mock_theme_set(c("Adherence", "OtherTheme"))
+  ts <- .mock_theme_set(c("Adoption", "OtherTheme"))
   data <- .mock_corpus()
   cov <- compute_mode1_coverage(log, ts, data)
 
@@ -411,7 +411,7 @@ test_that("attempts against categories outside requested_categories are surfaced
   # Mix: counter_narrative (in scope) + assumption_surfacing (out of
   # scope when requested = counter_narrative only)
   log$provocation_attempts <- data.frame(
-    theme_name = c("Adherence", "Adherence"),
+    theme_name = c("Adoption", "Adoption"),
     category   = c("counter_narrative", "assumption_surfacing"),
     n_emitted  = c(1L, 1L),
     attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
@@ -419,7 +419,7 @@ test_that("attempts against categories outside requested_categories are surfaced
   )
   log$provocations <- replicate(2, list(category="x", theme_name="y"),
                                   simplify = FALSE)
-  ts <- .mock_theme_set(c("Adherence"))
+  ts <- .mock_theme_set(c("Adoption"))
   data <- .mock_corpus()
   cov <- compute_mode1_coverage(log, ts, data,
                                   requested_categories = "counter_narrative")
@@ -465,12 +465,12 @@ test_that("all-themes-explicitly-skipped is graded as NOT no_silent_skip", {
   # skip rows below. Now headline FALSE because n_themes_attempted == 0.
   log <- create_reflection_log()
   log$skipped_themes <- data.frame(
-    theme_name = c("Adherence", "Resistance"),
+    theme_name = c("Adoption", "Resistance"),
     reason     = c("no_supporting_entries", "no_supporting_entries"),
     skipped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
-  ts <- .mock_theme_set(c("Adherence", "Resistance"))
+  ts <- .mock_theme_set(c("Adoption", "Resistance"))
   data <- .mock_corpus()
   cov <- compute_mode1_coverage(log, ts, data)
   expect_equal(cov$n_themes_attempted, 0L)
@@ -482,12 +482,12 @@ test_that("all-themes-explicitly-skipped is graded as NOT no_silent_skip", {
 test_that("render_tier0_coverage_card.ProvocationCoverage flags all-explicit-skip in the banner", {
   log <- create_reflection_log()
   log$skipped_themes <- data.frame(
-    theme_name = c("Adherence", "Resistance"),
+    theme_name = c("Adoption", "Resistance"),
     reason     = c("no_supporting_entries", "no_supporting_entries"),
     skipped_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
   )
-  ts <- .mock_theme_set(c("Adherence", "Resistance"))
+  ts <- .mock_theme_set(c("Adoption", "Resistance"))
   data <- .mock_corpus()
   cov <- compute_mode1_coverage(log, ts, data)
   html <- render_tier0_coverage_card(cov)
@@ -503,8 +503,8 @@ test_that("ProvocationCoverage carries the prompt-context fields (corpus passed 
   # because the per-category prompts include only theme-supporting
   # entries, not the full corpus text. Replaced with two honest fields.
   log <- create_reflection_log()
-  log <- .populate_attempts(log, c("Adherence"))
-  ts <- .mock_theme_set(c("Adherence"))
+  log <- .populate_attempts(log, c("Adoption"))
+  ts <- .mock_theme_set(c("Adoption"))
   data <- .mock_corpus()
   cov <- compute_mode1_coverage(log, ts, data)
   expect_true(cov$corpus_provided_to_per_category_fns)  # data IS passed
@@ -539,8 +539,8 @@ test_that("expected_attempts is clamped at 0 against degenerate counts", {
 
 test_that("the coverage card does not claim candidate sampling for legacy (pre-2.2.0) objects", {
   log <- create_reflection_log()
-  log <- .populate_attempts(log, c("Adherence"))
-  ts <- .mock_theme_set(c("Adherence"))
+  log <- .populate_attempts(log, c("Adoption"))
+  ts <- .mock_theme_set(c("Adoption"))
   data <- .mock_corpus()
   cov <- compute_mode1_coverage(log, ts, data)
 

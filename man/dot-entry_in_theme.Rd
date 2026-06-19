@@ -17,8 +17,8 @@ Logical vector, same length as \code{emerged_themes}.
 \description{
 \code{emerged_themes} is a "; "-delimited list of EXACT theme names. The old
 test, \code{grepl(tn, emerged_themes, fixed = TRUE)}, matched on substrings,
-so a theme whose name is contained in another's (e.g. "Sleep" inside "Sleep
-Problems") produced false-positive membership and inflated every per-theme
+so a theme whose name is contained in another's (e.g. "Focus" inside "Focus
+Time") produced false-positive membership and inflated every per-theme
 count, correlation, and prevalence figure built from it. This does an exact,
 token-level membership test instead. NA / empty entries are not members.
 }

@@ -114,10 +114,10 @@ test_that(".build_saturation_prompt includes research focus, progress, curve, co
     slope_ratio = 0.01, timestamp = Sys.time()
   )
   prompt <- pakhom:::.build_saturation_prompt(
-    state, research_focus = "Focus schedule adherence",
+    state, research_focus = "Focus schedule adoption",
     n_coded = 100L, n_corpus = 500L, n_done = 110L
   )
-  expect_true(grepl("Focus schedule adherence", prompt))
+  expect_true(grepl("Focus schedule adoption", prompt))
   expect_true(grepl("entries_coded: 100", prompt))
   expect_true(grepl("total corpus size: 500", prompt))
   expect_true(grepl("current codebook size: 1", prompt))

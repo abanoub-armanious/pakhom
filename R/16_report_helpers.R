@@ -10,8 +10,8 @@
 #'
 #' \code{emerged_themes} is a "; "-delimited list of EXACT theme names. The old
 #' test, \code{grepl(tn, emerged_themes, fixed = TRUE)}, matched on substrings,
-#' so a theme whose name is contained in another's (e.g. "Sleep" inside "Sleep
-#' Problems") produced false-positive membership and inflated every per-theme
+#' so a theme whose name is contained in another's (e.g. "Focus" inside "Focus
+#' Time") produced false-positive membership and inflated every per-theme
 #' count, correlation, and prevalence figure built from it. This does an exact,
 #' token-level membership test instead. NA / empty entries are not members.
 #'
@@ -2006,7 +2006,7 @@ generate_downloads_section <- function(export_files, theme_stats) {
     'same ladder Modes 1 and 2 use as a backstop, but here it is the ',
     'sole layer rather than a backstop. Future phases may explore a ',
     'hybrid schema (constrained constructs + paired citation offsets) ',
-    'as a research spike. For now this footnote is the honest disclosure ',
+    'as a possible future direction. This footnote is the honest disclosure ',
     'rather than silent omission.\n',
     '</div>\n\n'
   )

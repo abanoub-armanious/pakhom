@@ -409,7 +409,7 @@ a:hover {
 }
 
 /* ============================================
-   METHODOLOGY STAMP (T1.7)
+   METHODOLOGY STAMP
    ============================================ */
 .methodology-stamp {
   display: flex;
@@ -451,7 +451,7 @@ a:hover {
 }
 
 /* ============================================
-   CORPUS COVERAGE (T0.3)
+   CORPUS COVERAGE
    ============================================ */
 .coverage-card {
   background: var(--bg-card);
@@ -641,7 +641,7 @@ a:hover {
 }
 
 /* ============================================
-   PARTICIPANT DISTRIBUTION (T0.2)
+   PARTICIPANT DISTRIBUTION
    ============================================ */
 .participant-spread-card {
   background: var(--bg-light);

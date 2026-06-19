@@ -643,7 +643,7 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 # Internal Helpers -- Response Structuring
 # ==============================================================================
 # These helpers shape the structured return value of ai_complete(). The goal
-# is to give the audit log (T1.4) and the response cache deterministic,
+# is to give the audit log and the response cache deterministic,
 # provider-agnostic access to provenance metadata while keeping the bare
 # content extraction trivial for existing callers (response$content).
 

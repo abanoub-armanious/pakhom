@@ -75,8 +75,7 @@ These commitments are load-bearing and do not weaken across modes.
 \item \strong{AC4}: Methodology stamped on every output (ClinicalTrials.gov
 pattern -- run_metadata.json, every CSV/JSON header, HTML stamp).
 \item \strong{AC5}: Soft-lock with audit trail; methodology change
-creates a new run with parent_run_id linkage (REDCap dev/production
-pattern).
+creates a new run with parent_run_id linkage.
 \item \strong{AC6}: Symmetric researcher-engagement affordances across
 modes: the same re-engagement levers in every mode, opt-in for
 Modes 2/3 (anti-gaming).

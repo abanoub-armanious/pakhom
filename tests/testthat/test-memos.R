@@ -181,9 +181,9 @@ test_that("memo_to_markdown produces YAML frontmatter + body", {
 
 test_that("markdown_to_memo round-trips body content byte-equivalently", {
   m_orig <- make_memo(
-    "Initial reflection: corpus surfaces themes around adherence.\n\nBut entries from contributor X are over-represented; need to interrogate.",
+    "Initial reflection: corpus surfaces themes around adoption.\n\nBut entries from contributor X are over-represented; need to interrogate.",
     type = "theoretical",
-    linked_themes = c("Adherence")
+    linked_themes = c("Adoption")
   )
   md <- memo_to_markdown(m_orig)
   m_parsed <- markdown_to_memo(md)
@@ -389,7 +389,7 @@ test_that(".render_memo_block escapes HTML-active characters in body, links, aut
 test_that(".build_mode1_memo_section renders empty-state notice when no memos", {
   log <- create_reflection_log()
   html <- pakhom:::.build_mode1_memo_section(log)
-  expect_match(html, "Researcher Reflexive Memos \\(M1\\.3 / AC6\\)")
+  expect_match(html, "Researcher Reflexive Memos")
   expect_match(html, "No memos were authored")
 })
 

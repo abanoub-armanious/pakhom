@@ -22,8 +22,8 @@ API key.
 
 1. Fork the repository and create a feature branch.
 2. Install development dependencies: `devtools::install_dev_deps()`.
-3. Make your change. Please keep the package's **binding design commitments**
-   intact (see the "Architectural commitments" section of `README.md`):
+3. Make your change. Please keep the package's **architectural commitments**
+   intact (see the "For methodologists / reviewers: architectural commitments" section of `README.md`):
    - the package **groups** codes into themes; it never merges them into new
      codes;
    - clustering depth is the AI's dynamic, per-dataset call, with no
@@ -46,11 +46,10 @@ by roxygen2 (>= 7.3.3): edit the roxygen comments above each function, not the
 
 ## Versioning
 
-The package is in pre-publication development, and its version is intentionally
-held at **1.0.0** (the planned initial-release version). Please do **not** bump
-the version number during this phase; record changes as dated entries in
-`NEWS.md` instead. The version changes only when the maintainer cuts the first
-published release.
+The package version is held at **1.0.0** for the initial release. Please do
+**not** bump the version number in a pull request; record changes as dated
+entries in `NEWS.md` instead. The version is updated only when the maintainer
+cuts a release.
 
 ## Code of conduct
 

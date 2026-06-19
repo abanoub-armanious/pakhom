@@ -146,7 +146,7 @@ validate_config <- function(config) {
   }
   if (length(errors) > 0) stop(paste(errors, collapse = "\n"))
 
-  # Validate methodology mode (T1.3). Mode is mandatory; framework_applied
+  # Validate methodology mode. Mode is mandatory; framework_applied
   # additionally requires framework_spec_path. Mode-specific behavior is
   # routed at the orchestrator (R/18_pipeline.R) and downstream functions.
   tryCatch(
@@ -1179,7 +1179,7 @@ config_wizard <- function(output_path = "config.yaml") {
   cat("================================\n")
   cat("This wizard will help you create a config.yaml file.\n\n")
 
-  # Methodology mode -- the load-bearing architectural choice (T1.3). It is
+  # Methodology mode -- the load-bearing architectural choice. It is
   # mandatory: a config without it fails validate_config(). Prompt for it
   # first, mirroring the Shiny wizard's Methodology step.
   cat("Methodology mode -- determines AI behaviors, mandatory artifacts, and\n")

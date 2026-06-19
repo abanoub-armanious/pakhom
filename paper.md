@@ -13,9 +13,9 @@ authors:
     orcid: 0000-0002-7005-8297
     affiliation: "1, 2"
 affiliations:
-  - name: Department of Psychiatry, Robert Wood Johnson Medical School, Rutgers University, Piscataway, NJ, USA
+  - name: Department of Psychiatry, Robert Wood Johnson Medical School, Rutgers Health, Piscataway, NJ, USA
     index: 1
-  - name: Brain Health Institute, Rutgers Biomedical and Health Sciences, Rutgers University, Piscataway, NJ, USA
+  - name: Brain Health Institute, Rutgers Health, Piscataway, NJ, USA
     index: 2
 date: 4 June 2026
 bibliography: paper.bib
@@ -130,7 +130,7 @@ qualitative work.
   runs *auditable and comparable* (through provenance, stamping, and cross-run
   comparison) rather than claiming deterministic replay.
 
-The package is covered by a test suite of more than 4,900 expectations that runs
+The package is covered by a test suite of more than 5,000 expectations that runs
 entirely offline (all model calls are mocked) and is documented by a getting-started
 walkthrough and a methodology-modes vignette.
 

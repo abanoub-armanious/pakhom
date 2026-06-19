@@ -19,15 +19,15 @@
       "Taking my meds makes me feel like a different person."
     ),
     std_author = c("alice", "bob", "carol", "dave", "eve", "frank"),
-    theme_membership_Adherence  = rep(1L, 6),
+    theme_membership_Adoption  = rep(1L, 6),
     theme_membership_Resistance = c(0L, 0L, 1L, 1L, 1L, 0L)
   )
 }
 
 .mock_mode1_theme_set <- function() {
   create_theme_set(list(
-    list(id = 1, name = "Adherence",
-         description = "Schedule adherence",
+    list(id = 1, name = "Adoption",
+         description = "Schedule adoption",
          codes_included = "async_routine"),
     list(id = 2, name = "Resistance",
          description = "Resistance to the regimen",
@@ -285,7 +285,7 @@ test_that("AC7: T0.2 per-theme participant spread surfaces in theme_stats", {
   result <- run_mode1(data = data, theme_set = ts, config = cfg,
                        categories = "counter_narrative")
 
-  expect_named(result$theme_stats, c("Adherence", "Resistance"))
+  expect_named(result$theme_stats, c("Adoption", "Resistance"))
   for (tn in names(result$theme_stats)) {
     ps <- result$theme_stats[[tn]]$participant_spread
     expect_true(isTRUE(ps$available))
@@ -336,7 +336,7 @@ test_that("provocations.csv has expected columns and one row per emitted provoca
   cn_response <- jsonlite::toJSON(list(provocations = list(list(
     entry_id = "e3", char_start = 0L, char_end = 7L,
     exact_text = "I always",
-    reason = "denies adherence"
+    reason = "denies adoption"
   ))), auto_unbox = TRUE)
 
   local_mocked_bindings(
@@ -499,7 +499,7 @@ test_that("compute_mode1_theme_stats per-theme entry count matches data", {
   ts <- .mock_mode1_theme_set()
   log <- create_reflection_log()
   stats <- compute_mode1_theme_stats(data, ts, log)
-  expect_equal(stats$Adherence$n_entries, 6L)
+  expect_equal(stats$Adoption$n_entries, 6L)
   expect_equal(stats$Resistance$n_entries, 3L)
 })
 
@@ -526,7 +526,7 @@ test_that("end-to-end: run_mode1 with generate_report=TRUE produces a complete r
   cn_response <- jsonlite::toJSON(list(provocations = list(list(
     entry_id = "e3", char_start = 0L, char_end = 8L,
     exact_text = "I always",
-    reason = "denies adherence; theme worth re-examining"
+    reason = "denies adoption; theme worth re-examining"
   ))), auto_unbox = TRUE)
 
   local_mocked_bindings(
@@ -586,7 +586,7 @@ test_that("end-to-end: run_mode1 with generate_report=TRUE produces a complete r
                   collapse = "\n")
   expect_match(html, "Reflexive Scaffold|reflexive_scaffold")
   expect_match(html, "I always")  # the cited verbatim text
-  expect_match(html, "Adherence")
+  expect_match(html, "Adoption")
 })
 
 test_that(".read_reflection_log_json re-classes nested Provocation + QuoteProvenance objects", {
@@ -602,11 +602,11 @@ test_that(".read_reflection_log_json re-classes nested Provocation + QuoteProven
                     citation_source = "model_freeform")
   q <- verify_quote(q, src)
   log$provocations[[1]] <- make_provocation(
-    category = "counter_narrative", theme_name = "Adherence",
+    category = "counter_narrative", theme_name = "Adoption",
     reason = "test reason", provenance = q
   )
   log$provocation_attempts <- data.frame(
-    theme_name = "Adherence", category = "counter_narrative",
+    theme_name = "Adoption", category = "counter_narrative",
     n_emitted = 1L,
     attempted_at = format(Sys.time(), "%Y-%m-%dT%H:%M:%S%z", tz = "UTC"),
     stringsAsFactors = FALSE
@@ -627,7 +627,7 @@ test_that(".read_reflection_log_json re-classes nested Provocation + QuoteProven
   p <- rt$provocations[[1L]]
   expect_s3_class(p, "Provocation")
   expect_equal(p$category, "counter_narrative")
-  expect_equal(p$theme_name, "Adherence")
+  expect_equal(p$theme_name, "Adoption")
 
   # The nested provenance is re-classed too -- this is the audit's
   # specific concern (downstream gates on inherits(p$provenance,
@@ -638,7 +638,7 @@ test_that(".read_reflection_log_json re-classes nested Provocation + QuoteProven
   # data.frame slots survive round-trip
   expect_s3_class(rt$provocation_attempts, "data.frame")
   expect_equal(nrow(rt$provocation_attempts), 1L)
-  expect_equal(rt$provocation_attempts$theme_name, "Adherence")
+  expect_equal(rt$provocation_attempts$theme_name, "Adoption")
 
   # Atomic top-level fields (schema_version, etc.) are unwrapped to
   # length-1 scalars rather than length-1 lists
@@ -704,9 +704,9 @@ test_that("run_mode1 with prior memos persists them to disk + integrity reflects
   # writing reflections post-hoc) and re-persist via the API.
   log <- result1$reflection_log
   log <- add_memo(log,
-                    body = "Reflexive note: theme 'Adherence' rests heavily on entries from contributors 1-3.",
+                    body = "Reflexive note: theme 'Adoption' rests heavily on entries from contributors 1-3.",
                     type = "theoretical",
-                    linked_themes = c("Adherence"))
+                    linked_themes = c("Adoption"))
   log <- add_memo(log,
                     body = "Operational decision: revisit code merge after seeing the counter-narratives above.",
                     type = "operational",
@@ -765,7 +765,7 @@ test_that("run_mode1 with prior memos persists them to disk + integrity reflects
   rmd_path <- gsub("\\.html$", ".Rmd", rmd_html_file)
   expect_true(file.exists(rmd_path))
   rmd <- paste(readLines(rmd_path, warn = FALSE), collapse = "\n")
-  expect_match(rmd, "Researcher Reflexive Memos \\(M1\\.3 / AC6\\)")
+  expect_match(rmd, "Researcher Reflexive Memos")
   expect_match(rmd, "Reflexive note", fixed = TRUE)
   expect_match(rmd, "Operational decision", fixed = TRUE)
   expect_no_match(rmd, "No memos were authored")
@@ -801,22 +801,22 @@ test_that("compute_mode1_theme_stats provocation counts match log", {
   data <- .mock_mode1_data()
   ts <- .mock_mode1_theme_set()
   log <- create_reflection_log()
-  # Build two synthetic provocations against Adherence
+  # Build two synthetic provocations against Adoption
   src <- "I always forget my pills; the schedule is impossible to keep up."
   q <- make_quote("e3", "data_entry", src, 0L, 8L, "I always",
                     citation_source = "model_freeform")
   q <- verify_quote(q, src)
   log$provocations[[1]] <- make_provocation(
-    category = "counter_narrative", theme_name = "Adherence",
+    category = "counter_narrative", theme_name = "Adoption",
     reason = "r", provenance = q
   )
   log$provocations[[2]] <- make_provocation(
-    category = "disconfirming_evidence", theme_name = "Adherence",
+    category = "disconfirming_evidence", theme_name = "Adoption",
     reason = "r2", provenance = q
   )
   stats <- compute_mode1_theme_stats(data, ts, log)
-  expect_equal(stats$Adherence$provocations$total, 2L)
-  expect_equal(stats$Adherence$provocations$by_category[["counter_narrative"]], 1L)
-  expect_equal(stats$Adherence$provocations$by_category[["disconfirming_evidence"]], 1L)
+  expect_equal(stats$Adoption$provocations$total, 2L)
+  expect_equal(stats$Adoption$provocations$by_category[["counter_narrative"]], 1L)
+  expect_equal(stats$Adoption$provocations$by_category[["disconfirming_evidence"]], 1L)
   expect_equal(stats$Resistance$provocations$total, 0L)
 })

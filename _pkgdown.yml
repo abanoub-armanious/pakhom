@@ -43,7 +43,7 @@ reference:
       Top-level entry points. run_analysis() drives Modes 2 + 3 (data ->
       coding -> sentiment -> themes -> correlations -> report ->
       finalize_run). run_mode1() drives Mode 1 (Reflexive Scaffold)
-      with the same Tier-0 / Tier-1 scaffolding but routes through
+      with the same transparency and methodology scaffolding but routes through
       the provocateur loop. Both produce a finalized run directory
       with full audit trail and HTML report.
     contents:
@@ -57,8 +57,8 @@ reference:
   - title: "Methodology Modes"
     desc: >
       The three methodologically-distinct operating modes, the framework
-      spec module (Mode 3), the provocateur loop (Mode 1), and the
-      reflexive memo CRUD (Mode 1 burden parity per AC6).
+      spec module (Mode 3), the provocateur loop (Mode 1), and
+      reflexive memo management for Mode 1.
     contents:
       - run_provocateur_questioning
       - load_framework_spec
@@ -82,13 +82,12 @@ reference:
       - provoke_absent_voice
       - provoke_assumption_surfacing
 
-  - title: "Mandatory Transparency Layer (T0.1 / T0.2 / T0.3)"
+  - title: "Mandatory Transparency Layer (Quotes, Coverage, Provenance)"
     desc: >
-      Quote provenance + verification ladder (T0.1), participant spread
-      per theme (T0.2 -- computed inside aggregate_theme_statistics),
-      and corpus coverage / no-silent-skip (T0.3). The render_tier0_coverage_card
-      generic dispatches on a virtual Tier0Coverage parent class shared
-      by CorpusCoverage (Mode 2/3) and ProvocationCoverage (Mode 1).
+      Quote provenance with a verification ladder, participant spread
+      per theme, and whole-corpus coverage with no silently skipped
+      entries. Shared across the codebook, framework, and reflexive
+      modes.
     contents:
       - make_quote
       - verify_quote
@@ -110,9 +109,8 @@ reference:
     desc: >
       A self-contained HTML methodological transparency
       report bundling Lincoln & Guba (1985) trustworthiness mapping,
-      reflexivity completeness, T0.1 quote provenance summary, T0.3
-      corpus coverage funnel, AC9 audit log summary, and theme set
-      summary. Reads disk artifacts only; never re-runs the pipeline.
+      reflexivity completeness, quote provenance summary, corpus
+      coverage funnel, audit log summary, and theme set summary. Reads disk artifacts only; never re-runs the pipeline.
     contents:
       - bundle_transparency_report
 
@@ -127,9 +125,9 @@ reference:
 
   - title: "Run State and Soft-Lock"
     desc: >
-      The REDCap dev/production pattern: every run lives in active or
-      finalized state; methodology cannot silently change between
-      states. Fork a run via clone_run_with_new_mode().
+      Every run is either active or finalized, and the methodology mode
+      is locked once a run is finalized so it cannot silently change
+      between states. Fork a run via clone_run_with_new_mode().
     contents:
       - init_run_state
       - read_run_metadata

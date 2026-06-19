@@ -294,7 +294,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
   # this to refuse cross-schema comparisons that would silently NA-pad
   # several panels.
   #
-  # T1.5: also stamps methodology_mode + parent_run_id + mode_changed_from
+  # also stamps methodology_mode + parent_run_id + mode_changed_from
   # + mode_locked_at + is_finalized so the run carries its REDCap-style
   # state record. The init_run_state helper in R/run_state.R is the
   # canonical writer; here the helper's output is extended with the
@@ -1163,7 +1163,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     log_info("Run integrity: all {length(integrity$expected)} expected files present")
   }
 
-  # T1.5: finalize the run -- methodology declaration is now locked for
+  # finalize the run -- methodology declaration is now locked for
   # this canonical output. Any future change to methodology must fork a
   # new run via clone_run_with_new_mode (which writes parent_run_id).
   tryCatch(

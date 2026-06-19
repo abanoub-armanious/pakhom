@@ -66,7 +66,7 @@ audit:
 
 
 # -----------------------------------------------------------------------------
-# Memos (M1.3)
+# Memos
 # Reflexive memos as first-class analytic data. Mandatory in
 # reflexive_scaffold mode; optional in other modes. enabled: ~ means "derive
 # from mode" (resolved at run-start based on mandatory_for_modes).
@@ -156,7 +156,7 @@ ai:
 # Where the pipeline reads input text from. SQLite database is required.
 # -----------------------------------------------------------------------------
 data:
-  source_type: "generic"          # "generic" / "reddit" / "twitter" / "clinical" (C4 dataset-agnostic)
+  source_type: "generic"          # "generic" / "reddit" / "twitter" / "clinical" (dataset-agnostic)
   database: ~                     # REQUIRED. Path to a SQLite .db file.
   tables: ~                       # NULL = auto-detect; or list of table names.
   custom_query: ~                 # Optional: SQL query overriding tables.
@@ -267,16 +267,15 @@ analysis:
     description_refresh_interval: 100
     description_refresh_min_freq: 50
     description_refresh_sample_segments: 5
-    # Saturation: per C1 ("AI decides when to stop"), saturation is judged
-    # by an AI arbiter (R/saturation_arbiter.R) rather than by
-    # threshold-based heuristics. No user-facing saturation knobs --
+    # Saturation: by design, saturation is judged by an internal AI arbiter
+    # rather than by threshold-based heuristics. No user-facing saturation knobs;
     # cadence is auto-scaled by corpus size (max(20, ceiling(n/50))).
     # The earlier threshold knobs (saturation_enabled / saturation_window /
     # saturation_threshold / saturation_confirmations /
     # min_coded_before_saturation / ai_assessment_interval) are removed.
 
   themes:
-    # Per C1 (AI decides when to stop), pakhom does not gate theme generation
+    # By design, pakhom does not gate theme generation
     # on hardcoded counts or proportions. Theme generation performs multi-pass
     # AI-judged clustering with AI-declared convergence, followed by a dedicated
     # post-convergence labeling pass.
