@@ -4,9 +4,8 @@ message: >-
   If you use this package in research, please cite it using the metadata below.
 type: software
 authors:
-  - given-names: Abanoub
+  - given-names: "Abanoub J."
     family-names: Armanious
-    name-particle: J.
     email: armaniousabanoub@gmail.com
     orcid: "https://orcid.org/0000-0002-7005-8297"
     affiliation: "Rutgers Health"
