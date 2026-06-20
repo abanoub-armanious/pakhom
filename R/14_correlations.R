@@ -196,7 +196,7 @@ detect_variable_types <- function(corr_data, ordinal_max = 21L) {
 
 #' Select appropriate correlation method for a variable pair
 #'
-#' Hardening: binary x ordinal pairs now route
+#' Binary x ordinal pairs now route
 #' through Spearman. The ordinal side is rank-orderable but not
 #' interval-scaled, so the interval assumption behind point-biserial
 #' (Pearson with a binary variable) does not hold; the reported
@@ -523,7 +523,7 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
               # cor.test returns no CI for Spearman/Kendall -> Fisher-z fallback,
               # using the PAIRWISE-complete n (the matrix is pairwise.complete.obs,
               # so the full row count would overstate n) and the method-appropriate
-              # standard error (M1 hardening).
+              # standard error.
               n_pair <- sum(stats::complete.cases(xj, yj))
               .fisher_z_ci(r, n_pair, conf_level = 0.95, method = pair_method)
             }
@@ -609,7 +609,7 @@ extract_significant <- function(results, p_threshold = 0.05, corr_data = NULL) {
                       df$exclusion_reason[df$excluded_from_findings]), collapse = ", ")))
     }
   }
-  # Hardening: re-scope the multiple-comparison family to the
+  # Re-scope the multiple-comparison family to the
   # SUBSTANTIVE (non-excluded) pairs. calculate_correlations runs the
   # BH/Bonferroni adjustment over the FULL matrix, BEFORE the circular /
   # within-instrument pairs are flagged above; those artifact pairs carry

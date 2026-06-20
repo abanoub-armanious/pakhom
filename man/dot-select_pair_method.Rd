@@ -19,7 +19,7 @@
 Character: "pearson" or "spearman"
 }
 \description{
-Hardening: binary x ordinal pairs now route
+Binary x ordinal pairs now route
 through Spearman. The ordinal side is rank-orderable but not
 interval-scaled, so the interval assumption behind point-biserial
 (Pearson with a binary variable) does not hold; the reported
