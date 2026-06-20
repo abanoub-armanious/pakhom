@@ -331,7 +331,7 @@ test_that("load_memos skips malformed .md files but logs a warning", {
 
 # ---- Audit log integration ----------------------------------------------
 
-test_that("add_memo writes a memo_added decision to the audit log when supplied", {
+test_that("add_memo writes a memo_added decision to the log when supplied", {
   d <- withr::local_tempdir()
   audit <- init_audit_log(d, config = list(methodology = list(
     mode = "reflexive_scaffold")))

@@ -44,8 +44,8 @@ The empirical motivation comes from three lines of evidence:
 - **Jowsey et al. 2025** (PLOS One, doi:10.1371/journal.pone.0330217) reports
   the "Frankenstein" finding that Microsoft Copilot drew its themes from only the
   first two or three pages of data. pakhom's mandatory transparency layer is the
-  architectural answer: quote provenance (T0.1), participant spread (T0.2), and
-  corpus coverage (T0.3).
+  architectural answer: quote provenance, participant spread, and
+  corpus coverage.
 - **Vikan et al. 2025** (Qualitative Health Research,
   doi:10.1177/10497323251365211), an exploratory study, finds that base LLMs
   give only limited support for reflexive TA and do not improve efficiency,
@@ -199,7 +199,7 @@ voice. The author is Coptic Egyptian.
   can be pinned to re-apply the same metric interpretations in a confirmatory
   re-run, backed by a ~45-primitive backend catalog the researcher never has to
   configure
-- **Credibility / honesty layer:** the report is built to survive review:
+- **Credibility safeguards:** the report is built to survive review:
   metrics are judged substantive vs source/platform metadata and grouped
   accordingly; circular correlations between two AI codings of the
   same text are excluded from findings but kept in the exported matrix with an
@@ -378,7 +378,7 @@ Researchers who:
 - Are conducting qualitative or mixed-methods research with large text datasets
 - Want to use AI to assist (not replace) their analytical process
 - May or may not have deep experience with R programming
-- Want reproducible, transparent, and auditable thematic analysis
+- Want thematic analysis they can reproduce and audit
 
 ## Requirements
 
@@ -470,11 +470,11 @@ the contract a peer reviewer can check the package's claims against:
 The methodology-modes vignette covers each commitment in narrative
 context.
 
-## For methodologists: rewrite-direction commitments (C1-C8)
+## For methodologists: design commitments (C1-C8)
 
 Distinct from the mode-design commitments above, the package's
 **algorithm-level** behavior is governed by eight commitments, C1 through
-C8, distilled from the rewrite-direction conversations that shaped the design. These are *how the package thinks*, not *what modes
+C8, the design principles that govern the package's algorithm-level behavior. These are *how the package thinks*, not *what modes
 it offers*. They are equally load-bearing and equally regression-tested,
 and any code change that touches coding, clustering, statistics, or
 output rendering must honor them:

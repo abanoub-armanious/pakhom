@@ -203,7 +203,7 @@ test_that(".rescope_plot_pvalues overlays the re-scoped adjusted p so the plot m
 # --- Dynamic method selection tests ---
 
 test_that("detect_variable_types identifies binary/ordinal/continuous", {
-  # H-13: ordinal threshold raised from 7 to 21 so
+  # ordinal threshold raised from 7 to 21 so
   # VADER-shaped sentiment (21 levels) classifies as ordinal. Need
   # > 21 distinct values for the "continuous" path.
   set.seed(1L)
@@ -217,7 +217,7 @@ test_that("detect_variable_types identifies binary/ordinal/continuous", {
   types <- detect_variable_types(cd)
   expect_equal(types[["binary_col"]], "binary")
   expect_equal(types[["ordinal_col"]], "ordinal")
-  expect_equal(types[["sentiment_like_col"]], "ordinal")  # H-13 path
+  expect_equal(types[["sentiment_like_col"]], "ordinal")  # path
   expect_equal(types[["continuous_col"]], "continuous")
 })
 
@@ -375,7 +375,7 @@ test_that("test_theme_cooccurrence uses Fisher's exact test when an expected cel
 
 # ---------------------------------------------------------------------------
 # Follow-up: correlations robustness + #2b plot consistency
-# (surfaced by an independent adversarial audit of the four shipped fixes)
+# all-NA matrices and plot/value consistency
 # ---------------------------------------------------------------------------
 
 test_that("extract_significant returns a full-schema empty result on an all-NA matrix (no crash)", {

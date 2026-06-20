@@ -179,7 +179,7 @@ data:
       author: ["author", "username"]
       timestamp: ["created_utc", "created", "date"]
       metrics: ["score", "num_comments", "upvote_ratio"]
-    drugscom:
+    reviews:
       id: ["id", "review_id"]
       text: ["review", "text", "comment"]
       author: ["username", "author"]
@@ -194,7 +194,7 @@ data:
       # falls through to .detect_metric_columns() auto-detect (any
       # numeric column that isn't internal or theme_membership_*).
       # Per-source-type metric hints belong only where the source has
-      # a known schema (reddit, drugscom).
+      # a known schema (reddit, reviews).
       metrics: []
 
 

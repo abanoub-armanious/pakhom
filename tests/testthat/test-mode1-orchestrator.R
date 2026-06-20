@@ -12,11 +12,11 @@
     std_id   = paste0("e", 1:6),
     std_text = c(
       "I plan to take my scheduling every day from now on.",
-      "My doctor told me to follow this regimen carefully.",
-      "I always forget my pills; the schedule is impossible to keep up.",
-      "Side effects make me skip shifts on weekends.",
+      "My manager told me to follow this schedule carefully.",
+      "I always forget my time-blocks; the schedule is impossible to keep up.",
+      "The workload makes me skip shifts on weekends.",
       "Honestly I don't think scheduling helps me at all.",
-      "Taking my meds makes me feel like a different person."
+      "Switching to flexible hours makes me feel like a different person."
     ),
     std_author = c("alice", "bob", "carol", "dave", "eve", "frank"),
     theme_membership_Adoption  = rep(1L, 6),
@@ -30,7 +30,7 @@
          description = "Schedule adoption",
          codes_included = "async_routine"),
     list(id = 2, name = "Resistance",
-         description = "Resistance to the regimen",
+         description = "Resistance to the schedule",
          codes_included = "skip")
   ))
 }
@@ -771,7 +771,7 @@ test_that("run_mode1 with prior memos persists them to disk + integrity reflects
   expect_no_match(rmd, "No memos were authored")
 })
 
-test_that(".read_reflection_log_json re-classes memos on resume (audit C1)", {
+test_that(".read_reflection_log_json re-classes memos on resume (C1)", {
   # Audit C1: memos must be re-classed after the JSON
   # round-trip; otherwise downstream consumers (gating on
   # inherits(m, "Memo")) silently see zero memos. This test pins
@@ -802,7 +802,7 @@ test_that("compute_mode1_theme_stats provocation counts match log", {
   ts <- .mock_mode1_theme_set()
   log <- create_reflection_log()
   # Build two synthetic provocations against Adoption
-  src <- "I always forget my pills; the schedule is impossible to keep up."
+  src <- "I always forget my time-blocks; the schedule is impossible to keep up."
   q <- make_quote("e3", "data_entry", src, 0L, 8L, "I always",
                     citation_source = "model_freeform")
   q <- verify_quote(q, src)

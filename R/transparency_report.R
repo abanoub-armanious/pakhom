@@ -427,7 +427,7 @@ bundle_transparency_report <- function(run_dir,
     confirmability = list(
       criterion = "Confirmability (objectivity equivalent)",
       pakhom_mechanisms = c(
-        # Audit followup H-1: each entry is ONE logical bullet (the
+        # each entry is ONE logical bullet (the
         # renderer wraps each in <li>). Pre-followup the continuation
         # lines starting with "  +" / "  concept" produced six <li>
         # items when the author intended three.
@@ -793,7 +793,7 @@ bundle_transparency_report <- function(run_dir,
 
 #' @keywords internal
 .tr_footer <- function() {
-  # Audit followup L-3: softened the AC4 claim. The HTML carries an
+  # softened the AC4 claim. The HTML carries an
   # inline methodology stamp (the <div class='stamp'> block at the
   # top); the file itself is NOT wrapped in the AC4 file-level
   # envelope (that pattern applies to JSON / CSV outputs where a

@@ -23,7 +23,7 @@ test_theme_cooccurrence(
 positive entries are excluded. Default 5L, matching the
 correlation matrix + theme-group test default.}
 
-\item{min_observed_both}{Integer; M-10 polish. Pairs whose observed
+\item{min_observed_both}{Integer; polish. Pairs whose observed
 co-occurrence is below this count are skipped (Fisher tests on
 zero-co-occurrence pairs are uninterpretable). Default 1L.}
 }

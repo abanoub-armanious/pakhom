@@ -31,7 +31,7 @@ framework:
         - "People I respect think..."
         - "Most people I know..."
         - "Society says..."
-        - "My doctor said"
+        - "My manager said"
     - id: perceived_behavioral_control
       name: "Perceived behavioral control"
       description: "The perceived ease or difficulty of performing the behavior. Reflects past experience as well as anticipated obstacles and impediments."

@@ -51,7 +51,7 @@ Researchers who:
 - Are conducting qualitative or mixed-methods research with large text datasets
 - Want to use AI to assist (not replace) their analytical process
 - May or may not have deep experience with R programming
-- Want reproducible, transparent, and auditable thematic analysis
+- Need an analysis that stays inspectable across runs
 
 ### What does it actually do?
 

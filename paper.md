@@ -11,12 +11,10 @@ tags:
 authors:
   - name: Abanoub J. Armanious
     orcid: 0000-0002-7005-8297
-    affiliation: "1, 2"
+    affiliation: "1"
 affiliations:
-  - name: Department of Psychiatry, Robert Wood Johnson Medical School, Rutgers Health, Piscataway, NJ, USA
+  - name: Rutgers Health
     index: 1
-  - name: Brain Health Institute, Rutgers Health, Piscataway, NJ, USA
-    index: 2
 date: 4 June 2026
 bibliography: paper.bib
 ---

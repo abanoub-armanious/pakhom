@@ -18,7 +18,7 @@ embedding-similarity step (4). When NULL, the ladder stops at step 3.}
 }
 \value{
 The \code{QuoteProvenance} object with verification fields
-updated. \code{verified_at} is set to \code{Sys.time()} ISO-8601.
+updated. \code{verified_at} is set to \code{Sys.time} I.
 }
 \description{
 Runs the verification ladder in order; the first match wins and sets

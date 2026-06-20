@@ -6,7 +6,6 @@
 ^outputs$
 ^manual analyses$
 ^.*\.db$
-^\.claude$
 ^_pkgdown\.yml$
 ^docs$
 ^pkgdown$

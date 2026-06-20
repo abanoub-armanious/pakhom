@@ -735,7 +735,7 @@ test_that(".partition_is_structurally_equivalent detects code-key bucket repeats
   expect_false(.partition_is_structurally_equivalent(prior_post, merged_post))
 })
 
-test_that("structural-repeat oscillation forces convergence (audit M8)", {
+test_that("structural-repeat oscillation forces convergence (M8)", {
   # The AI proposes {1,2}+{3,4} on pass 1, then proposes the same
   # partition on pass 2 (re-grouping the pass-1 clusters as singletons
   # into the same structural buckets). Without the structural-repeat
@@ -904,7 +904,7 @@ test_that("pass 1 AI failure with 1 leaf does NOT trip the abort (n=1 is normal)
 })
 
 test_that("AI failure on PASS 2+ recoverable via prior-pass clusters", {
-  # The hardening only aborts at pass 1 (where failure ->
+  # The guard only aborts at pass 1 (where failure ->
   # degenerate output). At pass 2+, the prior pass's clusters ARE the
   # natural fallback -- we just stop iterating and use what we have.
   state <- .v2_state(4L)

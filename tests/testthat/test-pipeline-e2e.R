@@ -208,7 +208,7 @@
     body = c(
       "I have trouble focusing after taking my scheduling at night.",
       "Overwork episodes have decreased since starting program.",
-      "The side effects of the policy make me feel exhausted all day.",
+      "The constant context-switching makes me feel exhausted all day.",
       "My deep-work quality improved significantly with the new schedule.",
       "I feel anxious about overworking and it affects my focus patterns."
     )[seq_len(n_posts)],
@@ -591,8 +591,8 @@ test_that("AC8: run_mode1 produces Mode 1 artifact set (different from run_analy
 
   data <- tibble::tibble(
     std_id = paste0("e", 1:6),
-    std_text = c("plan to take", "doctor told me", "always forget",
-                  "side effects", "doesn't help", "feel different"),
+    std_text = c("plan to batch", "manager told me", "always forget",
+                  "tool friction", "doesn't help", "feel different"),
     std_author = c("a", "b", "c", "d", "e", "f"),
     theme_membership_Adoption = rep(1L, 6)
   )
@@ -662,12 +662,12 @@ test_that("AC8: run_mode1 produces Mode 1 artifact set (different from run_analy
 # preprocessed corpus, attach theme membership from their external coding
 # tool, and run the provocateur loop -- WITHOUT calling pakhom:::
 # internals (load_and_combine_tables, preprocess_text, detect_columns,
-# standardize_data). An earlier smoke test caught
+# standardize_data). An earlier integration test caught
 # that this required pakhom::: access before load_corpus_from_config()
 # was exported. This test pins that public-API contract so any future
 # helper de-export silently breaks the test.
 
-test_that("Mode 1 public-API contract: config_path -> load_corpus_from_config -> run_mode1, no ::: required", {
+test_that("Mode 1 public-API contract: config_path -> load_corpus_from_config -> run_mode1, no::: required", {
   skip_if_not_installed("RSQLite")
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5")
@@ -1048,7 +1048,7 @@ test_that("AC3: run_analysis rejects a config without an explicit methodology.mo
 
 # ---- Production-bug regression test --------------------------------------
 
-test_that("aggregate_overall_statistics: empty-emerged-themes path keeps theme_name column (audit-found bug)", {
+test_that("aggregate_overall_statistics: empty-emerged-themes path keeps theme_name column (-found bug)", {
   # Pin the production bug found by these e2e tests:
   # names(table(character(0))) returns NULL, and tibble(theme_name = NULL,
   # ...) drops the column entirely. The downstream pull(theme_name)

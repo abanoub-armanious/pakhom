@@ -18,7 +18,7 @@
 
 #' Generate a GUID for QDPX elements
 #'
-#' Produces an RFC-4122 version-4 UUID as required by the REFI-QDA
+#' Produces an R version-4 UUID as required by the REFI-QDA
 #' \code{GUIDType} (8-4-4-4-12 hex with version nibble 4 and variant
 #' 8/9/a/b). Generated from R's RNG; unique within an export (the 122
 #' random bits make collisions negligible, unlike the previous
@@ -45,7 +45,7 @@
 # XML helpers
 # ==============================================================================
 
-#' Strip XML-1.0-illegal control characters from a string
+#' Strip X.0-illegal control characters from a string
 #'
 #' The XML 1.0 specification (section 2.2) forbids the C0 control characters
 #' except tab (0x09), line feed (0x0A) and carriage return (0x0D). Such
@@ -66,7 +66,7 @@
   x <- enc2utf8(as.character(x))
   # Build the illegal-character class from code points so this source stays
   # pure ASCII rather than embedding raw control bytes: 0x01-0x08, 0x0B, 0x0C
-  # and 0x0E-0x1F (every C0 control except the XML-legal tab/LF/CR).
+  # and 0x01F (every C0 control except the XML-legal tab/LF/CR).
   illegal <- paste(intToUtf8(c(1:8, 11, 12, 14:31), multiple = TRUE), collapse = "")
   gsub(paste0("[", illegal, "]"), "", x, perl = TRUE)
 }
@@ -544,11 +544,11 @@
       }
 
       # Ensure positions are valid integers. NB: these are CHARACTER offsets
-      # (R nchar/regexpr units). They equal UTF-16 code-unit offsets -- the
+      # (R nchar/regexpr units). They equal U code-unit offsets -- the
       # REFI-QDA / NVivo convention -- for all Basic-Multilingual-Plane text;
       # they can differ only when a source contains astral-plane characters
       # (e.g. emoji), where a selection may shift by one unit per such char in
-      # some importers. (Full UTF-16 re-indexing is a possible future refinement.)
+      # some importers. (Full U re-indexing is a possible future refinement.)
       start_pos <- max(0L, as.integer(start_pos))
       end_pos <- min(nchar(entry_text), as.integer(end_pos))
       if (end_pos <= start_pos) {

@@ -2,7 +2,7 @@
 % Please edit documentation in R/qdpx_export.R
 \name{.strip_invalid_xml_chars}
 \alias{.strip_invalid_xml_chars}
-\title{Strip XML-1.0-illegal control characters from a string}
+\title{Strip X.0-illegal control characters from a string}
 \usage{
 .strip_invalid_xml_chars(x)
 }

@@ -119,7 +119,7 @@ test_that("create_ai_provider initializes context_window", {
 # list returned by ai_complete(). Tests live here (not in a separate file)
 # because they test internal helpers of the AI provider module.
 
-test_that(".compute_prompt_hash returns a 64-char SHA-256 hex digest", {
+test_that(".compute_prompt_hash returns a 64-char S hex digest", {
   h <- pakhom:::.compute_prompt_hash(
     "hello", "system msg", "gpt-4o", 0.3, 1000L, FALSE
   )
@@ -566,7 +566,7 @@ test_that(".compute_prompt_hash differentiates documents = NULL vs documents pre
   expect_false(identical(base, withdocs))
 })
 
-test_that(".compute_prompt_hash treats NULL and list() documents identically", {
+test_that(".compute_prompt_hash treats NULL and list documents identically", {
   h_null  <- pakhom:::.compute_prompt_hash(
     "p", "s", "m", 0.3, 1000L, FALSE,
     response_schema = NULL, documents = NULL

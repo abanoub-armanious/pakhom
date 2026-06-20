@@ -26,7 +26,7 @@ test_that("make_quote constructs a QuoteProvenance with all schema fields", {
                        "attributed_code_id", "ai_model", "ai_call_id",
                        "citation_source", "verification_status",
                        "verification_method", "verification_score",
-                       # M-13/E-19: failure_reason field
+                       # failure_reason field
                        # populated on fabricated / drifted; NA otherwise.
                        "verification_failure_reason",
                        "verified_at", "schema_version")
@@ -56,7 +56,7 @@ test_that("make_quote computes source_text_sha256 over the FULL source text", {
   q1 <- make_quote("doc1", "test", SRC, 13L, 27L, QUOTE_TEXT)
   q2 <- make_quote("doc1", "test", paste0(SRC, " extra"), 13L, 27L, QUOTE_TEXT)
   expect_false(identical(q1$source_text_sha256, q2$source_text_sha256))
-  # SHA-256 is 64 hex chars
+  # S is 64 hex chars
   expect_equal(nchar(q1$source_text_sha256), 64L)
 })
 
@@ -316,7 +316,7 @@ test_that("init_fabrication_log creates the CSV with header row", {
   header <- readLines(flog$path)[1]
   # Verify header lists the expected columns
   expect_match(header, "timestamp,quote_id,source_doc_id")
-  # M-13/E-19: failure_reason column appended after
+  # failure_reason column appended after
   # verification_status.
   expect_match(header, "verification_status,failure_reason$")
 })
@@ -538,7 +538,7 @@ test_that(".build_tier0_dashboard renders verified counts + method breakdown", {
 })
 
 test_that(".build_tier0_dashboard renders fabrication CSV link when fabrications occurred", {
-  # V-5: text updated to "CAUGHT by the verification ladder
+  # text updated to "CAUGHT by the verification ladder
   # and DROPPED from the codebook" (was "detected and DROPPED"). Honest
   # post-rejection framing -- the new dashboard distinguishes pre-rejection
   # (caught + dropped) fabrications from the post-rejection (surviving)
@@ -558,7 +558,7 @@ test_that(".build_tier0_dashboard renders fabrication CSV link when fabrications
 })
 
 test_that(".build_tier0_dashboard handles singular vs plural correctly", {
-  # V-5: singular "1 attribution was CAUGHT" / plural
+  # singular "1 attribution was CAUGHT" / plural
   # "2 attributions were CAUGHT" (was "1 quote was detected" / "2 quotes
   # were detected").
   q_fab1 <- verify_quote(make_quote("d1", "t", SRC, 0L, 30L, "fake quote one"), SRC)
@@ -574,19 +574,19 @@ test_that(".build_tier0_dashboard handles singular vs plural correctly", {
   expect_match(md2, "2.* fabricated quote attributions were")
 })
 
-test_that("V-5: dashboard reports pre-rejection fabrication count via fabrication_log_path", {
+test_that("dashboard reports pre-rejection fabrication count via fabrication_log_path", {
   # Production callsite (R/17_report.R::build_analysis_report) passes
   # fabrication_log_path so the dashboard counts fabrications the
   # ladder DROPPED during coding (which aren't in the surviving
   # codebook population at all). Without this signal the dashboard
-  # reports "No fabrications detected" -- the V-5 false-negative.
+  # reports "No fabrications detected" -- the false-negative.
   td <- withr::local_tempdir()
   fab_path <- file.path(td, "fabrication_log.csv")
   # Simulate a fabrication log with 3 fabrications + the methodology
   # header + the CSV column header.
   writeLines(c(
     "# methodology_mode: codebook_collaborative",
-    "# run_id: smoke-test",
+    "# run_id: integration test",
     "timestamp,quote_id,source_doc_id,attributed_theme_id,attributed_code_id,ai_model,ai_call_id,exact_text,verification_status",
     "2026-05-22T00:00:00+0000,q1,d1,NA,c1,gpt-4o,req_001,fake_text_1,fabricated",
     "2026-05-22T00:00:01+0000,q2,d2,NA,c2,gpt-4o,req_002,fake_text_2,fabricated",
@@ -611,7 +611,7 @@ test_that("V-5: dashboard reports pre-rejection fabrication count via fabricatio
   expect_no_match(md, "No fabrications detected")
 })
 
-test_that("V-5: dashboard reports zero fabrications honestly when none caught", {
+test_that("dashboard reports zero fabrications honestly when none caught", {
   td <- withr::local_tempdir()
   fab_path <- file.path(td, "fabrication_log.csv")
   # Empty fabrication log (header rows only, no data rows).
@@ -629,7 +629,7 @@ test_that("V-5: dashboard reports zero fabrications honestly when none caught", 
     fabrication_log_path = fab_path
   )
   expect_match(md, "No fabrications detected")
-  # Per V-5 fix, the "no fabrications" path also names the surviving population.
+  # Per fix, the "no fabrications" path also names the surviving population.
   expect_match(md, "50.*AI-attributed verbatim claims")
 })
 

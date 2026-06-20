@@ -95,7 +95,7 @@ test_that(".format_primitive_result is NA-safe", {
 
 test_that("subtheme table is BYTE-IDENTICAL to legacy when no column interpreted", {
   # No ai_metric_stats field at all (pre-61.3b stats object). The legacy caption
-  # now carries the small-n caveat (audit followup -- the legacy spread
+  # now carries the small-n caveat ( -- the legacy spread
   # battery must disclose small-n fragility too, since the per-cell dagger only fires
   # on the AI path); the table is otherwise byte-identical to the legacy render.
   ts <- list(metric_cols = c("score"),
@@ -208,7 +208,7 @@ test_that("subtheme table surfaces a fail-honest gap by name (R4) and computes n
   rel <- new_relevance_criterion(
     research_focus_paraphrase = "How meeting load relates to deep-work quality.",
     relevance_criterion = "On-focus if it connects scheduling (shift/timing) to a focus outcome.",
-    on_focus_examples  = c("I take my pill at 9pm and focus well."),
+    on_focus_examples  = c("I block my calendar at 9pm and focus well."),
     off_focus_examples = c("I love this scheduling."),
     discrimination_principle = "Must tie scheduling to a FOCUS outcome.",
     source = source)
@@ -224,7 +224,7 @@ test_that("subtheme table surfaces a fail-honest gap by name (R4) and computes n
                                        rationale = "rhythm")),
       interpretation_note = "Evening clustering expected.")),
     source = source)
-  new_methodology_articulations(rel, mi, research_focus = "med x focus", source = source)
+  new_methodology_articulations(rel, mi, research_focus = "scheduling x focus", source = source)
 }
 
 test_that(".build_methodology_setup_section renders criterion, examples, and tables", {
@@ -232,7 +232,7 @@ test_that(".build_methodology_setup_section renders criterion, examples, and tab
   expect_match(out, "Methodology Setup", fixed = TRUE)
   expect_match(out, "AI-articulated", fixed = TRUE)
   expect_match(out, "connects scheduling", fixed = TRUE)
-  expect_match(out, "I take my pill at 9pm", fixed = TRUE)        # on-focus
+  expect_match(out, "I block my calendar at 9pm", fixed = TRUE)        # on-focus
   expect_match(out, "I love this scheduling", fixed = TRUE)        # off-focus
   expect_match(out, "Must tie scheduling to a FOCUS", fixed = TRUE)
   expect_match(out, "<code>prim_median</code>", fixed = TRUE)      # auditable primitive id

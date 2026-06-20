@@ -34,7 +34,7 @@ test_that("an examined-but-uncoded entry is counted separately, not as 'coded'",
 })
 
 # --- create_theme_set: colliding membership keys are disambiguated -----------
-test_that("create_theme_set disambiguates themes whose names collapse to the same make.names() key", {
+test_that("create_theme_set disambiguates themes whose names collapse to the same make.names key", {
   ts <- suppressWarnings(create_theme_set(list(
     list(id = 1, name = "Focus/Mood", codes_included = c("a")),
     list(id = 2, name = "Focus.Mood", codes_included = c("b"))  # same make.names() key

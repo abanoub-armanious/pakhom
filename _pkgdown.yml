@@ -6,7 +6,7 @@ template:
   bslib:
     primary: "#2c3e50"
 
-# Author profile links (preferred over an after_body JS hack -- pkgdown
+# Author profile links (preferred over an after_body JS hack; pkgdown
 # renders these into the author footer on every page natively, so the link
 # is server-rendered (no flicker) and survives any future pkgdown markup
 # changes.)

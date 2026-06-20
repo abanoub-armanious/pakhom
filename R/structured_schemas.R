@@ -9,7 +9,7 @@
 #
 # Why server-side schemas matter:
 # 1. Eliminates parse failures (the legacy parse_json_safely fallback in
-#    R/03_json_utils.R was kept on the hot path because GPT-4o would
+# R/03_json_utils.R was kept on the hot path because G would
 #    occasionally emit JSON with trailing commas, prose preambles, or
 #    truncated objects). A 3% parse-failure rate on a 1000-call run is 30
 #    silently-dropped decisions; structured outputs reduce this to 0.
@@ -896,8 +896,8 @@
         description = paste0(
           "Judge, in your own words, what this column MEASURES and how relevant ",
           "it is to THIS study's research focus -- on a spectrum from a ",
-          "SUBSTANTIVE MEASURE OF THE PHENOMENON under study (e.g. a symptom or ",
-          "severity score, a rating, a survey response) to INCIDENTAL ",
+          "SUBSTANTIVE MEASURE OF THE PHENOMENON under study (e.g. a focus or ",
+          "productivity score, a rating, a survey response) to INCIDENTAL ",
           "SOURCE/PLATFORM METADATA that reflects how the data was collected or ",
           "received rather than the phenomenon itself (e.g. upvotes, view counts, ",
           "comment counts, post IDs). Reason from the column's meaning and the ",

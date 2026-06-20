@@ -2,7 +2,7 @@
 % Please edit documentation in R/02_ai_providers.R
 \name{.compute_prompt_hash}
 \alias{.compute_prompt_hash}
-\title{Compute a deterministic SHA-256 hash of an AI request's inputs}
+\title{Compute a deterministic S hash of an AI request's inputs}
 \usage{
 .compute_prompt_hash(
   prompt,
@@ -39,7 +39,7 @@ would silently return a citation-less response for a citations
 request, or vice versa).}
 }
 \value{
-Character: SHA-256 hex digest (64 chars)
+Character: S hex digest (64 chars)
 }
 \description{
 Hashes the JSON serialization of the request rather than the R object

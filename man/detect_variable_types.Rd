@@ -27,5 +27,5 @@ silently classified VADER sentiment as \emph{continuous} on the
 large run, which then dispatched to Pearson (point-biserial for
 binary x quantized-sentiment pairs) -- methodologically wrong for an
 ordinal support. Spearman is correct when either variable is
-rank-orderable but not interval-scaled (H-13).
+rank-orderable but not interval-scaled .
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/16_report_helpers.R
 \name{.count_pre_rejection_fabrications}
 \alias{.count_pre_rejection_fabrications}
-\title{Count pre-rejection fabrications for the T0.1 dashboard (V-5 helper)}
+\title{Count pre-rejection fabrications for the T0.1 dashboard ( helper)}
 \usage{
 .count_pre_rejection_fabrications(
   fabrication_log_path = NULL,
@@ -20,9 +20,9 @@ Integer N caught, or NULL if neither source is available.
 }
 \description{
 Counts fabrication-log
-entries using readr's RFC-4180 parser instead of \code{readLines() + length(lines) - 1L}. Coded segments routinely contain newlines
+entries using readr's R parser instead of \code{readLines + length(lines) - 1L}. Coded segments routinely contain newlines
 (Reddit posts), and the FabricationLog writes the exact_text field
-as RFC-4180 quoted-with-embedded-newlines via .csv_quote
+as R quoted-with-embedded-newlines via .csv_quote
 (R/quote_provenance.R:861). The pre-fix line-counting approach
 counted a single 3-line fabricated quote as 3 fabrications.
 }

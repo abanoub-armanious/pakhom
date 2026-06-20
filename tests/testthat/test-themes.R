@@ -248,8 +248,8 @@ test_that("generate_themes_iterative empty codebook returns empty ThemeSet", {
   expect_equal(n_themes(ts), 0L)
 })
 
-test_that("cluster_decision is a valid audit log decision_type", {
-  # Audit CRITICAL-6a: production runs with audit_log != NULL
+test_that("cluster_decision is a valid log decision_type", {
+  # Audit CRITIC: production runs with audit_log != NULL
   # would abort if cluster_decision were not registered. Pin this by
   # asserting it's in the validator's allow-list.
   expect_true("cluster_decision" %in% pakhom:::.valid_decision_types)
@@ -294,7 +294,7 @@ test_that("cluster_decision is a valid audit log decision_type", {
 # ============================================================================
 
 
-test_that("C-1 integration: legacy 30-char minimum still triggers on n=1 singleton", {
+test_that("integration: legacy 30-char minimum still triggers on n=1 singleton", {
   # n=1 should keep the flat 30-char floor (log10(1) = 0).
   state <- create_coding_state()
   state$codebook[["solo"]] <- list(
@@ -325,7 +325,7 @@ test_that("C-1 integration: legacy 30-char minimum still triggers on n=1 singlet
   expect_equal(n_themes(ts), 1L)
 })
 
-# C-1 audit followup tests --------------------------------------------------
+# tests --------------------------------------------------
 
 
 # ============================================================================
@@ -338,7 +338,7 @@ test_that("C-1 integration: legacy 30-char minimum still triggers on n=1 singlet
 # populates them.
 # ============================================================================
 
-test_that("Tier 1 C-12: Subtheme S3 now carries nested $subthemes field", {
+test_that("Subtheme S3 now carries nested $subthemes field", {
   st_inner <- create_subtheme(name = "Inner", codes = c("a", "b"))
   st_outer <- create_subtheme(name = "Outer", codes = c("c"),
                                 subthemes = list(st_inner))
@@ -350,7 +350,7 @@ test_that("Tier 1 C-12: Subtheme S3 now carries nested $subthemes field", {
   expect_equal(subtheme_n_subthemes(st_inner), 0L)
 })
 
-test_that("Tier 1 C-12: create_subtheme coerces raw-list nested subthemes into Subtheme S3", {
+test_that("create_subtheme coerces raw-list nested subthemes into Subtheme S3", {
   raw_nested <- list(
     list(name = "Inner1", description = "i1", codes = c("a", "b")),
     list(name = "Inner2", description = "i2", codes = c("c"))
@@ -364,7 +364,7 @@ test_that("Tier 1 C-12: create_subtheme coerces raw-list nested subthemes into S
 
 
 # ============================================================================
-# AF-3: n_subthemes schema clarity
+# n_subthemes schema clarity
 #
 # Earlier, the JSON field n_subthemes counted only top-level real
 # subthemes but wasn't documented; an audit found 207 of 417
@@ -375,7 +375,7 @@ test_that("Tier 1 C-12: create_subtheme coerces raw-list nested subthemes into S
 #   n_subthemes_structured   -- length(subthemes_structured) incl. virtual
 # ============================================================================
 
-test_that("Tier 1 AF-3: theme_n_subthemes returns depth-1 real subthemes only", {
+test_that("theme_n_subthemes returns depth-1 real subthemes only", {
   # Build a theme with 2 top-level subthemes (1 real, 1 virtual) and
   # a nested real sub-subtheme under the real top-level subtheme.
   inner <- create_subtheme(name = "Inner Sub", codes = c("a", "b"))
@@ -390,7 +390,7 @@ test_that("Tier 1 AF-3: theme_n_subthemes returns depth-1 real subthemes only", 
   expect_equal(theme_n_subthemes(theme), 1L)
 })
 
-test_that("Tier 1 AF-3: theme_n_subthemes_total recurses across every depth", {
+test_that("theme_n_subthemes_total recurses across every depth", {
   # Same theme as above. n_subthemes_total counts BOTH the top-level
   # real ('Outer Real') AND the nested real ('Inner Sub') -> 2.
   inner <- create_subtheme(name = "Inner Sub", codes = c("a", "b"))
@@ -401,7 +401,7 @@ test_that("Tier 1 AF-3: theme_n_subthemes_total recurses across every depth", {
   expect_equal(theme_n_subthemes_total(theme), 2L)
 })
 
-test_that("Tier 1 AF-3: theme_n_subthemes_total works on a 3-deep tree", {
+test_that("theme_n_subthemes_total works on a 3-deep tree", {
   l3 <- create_subtheme(name = "Depth 3", codes = c("e"))
   l2 <- create_subtheme(name = "Depth 2", codes = c("d"),
                           subthemes = list(l3))
@@ -412,7 +412,7 @@ test_that("Tier 1 AF-3: theme_n_subthemes_total works on a 3-deep tree", {
   expect_equal(theme_n_subthemes_total(theme), 3L)
 })
 
-test_that("Tier 1 AF-3: subtheme_n_subthemes returns immediate-child count", {
+test_that("subtheme_n_subthemes returns immediate-child count", {
   # Direct subtheme getter (not theme-level).
   inner1 <- create_subtheme(name = "Inner 1", codes = c("a"))
   inner2 <- create_subtheme(name = "Inner 2", codes = c("b"))
@@ -422,7 +422,7 @@ test_that("Tier 1 AF-3: subtheme_n_subthemes returns immediate-child count", {
   expect_equal(subtheme_n_subthemes(inner1), 0L)
 })
 
-test_that("Tier 1 audit followup LOW-3: subtheme_n_codes_total recurses across depth", {
+test_that("subtheme_n_codes_total recurses across depth", {
   # Direct code count (depth-0) vs. recursive code count (all depths).
   inner1 <- create_subtheme(name = "Inner 1", codes = c("a", "b"))
   inner2 <- create_subtheme(name = "Inner 2", codes = c("c"))
@@ -434,7 +434,7 @@ test_that("Tier 1 audit followup LOW-3: subtheme_n_codes_total recurses across d
   expect_equal(subtheme_n_codes_total(inner1), 2L)  # leaf -> direct == total
 })
 
-test_that("Tier 1 audit followup MEDIUM-1: theme_set_to_tibble exposes both n_subthemes counters", {
+test_that("theme_set_to_tibble exposes both n_subthemes counters", {
   # CSV consumers should see both depth-1 (legacy) AND across-all-depths
   # (total) counts; previously only depth-1 was emitted.
   inner <- create_subtheme(name = "Inner Real", codes = c("a"))
@@ -459,8 +459,8 @@ test_that("Tier 1 audit followup MEDIUM-1: theme_set_to_tibble exposes both n_su
   expect_equal(tib$n_subthemes_total[tib$name == "Theme B"], 0L)
 })
 
-test_that("Tier 1 C-13: subtheme_assignments persists in cascade output", {
-  # End-to-end smoke test: cascade attaches subtheme_assignments to
+test_that("subtheme_assignments persists in cascade output", {
+  # End-to-end integration test: cascade attaches subtheme_assignments to
   # analytic data; the per-theme CSV export includes the column.
   # Build a minimal state + theme_set where cascade can route entries.
   state <- create_coding_state()

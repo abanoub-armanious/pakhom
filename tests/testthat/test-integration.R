@@ -6,7 +6,7 @@ test_that("export_results and report helpers work end-to-end", {
   data <- sample_data(10)
   data$emerged_themes <- c(rep("Focus Fragmentation", 6), rep("Policy Effectiveness", 4))
   data$theme_membership_Focus.Disruption <- c(rep(1L, 6), rep(0L, 4))
-  data$theme_membership_Treatment.Efficacy <- c(rep(0L, 6), rep(1L, 4))
+  data$theme_membership_Schedule.Efficacy <- c(rep(0L, 6), rep(1L, 4))
   data$theme_confidence <- runif(10, 0.5, 1.0)
   data$secondary_themes <- ""
   data$theme_rationale <- "code overlap"
@@ -61,7 +61,7 @@ test_that("aggregate statistics produce consistent results", {
   data <- sample_data(10)
   data$emerged_themes <- c(rep("Focus Fragmentation", 6), rep("Policy Effectiveness", 4))
   data$theme_membership_Focus.Disruption <- c(rep(1L, 6), rep(0L, 4))
-  data$theme_membership_Treatment.Efficacy <- c(rep(0L, 6), rep(1L, 4))
+  data$theme_membership_Schedule.Efficacy <- c(rep(0L, 6), rep(1L, 4))
   ts <- mock_theme_set()
 
   theme_stats <- aggregate_theme_statistics(data, ts)

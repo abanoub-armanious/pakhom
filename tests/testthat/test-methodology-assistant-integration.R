@@ -30,7 +30,7 @@ test_that(".build_progressive_system_prompt keeps prior wording with NO relevanc
 test_that("the relevance-injection seam composes (prompt_block -> config -> coding prompt)", {
   rel <- new_relevance_criterion(
     relevance_criterion = "A segment is on-focus if it discusses meeting load.",
-    on_focus_examples  = c("I take my pills at 9pm"),
+    on_focus_examples  = c("I block my calendar at 9pm"),
     off_focus_examples = c("I went for a walk"),
     discrimination_principle = "ties to meeting load vs not",
     source = "ai")
@@ -41,7 +41,7 @@ test_that("the relevance-injection seam composes (prompt_block -> config -> codi
   expect_match(p, "ON-FOCUS EXAMPLES", fixed = TRUE)
 })
 
-test_that("methodology_setup is in checkpoint step_order, upstream of coding (61.3a audit MEDIUM)", {
+test_that("methodology_setup is in checkpoint step_order, upstream of coding (61.3a MEDIUM)", {
   mgr <- init_checkpoints(withr::local_tempdir(), config_hash = "test")
   expect_true("methodology_setup" %in% mgr$step_order)
   # Upstream of coding: invalidating a full re-run (from data_loaded) clears the

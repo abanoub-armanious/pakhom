@@ -10,7 +10,7 @@
 Character scalar, e.g. "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 }
 \description{
-Produces an RFC-4122 version-4 UUID as required by the REFI-QDA
+Produces an R version-4 UUID as required by the REFI-QDA
 \code{GUIDType} (8-4-4-4-12 hex with version nibble 4 and variant
 8/9/a/b). Generated from R's RNG; unique within an export (the 122
 random bits make collisions negligible, unlike the previous

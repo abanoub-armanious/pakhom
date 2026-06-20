@@ -341,7 +341,7 @@ load_and_combine_tables <- function(db_path, table_names, source_type = "reddit"
 #' Searches for known column name patterns and returns a mapping.
 #'
 #' @param data tibble to inspect
-#' @param source_type Platform identifier ("reddit", "drugscom", "generic")
+#' @param source_type Platform identifier ("reddit", "reviews", "generic")
 #' @param config ThematicConfig (uses data.column_mappings if present)
 #' @return Named list with id, text, author, timestamp, metrics mappings
 detect_columns <- function(data, source_type = "reddit", config = NULL) {

@@ -10,7 +10,7 @@ different declared methodologies, is treated differently by construction.
 ## Three methodology modes
 
 - **Reflexive scaffold (Mode 1).** An AI "provocateur" interrogates the
-  researcher's own coding rather than authoring themes -- surfacing
+  researcher's own coding rather than authoring themes. It surfaces
   counter-narratives, blind spots, and alternative readings, with a reflexive
   memo trail. Counter-evidence provocations draw on a bounded, disclosed
   sample of corpus entries from outside the theme, so disconfirming readings
@@ -27,7 +27,7 @@ different declared methodologies, is treated differently by construction.
 
 - **The AI judges convergence; the package sets no count thresholds.** Theme
   count, clustering depth, and saturation are decided per data, research
-  question, and codebook -- never against a hardcoded target. A flat result and
+  question, and codebook, never against a hardcoded target. A flat result and
   a deep hierarchy are equally valid outcomes.
 - **The package groups codes; it never combines them into new codes.** Clustering
   returns only a partition of the existing codes; a theme's membership is the
@@ -41,7 +41,7 @@ different declared methodologies, is treated differently by construction.
 
 The Methodology Assistant lets the AI choose, per metric column, which
 descriptive statistics are meaningful for the data at hand and articulate why,
-drawing from a fixed catalog of deterministic primitives -- the AI reasons; the
+drawing from a fixed catalog of deterministic primitives. The AI reasons; the
 package computes. It also returns a per-column small-sample reliability floor,
 used to flag spread and shape statistics computed on too few entries.
 

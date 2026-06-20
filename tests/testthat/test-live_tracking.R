@@ -70,7 +70,7 @@ test_that("live_snapshot_codebook atomically rewrites JSON", {
       coded_segments = list(list(text = "x"), list(text = "y"))
     ),
     tool_friction = list(
-      code_name = "Side effects", description = "",
+      code_name = "Tool friction", description = "",
       type = "descriptive", frequency = 2L, entry_ids = c("e3"),
       coded_segments = list(list(text = "z"))
     )
@@ -141,7 +141,7 @@ test_that("LiveTracker print method shows current counts", {
 })
 
 test_that("LiveTracker counters persist across calls without caller reassignment", {
-  # Audit CRITICAL-1: counters live in tracker$counters (env)
+  # Audit CRITIC: counters live in tracker$counters (env)
   # so writers can mutate them in place. Without this fix, each
   # live_*() call would reset the counter to its initial value (the
   # on-disk file would still be written -- atomic-rewrite is a side-

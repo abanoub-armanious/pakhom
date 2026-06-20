@@ -31,7 +31,7 @@ test_that("init_response_cache returns ResponseCache with default settings", {
   expect_true(dir.exists(cache$cache_dir))
 })
 
-test_that("init_response_cache respects config$audit$capture_raw_responses = FALSE", {
+test_that("init_response_cache respects config$$capture_raw_responses = FALSE", {
   td <- withr::local_tempdir()
   config <- list(audit = list(capture_raw_responses = FALSE))
   cache <- init_response_cache(td, config = config)
@@ -40,7 +40,7 @@ test_that("init_response_cache respects config$audit$capture_raw_responses = FAL
   expect_false(dir.exists(cache$cache_dir))
 })
 
-test_that("init_response_cache uses config$audit$response_cache_dir override", {
+test_that("init_response_cache uses config$$response_cache_dir override", {
   td <- withr::local_tempdir()
   config <- list(audit = list(capture_raw_responses = TRUE,
                               response_cache_dir = "raw_responses"))
@@ -201,7 +201,7 @@ test_that("print.ResponseCache reports state without error", {
 
 # ---- Manual-audit consumer story + phantom-reference guard ------------------
 
-test_that("read_cached_response recovers the raw response behind an audit-log record", {
+test_that("read_cached_response recovers the raw response behind an -log record", {
   # The documented consumer story: an audit-log line carries a prompt_hash;
   # read_cached_response() looks up the raw API response behind it. This is
   # the REAL, shipping consumer of the response cache (planned replay
@@ -220,7 +220,7 @@ test_that("read_cached_response recovers the raw response behind an audit-log re
   expect_equal(recovered$choices[[1]]$text, "the cached answer")
 })
 
-test_that("no source file or shipped config references the phantom replay_run()", {
+test_that("no source file or shipped config references the phantom replay_run", {
   # replay_run() was referenced ~26 times across the codebase but never
   # implemented. All references were demoted to 'planned replay tooling'
   # (no promised API name). This guard prevents the phantom from regrowing.

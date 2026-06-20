@@ -10,7 +10,7 @@
 #
 # Memo schema:
 #   id                : memo_<ISO-timestamp-with-dashes>_<3-char-suffix>
-#   timestamp         : ISO-8601 (with Z / +HHMM)
+# timestamp : I (with Z / +HHMM)
 #   author            : free-text (default "researcher")
 #   type              : operational | coding | theoretical | positionality
 #   linked_codes      : character vector (may be empty)
@@ -53,7 +53,7 @@
 #' component is drawn from \code{[a-z0-9]} so the id is filesystem-safe
 #' and shell-safe without quoting.
 #'
-#' @param timestamp ISO-8601 timestamp (defaults to now). Colons in the
+#' @param timestamp I timestamp (defaults to now). Colons in the
 #'   time portion are converted to dashes so the id is path-safe on
 #'   Windows.
 #' @return Character: a memo id.
@@ -92,7 +92,7 @@
 #' @param linked_prior_memo Optional character: memo_id of an
 #'   antecedent memo this one extends or revises (forms a chain for
 #'   the timeline view).
-#' @param timestamp Optional ISO-8601 timestamp (defaults to now).
+#' @param timestamp Optional I timestamp (defaults to now).
 #' @param id Optional explicit id (defaults to a generated one).
 #' @return A \code{Memo} S3 object.
 #' @export

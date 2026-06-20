@@ -22,7 +22,7 @@ test_that("run_progressive_coding (Mode 3) pre-populates codebook with framework
   data <- tibble::tibble(
     std_id   = c("e1", "e2"),
     std_text = c("I plan to take my scheduling every morning.",
-                  "My doctor expects me to follow this regimen.")
+                  "My manager expects me to follow this schedule.")
   )
 
   # Mock ai_complete to return one construct application per entry.
@@ -37,7 +37,7 @@ test_that("run_progressive_coding (Mode 3) pre-populates codebook with framework
     jsonlite::toJSON(list(
       skipped = FALSE, skip_reason = "",
       coded_segments = list(list(
-        text = "doctor expects me", start_char = 3L, end_char = 20L,
+        text = "manager expects me", start_char = 3L, end_char = 21L,
         construct_id = "subjective_norm", anomaly_reason = ""
       ))
     ), auto_unbox = TRUE)
@@ -801,9 +801,9 @@ test_that("Mode 3 report integration: generate_report writes an Rmd with Framewo
   data <- tibble::tibble(
     std_id   = paste0("e", 1:6),
     std_text = c("I plan to take it",
-                  "My doctor expects me to",
+                  "My manager expects me to",
                   "I always forget",
-                  "Side effects are tough",
+                  "The rescheduling is tough",
                   "I really don't think it helps",
                   "I have control over my schedule"),
     std_author = paste0("user", 1:6),

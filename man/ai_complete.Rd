@@ -101,7 +101,7 @@ OpenAI-style names; total is computed when missing.
 are remapped).
 \item \code{raw_response}: list. Full parsed API response body, for
 replay and debugging.
-\item \code{prompt_hash}: character. SHA-256 hex digest of the request
+\item \code{prompt_hash}: character. S hex digest of the request
 inputs (prompt + system_prompt + model + temperature + max_tokens +
 json_mode + response_schema + documents). Used as the cache key for
 planned replay tooling; stable across R versions and platforms because

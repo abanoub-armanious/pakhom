@@ -1,7 +1,7 @@
 # qdpx_export coverage
 #
 # Exercises the constructor + GUID + XML build + zip packaging paths,
-# plus REFI-QDA Project 1.0 structural conformance (RFC-4122 v4 GUIDs,
+# plus REFI-QDA Project 1.0 structural conformance (R v4 GUIDs,
 # Users block, PlainTextSelection offsets, internal:// GUID source
 # paths, ProjectType element order) and an export -> import round-trip
 # through the package's own .parse_qdpx_deep reader.
@@ -61,10 +61,10 @@
 }
 
 # ==========================================================================
-# .qdpx_guid: RFC-4122 v4 (REFI-QDA GUIDType) + uniqueness
+# .qdpx_guid: R v4 (REFI-QDA GUIDType) + uniqueness
 # ==========================================================================
 
-test_that(".qdpx_guid emits an RFC-4122 version-4 UUID (REFI-QDA GUIDType)", {
+test_that(".qdpx_guid emits an R version-4 UUID (REFI-QDA GUIDType)", {
   g <- pakhom:::.qdpx_guid()
   # 8-4-4-4-12 hex, version nibble '4', variant nibble [89ab]
   expect_match(
@@ -149,7 +149,7 @@ test_that("export_qdpx produces a valid .qdpx zip with project.qde + Sources/", 
   expect_true(any(grepl("^sources/", entries)))
 })
 
-test_that("QDPX project.qde XML carries UTC creationDateTime (meta-audit M4)", {
+test_that("QDPX project.qde XML carries UTC creationDateTime (meta- M4)", {
   skip_if_not_installed("xml2")
   fx <- .qdpx_minimal_fixture()
   out <- withr::local_tempfile(fileext = ".qdpx")
@@ -159,7 +159,7 @@ test_that("QDPX project.qde XML carries UTC creationDateTime (meta-audit M4)", {
   utils::unzip(out, files = "project.qde", exdir = tmp_dir)
   doc <- xml2::read_xml(file.path(tmp_dir, "project.qde"))
   cdt <- xml2::xml_attr(doc, "creationDateTime")
-  # ISO-8601 with Z suffix (UTC) per the M4 fix
+  # I with Z suffix (UTC) per the M4 fix
   expect_match(cdt, "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
                perl = TRUE)
 })
@@ -235,7 +235,7 @@ test_that("export_qdpx with empty codebook still produces a valid sources-only z
 })
 
 # ==========================================================================
-# Adversarial content: XML metacharacters, XML-1.0-illegal control chars, and
+# Adversarial content: XML metacharacters, X.0-illegal control chars, and
 # unicode in code names / descriptions / source text must still yield a VALID,
 # re-parseable .qde (researchers import this into NVivo/ATLAS.ti/MAXQDA, so a
 # malformed export would silently break their workflow).

@@ -1,15 +1,15 @@
-# Coverage, audit-log, and theme hardening unit tests
+# Coverage, audit-log, and theme edge-case tests
 #
-# H-6  .coverage-banner-saturated CSS rule present
-# H-9  saturation arbiter dedupe via last_arbiter_n_coded
-# H-10 write_corpus_coverage persists coverage_card.json
-# H-11 audit log schema_version stamped on every record
-# H-26 keywords capped to top-N codes by frequency
-# M-12 is_new_code dedupe within an entry
-# M-28 researcher_review preserves subthemes for non-mutating edits
+# .coverage-banner-saturated CSS rule present
+# saturation arbiter dedupe via last_arbiter_n_coded
+# write_corpus_coverage persists coverage_card.json
+# audit log schema_version stamped on every record
+# keywords capped to top-N codes by frequency
+# is_new_code dedupe within an entry
+# researcher_review preserves subthemes for non-mutating edits
 
 # ==========================================================================
-# H-6: .coverage-banner-saturated CSS
+# .coverage-banner-saturated CSS
 # ==========================================================================
 
 test_that("inst/rmd/styles.css contains coverage-banner-saturated rule", {
@@ -24,7 +24,7 @@ test_that("inst/rmd/styles.css contains coverage-banner-saturated rule", {
 
 
 # ==========================================================================
-# H-11: audit log schema_version on every record
+# audit log schema_version on every record
 # ==========================================================================
 
 test_that(".AUDIT_LOG_SCHEMA_VERSION exists and is 1.0.0", {
@@ -46,7 +46,7 @@ test_that("log_ai_decision stamps schema_version on every record", {
 
 
 # ==========================================================================
-# H-10: write_corpus_coverage persists coverage_card.json
+# write_corpus_coverage persists coverage_card.json
 # ==========================================================================
 
 test_that("write_corpus_coverage produces machine-readable JSON (no methodology stamp)", {
@@ -97,7 +97,7 @@ test_that("write_corpus_coverage with methodology stamp prepends to JSON", {
 
 
 # ==========================================================================
-# H-26: keywords capped to top-N codes
+# keywords capped to top-N codes
 # ==========================================================================
 
 test_that("enrich_themes caps Mode 2 keywords to top-8 codes by frequency", {
@@ -172,7 +172,7 @@ test_that("enrich_themes keeps all codes when count <= cap", {
 
 
 # ==========================================================================
-# M-22: narrative field documented as deprecated
+# narrative field documented as deprecated
 # ==========================================================================
 
 test_that(".THEME_DEFAULTS still includes narrative field (back-compat)", {
@@ -186,7 +186,7 @@ test_that(".THEME_DEFAULTS still includes narrative field (back-compat)", {
 # ==========================================================================
 
 
-test_that("audit followup HIGH-2: M-27 snapshot uses field names live_snapshot_clusters reads", {
+test_that("snapshot uses field names live_snapshot_clusters reads", {
   # Pre-followup the snapshot builder used `proposed_name` (snapshot
   # reader reads `name`) and only first code key per subtheme (reader
   # reads code_keys + code_indices for n_codes). Result: snapshot
@@ -244,7 +244,7 @@ test_that("audit followup HIGH-2: M-27 snapshot uses field names live_snapshot_c
   expect_true("construct_a" %in% snap$themes[[1L]]$code_keys)
 })
 
-test_that("audit followup HIGH-1: write_corpus_coverage doesn't overwrite schema_version", {
+test_that("write_corpus_coverage doesn't overwrite schema_version", {
   td <- withr::local_tempdir()
   # Coverage object with a deliberately-different schema_version to
   # detect overwriting
@@ -264,7 +264,7 @@ test_that("audit followup HIGH-1: write_corpus_coverage doesn't overwrite schema
   expect_equal(back$schema_version, "FUTURE_SCHEMA_2.0.0")
 })
 
-test_that("audit followup MEDIUM-3: create_coding_state pre-inits last_arbiter_n_coded", {
+test_that("create_coding_state pre-inits last_arbiter_n_coded", {
   # Helper for synthetic state via the constructor used by
   # run_progressive_coding. The audit found this field was only
   # populated INSIDE the gate body, so a never-arbitered run would
@@ -275,7 +275,7 @@ test_that("audit followup MEDIUM-3: create_coding_state pre-inits last_arbiter_n
   expect_equal(cs$saturation$last_arbiter_n_coded, -1L)
 })
 
-test_that("audit followup MEDIUM-1: H-26 keyword lookup uses canonical code keys", {
+test_that("keyword lookup uses canonical code keys", {
   # When a code's key differs from tolower(name) (unicode case),
   # the lookup must use the canonical key, not tolower(name).
   # This test uses an all-ASCII fixture where tolower(name) ==

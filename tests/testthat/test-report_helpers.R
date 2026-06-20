@@ -75,7 +75,7 @@ test_that("aggregate_overall_statistics handles missing optional columns", {
   expect_equal(nrow(result$themes), 0)
 })
 
-test_that("C-11 audit followup LOW #6: theme names with special chars round-trip via theme_set", {
+test_that("LOW #6: theme names with special chars round-trip via theme_set", {
   # Earlier, the theme distribution path used
   # sub("^theme_membership_", "", names(theme_counts)) +
   # gsub("\\.", " ", theme_labels) to recover the original theme name
@@ -84,7 +84,7 @@ test_that("C-11 audit followup LOW #6: theme names with special chars round-trip
   # handles space. 71 of 417 themes in an early run were therefore
   # MISSING from the dashboard (every theme with a hyphen, apostrophe,
   # slash, colon, comma, or paren in its name).
-  # The C-11 fix iterates theme_set$themes directly and computes
+  # The fix iterates theme_set$themes directly and computes
   # safe_col = paste0("theme_membership_", make.names(t$name)) for each
   # ORIGINAL name.
   special_names <- c(

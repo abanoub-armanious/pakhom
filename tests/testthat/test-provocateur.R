@@ -92,7 +92,7 @@ test_that(".citation_to_provocation builds verified Provocation from real citati
   data <- tibble::tibble(
     std_id   = c("e1", "e2"),
     std_text = c("I plan to take my scheduling every day from now on.",
-                  "My doctor told me to follow this regimen carefully.")
+                  "My manager told me to follow this schedule carefully.")
   )
   ai_meta <- new.env(parent = emptyenv())
   ai_meta$model <- "claude-mock"; ai_meta$call_id <- "msg_test"
@@ -147,11 +147,11 @@ test_that(".citation_to_provocation drops fabricated provocation citations (T0.1
     std_id   = paste0("e", 1:6),
     std_text = c(
       "I plan to take my scheduling every day from now on.",
-      "My doctor told me to follow this regimen carefully.",
-      "I always forget my pills; the schedule is impossible to keep up.",
-      "Side effects make me skip shifts on weekends.",
+      "My manager told me to follow this schedule carefully.",
+      "I always forget my time-blocks; the schedule is impossible to keep up.",
+      "The workload makes me skip shifts on weekends.",
       "Honestly I don't think scheduling helps me at all.",
-      "Taking my meds makes me feel like a different person."
+      "Switching to flexible hours makes me feel like a different person."
     ),
     std_author = c("alice", "bob", "carol", "dave", "eve", "frank"),
     sentiment_score = c(0.5, 0.4, -0.3, -0.5, -0.7, 0.1),
@@ -354,7 +354,7 @@ test_that("provoke_assumption_surfacing returns alternative + erased terms", {
            exact_text = "skip shifts")
     ),
     erased_terms = list(
-      list(term = "side effects",
+      list(term = "tool friction",
            implication = "Researcher's framing focuses on routine, ignoring physical impact")
     )
   ), auto_unbox = TRUE)
@@ -382,7 +382,7 @@ test_that("provoke_assumption_surfacing returns alternative + erased terms", {
   # The erased term has NULL provenance
   erased <- Filter(function(p) is.null(p$provenance), provs)
   expect_gte(length(erased), 1L)
-  expect_equal(erased[[1]]$extra$erased_term, "side effects")
+  expect_equal(erased[[1]]$extra$erased_term, "tool friction")
 })
 
 # ---- Orchestrator: run_provocateur_questioning -----------------------------
@@ -668,7 +668,7 @@ test_that("AC7: every Provocation with a citation runs through verify_quote", {
   expect_null(p_fake)
 })
 
-test_that(".citation_to_provocation emits a quote_verified audit record on success", {
+test_that(".citation_to_provocation emits a quote_verified record on success", {
   data <- tibble::tibble(
     std_id   = "e1",
     std_text = "I plan to take my scheduling every day from now on."
@@ -699,7 +699,7 @@ test_that(".citation_to_provocation emits a quote_verified audit record on succe
 })
 
 # ==============================================================================
-# Counter-evidence candidate sampling (HIGH-6/7 fix)
+# Counter-evidence candidate sampling (/7 fix)
 # ==============================================================================
 
 test_that(".build_candidate_counter_entries samples only NON-theme entries, deterministically", {
@@ -776,7 +776,7 @@ test_that("counter-evidence prompts embed the candidate corpus entries", {
 })
 
 # ==============================================================================
-# M-14: alternative names survive an anchor-quote verification failure
+# alternative names survive an anchor-quote verification failure
 # ==============================================================================
 
 test_that("alternative_interpretation emits names with NULL provenance when no anchor verifies", {

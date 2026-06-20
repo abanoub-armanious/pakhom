@@ -354,7 +354,7 @@ theme_n_subthemes <- function(theme) {
 
 #' Total real (named) subthemes across every depth of a theme
 #'
-#' with C-12's recursive walker, subthemes can
+#' with 's recursive walker, subthemes can
 #' nest. This getter counts every named subtheme regardless of depth so
 #' downstream consumers can report the "true" decomposition size of a
 #' theme.

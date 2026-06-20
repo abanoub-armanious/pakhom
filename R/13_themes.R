@@ -593,7 +593,7 @@ cascade_theme_assignments <- function(data, coding_state, theme_set) {
     # chunk-local segment_index + chunk start offset.
     # Normalize AI-returned code names
     # here too. This admission path doesn't inject a numbered codebook
-    # menu so the specific C-4 trigger is absent, but the normalizer is
+    # menu so the specific trigger is absent, but the normalizer is
     # the package's general contract for AI-name hygiene -- apply it on
     # every admission site, not just the Mode 2 codebook one.
     for (cs in rows) {

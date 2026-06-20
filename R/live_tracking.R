@@ -98,7 +98,7 @@ init_live_tracker <- function(output_dir,
   # without requiring the caller to reassign. Pass-by-value on a list
   # would silently lose counter increments:
   # the on-disk file would still be rewritten -- atomic writes are
-  # side-effects -- but tracker$n_assignments / n_codebook_snapshots /
+  # side-effects, but tracker$n_assignments / n_codebook_snapshots /
   # n_cluster_snapshots would stay 0 across the whole run, breaking
   # the print method's diagnostic output and any downstream code that
   # reasons over the counts.

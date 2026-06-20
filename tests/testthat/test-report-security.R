@@ -1,4 +1,4 @@
-# Regression tests for R/17_report.R hardening:
+# Regression tests for R/17_report.R security:
 #   FIX 1 -- NA-sentiment quote must not crash the report-string BUILD phase.
 #   FIX 2 -- AI free-text (<script> etc.) must be HTML-neutralized before it is
 #            interpolated into the report, while intended Markdown is preserved.

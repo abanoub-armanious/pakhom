@@ -118,7 +118,7 @@ test_that("analyze_sentiment populates all columns with mocked AI", {
     std_text = c(
       "I feel terrible after overwork last night",
       "The scheduling really helped me focus better",
-      "I am worried about the side effects of my program"
+      "I am worried about the downsides of the new program"
     )
   )
 

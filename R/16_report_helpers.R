@@ -555,7 +555,7 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
 
     # This loop iterates only
     # depth-1 subthemes (theme$subthemes). Nested sub-subthemes
-    # (introduced by C-12) are NOT broken out as separate rows in the
+    # (introduced by ) are NOT broken out as separate rows in the
     # paper-style summary table -- their codes contribute to the
     # parent subtheme's row instead. This matches the cascade design:
     # subtheme_assignments stores only the top-level subtheme name. The
@@ -1639,13 +1639,13 @@ generate_downloads_section <- function(export_files, theme_stats) {
   )
 }
 
-#' Count pre-rejection fabrications for the T0.1 dashboard (V-5 helper)
+#' Count pre-rejection fabrications for the T0.1 dashboard ( helper)
 #'
 #' Counts fabrication-log
-#' entries using readr's RFC-4180 parser instead of `readLines() +
+#' entries using readr's R parser instead of `readLines +
 #' length(lines) - 1L`. Coded segments routinely contain newlines
 #' (Reddit posts), and the FabricationLog writes the exact_text field
-#' as RFC-4180 quoted-with-embedded-newlines via .csv_quote
+#' as R quoted-with-embedded-newlines via .csv_quote
 #' (R/quote_provenance.R:861). The pre-fix line-counting approach
 #' counted a single 3-line fabricated quote as 3 fabrications.
 #'
@@ -1660,7 +1660,7 @@ generate_downloads_section <- function(export_files, theme_stats) {
   if (is.null(fabrication_log_path)) return(NULL)
   if (!file.exists(fabrication_log_path)) return(NULL)
   tryCatch({
-    # readr handles the methodology comment-header lines + RFC-4180
+    # readr handles the methodology comment-header lines + R
     # quoted multi-line fields correctly. NULL show_col_types silences
     # the column-type message.
     df <- readr::read_csv(fabrication_log_path,
@@ -1720,7 +1720,7 @@ generate_downloads_section <- function(export_files, theme_stats) {
   # When fabrications were caught
   # AND every attribution was dropped (stats$total == 0L because the
   # surviving population is empty), the pre-fix early-return rendered
-  # "verification did not run" -- a strictly worse lie than V-5's
+  # "verification did not run" -- a strictly worse lie than 's
   # "no fabrications detected" because it implies the defense never
   # fired at all. Compute the pre-rejection count FIRST; only fall
   # through to the empty-stats branch when BOTH stats and the fab log
@@ -1808,7 +1808,7 @@ generate_downloads_section <- function(export_files, theme_stats) {
   # Survivor count uses n_verified
   # (exact + fuzzy), NOT total. `total` includes drifted + unverified
   # entries which are NOT verified-against-source -- claiming them as
-  # "verified" was a small instance of the same lie V-5 fixed.
+  # "verified" was a small instance of the same lie fixed.
   fab_line <- if (n_caught > 0L) {
     rate_pct <- round(100 * n_caught / max(n_caught + total, 1L), 2)
     paste0(

@@ -174,7 +174,7 @@ test_that("extract_manuscript_sections appends content for repeated section head
     "",
     "Theme 2: Scheduling Effects",
     "Content about scheduling effects on behavior.",
-    "Side effects were commonly reported.",
+    "Scheduling friction was commonly reported.",
     "",
     "Discussion",
     "These findings have implications.",
@@ -321,7 +321,7 @@ test_that("generate_learning_context injects supplementary sections", {
           sections = list(
             introduction = "This study investigates focus-scheduling interactions in remote workers.",
             methodology = "We applied reflexive thematic analysis following Braun and Clarke.",
-            themes = "Theme 1: Focus disruption from scheduling side effects.",
+            themes = "Theme 1: Focus disruption from scheduling friction.",
             discussion = "The interplay between deep-work quality and overwork suggests a bidirectional relationship."
           )
         ),
@@ -423,7 +423,7 @@ test_that("parse_raw_data_files returns NULL for empty directory", {
 #
 # Earlier versions of .synthesize_cross_study_patterns injected hardcoded
 # scheduling-research opinions into the AI's learning context (a regex list
-# matching theme names to predefined "recurring categories" like 'side effects',
+# matching theme names to predefined "recurring categories" like 'tool friction',
 # 'program efficacy', 'schedule timing'; plus an unconditional narrative-arc
 # claim about themes moving from 'direct program effects' to 'broader
 # implications'). These tests pin that those forbidden strings never appear in
@@ -471,11 +471,11 @@ test_that("cross-study synthesis does NOT inject scheduling-research framing on 
   # and must NEVER appear in the output regardless of input
   forbidden <- c(
     "RECURRING categories",
-    "side effects / adverse reactions",
+    "tool friction / unexpected drawbacks",
     "program efficacy / outcomes",
     "participant journey",
     "direct program effects",
-    "side effects and complications",
+    "tool friction and breakdowns",
     "broader implications",
     "Apply these same organizational principles",
     "CONTRASTING subthemes"
@@ -517,10 +517,10 @@ test_that("cross-study synthesis returns empty string with fewer than 2 studies"
 })
 
 # ============================================================================
-# AH-3 audit followup: study roster + hash-shuffle iteration
+# study roster + hash-shuffle iteration
 # ============================================================================
 
-test_that("AH-3: .build_study_roster returns empty string for single-study input", {
+test_that(".build_study_roster returns empty string for single-study input", {
   one_study <- structure(list(
     studies = list(only = list(name = "only_study",
                                 codebook = data.frame(code_name = "a"))),
@@ -529,7 +529,7 @@ test_that("AH-3: .build_study_roster returns empty string for single-study input
   expect_equal(pakhom:::.build_study_roster(one_study), "")
 })
 
-test_that("AH-3: .build_study_roster returns empty for NULL or zero studies", {
+test_that(".build_study_roster returns empty for NULL or zero studies", {
   expect_equal(pakhom:::.build_study_roster(NULL), "")
   expect_equal(
     pakhom:::.build_study_roster(
@@ -539,7 +539,7 @@ test_that("AH-3: .build_study_roster returns empty for NULL or zero studies", {
   )
 })
 
-test_that("AH-3: .build_study_roster names every study at the top", {
+test_that(".build_study_roster names every study at the top", {
   three_studies <- structure(list(
     studies = list(
       dayvigo = list(name = "dayvigo",
@@ -565,7 +565,7 @@ test_that("AH-3: .build_study_roster names every study at the top", {
   expect_true(grepl("3 codes", out, fixed = TRUE))
 })
 
-test_that("AH-3: .build_study_roster handles studies with NULL codebook gracefully", {
+test_that(".build_study_roster handles studies with NULL codebook gracefully", {
   studies_with_null <- structure(list(
     studies = list(
       a = list(name = "a", codebook = NULL),
@@ -579,7 +579,7 @@ test_that("AH-3: .build_study_roster handles studies with NULL codebook graceful
   expect_true(grepl("**b**", out, fixed = TRUE))
 })
 
-test_that("AH-3 (audit MEDIUM-4): study iteration order is deterministic + hash-shuffled", {
+test_that("study iteration order is deterministic + hash-shuffled", {
   # Hash-based ordering is deterministic across calls (R7 replay-
   # equivalence) AND uncorrelated with registration order. Verify by
   # computing the expected order via the same hash + confirming the

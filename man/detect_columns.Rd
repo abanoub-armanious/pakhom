@@ -9,7 +9,7 @@ detect_columns(data, source_type = "reddit", config = NULL)
 \arguments{
 \item{data}{tibble to inspect}
 
-\item{source_type}{Platform identifier ("reddit", "drugscom", "generic")}
+\item{source_type}{Platform identifier ("reddit", "reviews", "generic")}
 
 \item{config}{ThematicConfig (uses data.column_mappings if present)}
 }

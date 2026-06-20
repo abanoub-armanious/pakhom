@@ -1,10 +1,8 @@
-# Audit-followup hardening. Three independent audits (correctness,
-# principle+back-compat, cross-tier invariants) all returned SHIP and all
-# flagged the SAME single [LOW]: the per-subtheme AI table matched body cells to
-# headers by POSITION, correct today only because .compute_subtheme_statistics
+# These tests pin two safeguards in the per-subtheme AI table. The mapping
+# is correct today only because .compute_subtheme_statistics
 # gives every subtheme of a theme the same per-column interpretation record (so
 # the requested-primitive lists are already identical in order + length). These
-# tests pin the two hardenings that close the latent risk:
+# tests pin the two safeguards that close the latent risk:
 #   (a) AI cells are matched to headers by primitive NAME, so a value can never
 #       land under the wrong header even if a future caller's subthemes diverge
 #       in primitive order;
@@ -44,7 +42,7 @@ test_that("subtheme AI table matches cells to headers by NAME, not position", {
   expect_length(s1, 5L)
   expect_length(s2, 5L)
   # S2's median (50) under the "median score" column (index 3), NOT its p90 --
-  # the key anti-transposition assertion. Pre-hardening, index 3 of S2's
+  # the key anti-transposition assertion. Before the fix, index 3 of S2's
   # positionally-pulled list was p90, so this would have been wrong.
   expect_equal(s2[3], "50")
   expect_equal(s1[3], "0")        # S1 median

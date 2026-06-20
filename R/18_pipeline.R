@@ -914,7 +914,7 @@ run_analysis <- function(config_path, resume = FALSE, config_overrides = list())
     theme_group_tests <- corr_result$theme_group_tests
     cooccurrence_tests <- corr_result$cooccurrence_tests
     # An older checkpoint
-    # carries correlation tibbles that predate the H-13/H-17/H-18
+    # carries correlation tibbles that predate the //
     # methodology rewrite -- the renderer's presence guards keep the
     # report from crashing, but the cached numbers were produced by
     # the older statistical pipeline (Pearson where Spearman would

@@ -39,7 +39,7 @@ test_that("generated report chunks read stamped CSVs with comment='#' (no error 
   data <- sample_data(10)
   data$emerged_themes <- c(rep("Focus Fragmentation", 6), rep("Policy Effectiveness", 4))
   data$theme_membership_Focus.Disruption <- c(rep(1L, 6), rep(0L, 4))
-  data$theme_membership_Treatment.Efficacy <- c(rep(0L, 6), rep(1L, 4))
+  data$theme_membership_Schedule.Efficacy <- c(rep(0L, 6), rep(1L, 4))
   stats <- aggregate_overall_statistics(data, mock_theme_set(), consolidated = NULL,
                                         learning_context = NULL, config = mock_config())
   ef <- list(sentiment_file = "sentiment_scores.csv",
@@ -69,7 +69,7 @@ test_that("methodology appendix describes the ACTUAL mode, not hardcoded reflexi
   data <- sample_data(10)
   data$emerged_themes <- c(rep("Focus Fragmentation", 6), rep("Policy Effectiveness", 4))
   data$theme_membership_Focus.Disruption <- c(rep(1L, 6), rep(0L, 4))
-  data$theme_membership_Treatment.Efficacy <- c(rep(0L, 6), rep(1L, 4))
+  data$theme_membership_Schedule.Efficacy <- c(rep(0L, 6), rep(1L, 4))
   stats <- aggregate_overall_statistics(data, mock_theme_set(), consolidated = NULL,
                                         learning_context = NULL, config = mock_config())
   ef <- list(codes_file = "codes.csv", sentiment_file = "sentiment_scores.csv",
@@ -86,7 +86,7 @@ test_that("aggregate_overall_statistics returns expected structure", {
   data <- sample_data(10)
   data$emerged_themes <- c(rep("Focus Fragmentation", 6), rep("Policy Effectiveness", 4))
   data$theme_membership_Focus.Disruption <- c(rep(1L, 6), rep(0L, 4))
-  data$theme_membership_Treatment.Efficacy <- c(rep(0L, 6), rep(1L, 4))
+  data$theme_membership_Schedule.Efficacy <- c(rep(0L, 6), rep(1L, 4))
   ts <- mock_theme_set()
 
   stats <- aggregate_overall_statistics(data, ts, consolidated = NULL,
@@ -103,7 +103,7 @@ test_that("aggregate_theme_statistics returns one entry per theme", {
   data <- sample_data(10)
   data$emerged_themes <- c(rep("Focus Fragmentation", 6), rep("Policy Effectiveness", 4))
   data$theme_membership_Focus.Disruption <- c(rep(1L, 6), rep(0L, 4))
-  data$theme_membership_Treatment.Efficacy <- c(rep(0L, 6), rep(1L, 4))
+  data$theme_membership_Schedule.Efficacy <- c(rep(0L, 6), rep(1L, 4))
   ts <- mock_theme_set()
 
   theme_stats <- aggregate_theme_statistics(data, ts)
@@ -123,7 +123,7 @@ test_that("export_results creates expected files", {
   data <- sample_data(10)
   data$emerged_themes <- c(rep("Focus Fragmentation", 6), rep("Policy Effectiveness", 4))
   data$theme_membership_Focus.Disruption <- c(rep(1L, 6), rep(0L, 4))
-  data$theme_membership_Treatment.Efficacy <- c(rep(0L, 6), rep(1L, 4))
+  data$theme_membership_Schedule.Efficacy <- c(rep(0L, 6), rep(1L, 4))
   ts <- mock_theme_set()
 
   tmp_dir <- withr::local_tempdir()
@@ -170,7 +170,7 @@ test_that("themes.json serializes codes_included / subthemes / keywords as JSON 
     n_themes = 1L,
     source_table = "posts",
     theme_membership_Focus.Disruption     = c(1L, 1L, 1L, 0L, 0L, 0L),
-    theme_membership_Treatment.Efficacy   = c(0L, 0L, 0L, 1L, 1L, 1L)
+    theme_membership_Schedule.Efficacy   = c(0L, 0L, 0L, 1L, 1L, 1L)
   )
   # themes.json now serializes the canonical Theme -> Subtheme ->
   # Code hierarchy. Build the test fixture with first-class Subtheme S3

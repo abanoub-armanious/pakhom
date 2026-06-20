@@ -319,7 +319,7 @@ export_results <- function(data, theme_set, correlations_df, insights,
     # decomposition shape to consumers. n_subthemes preserves the
     # earlier semantics (depth-1 real subthemes only) for back-
     # compat. n_subthemes_total counts every named subtheme at every
-    # depth (the "true" decomposition size when C-12's nested walker
+    # depth (the "true" decomposition size when 's nested walker
     # produces sub-subthemes). n_subthemes_structured matches
     # length(subthemes_structured) exactly, including virtual NA-named
     # wrappers -- the value that surprised an audit when it
@@ -346,7 +346,7 @@ export_results <- function(data, theme_set, correlations_df, insights,
       # consumers (themes.json readers, comparison runs, cross-run
       # T0.2 audits) can trace each rendered quote back to its source
       # entry. Pre-followup the field was in-memory only -- defeating
-      # the M-25 purpose since any persistent consumer saw only the
+      # the purpose since any persistent consumer saw only the
       # bare-string supporting_quotes legacy field. Empty list when
       # the theme has no representative quotes (default-shaped
       # themes from create_theme_set hydration).
@@ -1810,7 +1810,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
     # detail link + CSV link. The per-theme detail HTML still has the
     # full provenance + entries table + paper-style subtheme table
     # The "## Additional themes" section header
-    # was already emitted above (audit followup H1 ordering).
+    # was already emitted above ( H1 ordering).
     if (is_compact) {
       # Format sentiment the same way the
       # inline metric card does (rounded by the upstream aggregate but
@@ -2615,7 +2615,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
 #' paraphrases of "the entry does not contain..." in slightly different
 #' wording. Rendering one HTML bullet per distinct string produced an
 #' unreadable 580-bullet list AND contributed measurably to pandoc OOM
-#' during HTML render (C-3).
+#' during HTML render .
 #'
 #' This helper buckets reasons into ~7 broad categories via case-insensitive
 #' keyword regex, first-match-wins. Categories are aggregated by total
@@ -2880,7 +2880,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   # a large full run produced 580 distinct strings (mostly
   # paraphrases of "the entry does not contain...") and the resulting
   # 580-bullet list was a measurable contributor to HTML render OOM
-  # (C-3) and a major reader-cognitive-load issue.
+  # and a major reader-cognitive-load issue.
   skip_block <- ""
   if (length(coverage$skip_reasons) > 0L) {
     clustered <- .cluster_skip_reasons(coverage$skip_reasons)
@@ -3229,8 +3229,8 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
     has_tiered_p <- all(c("p_raw", "p_bh", "p_bonferroni") %in% names(theme_group_tests))
     # Surface n_members +
     # n_non_members + effect_size in the rendered table. Pre-followup
-    # H-17 emitted these columns in the tibble but the renderer never
-    # showed them -- defeating the whole point of H-17. M-1 defensive
+    # emitted these columns in the tibble but the renderer never
+    # showed them -- defeating the whole point of . defensive
     # guard against resume from an older checkpoint (tibble without
     # these columns falls back to the legacy rendered shape).
     has_n_members <- all(c("n_members", "n_non_members") %in%
@@ -3286,7 +3286,7 @@ render_tier0_coverage_card.CorpusCoverage <- function(x, ...) {
   if (!is.null(cooccurrence_tests) && is.data.frame(cooccurrence_tests) && nrow(cooccurrence_tests) > 0) {
     has_tiered_p <- all(c("p_raw", "p_bh", "p_bonferroni") %in% names(cooccurrence_tests))
     # Surface effect_size column
-    # when present. M-3: note count of pairs with degenerate (NA)
+    # when present. : note count of pairs with degenerate (NA)
     # Cramer's V separately, so the reader knows the headline applies
     # to interpretable rows only.
     has_effect_size <- "effect_size" %in% names(cooccurrence_tests)
@@ -4425,7 +4425,7 @@ sentiment_colors <- c(
       # Each report is thus fully self-contained: interactive tables render
       # offline, forever, with no network dependency, no CDN version-rot, and no
       # compromised/MITM'd-payload surface. Licences + provenance (incl. the
-      # SHA-256 of each bundled file) are recorded in inst/COPYRIGHTS. (The init
+      # S of each bundled file) are recorded in inst/COPYRIGHTS. (The init
       # script below no-ops gracefully if an asset is ever absent -- the table
       # degrades to static rather than erroring.)
       '<link rel="stylesheet" href="jquery.dataTables.min.css">\n',

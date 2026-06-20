@@ -171,11 +171,11 @@ test_that("run_human_verification exports blank sheet and codebook", {
     ))
   )
   coding_state$codebook[["scheduling_tool_friction"]] <- list(
-    code_name = "Scheduling Side Effects", description = "Side effects of meds",
+    code_name = "Scheduling Tool Friction", description = "Friction caused by the scheduling tool",
     type = "descriptive", frequency = 3L,
     entry_ids = paste0("e_", 6:8),
     coded_segments = lapply(6:8, function(i) list(
-      entry_id = paste0("e_", i), text = "side effect", start_char = 0L, end_char = 11L
+      entry_id = paste0("e_", i), text = "tool friction", start_char = 0L, end_char = 13L
     ))
   )
   for (i in 1:10) {
@@ -190,8 +190,8 @@ test_that("run_human_verification exports blank sheet and codebook", {
       coding_state$entry_results[[eid]] <- list(
         codes_assigned = "scheduling_tool_friction", skipped = FALSE,
         coded_segments = list(list(code_key = "scheduling_tool_friction",
-                                    code_name = "Scheduling Side Effects",
-                                    text = "side effect", start_char = 0L, end_char = 11L))
+                                    code_name = "Scheduling Tool Friction",
+                                    text = "tool friction", start_char = 0L, end_char = 13L))
       )
     } else {
       coding_state$entry_results[[eid]] <- list(

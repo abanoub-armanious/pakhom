@@ -7,7 +7,7 @@
 .generate_memo_id(timestamp = NULL)
 }
 \arguments{
-\item{timestamp}{ISO-8601 timestamp (defaults to now). Colons in the
+\item{timestamp}{I timestamp (defaults to now). Colons in the
 time portion are converted to dashes so the id is path-safe on
 Windows.}
 }

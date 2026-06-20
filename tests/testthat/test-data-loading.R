@@ -164,7 +164,7 @@ test_that("load_and_combine_tables refuses when intra-table std_id duplicates pe
 })
 
 # ============================================================================
-# C-9 regression: multi-table merge union (was intersect)
+# regression: multi-table merge union (was intersect)
 #
 # Background: an early full-corpus run dropped num_comments and
 # upvote_ratio from the analytic data because the comments table doesn't
@@ -178,7 +178,7 @@ test_that("load_and_combine_tables refuses when intra-table std_id duplicates pe
 # NA-filled so users have explicit signal about partial coverage.
 # ============================================================================
 
-test_that("load_and_combine_tables preserves columns present in only some tables (C-9)", {
+test_that("load_and_combine_tables preserves columns present in only some tables", {
   td <- withr::local_tempdir()
   db_path <- file.path(td, "test.db")
   con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
@@ -216,9 +216,9 @@ test_that("load_and_combine_tables preserves columns present in only some tables
 
   # num_comments and upvote_ratio must EXIST in the combined data.
   expect_true("num_comments" %in% names(combined),
-              info = "num_comments dropped at merge (C-9 regression)")
+              info = "num_comments dropped at merge")
   expect_true("upvote_ratio" %in% names(combined),
-              info = "upvote_ratio dropped at merge (C-9 regression)")
+              info = "upvote_ratio dropped at merge")
 
   # Post rows carry the metric values; comment rows are NA.
   post_rows    <- combined[combined$source_table == "posts", ]
@@ -271,8 +271,8 @@ test_that("load_and_combine_tables works when all columns are shared (no NA-fill
   }
 })
 
-test_that("load_and_combine_tables: 3-table union with disjoint metric columns (C-9 audit followup)", {
-  # C-9 audit MEDIUM-6: the original C-9 tests only covered 2-table fixtures.
+test_that("load_and_combine_tables: 3-table union with disjoint metric columns", {
+  # audit : the original tests only covered 2-table fixtures.
   # The union semantics need to behave correctly across N tables where each
   # contributes a DIFFERENT subset of the standardized metrics list.
   # standardize_data() drops non-metric columns at line 364-368, so the test

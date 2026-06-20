@@ -635,7 +635,7 @@ generate_learning_context <- function(studies, max_codebook_chars = 20000L,
     # Add example codes
     # Bare-bullet format (was
     # `  - "code-name" (freq: ...)`). The wrapping quotes mirror the
-    # codebook-summary prompt format C-4 removed, and the AI may echo
+    # codebook-summary prompt format removed, and the AI may echo
     # the quoted name back as a new-code label.
     if (length(benchmarks$example_codes) > 0) {
       cal_text <- paste0(cal_text, "\nExample codes from prior human analyses:\n")
@@ -1155,7 +1155,7 @@ parse_codebook <- function(path) {
           if (is.na(code_name_val)) code_name_val <- NA_character_
 
           # Extract coded text using character positions. start/end are treated
-          # as R CHARACTER offsets; these equal the REFI-QDA / NVivo UTF-16
+          # as R CHARACTER offsets; these equal the REFI-QDA / NVivo U
           # code-unit offsets for Basic-Multilingual-Plane text and can differ
           # only when a source contains astral-plane characters (the same
           # convention the QDPX export documents).

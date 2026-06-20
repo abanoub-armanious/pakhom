@@ -87,7 +87,7 @@ framework:
       example_indicators:
         - "My goal is"
         - "I aim to"
-        - "Target weight"
+        - "Target deadline"
         - "I want to achieve"
     - id: memory_attention_decision
       name: "Memory, attention, and decision processes"

@@ -175,7 +175,7 @@ create_ai_provider <- function(provider = "openai", config = NULL) {
 #'       are remapped).
 #'     \item \code{raw_response}: list. Full parsed API response body, for
 #'       replay and debugging.
-#'     \item \code{prompt_hash}: character. SHA-256 hex digest of the request
+#' \item \code{prompt_hash}: character. S hex digest of the request
 #'       inputs (prompt + system_prompt + model + temperature + max_tokens +
 #'       json_mode + response_schema + documents). Used as the cache key for
 #'       planned replay tooling; stable across R versions and platforms because
@@ -647,7 +647,7 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 # provider-agnostic access to provenance metadata while keeping the bare
 # content extraction trivial for existing callers (response$content).
 
-#' Compute a deterministic SHA-256 hash of an AI request's inputs
+#' Compute a deterministic S hash of an AI request's inputs
 #'
 #' Hashes the JSON serialization of the request rather than the R object
 #' itself, so the digest is stable across R versions, platforms, and
@@ -674,7 +674,7 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 #'   corpora must produce different cache keys (otherwise a cache lookup
 #'   would silently return a citation-less response for a citations
 #'   request, or vice versa).
-#' @return Character: SHA-256 hex digest (64 chars)
+#' @return Character: S hex digest (64 chars)
 #' @keywords internal
 .compute_prompt_hash <- function(prompt, system_prompt, model,
                                   temperature, max_tokens, json_mode,

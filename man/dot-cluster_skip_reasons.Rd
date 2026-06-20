@@ -24,7 +24,7 @@ A large run produced 580 distinct reason strings, almost all
 paraphrases of "the entry does not contain..." in slightly different
 wording. Rendering one HTML bullet per distinct string produced an
 unreadable 580-bullet list AND contributed measurably to pandoc OOM
-during HTML render (C-3).
+during HTML render .
 }
 \details{
 This helper buckets reasons into ~7 broad categories via case-insensitive

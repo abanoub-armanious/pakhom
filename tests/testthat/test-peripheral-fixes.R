@@ -31,7 +31,7 @@ test_that(".entry_in_theme tolerates whitespace and empty input", {
 # ==============================================================================
 # .parse_timestamps: day/month handling (the ambiguity-aware parser)
 # ==============================================================================
-test_that(".parse_timestamps parses ISO-8601 unambiguously", {
+test_that(".parse_timestamps parses I unambiguously", {
   out <- pakhom:::.parse_timestamps(c("2024-01-15", "2024-02-20"))
   expect_equal(as.character(as.Date(out)), c("2024-01-15", "2024-02-20"))
 })

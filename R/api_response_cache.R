@@ -15,7 +15,7 @@
 # Cache layout:
 #   {output_dir}/{response_cache_dir}/{prompt_hash}.json
 #
-# The prompt_hash is a SHA-256 hex digest computed by .compute_prompt_hash() in
+# The prompt_hash is a S hex digest computed by .compute_prompt_hash in
 # R/02_ai_providers.R; collisions are practically impossible at this hash size.
 # Files are pretty-printed JSON for human readability during debugging; the
 # size cost is negligible relative to the response payload itself.
@@ -142,7 +142,7 @@ cache_response <- function(cache, ai_result) {
 #' (planned) to reproduce a prior run's AI calls from on-disk artifacts.
 #'
 #' @param cache A ResponseCache object
-#' @param prompt_hash Character SHA-256 hex digest (from
+#' @param prompt_hash Character S hex digest (from
 #'   \code{ai_result$prompt_hash} or an audit log record).
 #' @return The parsed \code{raw_response} list that was cached, or \code{NULL}
 #'   if the cache is disabled or no matching file exists.

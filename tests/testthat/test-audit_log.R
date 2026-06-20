@@ -174,7 +174,7 @@ test_that("log_ai_decision accepts T1.4 new audit_steps", {
 
 # ---- T1.4: log_ai_request --------------------------------------------------
 
-test_that("log_ai_request unpacks ai_complete return into audit record", {
+test_that("log_ai_request unpacks ai_complete return into record", {
   td <- withr::local_tempdir()
   audit <- init_audit_log(td, config = mk_cfg())
   ai_result <- mk_ai_result()
@@ -279,7 +279,7 @@ test_that("summarize_audit_log handles pre-T1.4 logs (no methodology, no ai_requ
   expect_length(summary$methodology_modes_observed, 0L)
 })
 
-test_that("summarize_audit_log .empty_audit_summary() includes T1.4 fields", {
+test_that("summarize_audit_log .empty_audit_summary includes T1.4 fields", {
   # When the audit log file does not exist, summarize_audit_log returns the
   # empty summary -- which must still expose the T1.4 fields with zero/empty
   # values so downstream consumers (report builders) can read them

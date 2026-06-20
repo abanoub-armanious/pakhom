@@ -218,7 +218,7 @@ run_progressive_coding <- function(data, provider, config = list(),
                                     framework_spec = NULL,
                                     live_tracker = NULL) {
   config$max_retries_per_entry <- config$max_retries_per_entry %||% 1L
-  # Aggregate AI-failure breaker knobs (M-34). NOTE: the pipeline passes
+  # Aggregate AI-failure breaker knobs . NOTE: the pipeline passes
   # config$analysis$coding AS this function's `config`, so these are read
   # at the TOP level of the sub-config (like max_retries_per_entry above).
   config$max_consecutive_entry_failures <-
@@ -386,7 +386,7 @@ run_progressive_coding <- function(data, provider, config = list(),
   # never silently never-saturate).
   saturation_failure_streak <- 0L
 
-  # Aggregate AI-failure breaker (M-34): a provider/network outage
+  # Aggregate AI-failure breaker : a provider/network outage
   # mid-run must NOT be silently recorded as entry skips and reported as
   # a substantive near-empty analysis. Counts only failure-marked records
   # (NULL result after retries) -- never legitimate AI-judged skips, so
@@ -450,7 +450,7 @@ run_progressive_coding <- function(data, provider, config = list(),
       framework_prompt_text = framework_prompt_text
     )
 
-    # Aggregate AI-failure breaker (M-34). Trip BEFORE the periodic
+    # Aggregate AI-failure breaker . Trip BEFORE the periodic
     # checkpoint merge can bake an outage's failure-skips into a saved
     # checkpoint that resume would never retry. No partial checkpoint is
     # written on the trip path for the same reason.
@@ -1350,11 +1350,11 @@ run_progressive_coding <- function(data, provider, config = list(),
     code_key  <- seg_code
   } else {
     # Detect NEW: marker on the original (before strip). `["']*` allowance
-    # catches quote-wrapped forms like `"NEW: Foo"` (C-4 audit MEDIUM-4).
+    # catches quote-wrapped forms like `"NEW: Foo"` ( audit ).
     is_new <- grepl("^[\"']*\\s*(\\d+\\.\\s*)?\\s*NEW:", seg_code,
                      ignore.case = TRUE)
     code_name <- .normalize_code_name(seg_code)
-    # Post-normalization empty guard (C-4 audit MEDIUM-3): inputs like
+    # Post-normalization empty guard ( audit ): inputs like
     # "321." or bare "NEW:" collapse to "" once prefixes strip. The
     # pre-norm guard at the top of the function only catches the
     # nchar(seg_code) == 0 case. Without this it would write a codebook entry
@@ -1483,7 +1483,7 @@ run_progressive_coding <- function(data, provider, config = list(),
     # Also guard against NA. jsonlite
     # parses JSON `null` to NA_character_ which would crash the
     # subsequent if-condition ("missing value where TRUE/FALSE needed").
-    # dropped the "[D-7 placeholder; awaiting refresh]"
+    # dropped the "[engineering placeholder; awaiting refresh]"
     # engineering marker -- it shipped verbatim into themes.json (an
     # internal artifact masquerading as a code description) AND, because
     # the description feeds the clustering embedding input
@@ -2037,7 +2037,7 @@ run_progressive_coding <- function(data, provider, config = list(),
   if (length(name) == 1L && is.na(name)) return(NA_character_)
   name <- as.character(name)[1]
   # Collapse Unicode smart quotes to ASCII " before the regex pass.
-  # The smart quotes are constructed from raw UTF-8 bytes rather than
+  # The smart quotes are constructed from raw U bytes rather than
   # source-file literals because R's source parser replaces non-ASCII
   # literals with `<U+xxxx>` escape sequences when the running locale is
   # C/POSIX, breaking any direct-match strategy. `useBytes = TRUE` forces
@@ -2145,7 +2145,7 @@ run_progressive_coding <- function(data, provider, config = list(),
   sims <- vapply(seq_along(code_data), function(i) {
     emb <- cache[[code_data[[i]]$key]]
     if (is.null(emb)) return(-Inf)
-    # C-6 audit LOW-1: guard against silently-recycled cosine on
+    # audit : guard against silently-recycled cosine on
     # mismatched embedding dimensions (would yield garbage scores or
     # warn). Survives across runs that switch embedding models.
     if (length(emb) != entry_dim) return(-Inf)

@@ -41,7 +41,7 @@ memo cites.}
 antecedent memo this one extends or revises (forms a chain for
 the timeline view).}
 
-\item{timestamp}{Optional ISO-8601 timestamp (defaults to now).}
+\item{timestamp}{Optional I timestamp (defaults to now).}
 
 \item{id}{Optional explicit id (defaults to a generated one).}
 }

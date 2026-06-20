@@ -9,7 +9,7 @@ read_cached_response(cache, prompt_hash)
 \arguments{
 \item{cache}{A ResponseCache object}
 
-\item{prompt_hash}{Character SHA-256 hex digest (from
+\item{prompt_hash}{Character S hex digest (from
 \code{ai_result$prompt_hash} or an audit log record).}
 }
 \value{

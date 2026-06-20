@@ -96,13 +96,13 @@ create_test_db <- function(db_path, n_posts = 10) {
     body = c(
       "I have trouble focusing after taking my scheduling at night and it really affects my daily routine",
       "Overwork episodes have decreased since starting program with the new scheduling",
-      "The side effects of the policy make me feel exhausted all day long and I cannot function",
+      "The constant context-switching makes me feel exhausted all day long and I cannot function",
       "My deep-work quality improved significantly with the new schedule adjustment last week",
       "I feel anxious about overworking and it affects my focus patterns every single night",
       "The scheduling helps control overtime urges but causes distraction which is very frustrating",
       "A short walk before I log off helps me focus better and overwork less in the evenings",
       "Weekend overwork is worse when I skip my scheduling for even one day",
-      "The doctor adjusted my shift and my focus finally normalized after two weeks of changes",
+      "My manager adjusted my shift and my focus finally normalized after two weeks of changes",
       "Stress triggers both my overwork and focus problems making everything much worse"
     )[seq_len(n_posts)],
     author = paste0("user_", seq_len(n_posts)),
@@ -268,7 +268,7 @@ test_that("export_results creates expected output files", {
   data$emerged_themes <- rep(c("Focus Fragmentation", "Policy Effectiveness"), 5)
   data$assigned_theme_list <- as.list(data$emerged_themes)
   data$theme_membership_Focus.Disruption <- rep(c(1L, 0L), 5)
-  data$theme_membership_Treatment.Efficacy <- rep(c(0L, 1L), 5)
+  data$theme_membership_Schedule.Efficacy <- rep(c(0L, 1L), 5)
 
   ts <- mock_theme_set()
   config <- mock_config()
@@ -320,7 +320,7 @@ test_that("verify_run_integrity detects missing files", {
 })
 
 # ==============================================================================
-# Full pipeline smoke test (minimal, mocked)
+# Full pipeline integration test (minimal, mocked)
 # ==============================================================================
 test_that("load_config with valid YAML produces ThematicConfig", {
   skip_if_not_installed("RSQLite")

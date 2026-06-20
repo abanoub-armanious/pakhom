@@ -90,7 +90,7 @@ test_that("assess_research_coverage returns empty coverage (NO AI call) when the
 })
 
 test_that("assess_research_coverage AUDITED path does not crash (research_coverage decision-type registered)", {
-  # Regression guard for the C1-class landmine: log_ai_decision validates step AND
+  # Regression guard for the C1-class issue: log_ai_decision validates step AND
   # decision_type. The prior session's 64 methodology tests all used audit=NULL and
   # missed exactly this. Here we exercise the AUDITED path end-to-end.
   td <- file.path(tempdir(), paste0("rc_audit_", as.integer(Sys.time())))

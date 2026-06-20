@@ -12,14 +12,14 @@
 
 test_that("metric_intelligence schema adds metric_provenance to properties AND required (strict-mode)", {
   s <- pakhom:::.metric_intelligence_schema()
-  expect_silent(pakhom:::.validate_schema(s))            # required must ⊇ properties
+  expect_silent(pakhom:::.validate_schema(s))            # required must be a superset of properties
   cr <- s$properties$metrics$items
   expect_true("metric_provenance" %in% names(cr$properties))
   expect_true("metric_provenance" %in% unlist(cr$required))
   expect_equal(cr$properties$metric_provenance$type, "string")
 })
 
-test_that("metric_provenance is a FREE STRING, not an enum (LBP-1 / no menu)", {
+test_that("metric_provenance is a FREE STRING, not an enum (L / no menu)", {
   s <- pakhom:::.metric_intelligence_schema()
   cr <- s$properties$metrics$items
   expect_null(cr$properties$metric_provenance$enum)
@@ -48,7 +48,7 @@ test_that("R7 replay back-compat: an OLD pinned block without metric_provenance 
   expect_identical(co$metric_provenance, "")
 })
 
-test_that("BC-3 byte-identical: empty provenance is NOT serialized (no extra key leaks)", {
+test_that("byte-identical: empty provenance is NOT serialized (no extra key leaks)", {
   old <- list(column_name = "score", column_description = "d",
               requested_primitives = list(list(primitive = "prim_median", rationale = "r")),
               interpretation_note = "n")
@@ -63,7 +63,7 @@ test_that("BC-3 byte-identical: empty provenance is NOT serialized (no extra key
 
 test_that(".metric_provenance_group routes the AI's prose, not the column", {
   meta <- list(metric_provenance = "Reddit net upvotes; platform engagement metadata.")
-  subst <- list(metric_provenance = "A validated PHQ-9 depression severity score.")
+  subst <- list(metric_provenance = "A validated focus and productivity self-report score.")
   none  <- list(metric_provenance = "")
   expect_equal(pakhom:::.metric_provenance_group(meta), "metadata")
   expect_equal(pakhom:::.metric_provenance_group(subst), "substantive")
@@ -79,7 +79,7 @@ test_that(".metric_provenance_group routes the AI's prose, not the column", {
 
 test_that("Methodology Setup groups substantive vs metadata + shows the relevance column", {
   mi <- new_metric_interpretation(metrics = list(
-    .mk_prov_rec("phq9", "A validated depression severity score; substantive measure of the phenomenon."),
+    .mk_prov_rec("focus_score", "A validated focus self-report score; substantive measure of the phenomenon."),
     .mk_prov_rec("score", "Reddit net upvotes; platform engagement metadata, reflects reception not the phenomenon.")),
     source = "ai")
   art <- new_methodology_articulations(
@@ -89,9 +89,9 @@ test_that("Methodology Setup groups substantive vs metadata + shows the relevanc
   expect_match(h, "substantive measures", fixed = TRUE)
   expect_match(h, "source / engagement metadata", fixed = TRUE)
   expect_match(h, "Relevance to focus", fixed = TRUE)
-  expect_match(h, "validated depression severity", fixed = TRUE)   # AI prose rendered
+  expect_match(h, "validated focus self-report", fixed = TRUE)   # AI prose rendered
   expect_match(h, "reception/salience signals", fixed = TRUE)      # metadata caveat
-  expect_lt(regexpr("phq9", h), regexpr(">score<", h))             # substantive group first
+  expect_lt(regexpr("focus_score", h), regexpr(">score<", h))             # substantive group first
 })
 
 test_that("Methodology Setup is BACK-COMPAT: no provenance -> single neutral table, no grouping", {

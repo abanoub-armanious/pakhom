@@ -808,7 +808,7 @@ test_that("rebuild_code_to_theme_map correctly maps codes to themes", {
 # 8. Audit logging
 # ==============================================================================
 
-test_that("codebook review logs decisions to audit log", {
+test_that("codebook review logs decisions to log", {
   withr::with_tempdir({
     cs <- make_coding_state()
 

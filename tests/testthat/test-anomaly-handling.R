@@ -294,14 +294,14 @@ test_that(".emergent_coding_schema validates", {
 
 # ---- framework_revision_suggested is a valid audit decision_type ----------
 
-test_that("framework_revision_suggested is a valid audit decision_type", {
+test_that("framework_revision_suggested is a valid decision_type", {
   expect_true("framework_revision_suggested" %in% pakhom:::.valid_decision_types)
 })
 
 # ---- CRITICAL regression: cascade fans entries into emergent themes -------
 
-test_that("cascade routes anomaly entries into emergent themes (CRITICAL-8 regression)", {
-  # Audit CRITICAL-8: under extend policy, cascade_theme_assignments
+test_that("cascade routes anomaly entries into emergent themes (CRITIC regression)", {
+  # Audit CRITIC: under extend policy, cascade_theme_assignments
   # has no code_to_theme mapping for the per-segment inductive codes -- the
   # "anomaly" key in entry_results$codes_assigned would have routed every
   # anomaly-bearing entry to a single theme. This is fixed via the

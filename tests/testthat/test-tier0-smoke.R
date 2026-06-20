@@ -1,4 +1,4 @@
-# End-to-end smoke test: all three Tier-0 universals cooperate
+# End-to-end integration test: all three Tier-0 universals cooperate
 #
 # Builds a synthetic dataset + ProgressiveCodingState + ThemeSet,
 # threads them through enrich_themes -> aggregate_theme_statistics ->
@@ -13,7 +13,7 @@
 #
 # This test is the integration safety net: pure unit tests passed in
 # isolation but didn't catch enrich_themes bypassing the spread-aware
-# selector. Smoke tests catch this class of integration gap.
+# selector. Integration tests catch this class of integration gap.
 
 # ----- helpers ---------------------------------------------------------------
 
@@ -88,7 +88,7 @@
   state
 }
 
-# ----- the smoke test --------------------------------------------------------
+# ----- the integration test --------------------------------------------------------
 
 test_that("Tier-0 smoke: all three universals compute + render together", {
   # Mixed contributor distribution: heavy + 4 distinct others

@@ -295,7 +295,7 @@ list_available_runs <- function(results_base) {
   # (run_id_with_mode in R/output_stamping.R). Without it, compare_runs()
   # and compare_models() silently see 0 runs for ANY mode-suffixed
   # run dir. find_latest_run was fixed for the same issue earlier;
-  # a later smoke test caught the .discover_run_dirs miss. Without this
+  # a later integration test caught the .discover_run_dirs miss. Without this
   # tail, list_available_runs() also returns empty for mode-suffixed runs.
   run_dirs <- grep("^run_\\d{4}-\\d{2}-\\d{2}_\\d{6}(_M[123])?$",
                     all_dirs, value = TRUE)

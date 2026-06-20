@@ -583,7 +583,7 @@ print.ThematicConfig <- function(x, ...) {
           timestamp = c("created_utc", "created", "date"),
           metrics = c("score", "num_comments", "upvote_ratio")
         ),
-        drugscom = list(
+        reviews = list(
           id = c("id", "review_id"),
           text = c("review", "text", "comment"),
           author = c("username", "author"),
@@ -599,7 +599,7 @@ print.ThematicConfig <- function(x, ...) {
           # falls through to .detect_metric_columns() auto-detect
           # (any numeric column that isn't internal or theme_membership_*).
           # Per-source-type metric hints belong only where the source has
-          # a known schema (reddit, drugscom).
+          # a known schema (reddit, reviews).
           metrics = character(0)
         )
       )
@@ -870,8 +870,7 @@ print.ThematicConfig <- function(x, ...) {
 #' \code{list(study = list(researcher_positionality = "..."))} silently
 #' clobbered the entire \code{study} block -- dropping
 #' \code{research_focus} (and every other field) and surfacing as the
-#' misleading error "study.research_focus is required". This was
-#' caught during the Mode 1 smoke test.
+#' misleading error "study.research_focus is required".
 #'
 #' Recursion rule: a value is recursed into when it is a non-empty
 #' named list (\code{is.list} TRUE, \code{length > 0}, has

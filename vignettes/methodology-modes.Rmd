@@ -61,7 +61,7 @@ researcher's framing might overlook.
 | `assumption_surfacing` | Other terms participants use for the same construct + a term the researcher's framing erases |
 
 Each provocation that cites a verbatim quote runs through the same
-verification ladder used in Modes 2/3 (T0.1 universal). A
+verification ladder used in Modes 2/3. A
 fabricated quote is dropped silently and logged to
 `fabrication_log.csv`: fabricated provocations never reach the
 researcher.
@@ -191,7 +191,7 @@ A finalized run directory at `outputs/<run-id>_M1/` containing:
 - `rules/methodology_rules.md`: the AC9 system prompt that governed every AI call
 - `reflection_log.json`: full reflection log (provocations + attempts + skips + memos)
 - `provocations.csv`: flat exportable provocation list (theme + category + cited quote + verification status)
-- `provocation_attempts.csv`: the attempt-tracking matrix that drives T0.3
+- `provocation_attempts.csv`: the attempt-tracking matrix that drives the whole-corpus coverage check
 - `coverage_mode1.json`: `ProvocationCoverage` (no_silent_skip headline + per-category attempt counts)
 - `themes.json`: the researcher-authored themes archived for replay
 - `memos/<id>.md`: one Markdown file per memo, with YAML frontmatter

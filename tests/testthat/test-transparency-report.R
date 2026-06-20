@@ -158,7 +158,7 @@ test_that("corpus_coverage section reads coverage_card.json", {
   expect_equal(cov$stop_reason, "all_entries_processed")
 })
 
-test_that("audit log summary reports total + decision-type breakdown", {
+test_that("log summary reports total + decision-type breakdown", {
   td <- withr::local_tempdir()
   run_dir <- file.path(td, "run_test")
   .make_synthetic_run(run_dir)
@@ -244,10 +244,10 @@ test_that(".TRANSPARENCY_REPORT_SCHEMA_VERSION constant exists", {
 
 
 # --------------------------------------------------------------------------
-# Audit followup C-1: stamped envelope unwrap
+# stamped envelope unwrap
 # --------------------------------------------------------------------------
 
-test_that("audit followup C-1: bundler unwraps stamped coverage_card.json", {
+test_that("bundler unwraps stamped coverage_card.json", {
   # The pre-followup bundler read coverage_card.json directly and
   # missed that write_corpus_coverage wraps the payload in
   # {_methodology_stamp, _payload} when methodology_mode is non-null.
@@ -283,7 +283,7 @@ test_that("audit followup C-1: bundler unwraps stamped coverage_card.json", {
   expect_equal(cov_summary$stop_reason, "all_entries_processed")
 })
 
-test_that("audit followup C-1: bundler unwraps stamped themes.json", {
+test_that("bundler unwraps stamped themes.json", {
   td <- withr::local_tempdir()
   run_dir <- file.path(td, "run_test")
   dir.create(run_dir, recursive = TRUE)
@@ -311,7 +311,7 @@ test_that("audit followup C-1: bundler unwraps stamped themes.json", {
 
 
 # --------------------------------------------------------------------------
-# Audit followup M-6: malformed artifacts + XSS + parent_run_id
+# malformed artifacts + XSS + parent_run_id
 # --------------------------------------------------------------------------
 
 test_that("malformed coverage_card.json triggers graceful degradation", {

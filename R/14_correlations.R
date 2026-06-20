@@ -172,7 +172,7 @@ prepare_correlation_data <- function(data, theme_set, config = list()) {
 #' large run, which then dispatched to Pearson (point-biserial for
 #' binary x quantized-sentiment pairs) -- methodologically wrong for an
 #' ordinal support. Spearman is correct when either variable is
-#' rank-orderable but not interval-scaled (H-13).
+#' rank-orderable but not interval-scaled .
 #'
 #' @param corr_data Numeric tibble from prepare_correlation_data()
 #' @param ordinal_max Integer; upper bound on distinct values for the
@@ -220,7 +220,7 @@ detect_variable_types <- function(corr_data, ordinal_max = 21L) {
   # Both binary -> Pearson (phi coefficient)
   if (type_x == "binary" && type_y == "binary") return("pearson")
 
-  # H-13: binary + ordinal -> Spearman (rho on midranks; ordinal side is
+  # binary + ordinal -> Spearman (rho on midranks; ordinal side is
   # not interval-scaled).
   if ((type_x == "binary" && type_y == "ordinal") ||
       (type_x == "ordinal" && type_y == "binary")) return("spearman")
@@ -1451,7 +1451,7 @@ compare_theme_groups <- function(data, theme_set, config = list()) {
 
     members <- data[[mcol]] == 1
     non_members <- data[[mcol]] == 0
-    # H-17: explicit integer cast so the downstream tibble construction
+    # explicit integer cast so the downstream tibble construction
     # via vapply(..., integer(1), ...) doesn't crash on the boundary
     # case where sum() returns double.
     n_members <- as.integer(sum(members, na.rm = TRUE))
@@ -1540,7 +1540,7 @@ compare_theme_groups <- function(data, theme_set, config = list()) {
   )
 
   # Multi-method p-value adjustments (raw + BH FDR + Bonferroni FWER).
-  # 'p_adjusted' / 'significant' kept for back-compat (= Bonferroni at α=0.05);
+  # 'p_adjusted' / 'significant' kept for back-compat (= Bonferroni at alpha=0.05);
   # 'meaningful_effect' is the new effect-size-based exploratory flag.
   adjustments <- .compute_p_adjustments(df$p_value)
   df$p_raw <- adjustments$raw
@@ -1548,7 +1548,7 @@ compare_theme_groups <- function(data, theme_set, config = list()) {
   df$p_bonferroni <- adjustments$bonferroni
   df$p_adjusted <- df$p_bonferroni                   # back-compat
   df$significant <- df$p_adjusted < 0.05             # back-compat
-  df$meaningful_effect <- abs(df$effect_r) >= 0.10   # Cohen's small-effect threshold (M-9: sign-aware)
+  df$meaningful_effect <- abs(df$effect_r) >= 0.10   # Cohen's small-effect threshold (: sign-aware)
   # explicit effect-size label parallel to the
   # correlation tibble's effect_size column. negligible / small /
   # medium / large lets the report headline + downstream consumers
@@ -1592,7 +1592,7 @@ compare_theme_groups <- function(data, theme_set, config = list()) {
 #' @param min_theme_entries Integer; themes with fewer than this many
 #'   positive entries are excluded. Default 5L, matching the
 #'   correlation matrix + theme-group test default.
-#' @param min_observed_both Integer; M-10 polish. Pairs whose observed
+#' @param min_observed_both Integer; polish. Pairs whose observed
 #'   co-occurrence is below this count are skipped (Fisher tests on
 #'   zero-co-occurrence pairs are uninterpretable). Default 1L.
 #' @return Tibble with co-occurrence test results
@@ -1607,7 +1607,7 @@ test_theme_cooccurrence <- function(data, theme_set, min_expected = 5,
     return(tibble::tibble())
   }
 
-  # H-16: pre-filter membership columns by per-theme frequency so the
+  # pre-filter membership columns by per-theme frequency so the
   # cohort matches prepare_correlation_data + compare_theme_groups.
   min_theme_entries <- as.integer(min_theme_entries %||% 5L)
   if (is.na(min_theme_entries) || min_theme_entries < 1L) min_theme_entries <- 5L
@@ -1709,7 +1709,7 @@ test_theme_cooccurrence <- function(data, theme_set, min_expected = 5,
     if (is.null(test_result)) next
 
     # Cramer's V (now populated for both Fisher and Chi-square paths via
-    # H-18 fix above).
+    # fix above).
     cramers_v <- if (!is.na(test_result$stat)) {
       round(sqrt(test_result$stat / n), 3)
     } else {
@@ -1754,7 +1754,7 @@ test_theme_cooccurrence <- function(data, theme_set, min_expected = 5,
   df$meaningful_effect <- abs(df$cramers_v) >= 0.10  # Cohen's small-effect threshold
   # explicit effect-size label aligned with the
   # correlation + theme-group tibbles. NA when Cramer's V is NA (still
-  # possible for some Fisher edge cases; H-18 closes the common path).
+  # possible for some Fisher edge cases; closes the common path).
   df$effect_size <- vapply(df$cramers_v, function(v) {
     if (is.na(v))            NA_character_
     else if (abs(v) >= 0.5)  "large"

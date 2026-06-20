@@ -357,7 +357,7 @@ test_that(".ai_judge_saturation returns success=FALSE on unknown verdict value",
 
 # ---- AI arbiter: audit log integration --------------------------------------
 
-test_that(".ai_judge_saturation records saturation_judgment in audit log on success", {
+test_that(".ai_judge_saturation records saturation_judgment in log on success", {
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5")
   mock_response <- jsonlite::toJSON(list(

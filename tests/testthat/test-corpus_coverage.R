@@ -62,7 +62,7 @@ test_that("compute_corpus_coverage returns a CorpusCoverage S3 object with all s
     # stop_reason / saturation_reached / reached_at_entry
     # distinguish intentional saturation-arbiter early-stop from
     # silent truncation so the T0.3 banner can render the right
-    # language (audit CRITICAL-1).
+    # language (audit CRITIC).
     "stop_reason", "saturation_reached", "reached_at_entry",
     "computed_at", "schema_version"
   )
@@ -367,7 +367,7 @@ test_that(".build_corpus_coverage_card on non-CorpusCoverage object renders unav
 })
 
 # ==============================================================================
-# Saturation-aware coverage (audit CRITICAL-1)
+# Saturation-aware coverage (audit CRITIC)
 # ==============================================================================
 # Earlier, the headline no_silent_truncation flag was simply
 # (n_unprocessed == 0L), so any saturation-triggered early stop made it
@@ -501,7 +501,7 @@ test_that("coverage card discloses truncation in the ok-banner when entries were
 })
 
 # ==============================================================================
-# Aggregate AI-failure breaker (M-34)
+# Aggregate AI-failure breaker
 # ==============================================================================
 
 test_that(".cluster_skip_reasons routes the AI failure string to its own category", {

@@ -99,7 +99,7 @@ mock_theme_set <- function() {
     list(
       name = "Policy Effectiveness",
       description = "Perceived effectiveness of the scheduling policy",
-      codes_included = c("workload control", "schedule adjustment", "side effects"),
+      codes_included = c("workload control", "schedule adjustment", "notification overload"),
       subthemes = c("Positive outcomes", "Adjustment burden"),
       keywords = c("policy", "scheduling", "workload"),
       narrative = "This theme reflects experiences with the new policy.",

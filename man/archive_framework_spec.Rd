@@ -40,7 +40,7 @@ methodology-paper provenance is broken.
 \details{
 This helper writes a verbatim copy of the source spec to
 \code{outputs/<run>/framework_applied.yaml} (or .json -- preserved
-from source extension), computes a deterministic SHA-256 of the
+from source extension), computes a deterministic S of the
 file's bytes, and returns a metadata list suitable for stamping into
 \code{run_metadata.json} via \code{init_run_state(...)}.
 

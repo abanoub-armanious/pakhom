@@ -28,8 +28,8 @@
   research_focus_paraphrase = "How flexible scheduling affects focus and overwork.",
   relevance_criterion = paste0(
     "A segment is on-focus when it links a flexible scheduling to either ",
-    "focus or overwork behavior -- timing, side effects, schedule, or efficacy."),
-  on_focus_examples = list("The pills keep me up at night",
+    "focus or overwork behavior: timing, schedule, or effectiveness."),
+  on_focus_examples = list("The late meetings keep me up at night",
                            "My overtime urges dropped after the shift change"),
   off_focus_examples = list("I went for a run today", "The weather has been nice"),
   discrimination_principle = "On-focus segments tie scheduling to focus or overworking; adjacent ones mention only one in isolation."
@@ -79,7 +79,7 @@
   rel <- new_relevance_criterion(
     research_focus_paraphrase = "para",
     relevance_criterion = "A segment is on-focus if it links scheduling to focus or overworking.",
-    on_focus_examples = c("pills keep me up", "overtime urges dropped"),
+    on_focus_examples = c("late meetings keep me up", "overtime urges dropped"),
     off_focus_examples = c("nice weather"),                 # length 1 -> tests array shape
     discrimination_principle = "link present vs absent",
     source = source)
@@ -118,8 +118,8 @@ test_that("the metric schema's primitive field is a free string, NOT an enum", {
   expect_null(prim$enum)                       # the no-menu guarantee, asserted
 })
 
-test_that("methodology decision types are in the audit-log allowlist", {
-  # The prior-phase landmine: a decision_type missing here crashes every
+test_that("methodology decision types are in the -log allowlist", {
+  # The prior-phase issue: a decision_type missing here crashes every
   # production run with an audit log on the first call.
   expect_true("relevance_criterion" %in% pakhom:::.valid_decision_types)
   expect_true("metric_interpretation" %in% pakhom:::.valid_decision_types)
@@ -303,7 +303,7 @@ test_that("research_context is threaded into the metric-intelligence prompt (62.
   cap <- new.env()
   local_mocked_bindings(ai_complete = .capturing_ai(cap), .package = "pakhom")
   run_methodology_assistant(.methodology_test_data(), list(study = list(
-    research_focus = "meds & focus",
+    research_focus = "scheduling & focus",
     research_context = "Reddit posts and comments from overwork subreddits",
     inferred_methodology = NULL)), mock_provider())
   expect_match(cap$metric_user, "RESEARCH CONTEXT", fixed = TRUE)
@@ -319,7 +319,7 @@ test_that("metric prompt omits the RESEARCH CONTEXT block when none configured (
   cap <- new.env()
   local_mocked_bindings(ai_complete = .capturing_ai(cap), .package = "pakhom")
   run_methodology_assistant(.methodology_test_data(), list(study = list(
-    research_focus = "meds & focus", inferred_methodology = NULL)), mock_provider())
+    research_focus = "scheduling & focus", inferred_methodology = NULL)), mock_provider())
   expect_false(grepl("RESEARCH CONTEXT", cap$metric_user, fixed = TRUE))
 })
 
@@ -364,18 +364,18 @@ test_that("relevance_criterion_prompt_block emits an injectable block", {
   expect_equal(relevance_criterion_prompt_block(new_relevance_criterion()), "")
 })
 
-# ---- audit followup regressions (C1 / H1 / M1) -------------------------------
+# ----  regressions (C1 / H1 / M1) -------------------------------
 
-test_that("the methodology_assistant audit STEP is in the allowlist (C1)", {
+test_that("the methodology_assistant STEP is in the allowlist (C1)", {
   # log_ai_decision validates BOTH step and decision_type; the prior phase's
-  # landmine recurred on the step axis. Without this the audited path crashes.
+  # issue recurred on the step axis. Without this the path crashes.
   expect_true("methodology_assistant" %in% pakhom:::.valid_audit_steps)
 })
 
-test_that("run_methodology_assistant does not crash WITH a real audit log (C1)", {
+test_that("run_methodology_assistant does not crash WITH a real log (C1)", {
   .skip_if_no_mock()
   d <- .methodology_test_data()
-  cfg <- list(study = list(research_focus = "meds and focus", inferred_methodology = NULL))
+  cfg <- list(study = list(research_focus = "scheduling and focus", inferred_methodology = NULL))
   audit_dir <- withr::local_tempdir()
   audit <- init_audit_log(audit_dir)
   local_mocked_bindings(ai_complete = .mock_ai(), .package = "pakhom")

@@ -1,14 +1,14 @@
 # Report-rendering unit tests
 #
-# C-3 top-N inlining of theme cards in the main HTML report
-# C-10 top-N effect-size lollipop chart for large correlation matrices
-# V-7 skip-reason taxonomy clustering
-# AH-8/V-2 temporal_emergence top-N filter (via emergence_timeline schema)
-# AH-9/V-1 theme_network top-N + legend
-# H-23 paper-style subtheme table on per-theme detail HTMLs
+# top-N inlining of theme cards in the main HTML report
+# top-N effect-size lollipop chart for large correlation matrices
+# skip-reason taxonomy clustering
+# temporal_emergence top-N filter (via emergence_timeline schema)
+# theme_network top-N + legend
+# paper-style subtheme table on per-theme detail HTMLs
 
 # ==========================================================================
-# V-7 skip-reason taxonomy
+# skip-reason taxonomy
 # ==========================================================================
 
 test_that(".cluster_skip_reasons returns empty list on empty input", {
@@ -121,7 +121,7 @@ test_that(".cluster_skip_reasons NA / empty reason strings cluster to Other", {
 })
 
 test_that(".cluster_skip_reasons on-topic negation does not bucket into off-topic", {
-  # Audit followup M2: defensive test that negated phrasings
+  #  M2: defensive test that negated phrasings
   # ("entry is on-topic but..." / "this IS about X but lacks detail")
   # don't false-positive into the off-topic bucket. The off-topic
   # pattern anchors on \b(not |unrelated|irrelevant|...), so a positive
@@ -146,7 +146,7 @@ test_that(".cluster_skip_reasons on-topic negation does not bucket into off-topi
 })
 
 test_that(".cluster_skip_reasons documents first-match-wins for reply-without-quote", {
-  # Audit followup M2: the V-7 taxonomy is intent-blind. A
+  # M2: the taxonomy is intent-blind. A
   # reason like "Reply to another user with no substance" lands in
   # the Quote/Reply bucket via the reply alternation rather than the
   # too-short bucket, because the quote/reply pattern is matched
@@ -164,7 +164,7 @@ test_that(".cluster_skip_reasons documents first-match-wins for reply-without-qu
 
 
 # ==========================================================================
-# C-3 top-N inlining + compact section header
+# top-N inlining + compact section header
 # ==========================================================================
 
 test_that(".build_thematic_section emits a compact section header beyond max_inline_themes", {
@@ -248,7 +248,7 @@ test_that(".build_thematic_section without cap renders all themes as full cards"
 })
 
 test_that(".build_thematic_section emits Additional themes BEFORE kind transition at boundary", {
-  # Audit followup H1: the compact-header (top-N C-3) and
+  # H1: the compact-header (top-N ) and
   # the kind-header used to stack with no content in
   # between when framework count == max_inline_themes. The followup
   # reorders so "## Additional themes" emits first, then the kind
@@ -292,7 +292,7 @@ test_that(".build_thematic_section emits Additional themes BEFORE kind transitio
 })
 
 test_that(".build_thematic_section dedupes theme_order before counting", {
-  # Audit followup M3: defensive dedupe so an upstream caller
+  #  M3: defensive dedupe so an upstream caller
   # passing the same theme twice doesn't render it twice (which
   # would also break the n_compact arithmetic in the header).
   ts_one <- function(n) list(
@@ -342,7 +342,7 @@ test_that(".build_thematic_section honors malformed max_inline_themes by reverti
 
 
 # ==========================================================================
-# AH-8/V-2 emergence_timeline schema has n_entries
+# emergence_timeline schema has n_entries
 # ==========================================================================
 
 test_that(".compute_theme_emergence emits an n_entries column", {
@@ -379,7 +379,7 @@ test_that(".empty_temporal_result emergence_timeline tibble has n_entries column
 
 
 # ==========================================================================
-# C-10 lollipop helper smoke tests
+# lollipop helper integration tests
 # ==========================================================================
 
 test_that(".create_correlation_lollipop emits a PNG file when given a valid matrix", {
@@ -422,7 +422,7 @@ test_that(".create_correlation_lollipop returns NULL when matrix is degenerate",
 
 
 # ==========================================================================
-# C-10 create_correlation_plot dispatch: heatmap below cap, lollipop above
+# create_correlation_plot dispatch: heatmap below cap, lollipop above
 # ==========================================================================
 
 test_that("create_correlation_plot dispatches to lollipop above max_inline_vars", {
@@ -491,7 +491,7 @@ test_that("create_correlation_plot survives a non-finite correlation matrix", {
 
 
 # ==========================================================================
-# H-23 per-theme detail HTML embeds the paper-style subtheme table
+# per-theme detail HTML embeds the paper-style subtheme table
 # ==========================================================================
 
 test_that(".generate_theme_detail_htmls embeds .build_subtheme_summary_table output", {
@@ -608,7 +608,7 @@ test_that(".generate_theme_detail_htmls methodology-stamps each detail page (AC4
 })
 
 test_that("create_theme_network filters to top-N by weighted degree", {
-  # Audit followup H2: theme_network top-N filter coverage.
+  #  H2: theme_network top-N filter coverage.
   # Build a 5-theme membership matrix; cap at 3; assert that the
   # PNG file is written and the lowest-degree themes are removed.
   skip_if_not_installed("igraph")

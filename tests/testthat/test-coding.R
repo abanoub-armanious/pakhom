@@ -116,7 +116,7 @@ test_that("codebook_summary builder works", {
 })
 
 # ============================================================================
-# C-4 regression: numbered-list prompt leak
+# regression: numbered-list prompt leak
 #
 # Background: in an early full-corpus run, 52 codes ended up with names
 # like `321. "Meeting Overload"` because the codebook-summary prompt format
@@ -133,7 +133,7 @@ test_that("codebook_summary builder works", {
 #    making future prompt drift recoverable rather than silent.
 # ============================================================================
 
-test_that(".normalize_code_name strips numbered-list prefixes (C-4 root cause)", {
+test_that(".normalize_code_name strips numbered-list prefixes (root cause)", {
   # The exact corruption pattern observed in an early full-corpus run.
   expect_equal(pakhom:::.normalize_code_name('321. "Meeting Overload"'),
                "Meeting Overload")
@@ -188,7 +188,7 @@ test_that(".normalize_code_name handles NULL/NA/empty defensively", {
   expect_equal(pakhom:::.normalize_code_name("   "), "")
 })
 
-test_that(".build_codebook_summary uses bare-bullet format (C-4 prompt fix)", {
+test_that(".build_codebook_summary uses bare-bullet format (prompt fix)", {
   state <- create_coding_state()
   state$codebook[["food_addiction"]] <- list(
     code_name = "Meeting Overload", frequency = 100L,
@@ -218,26 +218,26 @@ test_that(".build_codebook_summary uses bare-bullet format (C-4 prompt fix)", {
 })
 
 # ============================================================================
-# C-4 audit followup tests
+# tests
 #
-# The post-C-4 audit subagent flagged:
-#  - HIGH-2: no end-to-end test asserting that an AI returning the corrupt
+# The post- review flagged:
+# - : no end-to-end test asserting that an AI returning the corrupt
 #    `321. "Meeting Overload"` shape merges into an existing `meeting overload`
 #    code rather than creating a new entry under a corrupt key.
-#  - MEDIUM-3: inputs that normalize to "" (e.g. "321.", "NEW:") were not
+# - : inputs that normalize to "" (e.g. "321.", "NEW:") were not
 #    explicitly guarded at the admission site -- the pre-norm guard only
 #    catches nchar(seg_code) == 0.
-#  - MEDIUM-4: the is_new regex did not allow leading quote-wrapping, so
+# - : the is_new regex did not allow leading quote-wrapping, so
 #    `"\"NEW: Foo\""` would be classified as is_new = FALSE.
 # ============================================================================
 
-test_that("C-4 integration: AI-emitted '321. \"Foo\"' merges into existing 'foo' code (no duplicate)", {
+test_that("integration: AI-emitted '321. \"Foo\"' merges into existing 'foo' code (no duplicate)", {
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
   entry_text <- "I struggle with meeting overload every single day."
 
-  # Pre-populate an existing clean code in the codebook. If C-4's normalizer
+  # Pre-populate an existing clean code in the codebook. If 's normalizer
   # is wired correctly, the AI's `321. "Meeting Overload"` will normalize to
   # `Meeting Overload` -> key `meeting overload` -> merge with this entry.
   state <- create_coding_state()
@@ -264,7 +264,7 @@ test_that("C-4 integration: AI-emitted '321. \"Foo\"' merges into existing 'foo'
   ), auto_unbox = TRUE)
 
   # Mock compute_embeddings too: with a pre-populated codebook, the
-  # C-6 additive-retrieval path inside .code_entry_progressive
+  # additive-retrieval path inside .code_entry_progressive
   # would otherwise make a real HTTP request to OpenAI with the fake
   # test key and return 401. The graceful fallback works (no failure)
   # but the network egress is undesirable in a unit test.
@@ -308,7 +308,7 @@ test_that("C-4 integration: AI-emitted '321. \"Foo\"' merges into existing 'foo'
   }
 })
 
-test_that("C-4 audit MEDIUM-3: AI-emitted bare '321.' (normalizes to empty) is dropped, not admitted", {
+test_that("AI-emitted bare '321.' (normalizes to empty) is dropped, not admitted", {
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
@@ -354,7 +354,7 @@ test_that("C-4 audit MEDIUM-3: AI-emitted bare '321.' (normalizes to empty) is d
                info = "code that normalizes to '' must not be admitted")
 })
 
-test_that("C-4 audit MEDIUM-4: quote-wrapped NEW: prefix still detected as new-code request", {
+test_that("quote-wrapped NEW: prefix still detected as new-code request", {
   # is_new is computed via regex on the pre-normalization seg_code; the
   # audit fix added `["']*` allowance for leading quotes.
   # We can't easily observe is_new from outside without mocking, but we
@@ -370,7 +370,7 @@ test_that("C-4 audit MEDIUM-4: quote-wrapped NEW: prefix still detected as new-c
 })
 
 # ============================================================================
-# C-6: codebook additive semantic retrieval
+# codebook additive semantic retrieval
 #
 # The earlier prompt window showed the AI top-80 codes by frequency +
 # the last-20 created. With 4,000-code codebooks the AI saw only 2% of
@@ -385,7 +385,7 @@ test_that("C-4 audit MEDIUM-4: quote-wrapped NEW: prefix still detected as new-c
 # survive checkpoint save/restore.
 # ============================================================================
 
-test_that("C-6: create_coding_state initializes empty semantic_cache", {
+test_that("create_coding_state initializes empty semantic_cache", {
   state <- create_coding_state()
   expect_true("semantic_cache" %in% names(state))
   expect_true("code_embeddings" %in% names(state$semantic_cache))
@@ -393,7 +393,7 @@ test_that("C-6: create_coding_state initializes empty semantic_cache", {
   expect_length(state$semantic_cache$code_embeddings, 0L)
 })
 
-test_that("C-6: legacy .build_codebook_summary wrapper returns a string (back-compat)", {
+test_that("legacy .build_codebook_summary wrapper returns a string (back-compat)", {
   state <- create_coding_state()
   state$codebook[["a"]] <- list(code_name = "Code A", frequency = 10L,
                                  description = "desc A", type = "descriptive")
@@ -405,7 +405,7 @@ test_that("C-6: legacy .build_codebook_summary wrapper returns a string (back-co
   expect_true(grepl("Code A", out, fixed = TRUE))
 })
 
-test_that("C-6: .build_codebook_summary_with_retrieval falls back to freq+recency when provider is NULL", {
+test_that(".build_codebook_summary_with_retrieval falls back to freq+recency when provider is NULL", {
   state <- create_coding_state()
   for (k in paste0("c", 1:30)) {
     state$codebook[[k]] <- list(
@@ -430,7 +430,7 @@ test_that("C-6: .build_codebook_summary_with_retrieval falls back to freq+recenc
   }
 })
 
-test_that("C-6: .retrieve_semantic_codes returns integer(0) when provider lacks embeddings", {
+test_that(".retrieve_semantic_codes returns integer(0) when provider lacks embeddings", {
   state <- create_coding_state()
   state$codebook[["a"]] <- list(code_name = "Code A", frequency = 1L,
                                  description = "x", type = "descriptive")
@@ -448,7 +448,7 @@ test_that("C-6: .retrieve_semantic_codes returns integer(0) when provider lacks 
   expect_length(result$new_embeddings, 0L)
 })
 
-test_that("C-6: .retrieve_semantic_codes selects top-K via cosine + populates cache", {
+test_that(".retrieve_semantic_codes selects top-K via cosine + populates cache", {
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
@@ -506,7 +506,7 @@ test_that("C-6: .retrieve_semantic_codes selects top-K via cosine + populates ca
   expect_equal(call_count, 2L)
 })
 
-test_that("C-6: .retrieve_semantic_codes uses cache on second call (no re-embed)", {
+test_that(".retrieve_semantic_codes uses cache on second call (no re-embed)", {
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
@@ -542,7 +542,7 @@ test_that("C-6: .retrieve_semantic_codes uses cache on second call (no re-embed)
   expect_equal(result$indices, 1L)  # single code still scores
 })
 
-test_that("C-6: .retrieve_semantic_codes degrades gracefully on embedding failure", {
+test_that(".retrieve_semantic_codes degrades gracefully on embedding failure", {
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
@@ -570,7 +570,7 @@ test_that("C-6: .retrieve_semantic_codes degrades gracefully on embedding failur
   expect_length(result$new_embeddings, 0L)
 })
 
-test_that("C-6: .build_codebook_summary_with_retrieval injects semantic top-K into selection", {
+test_that(".build_codebook_summary_with_retrieval injects semantic top-K into selection", {
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
@@ -630,9 +630,9 @@ test_that("C-6: .build_codebook_summary_with_retrieval injects semantic top-K in
   expect_length(result$new_embeddings, 5L)
 })
 
-# C-6 audit followup tests --------------------------------------------------
+# tests --------------------------------------------------
 
-test_that("C-6 audit LOW-1: mismatched embedding dimensions are scored -Inf (no recycling)", {
+test_that("mismatched embedding dimensions are scored -Inf (no recycling)", {
   # Pre-fix: stale cache with a different-dim embedding (e.g., from a
   # prior run that used a different embedding model) would silently
   # recycle into `sum(emb * entry_emb)` and produce garbage cosines.
@@ -668,7 +668,7 @@ test_that("C-6 audit LOW-1: mismatched embedding dimensions are scored -Inf (no 
   expect_equal(result$indices, 2L)
 })
 
-test_that("C-6 audit LOW-3: state$semantic_cache populates after .code_entry_progressive returns", {
+test_that("state$semantic_cache populates after .code_entry_progressive returns", {
   # End-to-end verification of the cache-merge contract: after one
   # round of .code_entry_progressive on a pre-populated codebook, the
   # state returned must carry the new code embeddings in
@@ -728,7 +728,7 @@ test_that("C-6 audit LOW-3: state$semantic_cache populates after .code_entry_pro
                c(1, 0, 0))
 })
 
-test_that("C-6 audit LOW-4: cache accumulates across multiple calls (no re-embed)", {
+test_that("cache accumulates across multiple calls (no re-embed)", {
   # Simulates the production loop: each entry's coding call extends the
   # cache. Codes embedded in call N are cache hits in call N+1.
   state <- create_coding_state()
@@ -782,10 +782,10 @@ test_that("C-6 audit LOW-4: cache accumulates across multiple calls (no re-embed
 })
 
 # ============================================================================
-# D-7: empty-description backfill on new code admission
+# empty-description backfill on new code admission
 # ============================================================================
 
-test_that("D-7: new code with empty AI description gets D-7 placeholder", {
+test_that("new code with empty AI description gets engineering placeholder", {
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
@@ -823,7 +823,7 @@ test_that("D-7: new code with empty AI description gets D-7 placeholder", {
   ))
 
   # Code admitted with an honest provisional description, not an empty string.
-  # The "[D-7 placeholder; awaiting refresh]" engineering marker was
+  # The "[engineering placeholder; awaiting refresh]" engineering marker was
   # dropped -- it leaked into themes.json and biased clustering embeddings
   # (description feeds paste(name, description) in R/13_themes.R). The backfill
   # now keeps the first-segment snippet as a clean human description.
@@ -831,7 +831,7 @@ test_that("D-7: new code with empty AI description gets D-7 placeholder", {
   desc <- state$codebook[["meeting overload"]]$description
   expect_true(nzchar(desc),
               info = "Empty description should have been backfilled with a provisional one")
-  expect_false(grepl("D-7 placeholder", desc, fixed = TRUE),
+  expect_false(grepl("engineering placeholder", desc, fixed = TRUE),
                info = "the engineering marker must NOT leak into the description")
   expect_true(grepl("First observed in:", desc, fixed = TRUE),
               info = "Backfill is a clean 'First observed in: <snippet>' provisional description")
@@ -840,10 +840,10 @@ test_that("D-7: new code with empty AI description gets D-7 placeholder", {
 })
 
 # ============================================================================
-# C-5: per-N description-refresh for high-freq codes
+# per-N description-refresh for high-freq codes
 # ============================================================================
 
-test_that("C-5: .maybe_refresh_high_freq_descriptions no-ops when interval not hit", {
+test_that(".maybe_refresh_high_freq_descriptions no-ops when interval not hit", {
   state <- create_coding_state()
   # 80 codes, all over the min_freq threshold. interval = 100. Refresh
   # should NOT fire on first call because the codebook hasn't grown 100
@@ -876,7 +876,7 @@ test_that("C-5: .maybe_refresh_high_freq_descriptions no-ops when interval not h
   expect_equal(out$last_description_refresh_at_size %||% 0L, 0L)
 })
 
-test_that("C-5: .maybe_refresh_high_freq_descriptions refreshes high-freq codes", {
+test_that(".maybe_refresh_high_freq_descriptions refreshes high-freq codes", {
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 
@@ -948,7 +948,7 @@ test_that("C-5: .maybe_refresh_high_freq_descriptions refreshes high-freq codes"
   expect_equal(out$codebook[["hifreq_a"]]$last_description_refresh_at, 110L)
 })
 
-test_that("C-5: AI refresh failure leaves description unchanged + stamps timestamp", {
+test_that("AI refresh failure leaves description unchanged + stamps timestamp", {
   state <- create_coding_state()
   for (i in seq_len(100)) {
     key <- paste0("c", i)
@@ -983,7 +983,7 @@ test_that("C-5: AI refresh failure leaves description unchanged + stamps timesta
   expect_equal(out$codebook[["hifreq"]]$last_description_refresh_at, 101L)
 })
 
-test_that("C-5: no-provider short-circuits without errors", {
+test_that("no-provider short-circuits without errors", {
   state <- create_coding_state()
   state$codebook[["a"]] <- list(code_name = "A", description = "d",
                                  frequency = 100L, entry_ids = "e1",
@@ -996,14 +996,14 @@ test_that("C-5: no-provider short-circuits without errors", {
   expect_identical(out$codebook[["a"]]$description, "d")
 })
 
-test_that("C-5 regression: refresh works WITH an active audit log (step allowlisted)", {
+test_that("regression: refresh works WITH an active log (step allowlisted)", {
   # Regression for a silent-failure bug: .refresh_code_description records
   # its AI call via log_ai_request(audit_log, "description_refresh", ...),
   # but "description_refresh" was missing from .valid_audit_steps -- so with
   # an audit log active (every real pipeline run), log_ai_decision stop()ed
   # AFTER the paid ai_complete call, the surrounding tryCatch swallowed it
   # as "Description refresh failed", and the refreshed description was
-  # discarded. The other C-5 tests pass audit_log = NULL and never reached
+  # discarded. The other tests pass audit_log = NULL and never reached
   # this path.
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
@@ -1062,9 +1062,9 @@ test_that("C-5 regression: refresh works WITH an active audit log (step allowlis
   expect_true(any(steps == "description_refresh" & types == "ai_request"))
 })
 
-# C-5 / D-7 audit followup tests --------------------------------------------
+# tests --------------------------------------------
 
-test_that("D-7 audit followup LOW F2: NA AI description triggers backfill (not a crash)", {
+test_that("NA AI description triggers backfill (not a crash)", {
   # jsonlite parses `code_description: null` to NA_character_. Without
   # the is.na guard the admit-path crashes with "missing value where
   # TRUE/FALSE needed".
@@ -1104,11 +1104,11 @@ test_that("D-7 audit followup LOW F2: NA AI description triggers backfill (not a
   desc <- state$codebook[["meeting overload"]]$description
   expect_true(nzchar(desc))
   expect_false(is.na(desc))
-  expect_false(grepl("D-7 placeholder", desc, fixed = TRUE))
+  expect_false(grepl("engineering placeholder", desc, fixed = TRUE))
   expect_true(grepl("First observed in:", desc, fixed = TRUE))
 })
 
-test_that("D-7 audit followup: whitespace-only AI description triggers backfill", {
+test_that("whitespace-only AI description triggers backfill", {
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
   entry_text <- "Trouble with meeting overload."
@@ -1140,11 +1140,11 @@ test_that("D-7 audit followup: whitespace-only AI description triggers backfill"
   ))
   desc <- state$codebook[["meeting overload"]]$description
   # Whitespace-only AI description -> clean provisional backfill.
-  expect_false(grepl("D-7 placeholder", desc, fixed = TRUE))
+  expect_false(grepl("engineering placeholder", desc, fixed = TRUE))
   expect_true(grepl("First observed in:", desc, fixed = TRUE))
 })
 
-test_that("C-5 audit followup LOW F4: refresh_interval <= 0 disables the dispatcher", {
+test_that("refresh_interval <= 0 disables the dispatcher", {
   state <- create_coding_state()
   state$codebook[["hifreq"]] <- list(
     code_name = "Hifreq", description = "Original",
@@ -1167,7 +1167,7 @@ test_that("C-5 audit followup LOW F4: refresh_interval <= 0 disables the dispatc
   expect_identical(out$codebook[["hifreq"]]$description, "Original")
 })
 
-test_that("C-5 audit followup MEDIUM F1: sample_idx is deterministic across calls", {
+test_that("sample_idx is deterministic across calls", {
   # Replay-equivalence (R7): two calls with identical inputs must
   # produce identical sample_idx. The fix replaces sample() with
   # evenly-spaced indices via seq(..., length.out = ...).
@@ -2081,7 +2081,7 @@ test_that(".effective_max_entry_chars is robust to NULL/missing provider (R-quir
   expect_equal(pakhom:::.effective_max_entry_chars(prov_no_cw, list()), 8000L)
 })
 
-test_that("verified coded segment emits a quote_verified audit record (T0.1 denominator)", {
+test_that("verified coded segment emits a quote_verified record (T0.1 denominator)", {
   skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
               "Requires testthat >= 3.1.5 for local_mocked_bindings")
 

@@ -158,7 +158,7 @@ and inter-model reliability comparisons.}
 
 \section{Provider support}{
 
-OpenAI (GPT-4o family) and Anthropic (Claude family) with a unified
+OpenAI (G family) and Anthropic (Claude family) with a unified
 \code{\link{ai_complete}} abstraction. Mode 3 + Anthropic structurally
 precludes the Citations API (forced \code{tool_use} schema and
 Citations API output are mutually exclusive on the same response);

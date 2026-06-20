@@ -24,7 +24,7 @@ test_that("compute_provocation_provenance_stats returns empty shape for empty lo
 
 test_that("compute_provocation_provenance_stats walks provocations + extracts QuoteProvenance", {
   log <- create_reflection_log()
-  src <- "I always forget my pills."
+  src <- "I always forget my time-blocks."
   q <- make_quote("e1", "data_entry", src, 0L, 8L, "I always",
                     citation_source = "model_freeform")
   q <- verify_quote(q, src)

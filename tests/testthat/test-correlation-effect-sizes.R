@@ -1,17 +1,17 @@
 # Correlation-statistics unit tests
 #
-# H-13 Spearman / Kendall routing for binary x ordinal pairs
-# H-14 negligible effect-size tier on all three statistical layers
-# H-15 meaningful_effect AND significant headline in interpret_correlations
-# H-16 harmonized min_theme_entries filtering across the three layers
-# H-17 n_members + n_non_members emission in theme-group tibble
-# H-18 Cramér's V for the Fisher dispatch path
-# M-8  rank-biserial effect_r (sign-aware, numerically stable)
-# M-9  effect_r preserves sign
-# M-10 min_observed_both filter in co-occurrence
+# Spearman / Kendall routing for binary x ordinal pairs
+# negligible effect-size tier on all three statistical layers
+# meaningful_effect AND significant headline in interpret_correlations
+# harmonized min_theme_entries filtering across the three layers
+# n_members + n_non_members emission in theme-group tibble
+# Cramér's V for the Fisher dispatch path
+# rank-biserial effect_r (sign-aware, numerically stable)
+# effect_r preserves sign
+# min_observed_both filter in co-occurrence
 
 # ==========================================================================
-# H-13: binary x ordinal routes through Spearman
+# binary x ordinal routes through Spearman
 # ==========================================================================
 
 test_that(".select_pair_method routes binary x ordinal through Spearman", {
@@ -46,7 +46,7 @@ test_that(".select_pair_method preserves binary x binary phi (Pearson)", {
 
 
 # ==========================================================================
-# H-14: negligible tier in extract_significant
+# negligible tier in extract_significant
 # ==========================================================================
 
 test_that("extract_significant uses negligible / small / medium / large tiers", {
@@ -89,7 +89,7 @@ test_that("extract_significant uses negligible / small / medium / large tiers", 
 
 
 # ==========================================================================
-# H-15: meaningful_effect AND significant headline
+# meaningful_effect AND significant headline
 # ==========================================================================
 
 test_that("interpret_correlations reports the meaningful AND significant intersection", {
@@ -122,7 +122,7 @@ test_that("interpret_correlations reports the meaningful AND significant interse
 
 
 # ==========================================================================
-# H-16: harmonized min_theme_entries filter
+# harmonized min_theme_entries filter
 # ==========================================================================
 
 test_that("prepare_correlation_data filters multi-label themes by min_theme_entries", {
@@ -181,7 +181,7 @@ test_that("test_theme_cooccurrence filters by min_theme_entries", {
 
 
 # ==========================================================================
-# H-17: n_members + n_non_members in theme-group tibble
+# n_members + n_non_members in theme-group tibble
 # ==========================================================================
 
 test_that("compare_theme_groups emits n_members and n_non_members columns", {
@@ -209,7 +209,7 @@ test_that("compare_theme_groups emits n_members and n_non_members columns", {
 
 
 # ==========================================================================
-# H-18: Cramér's V for the Fisher dispatch path
+# Cramér's V for the Fisher dispatch path
 # ==========================================================================
 
 test_that("test_theme_cooccurrence emits non-NA Cramer's V on the Fisher path", {
@@ -235,7 +235,7 @@ test_that("test_theme_cooccurrence emits non-NA Cramer's V on the Fisher path", 
                                       min_observed_both = 1L)
   if (nrow(result) > 0L) {
     expect_equal(result$method[1L], "Fisher")
-    # H-18: Cramer's V is now populated for Fisher (was NA before)
+    # Cramer's V is now populated for Fisher (was NA before)
     expect_false(is.na(result$cramers_v[1L]))
     expect_true(is.numeric(result$cramers_v[1L]))
   }
@@ -243,7 +243,7 @@ test_that("test_theme_cooccurrence emits non-NA Cramer's V on the Fisher path", 
 
 
 # ==========================================================================
-# M-8 + M-9: rank-biserial effect_r is sign-aware
+# : rank-biserial effect_r is sign-aware
 # ==========================================================================
 
 test_that("compare_theme_groups effect_r is sign-aware and rank-biserial", {
@@ -275,11 +275,11 @@ test_that("compare_theme_groups effect_r is sign-aware and rank-biserial", {
 
 
 # ==========================================================================
-# M-10: min_observed_both filter
+# min_observed_both filter
 # ==========================================================================
 
 test_that("compare_theme_groups direction agrees with effect_r sign on skewed data", {
-  # Audit followup H-1: pre-followup `direction` used a mean
+  # pre-followup `direction` used a mean
   # comparison; on skewed data the mean and rank centroid can disagree
   # (members carry an outlier that drags the mean up but the bulk of
   # ranks are below non-members). The fix derives direction from
@@ -308,7 +308,7 @@ test_that("compare_theme_groups direction agrees with effect_r sign on skewed da
 })
 
 test_that("compare_theme_groups effect_r reaches 1 when all members rank above non-members", {
-  # Audit followup M-8: extreme rank-biserial bound check.
+  # extreme rank-biserial bound check.
   data <- tibble::tibble(
     std_id = paste0("e", 1:20),
     sentiment_score = c(rep(0.9, 10L), rep(0.1, 10L)),
@@ -329,7 +329,7 @@ test_that("compare_theme_groups effect_r reaches 1 when all members rank above n
 })
 
 test_that("test_theme_cooccurrence handles all-themes-filtered case", {
-  # Audit followup M-6: when every theme is below the cohort
+  # when every theme is below the cohort
   # filter, the function returns an empty tibble with a clean log.
   data <- tibble::tibble(
     # Two themes, each with only 2 members (below default 5)
@@ -350,8 +350,8 @@ test_that("test_theme_cooccurrence handles all-themes-filtered case", {
 })
 
 test_that("test_theme_cooccurrence handles mixed Fisher + Chi-square dispatch", {
-  # Audit followup M-7: the run produces both Fisher and
-  # Chi-square dispatches in the same call; H-18's Fisher Cramer's V
+  # the run produces both Fisher and
+  # Chi-square dispatches in the same call; 's Fisher Cramer's V
   # should sit alongside the chi-square Cramer's V in the same tibble.
   set.seed(133L)
   n <- 200L

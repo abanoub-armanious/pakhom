@@ -450,7 +450,7 @@ make_quotes_from_citations <- function(citations, documents,
 #' @param provider Optional AIProvider. When supplied, enables the
 #'   embedding-similarity step (4). When NULL, the ladder stops at step 3.
 #' @return The \code{QuoteProvenance} object with verification fields
-#'   updated. \code{verified_at} is set to \code{Sys.time()} ISO-8601.
+#' updated. \code{verified_at} is set to \code{Sys.time} I.
 #' @export
 verify_quote <- function(quote, source_text, provider = NULL) {
   stopifnot(inherits(quote, "QuoteProvenance"),
@@ -913,7 +913,7 @@ print.QuoteProvenance <- function(x, ...) {
   # (load-bearing for T0.1 verification fidelity).
   x <- stringi::stri_trans_nfc(x)
   # Convert smart quotes to ASCII straights. Using \u escapes (rather
-  # than literal multi-byte UTF-8 chars in the source) so chartr's
+  # than literal multi-byte U chars in the source) so chartr's
   # length-equality check works regardless of source-file encoding -- some
   # platforms read this file with Encoding(x) = "unknown" which makes
   # nchar count bytes instead of characters and breaks chartr.

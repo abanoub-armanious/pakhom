@@ -224,7 +224,7 @@ test_that(".build_subtheme_summary_table emits a row per subtheme + metric cols"
   )
   html <- pakhom:::.build_subtheme_summary_table(ts)
   expect_match(html, "<table")
-  # Audit MEDIUM-2: metric column names are pretty-printed in
+  # Audit : metric column names are pretty-printed in
   # the header (underscores -> spaces). The underlying column name
   # stays canonical in the CSV + stats list.
   expect_match(html, "Median\\(MAD\\) Policy Rating")
@@ -232,7 +232,7 @@ test_that(".build_subtheme_summary_table emits a row per subtheme + metric cols"
   expect_match(html, "Morning")
   expect_match(html, "8.00 \\(1.00\\)")  # Median(MAD) for Policy Rating
   expect_match(html, "first morning quote")
-  # Audit MEDIUM-15: caption clarifies bracketed metrics are
+  # Audit : caption clarifies bracketed metrics are
   # source entry values, not subtheme aggregates.
   expect_match(html, "bracketed values after each example")
 })
@@ -285,7 +285,7 @@ test_that("export_theme_subtheme_summary_csvs writes per-theme + master CSVs", {
   expect_equal(nrow(master), 2L)
 })
 
-test_that("export_theme_subtheme_summary_csvs returns list() when no themes have subthemes", {
+test_that("export_theme_subtheme_summary_csvs returns list when no themes have subthemes", {
   tmp_dir <- withr::local_tempdir()
   theme_stats <- list(
     `Theme A` = list(metric_cols = character(0), subtheme_stats = list())

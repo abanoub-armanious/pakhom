@@ -102,7 +102,7 @@ test_that("default_config(mode) sets methodology block correctly", {
   expect_null(cfg$methodology$parent_run_id)
 })
 
-test_that("default_config() with no methodology arg ERRORS per AC3", {
+test_that("default_config with no methodology arg ERRORS per AC3", {
   # Audit (AC HIGH): per AC3 ("no default mode; explicit
   # declaration mandatory"), the NULL-methodology path now hard-stops
   # rather than warn-and-default. The error message must point users
@@ -127,7 +127,7 @@ test_that("default_config errors on invalid methodology mode", {
   expect_error(default_config("not_a_real_mode"), "Invalid methodology mode")
 })
 
-test_that("default_config has audit and memos config blocks", {
+test_that("default_config has and memos config blocks", {
   cfg <- default_config("codebook_collaborative")
   expect_true(!is.null(cfg$audit))
   expect_true(cfg$audit$capture_raw_responses)
@@ -333,10 +333,10 @@ test_that("methodology_decision_aid errors when ta_family is missing in non-inte
 })
 
 # ============================================================================
-# AH-5: deprecated-knob warnings
+# deprecated-knob warnings
 # ============================================================================
 
-test_that("AH-5: .warn_deprecated_config_knobs flags legacy sequential-merge knobs", {
+test_that(".warn_deprecated_config_knobs flags legacy sequential-merge knobs", {
   cfg <- list(
     analysis = list(themes = list(
       merge_strategy        = "auto",
@@ -355,7 +355,7 @@ test_that("AH-5: .warn_deprecated_config_knobs flags legacy sequential-merge kno
   expect_false(any(grepl("include_subthemes", flagged)))
 })
 
-test_that("AH-5: .warn_deprecated_config_knobs flags legacy saturation knobs", {
+test_that(".warn_deprecated_config_knobs flags legacy saturation knobs", {
   cfg <- list(analysis = list(coding = list(
     saturation_enabled          = TRUE,
     saturation_window           = 100L,
@@ -368,16 +368,16 @@ test_that("AH-5: .warn_deprecated_config_knobs flags legacy saturation knobs", {
   expect_length(flagged, 6L)
 })
 
-test_that("AH-5: empty config produces no deprecated-knob warnings", {
+test_that("empty config produces no deprecated-knob warnings", {
   flagged <- pakhom:::.warn_deprecated_config_knobs(list())
   expect_length(flagged, 0L)
 })
 
 # ============================================================================
-# AH-4: reflexivity-scaffold warnings
+# reflexivity-scaffold warnings
 # ============================================================================
 
-test_that("AH-4: .warn_empty_reflexivity flags fully-empty reflexivity scaffold", {
+test_that(".warn_empty_reflexivity flags fully-empty reflexivity scaffold", {
   cfg <- list(study = list(
     research_focus = "test",
     researcher_positionality = NULL,
@@ -388,7 +388,7 @@ test_that("AH-4: .warn_empty_reflexivity flags fully-empty reflexivity scaffold"
   expect_true(all(empties))
 })
 
-test_that("AH-4: empty-string / NA / whitespace-only are treated as empty", {
+test_that("empty-string / NA / whitespace-only are treated as empty", {
   for (val in list("", "  ", NA_character_, NA)) {
     cfg <- list(study = list(
       researcher_positionality = val,
@@ -401,7 +401,7 @@ test_that("AH-4: empty-string / NA / whitespace-only are treated as empty", {
   }
 })
 
-test_that("AH-4: partially-populated reflexivity produces info-level signal", {
+test_that("partially-populated reflexivity produces info-level signal", {
   cfg <- list(study = list(
     researcher_positionality = "Researcher with 10 years experience",
     research_paradigm        = NULL,
@@ -412,7 +412,7 @@ test_that("AH-4: partially-populated reflexivity produces info-level signal", {
   expect_false(empties["positionality"])
 })
 
-test_that("AH-4: fully-populated reflexivity produces no warning", {
+test_that("fully-populated reflexivity produces no warning", {
   cfg <- list(study = list(
     researcher_positionality = "Organizational researcher",
     research_paradigm        = "critical realist",
@@ -423,10 +423,10 @@ test_that("AH-4: fully-populated reflexivity produces no warning", {
 })
 
 # ============================================================================
-# Audit followup LOW-6: validate_config wires the warns through
+# validate_config wires the warns through
 # ============================================================================
 
-test_that("AH-5 integration: validate_config calls deprecated-knob warn helper", {
+test_that("integration: validate_config calls deprecated-knob warn helper", {
   # Build a minimal-but-valid config carrying a deprecated knob; verify
   # validate_config completes (no error) AND logs a warn referencing
   # the knob. Pre-fix the helper existed but no test exercised the
@@ -467,7 +467,7 @@ test_that("AH-5 integration: validate_config calls deprecated-knob warn helper",
 # everything) and surfaced as the misleading validation error
 # "study.research_focus is required" -- making the user think the
 # override had silently failed when it had in fact silently overshot.
-# Caught during the Mode 1 smoke test.
+# Caught during the Mode 1 integration test.
 # ----------------------------------------------------------------------------
 
 test_that(".flatten_overrides: empty input returns empty list", {
@@ -561,12 +561,12 @@ test_that(".flatten_overrides: multiple siblings under nested parent", {
 })
 
 test_that(".flatten_overrides: character vector is a leaf (not recursed)", {
-  # study$concepts is c("med", "focus") -- a character vector, not a
+  # study$concepts is c("scheduling", "focus") -- a character vector, not a
   # list. Must NOT recurse on it (would fail since names() is NULL).
   result <- pakhom:::.flatten_overrides(
-    list(study = list(concepts = c("med", "focus", "overwork")))
+    list(study = list(concepts = c("scheduling", "focus", "overwork")))
   )
-  expect_equal(result, list("study.concepts" = c("med", "focus", "overwork")))
+  expect_equal(result, list("study.concepts" = c("scheduling", "focus", "overwork")))
 })
 
 test_that(".flatten_overrides: NULL value is a leaf (preserved)", {
@@ -651,7 +651,7 @@ test_that(".flatten_overrides: NA names are rejected (would silently lose value)
 # ----------------------------------------------------------------------------
 
 # Helper: write a minimal-but-valid YAML config + accompanying SQLite DB
-# into `td` and return the paths. Pattern mirrors the AH-5 integration test.
+# into `td` and return the paths. Pattern mirrors the integration test.
 .write_minimal_config_for_override_tests <- function(td) {
   db_path <- file.path(td, "test.db")
   con <- DBI::dbConnect(RSQLite::SQLite(), db_path)
@@ -792,7 +792,7 @@ test_that(".resolve_paths resolves a relative custom framework_spec_path (Mode 3
                   "/tmp/cfgdir")$methodology$framework_spec_path, "/abs/x.yaml")
 })
 
-test_that("create_config() requires an explicit methodology (AC3, no default mode)", {
+test_that("create_config requires an explicit methodology (AC3, no default mode)", {
   # create_config() used to default methodology to Mode 2, silently giving a
   # codebook config to anyone who did not choose -- contradicting AC3 and its
   # own @param, which already said 'mandatory'. It now errors, like

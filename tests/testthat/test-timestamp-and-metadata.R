@@ -1,15 +1,15 @@
-# Cross-cutting hardening unit tests
+# Cross-cutting edge-case tests
 #
-# V-8  word-boundary-aware quote truncation with visible ellipsis
-# L-15 timestamps in UTC across audit_log + quote_provenance
-# L-21 code_style removed (dead) + include_in_vivo + min_text_length wired
-# L-1  code_assignment provenance docstring documents the join
+# word-boundary-aware quote truncation with visible ellipsis
+# timestamps in UTC across audit_log + quote_provenance
+# code_style removed (dead) + include_in_vivo + min_text_length wired
+# code_assignment provenance docstring documents the join
 # (carried over from earlier)
-# M-T7-1   prompt_template_version stamped in run_metadata.json
-# MEDIUM-2 schema_version is FIRST field in audit log records
+# -1 prompt_template_version stamped in run_metadata.json
+# schema_version is FIRST field in audit log records
 
 # ==========================================================================
-# V-8: word-boundary truncation with ellipsis
+# word-boundary truncation with ellipsis
 # ==========================================================================
 
 test_that(".truncate_quote_word_boundary preserves short text", {
@@ -46,10 +46,10 @@ test_that(".truncate_quote_word_boundary handles edge cases", {
 
 
 # ==========================================================================
-# L-15: timestamps in UTC
+# timestamps in UTC
 # ==========================================================================
 
-test_that("audit log timestamps are emitted in UTC", {
+test_that("log timestamps are emitted in UTC", {
   td <- withr::local_tempdir()
   audit <- init_audit_log(td, config = NULL)
   log_ai_decision(audit, "coding", "code_assignment",
@@ -103,7 +103,7 @@ test_that("audit log timestamps are emitted in UTC", {
   offenders
 }
 
-test_that("every format(Sys.time(), ...) in R/ declares tz = \"UTC\" (L-15 invariant)", {
+test_that("every format(Sys.time, ...) in R/ declares tz = \"UTC\" (invariant)", {
   src_dir <- test_path("..", "..", "R")
   # Check for an actual source file (not just the directory) -- covr's
   # test fixture sometimes has an empty R/ that exists but lacks sources.
@@ -116,7 +116,7 @@ test_that("every format(Sys.time(), ...) in R/ declares tz = \"UTC\" (L-15 invar
   # creation dates, JSONL timestamps). Two researchers in different
   # timezones running identical code would otherwise produce divergent
   # artifacts. Caught:
-  #   - L-15 audit: 14 sites in R/
+  # - audit: 14 sites in R/
   #   - cross-cutting audit: mode1_orchestrator.R:363 (initially missed)
   #   - meta-audit M4: utils.R / 17_report.R / qdpx_export.R
   # This static-source test catches the ENTIRE bug class for any future site.
@@ -174,10 +174,10 @@ test_that("ProvocationCoverage computed_at is UTC", {
 
 
 # ==========================================================================
-# MEDIUM-2: schema_version is the FIRST field
+# schema_version is the FIRST field
 # ==========================================================================
 
-test_that("audit log record has schema_version as the first field", {
+test_that("log record has schema_version as the first field", {
   td <- withr::local_tempdir()
   audit <- init_audit_log(td, config = NULL)
   log_ai_decision(audit, "coding", "code_assignment",
@@ -192,7 +192,7 @@ test_that("audit log record has schema_version as the first field", {
 
 
 # ==========================================================================
-# M-T7-1 (deferred): prompt_template_version in run_metadata
+# -1 (deferred): prompt_template_version in run_metadata
 # ==========================================================================
 
 test_that(".PROMPT_TEMPLATE_VERSION constant exists and is 1.0.0", {
@@ -215,7 +215,7 @@ test_that("init_run_state stamps prompt_template_version into run_metadata.json"
 
 
 # ==========================================================================
-# L-21: config wiring audit -- code_style removed
+# config wiring audit -- code_style removed
 # ==========================================================================
 
 test_that("code_style is NOT in default_config.yaml (legacy dead knob)", {
