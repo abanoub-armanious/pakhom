@@ -392,7 +392,7 @@ rather than in config files. The package warns if it detects a key pasted
 directly into `config.yaml`.
 
 **Your privacy:** pakhom runs entirely on your own machine. It collects no
-telemetry and sends nothing about you or your data to its authors or any third
+telemetry and sends nothing about you or your data to its author or any third
 party. Your data is transmitted only to the AI provider you configure (OpenAI or
 Anthropic, over HTTPS), and solely to perform the analysis you request; your API
 key is read from your environment and is never written to logs, audit records,
