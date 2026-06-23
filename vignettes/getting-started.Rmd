@@ -106,14 +106,14 @@ choosing among them, see `vignette("methodology-modes")`. In short:
 
 - **Mode 1 (`reflexive_scaffold`):** AI as Socratic gadfly; researcher
   authors all themes + codes; pakhom contributes provocations only.
-  Use [`run_mode1()`](../reference/run_mode1.html). Best for reflexive
+  Use [`run_mode1()`](https://abanoub-armanious.github.io/pakhom/reference/run_mode1.html). Best for reflexive
   TA + constructionist epistemology.
 - **Mode 2 (`codebook_collaborative`):** AI proposes codes + themes;
-  researcher gates each. Use [`run_analysis()`](../reference/run_analysis.html).
+  researcher gates each. Use [`run_analysis()`](https://abanoub-armanious.github.io/pakhom/reference/run_analysis.html).
   This vignette.
 - **Mode 3 (`framework_applied`):** apply a researcher-supplied
   theoretical framework (TPB, COM-B, TDF, or your own) verbatim;
-  flag anomalies. Use [`run_analysis()`](../reference/run_analysis.html)
+  flag anomalies. Use [`run_analysis()`](https://abanoub-armanious.github.io/pakhom/reference/run_analysis.html)
   with `methodology.framework_spec_path` set. Best for theory-driven
   / deductive analyses.
 

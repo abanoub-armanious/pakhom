@@ -431,11 +431,11 @@ See `?compare_models`.
 
 ## Documentation
 
-- **[Getting Started vignette](articles/getting-started.html):** step-by-step
+- **[Getting Started vignette](https://abanoub-armanious.github.io/pakhom/articles/getting-started.html):** step-by-step
   guide from installation to interpreting results
-- **[Methodology Modes vignette](articles/methodology-modes.html):** choosing
+- **[Methodology Modes vignette](https://abanoub-armanious.github.io/pakhom/articles/methodology-modes.html):** choosing
   among the three modes with worked examples + a decision rubric
-- **[Function reference](reference/index.html):** documentation for all
+- **[Function reference](https://abanoub-armanious.github.io/pakhom/reference/index.html):** documentation for all
   exported functions
 - **`config_wizard_app()`:** interactive web-based config builder
 
