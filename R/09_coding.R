@@ -135,7 +135,11 @@ create_coding_state <- function(learning_context = NULL, config_hash = NULL) {
       # the same schema as a post-arbiter state. -1L means "no
       # arbiter call has fired yet" (the modulo gate's `!= -1L`
       # check accepts the first valid n_coded).
-      last_arbiter_n_coded = -1L
+      last_arbiter_n_coded = -1L,
+      # Curve sampling shares the arbiter's coded-delta scheduling but keeps
+      # its own last-fired marker so the curve still records in Mode 3
+      # (where the arbiter is skipped). -1L means no curve point yet.
+      last_curve_n_coded = -1L
     ),
     # per-code embedding cache for additive semantic
     # retrieval. code_embeddings is keyed by code_key; each value is a
@@ -236,7 +240,8 @@ run_progressive_coding <- function(data, provider, config = list(),
   # ai_assessment_interval) removed per C1 ("AI decides when to stop;
   # no hardcoded saturation thresholds"). The AI arbiter
   # (.ai_judge_saturation in R/saturation_arbiter.R) is now the sole
-  # decision; cadence is auto-scaled by .saturation_cadence(nrow(data)).
+  # decision; cadence is keyed to the projected coded count via
+  # .saturation_cadence() (see the coding loop).
   # See R/saturation_arbiter.R header for the rewrite rationale.
 
   validate_data_columns(data, c("std_text", "std_id"), "run_progressive_coding")
@@ -375,11 +380,12 @@ run_progressive_coding <- function(data, provider, config = list(),
 
   batch_delay <- provider$rate_limits$delay_between_batches %||% 0.5
 
-  # saturation tracking state
-  # saturation_cadence: AI arbiter check cadence, auto-scaled by corpus
-  # size per .saturation_cadence(). Replaces the earlier
-  # ai_assessment_interval / saturation_window / etc. knobs.
-  saturation_cadence <- .saturation_cadence(n)
+  # saturation tracking state.
+  # The AI arbiter and the saturation curve are scheduled by a cadence
+  # (coded entries between checks) recomputed each iteration from the
+  # projected coded yield in the coding loop below. Keying it to coded yield
+  # rather than the raw row count keeps the check budget steady when most
+  # entries are relevance-skipped.
   # Consecutive AI-call failures; resets on any successful call.
   # After 3 in a row, log one warning per failure streak; the arbiter
   # keeps retrying at each cadence checkpoint (never silently saturate;
@@ -593,6 +599,18 @@ run_progressive_coding <- function(data, provider, config = list(),
     n_skipped_total <- length(state$entries_skipped) + length(new_skipped)
     n_coded <- n_done - n_skipped_total
 
+    # Cadence (coded entries between saturation checks) keyed to the
+    # projected coded yield, so a high relevance-skip rate does not starve
+    # the arbiter of checks. .saturation_cadence() keeps the floor of 20 and
+    # the ~50-check budget; projecting from the running coded:processed ratio
+    # makes that budget track the entries actually coded.
+    projected_coded <- if (n_done > 0L) {
+      as.integer(round(n * n_coded / n_done))
+    } else {
+      n_coded
+    }
+    saturation_cadence <- .saturation_cadence(projected_coded)
+
     # Track new codes created by this entry
     codes_after <- length(state$codebook)
     n_new_codes <- codes_after - codes_before
@@ -625,21 +643,20 @@ run_progressive_coding <- function(data, provider, config = list(),
                "{length(state$codebook)} codes, {n_coded} coded, {n_skipped_total} skipped")
     }
 
-    # saturation curve + AI arbiter check.
-    # Curve cadence: min(50, saturation_cadence) -- on small corpora the
-    # arbiter fires more often than 50 ticks so the curve cadence is
-    # tightened to match (otherwise the arbiter would see "no curve data
-    # yet" on its first check). For large corpora cadence > 50 and the
-    # 50-tick cadence is kept so the saturation plot stays smooth.
-    # An earlier version had a
-    # hardcoded 50 here that drifted out of sync with the arbiter
-    # cadence on mid-sized corpora.
+    # Saturation curve + AI arbiter check.
+    # Curve cadence is min(50, saturation_cadence): on small corpora it
+    # matches the arbiter so the arbiter has trajectory data on its first
+    # check; on large corpora it caps at 50 coded entries so the saturation
+    # plot stays smooth. The curve advances on a coded-delta counter (its own
+    # last-fired marker), so relevance-skipped entries do not consume a tick.
     curve_cadence <- min(50L, saturation_cadence)
-    if (n_coded > 0 && n_coded %% curve_cadence == 0) {
-      # Window for the new-codes-in-window curve point: use the arbiter
-      # cadence (one window per arbiter check). Bounded by n_coded so
-      # early curve points use a smaller window naturally.
-      window_size <- min(saturation_cadence, n_coded)
+    last_curve_n <- state$saturation$last_curve_n_coded %||% -1L
+    if (n_coded > 0 && n_coded - max(0L, last_curve_n) >= curve_cadence) {
+      state$saturation$last_curve_n_coded <- n_coded
+      # Window for the new-codes-in-window curve point: the coded entries
+      # elapsed since the previous curve point. The first point uses the full
+      # coded count, so early points use a smaller window naturally.
+      window_size <- n_coded - max(0L, last_curve_n)
 
       # New-codes-in-window: count codes whose birth-time (measured as
       # the n_coded value when they were created) falls within the last
@@ -678,19 +695,13 @@ run_progressive_coding <- function(data, provider, config = list(),
       ))
     }
 
-    # AI saturation arbiter (C1: AI decides when to stop).
-    # Fires every `saturation_cadence` coded entries -- no min-entries
-    # gate, no kill switch. The AI can output "uncertain" when the
-    # evidence is too thin to judge, so an early check is harmless.
-    # dedupe arbiter calls when an entry is
-    # SKIPPED right after a coded entry whose n_coded hit the cadence
-    # multiple. An earlier modulo gate would re-fire on every
-    # skipped iteration that followed (since n_coded was unchanged),
-    # producing 26 duplicate arbiter calls at 9 distinct n_coded
-    # values on a large run (~$0.30 wasted). last_arbiter_n_coded
-    # is the n_coded value the arbiter last evaluated; only re-fire
-    # when it advances. NULL on fresh runs (first arbiter call
-    # naturally falls through).
+    # AI saturation arbiter (C1: AI decides when to stop). Fires once the
+    # coded count has advanced by `saturation_cadence` since the last check
+    # -- no min-entries gate, no kill switch. The AI can output "uncertain"
+    # when the evidence is too thin, so an early check is harmless.
+    # last_arbiter_n_coded is the n_coded value the arbiter last evaluated;
+    # the coded-delta condition only re-fires once it advances by a full
+    # cadence, so a skipped entry right after a check does not re-trigger.
     last_arbiter_n <- state$saturation$last_arbiter_n_coded %||% -1L
     # Gate the saturation arbiter on
     # is.null(framework_spec). In Mode 3 the codebook is pre-populated
@@ -706,8 +717,7 @@ run_progressive_coding <- function(data, provider, config = list(),
     # codebook stability. Skip the arbiter entirely when a framework
     # spec is present.
     if (is.null(framework_spec) && n_coded > 0 &&
-        n_coded %% saturation_cadence == 0 &&
-        n_coded != last_arbiter_n) {
+        n_coded - max(0L, last_arbiter_n) >= saturation_cadence) {
       state$saturation$last_arbiter_n_coded <- n_coded
       judgment <- .ai_judge_saturation(
         state = state, provider = provider,

@@ -471,8 +471,8 @@ config_wizard_app <- function(output_path = "config.yaml") {
     shiny::div(class = "help-text",
                "Saturation is judged by an AI arbiter. The AI ",
                "evaluates the recent code-growth trajectory + codebook ",
-               "composition every max(20, ceiling(n/50)) coded entries ",
-               "and returns one of: reached / not_yet / uncertain. ",
+               "composition at an adaptive cadence scaled to the coded ",
+               "entries, and returns one of: reached / not_yet / uncertain. ",
                "Coding stops at the first 'reached' verdict. No tunable ",
                "thresholds -- per C1, the AI decides when to stop."),
 

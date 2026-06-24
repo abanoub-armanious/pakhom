@@ -541,7 +541,7 @@ data:
   preprocessing:
     min_char: 50                  # Minimum characters to keep an entry
     # thematic saturation is AI-arbited; no user knobs.
-    # The AI judges saturation per max(20, ceiling(n_corpus / 50))
+    # The AI judges saturation at an adaptive cadence scaled to the
     # coded entries -- see ?pakhom::run_progressive_coding.
 
 learning:

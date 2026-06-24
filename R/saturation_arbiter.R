@@ -19,9 +19,10 @@
 # decision -- the AI's single 3-valued verdict
 # (reached | not_yet | uncertain) is the sole decision.
 #
-# Cadence: max(20L, ceiling(n_corpus / 50)) -- auto-scaled per corpus;
-# no knob. A 9,178-entry corpus checks every ~184 entries (~50 checks
-# total). A 100-entry corpus checks every 20 entries (~4 checks).
+# Cadence: max(20L, ceiling(n_coded_est / 50)) -- keyed to the projected
+# coded count, so a high relevance-skip rate does not starve it; no knob.
+# A run that codes ~9,178 entries checks every ~184 (~50 checks total).
+# A run that codes ~100 checks every 20 (~4 checks).
 #
 # Articulation requirement: the schema mandates a 2-4 sentence
 # articulation BEFORE the verdict (the anti-vacuous pattern).
@@ -43,27 +44,30 @@
 #' Auto-scaled cadence for the AI saturation arbiter
 #'
 #' Returns the number of coded entries between successive AI saturation
-#' checks. The formula \code{max(20L, ceiling(n_corpus / 50))} produces
-#' ~50 checks regardless of corpus size, scaled so small corpora aren't
-#' over-polled and large corpora aren't under-polled.
+#' checks. The formula \code{max(20L, ceiling(n_coded_est / 50))} produces
+#' ~50 checks across the entries that are actually coded, scaled so small
+#' samples aren't over-polled and large ones aren't under-polled. The coding
+#' loop calls this with the projected coded count (the running
+#' coded:processed ratio applied to the corpus), so a high relevance-skip
+#' rate does not starve the arbiter of checks.
 #'
 #' Examples:
 #' \itemize{
-#'   \item n_corpus = 100  -> cadence = 20  (~5 checks)
-#'   \item n_corpus = 1000 -> cadence = 20  (~50 checks; cadence floor)
-#'   \item n_corpus = 9178 -> cadence = 184 (~50 checks)
-#'   \item n_corpus = 50000-> cadence = 1000 (~50 checks)
+#'   \item n_coded_est = 100  -> cadence = 20  (~5 checks)
+#'   \item n_coded_est = 1000 -> cadence = 20  (~50 checks; cadence floor)
+#'   \item n_coded_est = 9178 -> cadence = 184 (~50 checks)
+#'   \item n_coded_est = 50000-> cadence = 1000 (~50 checks)
 #' }
 #'
-#' Floor of 20 prevents over-polling tiny corpora (where the floor
+#' Floor of 20 prevents over-polling small samples (where the floor
 #' produces 5 checks rather than 50).
 #'
-#' @param n_corpus Integer; total entries in the corpus (after row
-#'   filtering, before any are skipped).
+#' @param n_coded_est Integer; the projected number of entries that will be
+#'   coded (relevance-passing), used to size the check budget.
 #' @return Integer cadence (>= 20L).
 #' @keywords internal
-.saturation_cadence <- function(n_corpus) {
-  max(20L, as.integer(ceiling(n_corpus / 50)))
+.saturation_cadence <- function(n_coded_est) {
+  max(20L, as.integer(ceiling(n_coded_est / 50)))
 }
 
 #' Format the recent saturation-curve trajectory as compact prompt text

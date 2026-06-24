@@ -26,6 +26,77 @@ test_that(".saturation_cadence scales as ceiling(n/50) for larger corpora", {
   expect_equal(pakhom:::.saturation_cadence(50000L), 1000L)
 })
 
+# ---- Cadence keyed to coded yield, not raw corpus size ----------------------
+
+test_that("the check budget is keyed to coded yield, not raw corpus size", {
+  # On a high-skip corpus the cadence must follow the entries actually
+  # coded, not the raw row count, otherwise a large mostly-skipped corpus
+  # is under-checked. Projected coded count = corpus * coded / processed.
+  n <- 8216L; n_coded <- 200L; n_done <- 8216L
+  projected <- as.integer(round(n * n_coded / n_done))   # 200
+  coded_cadence <- pakhom:::.saturation_cadence(projected)
+  raw_cadence   <- pakhom:::.saturation_cadence(n)
+  expect_equal(coded_cadence, 20L)    # floor binds on the coded sample
+  expect_equal(raw_cadence, 165L)     # the raw-corpus cadence
+  # Checks over the run = coded %/% cadence: the coded-keyed cadence gives
+  # many checks where the raw-corpus cadence would have given one.
+  expect_equal(n_coded %/% coded_cadence, 10L)
+  expect_equal(n_coded %/% raw_cadence, 1L)
+})
+
+test_that("the saturation arbiter is checked repeatedly on a large high-skip corpus", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+  # 40 of 2000 entries are coded (the rest relevance-skipped). With the
+  # cadence keyed to coded yield it floors at 20, so the arbiter is checked
+  # at coded 20 and 40. A cadence keyed to the raw row count would have been
+  # 40, checking only once over the whole run.
+  n <- 2000L
+  call_i <- 0L
+  arbiter_checks <- 0L
+  code_json <- jsonlite::toJSON(list(
+    skipped = FALSE, skip_reason = "",
+    coded_segments = list(list(text = "Entry number",
+      start_char = 0L, end_char = 12L, code = "content_code",
+      code_description = "d", code_type = "descriptive", confidence = 0.8))
+  ), auto_unbox = TRUE)
+  skip_json <- jsonlite::toJSON(list(
+    skipped = TRUE, skip_reason = "No applicable content", coded_segments = list()
+  ), auto_unbox = TRUE)
+  local_mocked_bindings(
+    ai_complete = function(...) {
+      call_i <<- call_i + 1L
+      content <- if (call_i %% 50L == 0L) code_json else skip_json
+      list(content = content, model = "m", request_id = "r",
+           usage = list(prompt_tokens = 1L, completion_tokens = 1L, total_tokens = 2L),
+           finish_reason = "stop", raw_response = list(), prompt_hash = "h")
+    },
+    .ai_judge_saturation = function(...) {
+      arbiter_checks <<- arbiter_checks + 1L
+      list(success = TRUE, verdict = "not_yet",
+           articulation = "The codebook is still growing as new codes keep appearing.",
+           rationale = "New codes continue to emerge across recent windows.")
+    },
+    .package = "pakhom"
+  )
+  provider <- mock_provider()
+  provider$rate_limits$delay_between_batches <- 0
+  data <- tibble::tibble(
+    std_id = paste0("e", seq_len(n)),
+    std_text = paste("Entry number", seq_len(n),
+                     "has enough text content to be processed here.")
+  )
+  suppressWarnings(suppressMessages(
+    run_progressive_coding(
+      data, provider = provider,
+      config = list(max_consecutive_entry_failures = 50L,
+                    max_failed_entry_fraction = 1.0),
+      research_focus = "test"
+    )
+  ))
+  expect_equal(arbiter_checks, 2L)
+})
+
 # ---- Schema validity --------------------------------------------------------
 
 test_that(".saturation_decision_schema is well-formed JSON Schema", {
