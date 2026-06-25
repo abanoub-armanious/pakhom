@@ -187,7 +187,7 @@ approved through Reddit's Responsible Builder Program:
     ```
     REDDIT_CLIENT_ID=your_id_here
     REDDIT_CLIENT_SECRET=your_secret_here
-    REDDIT_USER_AGENT=pakhom/1.0.0 (by u/YourRedditUsername)
+    REDDIT_USER_AGENT=pakhom/1.0.1 (by u/YourRedditUsername)
     ```
   - In your config: `scraping.enabled: true` plus the list of subreddits.
 
@@ -727,5 +727,5 @@ If you use this package in published research, please cite:
 
 > Armanious, A. J. (2026).
 > pakhom: AI-Assisted Thematic Analysis with
-> Methodology-as-Architecture [R package]. Version 1.0.0.
+> Methodology-as-Architecture [R package]. Version `r as.character(utils::packageVersion('pakhom'))`.
 > <https://orcid.org/0000-0002-7005-8297>
