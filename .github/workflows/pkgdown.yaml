@@ -13,9 +13,9 @@ name: pkgdown
 
 on:
   # Build and publish only from the default branch. The github-pages environment
-  # rejects deployments from tag refs, and every release is cut from a main
-  # commit that already rebuilds and publishes the site, so tag, release, and
-  # pull-request triggers are intentionally omitted.
+  # rejects deployments from any other ref, and each release is cut from a main
+  # commit that already rebuilds and publishes the site, so tag and release
+  # triggers are not needed here.
   push:
     branches: [main, master]
   workflow_dispatch:
