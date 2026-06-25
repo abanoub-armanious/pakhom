@@ -12,13 +12,12 @@
 name: pkgdown
 
 on:
+  # Build and publish only from the default branch. The github-pages environment
+  # rejects deployments from tag refs, and every release is cut from a main
+  # commit that already rebuilds and publishes the site, so tag, release, and
+  # pull-request triggers are intentionally omitted.
   push:
     branches: [main, master]
-    tags: ['v*']
-  pull_request:
-    branches: [main, master]
-  release:
-    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -57,12 +56,10 @@ jobs:
         shell: Rscript {0}
 
       - name: Upload Pages artifact
-        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs
 
       - name: Deploy to GitHub Pages
-        if: github.event_name != 'pull_request'
         id: deployment
         uses: actions/deploy-pages@v4
