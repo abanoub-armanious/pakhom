@@ -1,3 +1,10 @@
+# pakhom 1.0.1
+
+- Saturation checks are now scheduled by the number of coded entries rather
+  than the raw corpus size. On corpora where most entries are skipped, the
+  check is evaluated at appropriate intervals instead of being keyed to total
+  corpus size. Finalized runs and existing checkpoints are unaffected.
+
 # pakhom 1.0.0
 
 > This is the initial release of pakhom.

@@ -1,6 +1,6 @@
 Package: pakhom
 Title: AI-Assisted Thematic Analysis with Methodology-as-Architecture
-Version: 1.0.0
+Version: 1.0.1
 Authors@R: person(given = c("Abanoub", "J."), family = "Armanious",
     role = c("aut", "cre"), email = "armaniousabanoub@gmail.com",
     comment = c(ORCID = "0000-0002-7005-8297"))

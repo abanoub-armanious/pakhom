@@ -46,10 +46,9 @@ by roxygen2 (>= 7.3.3): edit the roxygen comments above each function, not the
 
 ## Versioning
 
-The package version is held at **1.0.0** for the initial release. Please do
-**not** bump the version number in a pull request; record changes as dated
-entries in `NEWS.md` instead. The version is updated only when the maintainer
-cuts a release.
+The package follows semantic versioning. Please do **not** change the version
+number in a pull request; record user-facing changes as entries in `NEWS.md`
+instead. The version is incremented and a release is tagged by the maintainer.
 
 ## Code of conduct
 

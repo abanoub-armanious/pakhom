@@ -1,6 +1,6 @@
 ## Submission
 
-This is a new submission of pakhom 1.0.0.
+This is a new submission of pakhom 1.0.1.
 
 ## R CMD check results
 

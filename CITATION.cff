@@ -39,8 +39,8 @@ keywords:
   - reproducibility
   - R package
 license: MIT
-version: 1.0.0
-date-released: 2026-06-03
+version: 1.0.1
+date-released: 2026-06-24
 references:
   - type: article
     authors:
