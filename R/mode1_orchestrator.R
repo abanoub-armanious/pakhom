@@ -1307,6 +1307,7 @@ run_mode1 <- function(data, theme_set,
     study_name              = config$study$name,
     research_focus          = config$study$research_focus,
     package_version         = as.character(utils::packageVersion("pakhom")),
+    package_sha             = .pkg_sha(),
     analysis_schema_version = .SCHEMA_VERSION,
     # Mode 1-specific fields so a reviewer scanning run_metadata.json
     # immediately sees what categories were attempted + how many themes

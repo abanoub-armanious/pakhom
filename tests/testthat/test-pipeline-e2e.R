@@ -335,6 +335,7 @@ test_that("Mode 2 e2e: run_analysis produces complete artifact set + finalize_ru
   expect_equal(meta$methodology_mode, "codebook_collaborative")
   expect_equal(meta$is_finalized, TRUE)
   expect_false(is.null(meta$finalized_at))
+  expect_true("package_sha" %in% names(meta))
 
   # AC4 / AC8 / AC7: every required Mode 2 artifact present
   d <- result$output_dir

@@ -31,6 +31,14 @@ test_that("read_run_metadata returns NULL on parse error (with warning)", {
   )
 })
 
+# ---- .pkg_sha ---------------------------------------------------------------
+
+test_that(".pkg_sha returns a length-1 character (commit SHA or NA)", {
+  sha <- pakhom:::.pkg_sha()
+  expect_type(sha, "character")
+  expect_length(sha, 1L)
+})
+
 # ---- init_run_state ---------------------------------------------------------
 
 test_that("init_run_state creates run_metadata.json with required fields", {

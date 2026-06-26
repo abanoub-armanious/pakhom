@@ -180,6 +180,20 @@ safe_progress_bar <- function(format, total) {
 #' @keywords internal
 `%||%` <- rlang::`%||%`
 
+#' Installed package commit SHA, when available
+#'
+#' Reads the git commit recorded in the installed package's DESCRIPTION so a
+#' run can self-identify the exact source it was produced from. Populated when
+#' the package was installed from a git remote (\code{RemoteSha}, or
+#' \code{GithubSHA1} for older installs); \code{NA} for a plain source install.
+#'
+#' @return A length-1 character: the commit SHA, or \code{NA_character_}.
+#' @keywords internal
+.pkg_sha <- function() {
+  d <- utils::packageDescription("pakhom")
+  as.character(d$RemoteSha %||% d$GithubSHA1 %||% NA_character_)
+}
+
 # ==============================================================================
 # Concept Context Builder: dynamic multi-concept support
 # ==============================================================================

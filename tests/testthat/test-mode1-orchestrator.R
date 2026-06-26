@@ -176,6 +176,7 @@ test_that("AC4: run_mode1 writes run_metadata.json with methodology mode stamped
   expect_equal(meta$methodology_mode, "reflexive_scaffold")
   expect_equal(meta$mode1_n_themes_input, 2L)
   expect_equal(meta$mode1_categories_requested, "counter_narrative")
+  expect_true("package_sha" %in% names(meta))
 })
 
 test_that("AC4: run-dir name carries the -rs methodology suffix", {
