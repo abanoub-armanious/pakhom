@@ -511,3 +511,20 @@ test_that("explicit scrape_reddit arguments override config values", {
   scrape_reddit(config = cfg, sort_by = "hot", include_comments = FALSE)
   expect_equal(seen$sort, "hot")
 })
+
+test_that(".reddit_api_get returns ok=FALSE on a 200 with a non-JSON body", {
+  skip_if_not_installed("httr2")
+  fake_tokmgr <- list(get = function() "tok", refresh = function() invisible(NULL))
+  testthat::local_mocked_bindings(
+    req_perform = function(req, ...) httr2::response(
+      status_code = 200,
+      headers = list("content-type" = "text/html"),
+      body = charToRaw("<html>interstitial</html>")),
+    .package = "httr2"
+  )
+  # max_retries = 1 so the single attempt returns immediately (no retry sleep).
+  out <- pakhom:::.reddit_api_get("https://oauth.reddit.com/x", fake_tokmgr,
+                                  list(user_agent = "ua"), max_retries = 1)
+  expect_false(out$ok)        # surfaced as failure, not thrown
+  expect_equal(out$status, 200L)
+})
