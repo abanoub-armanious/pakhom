@@ -786,14 +786,10 @@ print.ThematicConfig <- function(x, ...) {
       time_filter = "all",
       reddit_client_id = NULL,
       reddit_client_secret = NULL,
-      # User-agent built dynamically from DESCRIPTION so default_config()'s
-      # output stays consistent with the installed package version.
-      # End users should override this with their actual Reddit username.
-      reddit_user_agent = sprintf(
-        "pakhom/%s (by u/YourRedditUsername)",
-        tryCatch(as.character(utils::packageVersion("pakhom")),
-                 error = function(e) "dev")
-      )
+      # Left NULL so this default mirrors the shipped YAML template. When unset,
+      # .get_reddit_credentials() builds a version-stamped user-agent at scrape
+      # time; end users should set REDDIT_USER_AGENT with their own username.
+      reddit_user_agent = NULL
     )
   )
 }

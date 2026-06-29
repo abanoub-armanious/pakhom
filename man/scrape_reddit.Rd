@@ -35,9 +35,11 @@ genuinely new content rather than re-counting duplicates.}
 }
 \value{
 List with counts: \code{posts_added}, \code{comments_added},
-\code{posts_skipped}, and \code{truncated_subreddits} (a character vector of
-subreddits whose collection stopped early because of an API error, so the
-caller can tell a genuinely empty result apart from an incomplete one).
+\code{posts_skipped}, \code{comment_fetch_failures} (posts whose comments
+could not be fetched this run; they are retried next run), and
+\code{truncated_subreddits} (a character vector of subreddits whose
+collection stopped early because of an API error, so the caller can tell a
+genuinely empty result apart from an incomplete one).
 }
 \description{
 Authenticates with the Reddit API and collects posts and their full comment
@@ -54,4 +56,8 @@ nested "continue this thread" branches past that depth are not followed.
 The access token is refreshed automatically (proactively before expiry and
 on a 401), so long multi-subreddit runs do not truncate when the initial
 token ages out.
+
+Comment fetching is recoverable: if a post's comments cannot be fetched on
+one run, the post is kept and its comments are backfilled on a later run
+(tracked per post), and the count of failed fetches is returned.
 }

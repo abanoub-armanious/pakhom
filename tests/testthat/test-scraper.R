@@ -528,3 +528,69 @@ test_that(".reddit_api_get returns ok=FALSE on a 200 with a non-JSON body", {
   expect_false(out$ok)        # surfaced as failure, not thrown
   expect_equal(out$status, 200L)
 })
+
+# ==============================================================================
+# Corpus integrity: failed comment fetch is surfaced and backfilled on re-scrape
+# ==============================================================================
+test_that("a failed comment fetch is counted and backfilled on the next run", {
+  skip_if_not_installed("RSQLite")
+  db <- tempfile(fileext = ".db"); on.exit(unlink(db), add = TRUE)
+
+  listing <- mk_listing(list(mk_post(1, num_comments = 1L)), after = NULL)
+  good_comments <- mk_comments_listing(list(mk_t1("c1")))
+  state <- new.env(); state$comments_ok <- FALSE   # run 1: comment fetch fails
+
+  testthat::local_mocked_bindings(
+    .reddit_authenticate = function(creds) list(access_token = "TOK", expires_in = 3600),
+    .reddit_api_get = function(url, tokmgr, creds, max_retries = 4) {
+      if (grepl("/comments/", url)) {
+        if (state$comments_ok) return(good_comments)
+        return(list(ok = FALSE, status = 500L, body = NULL))
+      }
+      listing
+    },
+    .package = "pakhom"
+  )
+
+  args <- list(subreddits = "test", db_path = db,
+               config = list(reddit_client_id = "i", reddit_client_secret = "s",
+                             reddit_user_agent = "ua"),
+               posts_per_subreddit = 10)
+
+  # Run 1: post stored, comment fetch fails -> counted, post left comment-less.
+  r1 <- do.call(scrape_reddit, args)
+  expect_equal(r1$posts_added, 1L)
+  expect_equal(r1$comments_added, 0L)
+  expect_equal(r1$comment_fetch_failures, 1L)
+
+  con <- DBI::dbConnect(RSQLite::SQLite(), db)
+  expect_equal(DBI::dbGetQuery(con, "SELECT COUNT(*) n FROM comments")$n, 0L)
+  # The post is marked un-fetched (NULL) so a later run knows to backfill.
+  csa <- DBI::dbGetQuery(con, "SELECT comments_scraped_at FROM posts WHERE post_id='post_1'")$comments_scraped_at
+  expect_true(is.na(csa))
+  DBI::dbDisconnect(con)
+
+  # Run 2: comment endpoint now succeeds -> the existing post is backfilled.
+  state$comments_ok <- TRUE
+  r2 <- do.call(scrape_reddit, args)
+  expect_equal(r2$posts_added, 0L)       # no new post
+  expect_equal(r2$posts_skipped, 1L)
+  expect_equal(r2$comments_added, 1L)    # comment backfilled
+  expect_equal(r2$comment_fetch_failures, 0L)
+
+  con <- DBI::dbConnect(RSQLite::SQLite(), db); on.exit(DBI::dbDisconnect(con), add = TRUE)
+  expect_equal(DBI::dbGetQuery(con, "SELECT COUNT(*) n FROM comments")$n, 1L)
+  csa2 <- DBI::dbGetQuery(con, "SELECT comments_scraped_at FROM posts WHERE post_id='post_1'")$comments_scraped_at
+  expect_false(is.na(csa2))               # now marked fetched
+
+  # Run 3: already fetched -> not re-fetched.
+  r3 <- do.call(scrape_reddit, args)
+  expect_equal(r3$comments_added, 0L)
+})
+
+test_that(".epoch_to_iso parses a numeric-string epoch instead of zeroing it", {
+  expect_match(pakhom:::.epoch_to_iso("1700000000"), "^2023-11-14")
+  expect_match(pakhom:::.epoch_to_iso(1700000000), "^2023-11-14")
+  expect_equal(pakhom:::.epoch_to_iso(NULL), "1970-01-01")
+  expect_equal(pakhom:::.epoch_to_iso("not-a-number"), "1970-01-01")
+})

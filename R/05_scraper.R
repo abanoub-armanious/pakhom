@@ -22,6 +22,10 @@
 #' on a 401), so long multi-subreddit runs do not truncate when the initial
 #' token ages out.
 #'
+#' Comment fetching is recoverable: if a post's comments cannot be fetched on
+#' one run, the post is kept and its comments are backfilled on a later run
+#' (tracked per post), and the count of failed fetches is returned.
+#'
 #' @param config ThematicConfig object or list with a \code{$scraping} section
 #'   (a bare list is also accepted and treated as the scraping section).
 #' @param db_path Path to SQLite database (created if missing)
@@ -34,9 +38,11 @@
 #' @param time_filter Time filter for "top" sort: "hour", "day", "week",
 #'   "month", "year", "all" (default "all")
 #' @return List with counts: \code{posts_added}, \code{comments_added},
-#'   \code{posts_skipped}, and \code{truncated_subreddits} (a character vector of
-#'   subreddits whose collection stopped early because of an API error, so the
-#'   caller can tell a genuinely empty result apart from an incomplete one).
+#'   \code{posts_skipped}, \code{comment_fetch_failures} (posts whose comments
+#'   could not be fetched this run; they are retried next run), and
+#'   \code{truncated_subreddits} (a character vector of subreddits whose
+#'   collection stopped early because of an API error, so the caller can tell a
+#'   genuinely empty result apart from an incomplete one).
 #' @export
 scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
                            posts_per_subreddit = NULL, include_comments = NULL,
@@ -83,7 +89,7 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
   log_info("Starting Reddit scrape: {length(subreddits)} subreddit(s), {posts_per_subreddit} posts each")
 
   totals <- list(posts_added = 0L, comments_added = 0L, posts_skipped = 0L,
-                 truncated_subreddits = character(0))
+                 comment_fetch_failures = 0L, truncated_subreddits = character(0))
 
   # Randomize order to reduce pattern detection
   shuffled_subs <- sample(subreddits)
@@ -102,6 +108,7 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
     totals$posts_added <- totals$posts_added + result$posts_added
     totals$comments_added <- totals$comments_added + result$comments_added
     totals$posts_skipped <- totals$posts_skipped + result$posts_skipped
+    totals$comment_fetch_failures <- totals$comment_fetch_failures + result$comment_failures
     if (isTRUE(result$truncated)) {
       totals$truncated_subreddits <- c(totals$truncated_subreddits, sub)
     }
@@ -117,6 +124,9 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
   log_info("  Posts added: {totals$posts_added}")
   log_info("  Comments added: {totals$comments_added}")
   log_info("  Posts skipped (already in DB): {totals$posts_skipped}")
+  if (totals$comment_fetch_failures > 0) {
+    log_warn("Comment fetch failed for {totals$comment_fetch_failures} post(s); they will be retried on the next scrape.")
+  }
   if (length(totals$truncated_subreddits) > 0) {
     incomplete <- paste(totals$truncated_subreddits, collapse = ", ")
     log_warn("Incomplete scrape (stopped on API error) for: {incomplete}")
@@ -131,11 +141,14 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
 
 # Convert a Unix epoch (seconds) to an ISO-8601 UTC string, tolerating a
 # missing/NA/non-numeric value (Reddit occasionally omits created_utc on
-# special entries). Without this guard as.POSIXct(NULL) yields a zero-length
-# value that aborts the parameterized insert.
+# special entries). Coerce first so a numeric string ("1700000000") parses
+# rather than being zeroed; anything that does not yield a single finite number
+# falls back to the epoch. Without this guard as.POSIXct(NULL) yields a
+# zero-length value that aborts the parameterized insert.
 .epoch_to_iso <- function(x) {
-  if (is.null(x) || length(x) != 1 || !is.numeric(x) || is.na(x)) x <- 0
-  as.character(as.POSIXct(x, origin = "1970-01-01", tz = "UTC"))
+  n <- suppressWarnings(as.numeric(x))
+  if (length(n) != 1 || !is.finite(n)) n <- 0
+  as.character(as.POSIXct(n, origin = "1970-01-01", tz = "UTC"))
 }
 
 # Run fn() inside a single database transaction. Commit on success, roll back
@@ -353,7 +366,8 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
     author TEXT,
     text TEXT,
     permalink TEXT,
-    scraped_at TEXT DEFAULT (datetime('now'))
+    scraped_at TEXT DEFAULT (datetime('now')),
+    comments_scraped_at TEXT
   )")
 
   DBI::dbExecute(db, "CREATE TABLE IF NOT EXISTS comments (
@@ -375,6 +389,13 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
   }
   if (!"scraped_at" %in% existing_post_cols) {
     DBI::dbExecute(db, "ALTER TABLE posts ADD COLUMN scraped_at TEXT")
+  }
+  # Marks when a post's comments were successfully fetched. NULL means never
+  # fetched (a failed fetch, or a row from before comment scraping), which a
+  # re-scrape uses to backfill comments rather than silently leaving the post
+  # comment-less.
+  if (!"comments_scraped_at" %in% existing_post_cols) {
+    DBI::dbExecute(db, "ALTER TABLE posts ADD COLUMN comments_scraped_at TEXT")
   }
 
   existing_comment_cols <- DBI::dbListFields(db, "comments")
@@ -400,6 +421,7 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
   posts_added <- 0L
   comments_added <- 0L
   posts_skipped <- 0L
+  comment_failures <- 0L
   after <- NULL
   chunk_size <- 100L  # Reddit API max per request
   pages <- 0L
@@ -452,6 +474,7 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
     posts_added <- posts_added + page$added
     posts_skipped <- posts_skipped + page$skipped
     comments_added <- comments_added + page$comments
+    comment_failures <- comment_failures + page$comment_failures
 
     # Pagination
     after <- data$data$after
@@ -465,30 +488,40 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
   log_info("  r/{subreddit}: +{posts_added} posts, +{comments_added} comments, {posts_skipped} skipped{status_note}")
 
   list(posts_added = posts_added, comments_added = comments_added,
-       posts_skipped = posts_skipped, truncated = truncated)
+       posts_skipped = posts_skipped, truncated = truncated,
+       comment_failures = comment_failures)
 }
 
 # Insert a page of posts in one transaction, then fetch comments for the newly
 # added posts AFTER the commit so a long comment crawl never holds a write
-# lock and a comment failure cannot discard the page's posts.
+# lock and a comment failure cannot discard the page's posts. Already-stored
+# posts whose comments were never successfully fetched are backfilled, so a
+# transient comment failure does not leave a permanently comment-less post.
 .process_post_page <- function(db, posts, subreddit, tokmgr, creds,
                                 include_comments, budget, pb) {
   res <- .with_tx(db, function() {
     added <- 0L
     skipped <- 0L
     new_ids <- character(0)
+    backfill_ids <- character(0)
 
     for (post in posts) {
       if (added >= budget) break  # honor the per-subreddit budget exactly
       pd <- post$data
       if (is.null(pd$id)) next
 
-      exists <- DBI::dbGetQuery(db,
-        "SELECT 1 FROM posts WHERE post_id = ? LIMIT 1",
+      wants_comments <- include_comments && (pd$num_comments %||% 0) > 0
+      existing <- DBI::dbGetQuery(db,
+        "SELECT comments_scraped_at FROM posts WHERE post_id = ? LIMIT 1",
         params = list(pd$id)
       )
-      if (nrow(exists) > 0) {
+      if (nrow(existing) > 0) {
         skipped <- skipped + 1L
+        # Backfill a post stored without its comments (a prior fetch failed, or
+        # the row predates comment scraping).
+        if (wants_comments && is.na(existing$comments_scraped_at[1])) {
+          backfill_ids <- c(backfill_ids, pd$id)
+        }
         next
       }
 
@@ -510,39 +543,55 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
       added <- added + 1L
       pb$tick()
 
-      if (include_comments && (pd$num_comments %||% 0) > 0) {
-        new_ids <- c(new_ids, pd$id)
-      }
+      if (wants_comments) new_ids <- c(new_ids, pd$id)
     }
 
-    list(added = added, skipped = skipped, new_ids = new_ids)
+    list(added = added, skipped = skipped, new_ids = new_ids,
+         backfill_ids = backfill_ids)
   })
 
+  # Fetch comments after the commit. On a successful fetch, stamp
+  # comments_scraped_at so the post is not re-fetched next run; a failed fetch
+  # leaves it NULL (to retry) and is counted so the caller can see it.
   comments <- 0L
-  for (pid in res$new_ids) {
-    comments <- comments + .scrape_post_comments(db, subreddit, pid, tokmgr, creds)
+  comment_failures <- 0L
+  for (pid in c(res$new_ids, res$backfill_ids)) {
+    r <- .scrape_post_comments(db, subreddit, pid, tokmgr, creds)
+    comments <- comments + r$added
+    if (isTRUE(r$ok)) {
+      DBI::dbExecute(db,
+        "UPDATE posts SET comments_scraped_at = datetime('now') WHERE post_id = ?",
+        params = list(pid))
+    } else {
+      comment_failures <- comment_failures + 1L
+    }
   }
 
-  list(added = res$added, skipped = res$skipped, comments = comments)
+  list(added = res$added, skipped = res$skipped, comments = comments,
+       comment_failures = comment_failures)
 }
 
 # ==============================================================================
 # Internal: Scrape the full comment tree for a single post
 # ==============================================================================
 
+# Returns list(ok, added): ok is FALSE only when the comment listing request
+# itself failed (so the caller can retry that post later), TRUE when a response
+# was obtained even if it held no storable comments. added is the count newly
+# inserted.
 .scrape_post_comments <- function(db, subreddit, post_id, tokmgr, creds) {
   url <- sprintf("https://oauth.reddit.com/r/%s/comments/%s.json?limit=500&depth=10",
                   utils::URLencode(as.character(subreddit), reserved = TRUE),
                   utils::URLencode(as.character(post_id), reserved = TRUE))
 
   res <- .reddit_api_get(url, tokmgr, creds)
-  if (!isTRUE(res$ok)) return(0L)
+  if (!isTRUE(res$ok)) return(list(ok = FALSE, added = 0L))
 
   data <- res$body
-  if (length(data) < 2) return(0L)
+  if (length(data) < 2) return(list(ok = TRUE, added = 0L))
 
   children <- data[[2]]$data$children
-  if (is.null(children) || length(children) == 0) return(0L)
+  if (is.null(children) || length(children) == 0) return(list(ok = TRUE, added = 0L))
 
   # Walk the embedded tree, collecting any "load more" placeholders, then
   # expand those via the API so the whole discussion is captured.
@@ -559,15 +608,19 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
     )
   }
 
-  added
+  list(ok = TRUE, added = added)
 }
 
 # Recursively insert a list of comment nodes. t1 nodes are stored (and their
 # nested $replies walked); "more" nodes (truncated threads) have their child
 # ids collected into more_acc for later API expansion. Returns the number of
-# comments newly inserted.
-.insert_comment_tree <- function(db, subreddit, post_id, children, more_acc) {
+# comments newly inserted. depth/max_depth bound the recursion: Reddit returns
+# at most depth=10 of embedded replies, so the generous cap is only a backstop
+# against a pathological payload, never a limit on real data.
+.insert_comment_tree <- function(db, subreddit, post_id, children, more_acc,
+                                  depth = 0L, max_depth = 50L) {
   added <- 0L
+  if (depth >= max_depth) return(added)
 
   for (child in children) {
     kind <- child$kind
@@ -612,7 +665,8 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
     if (is.list(replies) && !is.null(replies$data) &&
         !is.null(replies$data$children)) {
       added <- added + .insert_comment_tree(
-        db, subreddit, post_id, replies$data$children, more_acc
+        db, subreddit, post_id, replies$data$children, more_acc,
+        depth + 1L, max_depth
       )
     }
   }

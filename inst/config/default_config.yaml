@@ -392,4 +392,4 @@ scraping:
   time_filter: "all"              # For sort_by=top: "hour", "day", "week", "month", "year", "all"
   reddit_client_id: ~             # Leave NULL; set REDDIT_CLIENT_ID in .Renviron.
   reddit_client_secret: ~         # Leave NULL; set REDDIT_CLIENT_SECRET in .Renviron.
-  reddit_user_agent: ~            # Leave NULL to use pakhom/<installed-version> (by u/YourRedditUsername); set REDDIT_USER_AGENT in .Renviron with your username.
+  reddit_user_agent: ~            # Leave NULL for a generated default; or set REDDIT_USER_AGENT in .Renviron, e.g. "pakhom (by u/YourRedditUsername)".
