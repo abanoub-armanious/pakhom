@@ -181,7 +181,11 @@ config_wizard_app <- function(output_path = "config.yaml") {
         # preserved across re-runs.
         if (file.exists(save_to)) {
           existing <- tryCatch(yaml::read_yaml(save_to), error = function(e) NULL)
-          if (is.list(existing)) config <- utils::modifyList(existing, config)
+          # Drop NULL leaves first so a blank wizard field does not delete the
+          # corresponding value already in the file.
+          if (is.list(existing)) {
+            config <- utils::modifyList(existing, .drop_null_leaves(config))
+          }
         }
         header <- paste0(
           "# =============================================================================\n",
@@ -805,7 +809,24 @@ config_wizard_app <- function(output_path = "config.yaml") {
       sort_by = val("scraping_sort", "new"),
       time_filter = val("scraping_time", "all")
     )
+  } else {
+    # Always emit an explicit enabled flag so unchecking the box writes
+    # scraping.enabled = FALSE rather than leaving a prior enabled block intact.
+    config$scraping <- list(enabled = FALSE)
   }
 
   config
+}
+
+#' Recursively drop NULL leaves from a nested list
+#'
+#' Used before merging the wizard output over an existing config so a field
+#' left blank (which serializes to NULL) does not delete the value already in
+#' the file. Returns the list with every NULL element removed at every level.
+#' @keywords internal
+#' @noRd
+.drop_null_leaves <- function(x) {
+  if (!is.list(x)) return(x)
+  x <- lapply(x, .drop_null_leaves)
+  x[!vapply(x, is.null, logical(1))]
 }

@@ -13,10 +13,10 @@
 #' ALL content and lets the progressive sequential coder downstream decide which
 #' entries match the research question (no keyword pre-filter).
 #'
-#' Comments are captured in full: nested reply threads are walked recursively
-#' and truncated "load more comments" placeholders are expanded via the Reddit
-#' API, so the stored corpus reflects the whole discussion rather than only the
-#' first page of top-level comments.
+#' Comments are captured well beyond the first page: nested reply threads are
+#' walked recursively and truncated "load more comments" placeholders are
+#' expanded via the Reddit API, up to the API's returned depth. Very deeply
+#' nested "continue this thread" branches past that depth are not followed.
 #'
 #' The access token is refreshed automatically (proactively before expiry and
 #' on a 401), so long multi-subreddit runs do not truncate when the initial
@@ -39,8 +39,8 @@
 #'   caller can tell a genuinely empty result apart from an incomplete one).
 #' @export
 scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
-                           posts_per_subreddit = 500, include_comments = TRUE,
-                           sort_by = "new", time_filter = "all") {
+                           posts_per_subreddit = NULL, include_comments = NULL,
+                           sort_by = NULL, time_filter = NULL) {
 
   # Resolve config. Accept a ThematicConfig or a plain list. Prefer an explicit
   # $scraping sub-list; otherwise treat the supplied list as the scraping
@@ -54,11 +54,14 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
     scrape_cfg <- config[["scraping"]] %||% (if (is.list(config)) config else NULL)
     db_path <- db_path %||% config[["data"]][["database"]] %||% config[["database"]]
     subreddits <- subreddits %||% scrape_cfg$subreddits
-    posts_per_subreddit <- scrape_cfg$posts_per_subreddit %||% posts_per_subreddit
-    include_comments <- scrape_cfg$include_comments %||% include_comments
-    sort_by <- scrape_cfg$sort_by %||% sort_by
-    time_filter <- scrape_cfg$time_filter %||% time_filter
   }
+
+  # Resolution order, consistent for every parameter: an explicitly-passed
+  # argument wins, then the config value, then the built-in default.
+  posts_per_subreddit <- posts_per_subreddit %||% scrape_cfg$posts_per_subreddit %||% 500L
+  include_comments <- include_comments %||% scrape_cfg$include_comments %||% TRUE
+  sort_by <- sort_by %||% scrape_cfg$sort_by %||% "new"
+  time_filter <- time_filter %||% scrape_cfg$time_filter %||% "all"
 
   # Validate the listing parameters up front so a typo fails with an actionable
   # message rather than a malformed request that silently returns nothing.
@@ -292,7 +295,18 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
 
     status <- httr2::resp_status(resp)
     if (status == 200) {
-      return(list(ok = TRUE, status = 200L, body = httr2::resp_body_json(resp)))
+      # A 200 can still carry a non-JSON body (a CDN/interstitial HTML page or
+      # a truncated response). Parse defensively so that surfaces as ok = FALSE
+      # rather than throwing out of the scrape.
+      body <- tryCatch(httr2::resp_body_json(resp), error = function(e) {
+        log_warn("200 response was not valid JSON: {e$message}")
+        NULL
+      })
+      if (is.null(body)) {
+        if (attempt < max_retries) { Sys.sleep(2 * attempt); next }
+        return(list(ok = FALSE, status = 200L, body = NULL))
+      }
+      return(list(ok = TRUE, status = 200L, body = body))
     }
     if (status == 401 && !refreshed) {
       log_warn("Access token rejected (401); re-authenticating")

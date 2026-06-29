@@ -8,10 +8,10 @@ scrape_reddit(
   config = NULL,
   db_path = NULL,
   subreddits = NULL,
-  posts_per_subreddit = 500,
-  include_comments = TRUE,
-  sort_by = "new",
-  time_filter = "all"
+  posts_per_subreddit = NULL,
+  include_comments = NULL,
+  sort_by = NULL,
+  time_filter = NULL
 )
 }
 \arguments{
@@ -46,10 +46,10 @@ ALL content and lets the progressive sequential coder downstream decide which
 entries match the research question (no keyword pre-filter).
 }
 \details{
-Comments are captured in full: nested reply threads are walked recursively
-and truncated "load more comments" placeholders are expanded via the Reddit
-API, so the stored corpus reflects the whole discussion rather than only the
-first page of top-level comments.
+Comments are captured well beyond the first page: nested reply threads are
+walked recursively and truncated "load more comments" placeholders are
+expanded via the Reddit API, up to the API's returned depth. Very deeply
+nested "continue this thread" branches past that depth are not followed.
 
 The access token is refreshed automatically (proactively before expiry and
 on a 401), so long multi-subreddit runs do not truncate when the initial

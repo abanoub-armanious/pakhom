@@ -175,12 +175,14 @@ test_that("the Shiny wizard's methodology radio starts UNSELECTED (AC3: no defau
   expect_true(grepl('name="methodology_mode"', html, fixed = TRUE))
 })
 
-test_that(".build_config_from_inputs emits a scraping block only when enabled", {
+test_that(".build_config_from_inputs writes scraping.enabled in both states", {
   base <- list(methodology_mode = "codebook_collaborative", research_focus = "x",
                ai_provider = "openai")
 
+  # Disabled must still write enabled = FALSE so unchecking the box turns off a
+  # previously-enabled block on a merge-save.
   off <- pakhom:::.build_config_from_inputs(base)
-  expect_null(off$scraping)
+  expect_false(off$scraping$enabled)
 
   on <- pakhom:::.build_config_from_inputs(c(base, list(
     scraping_enabled = TRUE,
@@ -217,4 +219,33 @@ test_that("create_config writes a scraping block from dot-path overrides", {
   expect_true(rt$scraping$enabled)
   expect_equal(unlist(rt$scraping$subreddits), "AskReddit")
   expect_equal(rt$scraping$posts_per_subreddit, 100L)
+})
+
+test_that(".drop_null_leaves removes NULL leaves at every level", {
+  x <- list(a = 1, b = NULL, c = list(d = NULL, e = 2), f = list(g = NULL))
+  out <- pakhom:::.drop_null_leaves(x)
+  expect_equal(out$a, 1)
+  expect_null(out$b)            # removed
+  expect_false("b" %in% names(out))
+  expect_equal(out$c$e, 2)
+  expect_false("d" %in% names(out$c))
+  expect_equal(length(out$f), 0L)  # g dropped; f becomes empty
+})
+
+test_that("a blank wizard field does not delete an existing value on merge", {
+  # Simulate the save-handler merge: existing file has a database path and a
+  # scraping block; the wizard is re-run with the Data field blank and scraping
+  # disabled. The merge must keep the database and turn scraping off.
+  existing <- list(
+    data = list(database = "my_data.db", source_type = "reddit"),
+    scraping = list(enabled = TRUE, subreddits = list("productivity"))
+  )
+  wiz <- pakhom:::.build_config_from_inputs(list(
+    methodology_mode = "codebook_collaborative", research_focus = "x",
+    ai_provider = "openai"))  # database_path blank, scraping disabled
+
+  merged <- utils::modifyList(existing, pakhom:::.drop_null_leaves(wiz))
+  expect_equal(merged$data$database, "my_data.db")     # preserved, not deleted
+  expect_false(merged$scraping$enabled)                # turned off
+  expect_equal(unlist(merged$scraping$subreddits), "productivity")  # preserved
 })

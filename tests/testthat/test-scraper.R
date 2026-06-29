@@ -484,3 +484,30 @@ test_that("duplicate posts are skipped on re-insert", {
   final_count <- DBI::dbGetQuery(db, "SELECT COUNT(*) as n FROM posts WHERE post_id = 'post_1'")$n
   expect_equal(final_count, 1L)
 })
+
+# ==============================================================================
+# Precedence: an explicit argument wins over a config value (consistent)
+# ==============================================================================
+test_that("explicit scrape_reddit arguments override config values", {
+  skip_if_not_installed("RSQLite")
+  db <- tempfile(fileext = ".db"); on.exit(unlink(db), add = TRUE)
+
+  seen <- new.env(); seen$sort <- NA_character_
+  listing <- mk_listing(list(mk_post(1)), after = NULL)
+  testthat::local_mocked_bindings(
+    .reddit_authenticate = function(creds) list(access_token = "TOK", expires_in = 3600),
+    .reddit_api_get = function(url, tokmgr, creds, max_retries = 4) {
+      m <- regmatches(url, regexpr("/(new|hot|top|rising)\\.json", url))
+      if (length(m)) seen$sort <- sub("\\.json", "", sub("/", "", m))
+      listing
+    },
+    .package = "pakhom"
+  )
+
+  cfg <- list(database = db, scraping = list(
+    subreddits = "test", sort_by = "new", reddit_client_id = "i",
+    reddit_client_secret = "s", reddit_user_agent = "ua"))
+  # config says sort_by=new, but the explicit argument hot must win.
+  scrape_reddit(config = cfg, sort_by = "hot", include_comments = FALSE)
+  expect_equal(seen$sort, "hot")
+})
