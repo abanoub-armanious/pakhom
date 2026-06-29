@@ -1174,6 +1174,37 @@ config_wizard <- function(output_path = "config.yaml") {
   cat("================================\n")
   cat("This wizard will help you create a config.yaml file.\n\n")
 
+  # Pre-load an existing config (if the target already exists) so a re-run
+  # offers the saved values as prompt defaults instead of reverting them.
+  prev <- if (file.exists(output_path)) {
+    tryCatch(yaml::read_yaml(output_path), error = function(e) NULL)
+  } else {
+    NULL
+  }
+  pv <- function(path, default = NULL) {
+    cur <- prev
+    for (k in strsplit(path, ".", fixed = TRUE)[[1]]) {
+      if (!is.list(cur) || is.null(cur[[k]])) return(default)
+      cur <- cur[[k]]
+    }
+    cur
+  }
+  # Prompt showing the current/default value in brackets; blank input keeps it.
+  ask <- function(label, current = NULL) {
+    shown <- if (is.null(current) ||
+                 (is.character(current) && nchar(current) == 0)) {
+      ""
+    } else {
+      paste0(" [", current, "]")
+    }
+    v <- trimws(readline(paste0(label, shown, ": ")))
+    if (nchar(v) == 0) current else v
+  }
+  if (!is.null(prev)) {
+    cat("Found an existing config at ", output_path,
+        "; press Enter to keep a shown value.\n\n", sep = "")
+  }
+
   # Methodology mode -- the load-bearing architectural choice. It is
   # mandatory: a config without it fails validate_config(). Prompt for it
   # first, mirroring the Shiny wizard's Methodology step.
@@ -1217,62 +1248,78 @@ config_wizard <- function(output_path = "config.yaml") {
     }
   }
 
-  study_name <- readline("Study name: ")
-  if (nchar(study_name) == 0) study_name <- "Untitled Study"
+  study_name <- ask("Study name", pv("study.name", "Untitled Study"))
+  if (is.null(study_name) || nchar(study_name) == 0) study_name <- "Untitled Study"
 
-  research_focus <- readline("Research focus (required): ")
-  if (nchar(research_focus) == 0) stop("Research focus is required")
+  research_focus <- ask("Research focus (required)", pv("study.research_focus"))
+  if (is.null(research_focus) || nchar(research_focus) == 0) stop("Research focus is required")
 
-  concepts_raw <- readline("Core concepts (comma-separated, or blank): ")
+  concepts_raw <- ask("Core concepts (comma-separated, or blank)",
+                      paste(unlist(pv("study.concepts")), collapse = ", "))
+  concepts_raw <- concepts_raw %||% ""
   concepts <- if (nchar(concepts_raw) > 0) {
     trimws(strsplit(concepts_raw, ",")[[1]])
   } else {
     NULL
   }
 
-  data_path <- readline("Path to database file (.db or .csv): ")
-  if (nchar(data_path) == 0) data_path <- NULL
+  data_path <- ask("Path to database file (.db or .csv)", pv("data.database"))
+  if (is.null(data_path) || nchar(data_path) == 0) data_path <- NULL
 
-  source_type <- readline("Data source type [reddit/twitter/generic/clinical] (default: generic): ")
-  if (nchar(source_type) == 0) source_type <- "generic"
+  source_type <- ask("Data source type [reddit/twitter/generic/clinical]",
+                     pv("data.source_type", "generic"))
+  if (is.null(source_type) || nchar(source_type) == 0) source_type <- "generic"
 
-  provider <- readline("AI provider [openai/anthropic] (default: openai): ")
-  if (nchar(provider) == 0) provider <- "openai"
+  provider <- ask("AI provider [openai/anthropic]", pv("ai.provider", "openai"))
+  if (is.null(provider) || nchar(provider) == 0) provider <- "openai"
 
-  output_dir <- readline("Output directory (default: outputs): ")
-  if (nchar(output_dir) == 0) output_dir <- "outputs"
+  output_dir <- ask("Output directory", pv("output.results_dir", "outputs"))
+  if (is.null(output_dir) || nchar(output_dir) == 0) output_dir <- "outputs"
 
-  positionality <- readline("Researcher positionality statement (optional, Enter to skip): ")
+  positionality <- ask("Researcher positionality statement (optional, Enter to skip)",
+                       pv("study.researcher_positionality"))
 
   overrides <- list()
-  if (nchar(positionality) > 0) {
+  if (!is.null(positionality) && nchar(positionality) > 0) {
     overrides[["study.researcher_positionality"]] <- positionality
   }
 
   # Optional Reddit scraper. Credentials are read from .Renviron
   # (REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET) and are never written here.
+  scrape_default <- if (isTRUE(pv("scraping.enabled"))) "Y/n" else "y/N"
   scrape_yn <- tolower(trimws(readline(
-    "Configure the optional Reddit scraper? [y/N]: ")))
-  if (scrape_yn %in% c("y", "yes")) {
-    subs_raw <- readline("  Subreddits (comma-separated, without 'r/'): ")
-    subs <- trimws(strsplit(subs_raw, ",")[[1]])
+    paste0("Configure the optional Reddit scraper? [", scrape_default, "]: "))))
+  scrape_on <- if (nchar(scrape_yn) == 0) {
+    isTRUE(pv("scraping.enabled"))
+  } else {
+    scrape_yn %in% c("y", "yes")
+  }
+  if (scrape_on) {
+    subs_raw <- ask("  Subreddits (comma-separated, without 'r/')",
+                    paste(unlist(pv("scraping.subreddits")), collapse = ", "))
+    subs <- trimws(strsplit(subs_raw %||% "", ",")[[1]])
     subs <- subs[nzchar(subs)]
     overrides[["scraping.enabled"]] <- TRUE
     if (length(subs) > 0) overrides[["scraping.subreddits"]] <- as.list(subs)
 
-    pps <- suppressWarnings(as.integer(trimws(
-      readline("  Posts per subreddit (default 500): "))))
+    pps <- suppressWarnings(as.integer(
+      ask("  Posts per subreddit", pv("scraping.posts_per_subreddit", 500L))))
     overrides[["scraping.posts_per_subreddit"]] <- if (is.na(pps)) 500L else pps
 
-    inc_raw <- tolower(trimws(readline("  Include comments? [Y/n]: ")))
-    overrides[["scraping.include_comments"]] <- !(inc_raw %in% c("n", "no"))
+    inc_default <- if (isFALSE(pv("scraping.include_comments"))) "y/N" else "Y/n"
+    inc_raw <- tolower(trimws(readline(paste0("  Include comments? [", inc_default, "]: "))))
+    overrides[["scraping.include_comments"]] <- if (nchar(inc_raw) == 0) {
+      !isFALSE(pv("scraping.include_comments"))
+    } else {
+      !(inc_raw %in% c("n", "no"))
+    }
 
-    sort_raw <- trimws(readline("  Sort [new/hot/top/rising] (default new): "))
+    sort_raw <- ask("  Sort [new/hot/top/rising]", pv("scraping.sort_by", "new"))
     overrides[["scraping.sort_by"]] <- if (sort_raw %in%
       c("new", "hot", "top", "rising")) sort_raw else "new"
     if (identical(overrides[["scraping.sort_by"]], "top")) {
-      tf_raw <- trimws(readline(
-        "  Time filter [hour/day/week/month/year/all] (default all): "))
+      tf_raw <- ask("  Time filter [hour/day/week/month/year/all]",
+                    pv("scraping.time_filter", "all"))
       overrides[["scraping.time_filter"]] <- if (tf_raw %in%
         c("hour", "day", "week", "month", "year", "all")) tf_raw else "all"
     }

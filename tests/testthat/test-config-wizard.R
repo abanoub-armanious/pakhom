@@ -249,3 +249,54 @@ test_that("a blank wizard field does not delete an existing value on merge", {
   expect_false(merged$scraping$enabled)                # turned off
   expect_equal(unlist(merged$scraping$subreddits), "productivity")  # preserved
 })
+
+# ==============================================================================
+# Wizard pre-load: a re-run round-trips an existing config (residual fix)
+# ==============================================================================
+test_that(".wizard_input_defaults is the faithful inverse of .build_config_from_inputs", {
+  # build(defaults(build(input))) must equal build(input) for every managed
+  # field, so re-opening the wizard and saving round-trips the config.
+  inp <- list(
+    methodology_mode = "framework_applied", framework_spec_path = "tpb",
+    study_name = "My Study", research_focus = "RQ here", research_context = "forum data",
+    concepts = "a, b, c", positionality = "my background",
+    ai_provider = "anthropic", api_key_env = "ANTHROPIC_API_KEY",
+    model_primary = "claude-sonnet-4-20250514", model_fast = "claude-haiku-4-5-20251001",
+    rpm = 4000, tpm = 700000, batch_delay = 0.7,
+    database_path = "data/x.db", tables = "posts, comments", source_type = "generic",
+    min_text_length = 15, max_text_length = 9000,
+    remove_urls = FALSE, remove_mentions = TRUE, remove_hashtags = TRUE,
+    scraping_enabled = TRUE, scraping_subreddits = "productivity, remotework",
+    scraping_posts = 300, scraping_comments = FALSE, scraping_sort = "top", scraping_time = "year",
+    learning_enabled = TRUE, learning_base_dir = "manual",
+    max_manuscript_chars = 12000, max_raw_samples = 3,
+    test_mode = TRUE, test_sample_size = 50, test_seed = 7,
+    checkpoint_interval = 25, max_retries = 2, include_in_vivo = FALSE,
+    review_codes = TRUE, review_themes = TRUE,
+    irr_enabled = TRUE, irr_sample = 30, irr_seed = 11,
+    corr_method = "pearson", corr_adjust = "holm", corr_min_obs = 20, corr_min_theme = 3,
+    results_dir = "out/res", gen_report = FALSE, gen_corr_plot = FALSE,
+    gen_theme_details = FALSE, export_csv = FALSE, export_json = TRUE,
+    gen_comparison = FALSE, log_level = "DEBUG"
+  )
+  cfg1 <- pakhom:::.build_config_from_inputs(inp)
+  cfg2 <- pakhom:::.build_config_from_inputs(pakhom:::.wizard_input_defaults(cfg1))
+  expect_identical(cfg2, cfg1)
+})
+
+test_that(".wizard_input_defaults(NULL) preserves AC3 and the built-in defaults", {
+  d <- pakhom:::.wizard_input_defaults(NULL)
+  expect_null(d$methodology_mode)          # AC3: no default mode
+  expect_equal(d$study_name, "Untitled Study")
+  expect_equal(d$ai_provider, "openai")
+  expect_equal(d$source_type, "reddit")
+  expect_false(d$scraping_enabled)
+  expect_equal(d$scraping_posts, 500)
+})
+
+test_that("a pre-loaded value is rendered as the input default", {
+  skip_if_not_installed("shiny")
+  d <- pakhom:::.wizard_input_defaults(list(study = list(name = "Loaded Study Name")))
+  html <- as.character(htmltools::renderTags(pakhom:::.ui_step_study(d))$html)
+  expect_true(grepl("Loaded Study Name", html, fixed = TRUE))
+})

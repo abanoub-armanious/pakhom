@@ -74,6 +74,16 @@ config_wizard_app <- function(output_path = "config.yaml") {
                      "Learning", "Analysis", "Output", "Review & Save")
     saved_path <- shiny::reactiveVal(NULL)
 
+    # Pre-load an existing config (if the target file already exists) so a
+    # re-run starts from the saved values instead of reverting every field to
+    # its built-in default. dflts is keyed 1:1 by input id.
+    existing_cfg <- if (file.exists(output_path)) {
+      tryCatch(yaml::read_yaml(output_path), error = function(e) NULL)
+    } else {
+      NULL
+    }
+    dflts <- .wizard_input_defaults(existing_cfg)
+
     # --- Step indicator ---
     output$step_indicator <- shiny::renderUI({
       current <- step()
@@ -146,14 +156,14 @@ config_wizard_app <- function(output_path = "config.yaml") {
     # --- Step content ---
     output$step_content <- shiny::renderUI({
       switch(as.character(step()),
-        "1" = .ui_step_methodology(),
-        "2" = .ui_step_study(),
-        "3" = .ui_step_ai(input),
-        "4" = .ui_step_data(),
-        "5" = .ui_step_scraping(),
-        "6" = .ui_step_learning(),
-        "7" = .ui_step_analysis(),
-        "8" = .ui_step_output(),
+        "1" = .ui_step_methodology(dflts),
+        "2" = .ui_step_study(dflts),
+        "3" = .ui_step_ai(input, dflts),
+        "4" = .ui_step_data(dflts),
+        "5" = .ui_step_scraping(dflts),
+        "6" = .ui_step_learning(dflts),
+        "7" = .ui_step_analysis(dflts),
+        "8" = .ui_step_output(dflts),
         "9" = .ui_step_review(input, output_path)
       )
     })
@@ -229,7 +239,7 @@ config_wizard_app <- function(output_path = "config.yaml") {
 # ==============================================================================
 
 #' @keywords internal
-.ui_step_methodology <- function() {
+.ui_step_methodology <- function(dflts = .wizard_input_defaults()) {
   shiny::div(class = "section-card",
     shiny::h3(class = "section-title", "Methodology Mode"),
     shiny::p(class = "help-text",
@@ -250,13 +260,15 @@ config_wizard_app <- function(output_path = "config.yaml") {
       # AC3 (no default mode): start UNSELECTED so the researcher makes a
       # conscious choice -- a preselected mode would let a user click
       # through and inherit a methodology they never chose, the exact
-      # silent default create_config()/the CLI wizard refuse.
-      selected = character(0), width = "100%"),
+      # silent default create_config()/the CLI wizard refuse. A pre-loaded
+      # config restores its own explicitly-chosen mode.
+      selected = dflts$methodology_mode %||% character(0), width = "100%"),
 
     shiny::conditionalPanel(
       condition = "input.methodology_mode == 'framework_applied'",
       shiny::br(),
       shiny::textInput("framework_spec_path", "Framework Specification", width = "100%",
+                       value = dflts$framework_spec_path,
                        placeholder = "Built-in alias (tpb, comb, tdf) or a path to a custom YAML/JSON spec"),
       shiny::div(class = "help-text",
                  "Required for framework_applied. Use a built-in alias ('tpb', ",
@@ -266,36 +278,40 @@ config_wizard_app <- function(output_path = "config.yaml") {
 }
 
 #' @keywords internal
-.ui_step_study <- function() {
+.ui_step_study <- function(dflts = .wizard_input_defaults()) {
   shiny::div(class = "section-card",
     shiny::h3(class = "section-title", "Study Details"),
     shiny::p(class = "help-text",
              "These settings define your research question and guide the AI's analysis."),
 
-    shiny::textInput("study_name", "Study Name", value = "Untitled Study",
+    shiny::textInput("study_name", "Study Name", value = dflts$study_name,
                      width = "100%"),
     shiny::div(class = "help-text", "A short label for your study (used in report headers)."),
 
     shiny::br(),
     shiny::textAreaInput("research_focus",
                          shiny::HTML("Research Focus <span class='required-star'>*</span>"),
+                         value = dflts$research_focus,
                          rows = 3, width = "100%",
                          placeholder = "Your specific research question. e.g., 'How do online communities discuss [topic X]?' or 'What experiences shape attitudes toward [phenomenon Y]?'"),
     shiny::div(class = "help-text",
                "The most important setting. Be as specific as possible about your research question."),
 
     shiny::br(),
-    shiny::textAreaInput("research_context", "Research Context", rows = 2, width = "100%",
+    shiny::textAreaInput("research_context", "Research Context", value = dflts$research_context,
+                         rows = 2, width = "100%",
                          placeholder = "Brief description of your data source and population. e.g., 'Online forum discussions', 'Survey responses from undergraduate students', 'Interview transcripts from healthcare workers'"),
     shiny::div(class = "help-text", "Where does your data come from? What is the broader context?"),
 
     shiny::br(),
     shiny::textInput("concepts", "Core Concepts (comma-separated)", width = "100%",
+                     value = dflts$concepts,
                      placeholder = "2-5 key concepts central to your research question (any domain)"),
     shiny::div(class = "help-text", "2-5 key concepts that the AI uses for targeted coding and theme generation."),
 
     shiny::br(),
-    shiny::textAreaInput("positionality", "Researcher Positionality (optional)", rows = 2, width = "100%",
+    shiny::textAreaInput("positionality", "Researcher Positionality (optional)", value = dflts$positionality,
+                         rows = 2, width = "100%",
                          placeholder = "Your relevant expertise, training, and perspective on the research question (any field)"),
     shiny::div(class = "help-text",
                "Your perspective and background. Helps the AI calibrate its analytical lens.")
@@ -303,7 +319,7 @@ config_wizard_app <- function(output_path = "config.yaml") {
 }
 
 #' @keywords internal
-.ui_step_ai <- function(input) {
+.ui_step_ai <- function(input, dflts = .wizard_input_defaults()) {
   shiny::div(class = "section-card",
     shiny::h3(class = "section-title", "AI Provider"),
     shiny::p(class = "help-text",
@@ -311,13 +327,13 @@ config_wizard_app <- function(output_path = "config.yaml") {
 
     shiny::selectInput("ai_provider", "Provider",
                        choices = c("OpenAI" = "openai", "Anthropic" = "anthropic"),
-                       selected = "openai", width = "50%"),
+                       selected = dflts$ai_provider, width = "50%"),
     shiny::div(class = "help-text",
                "OpenAI GPT-4o is recommended for most studies. Anthropic Claude is an excellent alternative."),
 
     shiny::br(),
     shiny::textInput("api_key_env", "API Key Environment Variable",
-                     value = "OPENAI_API_KEY", width = "60%"),
+                     value = dflts$api_key_env, width = "60%"),
     shiny::div(class = "help-text",
                "The name of the environment variable holding your API key (set in .Renviron)."),
 
@@ -335,11 +351,11 @@ config_wizard_app <- function(output_path = "config.yaml") {
     shiny::h4("Models"),
     shiny::fluidRow(
       shiny::column(6,
-        shiny::textInput("model_primary", "Primary Model", value = "gpt-4o", width = "100%"),
+        shiny::textInput("model_primary", "Primary Model", value = dflts$model_primary, width = "100%"),
         shiny::div(class = "help-text", "Used for complex tasks: coding, theming, merge passes.")
       ),
       shiny::column(6,
-        shiny::textInput("model_fast", "Fast Model", value = "gpt-4o-mini", width = "100%"),
+        shiny::textInput("model_fast", "Fast Model", value = dflts$model_fast, width = "100%"),
         shiny::div(class = "help-text", "Used for batch operations: sentiment analysis.")
       )
     ),
@@ -348,13 +364,13 @@ config_wizard_app <- function(output_path = "config.yaml") {
     shiny::h4("Rate Limits"),
     shiny::fluidRow(
       shiny::column(4,
-        shiny::numericInput("rpm", "Requests/min", value = 5000, min = 1, width = "100%")
+        shiny::numericInput("rpm", "Requests/min", value = dflts$rpm, min = 1, width = "100%")
       ),
       shiny::column(4,
-        shiny::numericInput("tpm", "Tokens/min", value = 800000, min = 1000, width = "100%")
+        shiny::numericInput("tpm", "Tokens/min", value = dflts$tpm, min = 1000, width = "100%")
       ),
       shiny::column(4,
-        shiny::numericInput("batch_delay", "Batch Delay (sec)", value = 0.5, min = 0, step = 0.1, width = "100%")
+        shiny::numericInput("batch_delay", "Batch Delay (sec)", value = dflts$batch_delay, min = 0, step = 0.1, width = "100%")
       )
     ),
     shiny::div(class = "help-text",
@@ -363,18 +379,19 @@ config_wizard_app <- function(output_path = "config.yaml") {
 }
 
 #' @keywords internal
-.ui_step_data <- function() {
+.ui_step_data <- function(dflts = .wizard_input_defaults()) {
   shiny::div(class = "section-card",
     shiny::h3(class = "section-title", "Data Source"),
     shiny::p(class = "help-text",
              "Point the package at your SQLite database and tell it what kind of data it is."),
 
     shiny::textInput("database_path", "Database Path (.db file)", width = "100%",
+                     value = dflts$database_path,
                      placeholder = "e.g., my_data.db"),
     shiny::div(class = "help-text", "Relative to where config.yaml is saved, or an absolute path."),
 
     shiny::br(),
-    shiny::textInput("tables", "Table Name(s)", value = "posts", width = "60%",
+    shiny::textInput("tables", "Table Name(s)", value = dflts$tables, width = "60%",
                      placeholder = "e.g., posts, comments"),
     shiny::div(class = "help-text",
                "Comma-separated if using multiple tables. The package merges them automatically."),
@@ -383,7 +400,7 @@ config_wizard_app <- function(output_path = "config.yaml") {
     shiny::selectInput("source_type", "Data Source Type",
                        choices = c("Reddit" = "reddit", "Twitter" = "twitter",
                                    "Clinical" = "clinical", "Generic" = "generic"),
-                       selected = "reddit", width = "50%"),
+                       selected = dflts$source_type, width = "50%"),
     shiny::div(class = "help-text",
                "Controls column auto-detection and preprocessing. Use 'Generic' if unsure."),
 
@@ -391,28 +408,28 @@ config_wizard_app <- function(output_path = "config.yaml") {
     shiny::h4("Preprocessing"),
     shiny::fluidRow(
       shiny::column(4,
-        shiny::numericInput("min_text_length", "Min Text Length", value = 10, min = 0, width = "100%"),
+        shiny::numericInput("min_text_length", "Min Text Length", value = dflts$min_text_length, min = 0, width = "100%"),
         shiny::div(class = "help-text", "Entries shorter than this are dropped.")
       ),
       shiny::column(4,
-        shiny::numericInput("max_text_length", "Max Text Length", value = 10000, min = 100, width = "100%"),
+        shiny::numericInput("max_text_length", "Max Text Length", value = dflts$max_text_length, min = 100, width = "100%"),
         shiny::div(class = "help-text", "Entries are truncated to this length.")
       ),
       shiny::column(4,
-        shiny::numericInput("dedup_ratio", "Dedup Similarity", value = 0.9, min = 0, max = 1, step = 0.05, width = "100%"),
+        shiny::numericInput("dedup_ratio", "Dedup Similarity", value = dflts$dedup_ratio, min = 0, max = 1, step = 0.05, width = "100%"),
         shiny::div(class = "help-text", "Entries above this similarity are deduplicated.")
       )
     ),
     shiny::fluidRow(
-      shiny::column(4, shiny::checkboxInput("remove_urls", "Remove URLs", value = TRUE)),
-      shiny::column(4, shiny::checkboxInput("remove_mentions", "Remove @mentions", value = TRUE)),
-      shiny::column(4, shiny::checkboxInput("remove_hashtags", "Remove #hashtags", value = FALSE))
+      shiny::column(4, shiny::checkboxInput("remove_urls", "Remove URLs", value = dflts$remove_urls)),
+      shiny::column(4, shiny::checkboxInput("remove_mentions", "Remove @mentions", value = dflts$remove_mentions)),
+      shiny::column(4, shiny::checkboxInput("remove_hashtags", "Remove #hashtags", value = dflts$remove_hashtags))
     )
   )
 }
 
 #' @keywords internal
-.ui_step_scraping <- function() {
+.ui_step_scraping <- function(dflts = .wizard_input_defaults()) {
   shiny::div(class = "section-card",
     shiny::h3(class = "section-title", "Reddit Scraping (optional)"),
     shiny::p(class = "help-text",
@@ -420,7 +437,7 @@ config_wizard_app <- function(output_path = "config.yaml") {
              "Otherwise the built-in scraper can collect posts and full ",
              "comment trees from subreddits into the database above."),
 
-    shiny::checkboxInput("scraping_enabled", "Enable Reddit scraping", value = FALSE),
+    shiny::checkboxInput("scraping_enabled", "Enable Reddit scraping", value = dflts$scraping_enabled),
 
     shiny::conditionalPanel(
       condition = "input.scraping_enabled",
@@ -430,54 +447,56 @@ config_wizard_app <- function(output_path = "config.yaml") {
                  "REDDIT_CLIENT_SECRET); they are never written to this config."),
       shiny::br(),
       shiny::textInput("scraping_subreddits", "Subreddits", width = "100%",
+                       value = dflts$scraping_subreddits,
                        placeholder = "comma-separated, without 'r/' (e.g. productivity, remotework)"),
       shiny::br(),
       shiny::fluidRow(
         shiny::column(4,
           shiny::numericInput("scraping_posts", "Posts per subreddit",
-                              value = 500, min = 1, width = "100%"),
+                              value = dflts$scraping_posts, min = 1, width = "100%"),
           shiny::div(class = "help-text", "Counts only NEW posts on re-runs.")
         ),
         shiny::column(4,
           shiny::selectInput("scraping_sort", "Sort by",
-            choices = c("new", "hot", "top", "rising"), selected = "new", width = "100%")
+            choices = c("new", "hot", "top", "rising"), selected = dflts$scraping_sort, width = "100%")
         ),
         shiny::column(4,
           shiny::selectInput("scraping_time", "Time filter (top only)",
             choices = c("hour", "day", "week", "month", "year", "all"),
-            selected = "all", width = "100%")
+            selected = dflts$scraping_time, width = "100%")
         )
       ),
-      shiny::checkboxInput("scraping_comments", "Include comments", value = TRUE)
+      shiny::checkboxInput("scraping_comments", "Include comments", value = dflts$scraping_comments)
     )
   )
 }
 
 #' @keywords internal
-.ui_step_learning <- function() {
+.ui_step_learning <- function(dflts = .wizard_input_defaults()) {
   shiny::div(class = "section-card",
     shiny::h3(class = "section-title", "Learning from Previous Studies"),
     shiny::p(class = "help-text",
              "If you have completed manual thematic analyses, the AI can learn from them ",
              "to produce more consistent, calibrated results."),
 
-    shiny::checkboxInput("learning_enabled", "Enable manuscript learning", value = FALSE),
+    shiny::checkboxInput("learning_enabled", "Enable manuscript learning", value = dflts$learning_enabled),
 
     shiny::conditionalPanel(
       condition = "input.learning_enabled",
       shiny::textInput("learning_base_dir", "Manuscripts Directory", width = "100%",
+                       value = dflts$learning_base_dir,
                        placeholder = "e.g., manual analyses"),
       shiny::div(class = "help-text",
                  "Folder containing subfolders (ending in 'study') with manuscript.docx files."),
 
       shiny::br(),
-      shiny::numericInput("max_manuscript_chars", "Max Manuscript Chars", value = 18000,
+      shiny::numericInput("max_manuscript_chars", "Max Manuscript Chars", value = dflts$max_manuscript_chars,
                           min = 1000, max = 50000, step = 1000, width = "50%"),
       shiny::div(class = "help-text",
                  "Maximum characters to extract from each manuscript. Higher = more context but more cost."),
 
       shiny::br(),
-      shiny::numericInput("max_raw_samples", "Max Raw Data Samples", value = 5,
+      shiny::numericInput("max_raw_samples", "Max Raw Data Samples", value = dflts$max_raw_samples,
                           min = 0, max = 20, width = "50%"),
       shiny::div(class = "help-text", "Number of raw data files to include as exemplars per study.")
     )
@@ -485,7 +504,7 @@ config_wizard_app <- function(output_path = "config.yaml") {
 }
 
 #' @keywords internal
-.ui_step_analysis <- function() {
+.ui_step_analysis <- function(dflts = .wizard_input_defaults()) {
   shiny::div(class = "section-card",
     shiny::h3(class = "section-title", "Analysis Settings"),
     shiny::p(class = "help-text",
@@ -494,9 +513,9 @@ config_wizard_app <- function(output_path = "config.yaml") {
     # Test mode
     shiny::h4("Test Mode"),
     shiny::fluidRow(
-      shiny::column(4, shiny::checkboxInput("test_mode", "Enable test mode", value = FALSE)),
-      shiny::column(4, shiny::numericInput("test_sample_size", "Sample Size", value = 100, min = 5, width = "100%")),
-      shiny::column(4, shiny::numericInput("test_seed", "Random Seed", value = 42, width = "100%"))
+      shiny::column(4, shiny::checkboxInput("test_mode", "Enable test mode", value = dflts$test_mode)),
+      shiny::column(4, shiny::numericInput("test_sample_size", "Sample Size", value = dflts$test_sample_size, min = 5, width = "100%")),
+      shiny::column(4, shiny::numericInput("test_seed", "Random Seed", value = dflts$test_seed, width = "100%"))
     ),
     shiny::div(class = "help-text",
                "Test mode runs the pipeline on a small subset. Great for validating your setup before a full run."),
@@ -506,11 +525,11 @@ config_wizard_app <- function(output_path = "config.yaml") {
     # Coding (progressive)
     shiny::h4("Progressive Coding"),
     shiny::fluidRow(
-      shiny::column(4, shiny::numericInput("checkpoint_interval", "Checkpoint Interval", value = 50,
+      shiny::column(4, shiny::numericInput("checkpoint_interval", "Checkpoint Interval", value = dflts$checkpoint_interval,
                                            min = 10, max = 500, step = 10, width = "100%")),
-      shiny::column(4, shiny::numericInput("max_retries", "Max Retries per Entry", value = 1,
+      shiny::column(4, shiny::numericInput("max_retries", "Max Retries per Entry", value = dflts$max_retries,
                                            min = 0, max = 5, width = "100%")),
-      shiny::column(4, shiny::checkboxInput("include_in_vivo", "Include In Vivo Codes", value = TRUE))
+      shiny::column(4, shiny::checkboxInput("include_in_vivo", "Include In Vivo Codes", value = dflts$include_in_vivo))
     ),
     shiny::div(class = "help-text",
                "Entries are processed one at a time. The AI codes applicable text segments and skips irrelevant entries."),
@@ -546,8 +565,8 @@ config_wizard_app <- function(output_path = "config.yaml") {
     shiny::p(class = "help-text",
              "Pause the pipeline at critical decision points so you can curate the AI's output."),
     shiny::fluidRow(
-      shiny::column(6, shiny::checkboxInput("review_codes", "After Progressive Coding", value = FALSE)),
-      shiny::column(6, shiny::checkboxInput("review_themes", "After Theme Generation", value = FALSE))
+      shiny::column(6, shiny::checkboxInput("review_codes", "After Progressive Coding", value = dflts$review_codes)),
+      shiny::column(6, shiny::checkboxInput("review_themes", "After Theme Generation", value = dflts$review_themes))
     ),
 
     shiny::hr(),
@@ -555,9 +574,9 @@ config_wizard_app <- function(output_path = "config.yaml") {
     # Human verification
     shiny::h4("Human Verification (IRR)"),
     shiny::fluidRow(
-      shiny::column(4, shiny::checkboxInput("irr_enabled", "Enable IRR", value = FALSE)),
-      shiny::column(4, shiny::numericInput("irr_sample", "Sample Size", value = 20, min = 5, width = "100%")),
-      shiny::column(4, shiny::numericInput("irr_seed", "Random Seed", value = 42, width = "100%"))
+      shiny::column(4, shiny::checkboxInput("irr_enabled", "Enable IRR", value = dflts$irr_enabled)),
+      shiny::column(4, shiny::numericInput("irr_sample", "Sample Size", value = dflts$irr_sample, min = 5, width = "100%")),
+      shiny::column(4, shiny::numericInput("irr_seed", "Random Seed", value = dflts$irr_seed, width = "100%"))
     ),
     shiny::div(class = "help-text",
                "Inter-rater reliability: exports a sample for independent human coding, then computes agreement metrics."),
@@ -570,42 +589,42 @@ config_wizard_app <- function(output_path = "config.yaml") {
       shiny::column(3, shiny::selectInput("corr_method", "Method",
                                           choices = c("Spearman" = "spearman", "Pearson" = "pearson",
                                                       "Kendall" = "kendall"),
-                                          selected = "spearman", width = "100%")),
+                                          selected = dflts$corr_method, width = "100%")),
       shiny::column(3, shiny::selectInput("corr_adjust", "P-value Adjustment",
                                           choices = c("Bonferroni" = "bonferroni", "Holm" = "holm",
                                                       "BH (FDR)" = "BH", "None" = "none"),
-                                          selected = "bonferroni", width = "100%")),
-      shiny::column(3, shiny::numericInput("corr_min_obs", "Min Observations", value = 30, min = 5, width = "100%")),
-      shiny::column(3, shiny::numericInput("corr_min_theme", "Min Theme Entries", value = 5, min = 1, width = "100%"))
+                                          selected = dflts$corr_adjust, width = "100%")),
+      shiny::column(3, shiny::numericInput("corr_min_obs", "Min Observations", value = dflts$corr_min_obs, min = 5, width = "100%")),
+      shiny::column(3, shiny::numericInput("corr_min_theme", "Min Theme Entries", value = dflts$corr_min_theme, min = 1, width = "100%"))
     )
   )
 }
 
 #' @keywords internal
-.ui_step_output <- function() {
+.ui_step_output <- function(dflts = .wizard_input_defaults()) {
   shiny::div(class = "section-card",
     shiny::h3(class = "section-title", "Output Settings"),
     shiny::p(class = "help-text", "Control what gets generated and where."),
 
-    shiny::textInput("results_dir", "Results Directory", value = "outputs/results", width = "100%"),
+    shiny::textInput("results_dir", "Results Directory", value = dflts$results_dir, width = "100%"),
     shiny::div(class = "help-text", "All outputs (report, CSVs, JSON) are saved here under a timestamped run folder."),
 
     shiny::br(),
     shiny::fluidRow(
-      shiny::column(4, shiny::checkboxInput("gen_report", "Generate HTML Report", value = TRUE)),
-      shiny::column(4, shiny::checkboxInput("gen_corr_plot", "Generate Correlation Plot", value = TRUE)),
-      shiny::column(4, shiny::checkboxInput("gen_comparison", "Enable Run Comparison", value = TRUE))
+      shiny::column(4, shiny::checkboxInput("gen_report", "Generate HTML Report", value = dflts$gen_report)),
+      shiny::column(4, shiny::checkboxInput("gen_corr_plot", "Generate Correlation Plot", value = dflts$gen_corr_plot)),
+      shiny::column(4, shiny::checkboxInput("gen_comparison", "Enable Run Comparison", value = dflts$gen_comparison))
     ),
     shiny::fluidRow(
-      shiny::column(4, shiny::checkboxInput("export_csv", "Export CSVs", value = TRUE)),
-      shiny::column(4, shiny::checkboxInput("export_json", "Export JSON", value = TRUE)),
-      shiny::column(4, shiny::checkboxInput("gen_theme_details", "Export Theme Details", value = TRUE))
+      shiny::column(4, shiny::checkboxInput("export_csv", "Export CSVs", value = dflts$export_csv)),
+      shiny::column(4, shiny::checkboxInput("export_json", "Export JSON", value = dflts$export_json)),
+      shiny::column(4, shiny::checkboxInput("gen_theme_details", "Export Theme Details", value = dflts$gen_theme_details))
     ),
 
     shiny::br(),
     shiny::selectInput("log_level", "Log Level",
                        choices = c("DEBUG", "INFO", "WARN", "ERROR"),
-                       selected = "INFO", width = "30%"),
+                       selected = dflts$log_level, width = "30%"),
     shiny::div(class = "help-text", "DEBUG shows everything. INFO is recommended for normal use.")
   )
 }
@@ -630,6 +649,104 @@ config_wizard_app <- function(output_path = "config.yaml") {
 # ==============================================================================
 # Config builder: assembles the inputs into a config list
 # ==============================================================================
+
+#' Input defaults for the wizard, derived from an existing config
+#'
+#' The inverse of \code{.build_config_from_inputs}: given a previously-saved
+#' config (or NULL for a fresh session), returns the value each wizard input
+#' should default to, keyed 1:1 by input id. Threading this into the UI builders
+#' lets a re-run round-trip untouched fields instead of reverting them to
+#' built-in defaults. \code{.build_config_from_inputs(.wizard_input_defaults(cfg))}
+#' reproduces \code{cfg} for the fields the wizard manages.
+#' @keywords internal
+#' @noRd
+.wizard_input_defaults <- function(existing = NULL) {
+  g <- function(path, default = NULL) {
+    cur <- existing
+    for (k in strsplit(path, ".", fixed = TRUE)[[1]]) {
+      if (!is.list(cur)) return(default)
+      v <- cur[[k]]
+      if (is.null(v)) return(default)
+      cur <- v
+    }
+    cur
+  }
+  csv <- function(x, default = "") {
+    if (is.null(x) || length(x) == 0) return(default)
+    paste(unlist(x), collapse = ", ")
+  }
+  prov <- g("ai.provider", "openai")
+  dm <- .default_models(prov)
+  key_env_default <- if (identical(prov, "anthropic")) "ANTHROPIC_API_KEY" else "OPENAI_API_KEY"
+
+  list(
+    # Methodology (AC3: no default mode -- NULL when absent)
+    methodology_mode    = g("methodology.mode"),
+    framework_spec_path = g("methodology.framework_spec_path", ""),
+    # Study
+    study_name       = g("study.name", "Untitled Study"),
+    research_focus   = g("study.research_focus", ""),
+    research_context = g("study.research_context", ""),
+    concepts         = csv(g("study.concepts")),
+    positionality    = g("study.researcher_positionality", ""),
+    # AI provider
+    ai_provider   = prov,
+    api_key_env   = g(paste0("ai.", prov, ".api_key_env"), key_env_default),
+    model_primary = g(paste0("ai.", prov, ".models.primary"), dm$primary),
+    model_fast    = g(paste0("ai.", prov, ".models.fast"), dm$fast %||% dm$primary),
+    rpm           = g(paste0("ai.", prov, ".rate_limits.requests_per_minute"), 5000),
+    tpm           = g(paste0("ai.", prov, ".rate_limits.tokens_per_minute"), 800000),
+    batch_delay   = g(paste0("ai.", prov, ".rate_limits.delay_between_batches"), 0.5),
+    # Data
+    database_path   = g("data.database", ""),
+    tables          = csv(g("data.tables"), "posts"),
+    source_type     = g("data.source_type", "reddit"),
+    min_text_length = g("data.preprocessing.min_text_length", 10),
+    max_text_length = g("data.preprocessing.max_text_length", 10000),
+    dedup_ratio     = 0.9,  # shown in the UI but not written by the builder
+    remove_urls     = isTRUE(g("data.preprocessing.remove_urls", TRUE)),
+    remove_mentions = isTRUE(g("data.preprocessing.remove_mentions", TRUE)),
+    remove_hashtags = isTRUE(g("data.preprocessing.remove_hashtags", FALSE)),
+    # Scraping
+    scraping_enabled    = isTRUE(g("scraping.enabled", FALSE)),
+    scraping_subreddits = csv(g("scraping.subreddits")),
+    scraping_posts      = g("scraping.posts_per_subreddit", 500),
+    scraping_comments   = isTRUE(g("scraping.include_comments", TRUE)),
+    scraping_sort       = g("scraping.sort_by", "new"),
+    scraping_time       = g("scraping.time_filter", "all"),
+    # Learning
+    learning_enabled     = isTRUE(g("learning.enabled", FALSE)),
+    learning_base_dir    = g("learning.base_dir", "manual analyses"),
+    max_manuscript_chars = g("learning.max_manuscript_chars", 18000),
+    max_raw_samples      = g("learning.max_raw_samples", 5),
+    # Analysis
+    test_mode           = isTRUE(g("analysis.test_mode.enabled", FALSE)),
+    test_sample_size    = g("analysis.test_mode.sample_size", 100),
+    test_seed           = g("analysis.test_mode.seed", 42),
+    checkpoint_interval = g("analysis.coding.checkpoint_interval", 50),
+    max_retries         = g("analysis.coding.max_retries_per_entry", 1),
+    include_in_vivo     = isTRUE(g("analysis.coding.include_in_vivo", TRUE)),
+    review_codes        = isTRUE(g("analysis.review_points.after_coding", FALSE)),
+    review_themes       = isTRUE(g("analysis.review_points.after_themes", FALSE)),
+    irr_enabled         = isTRUE(g("analysis.human_verification.enabled", FALSE)),
+    irr_sample          = g("analysis.human_verification.sample_size", 20),
+    irr_seed            = g("analysis.human_verification.seed", 42),
+    corr_method         = g("analysis.correlations.method", "spearman"),
+    corr_adjust         = g("analysis.correlations.adjust_method", "bonferroni"),
+    corr_min_obs        = g("analysis.correlations.min_observations", 30),
+    corr_min_theme      = g("analysis.correlations.min_theme_entries", 5),
+    # Output
+    results_dir       = g("output.results_dir", "outputs/results"),
+    gen_report        = isTRUE(g("output.generate_report", TRUE)),
+    gen_corr_plot     = isTRUE(g("output.generate_correlation_plot", TRUE)),
+    gen_theme_details = isTRUE(g("output.generate_theme_details", TRUE)),
+    export_csv        = isTRUE(g("output.export_csv", TRUE)),
+    export_json       = isTRUE(g("output.export_json", TRUE)),
+    gen_comparison    = isTRUE(g("output.comparison_enabled", TRUE)),
+    # Logging
+    log_level = g("logging.log_level", "INFO")
+  )
+}
 
 #' @keywords internal
 .build_config_from_inputs <- function(input) {
