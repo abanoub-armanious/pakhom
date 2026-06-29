@@ -174,3 +174,47 @@ test_that("the Shiny wizard's methodology radio starts UNSELECTED (AC3: no defau
   expect_false(grepl('checked="checked"', html, fixed = TRUE))
   expect_true(grepl('name="methodology_mode"', html, fixed = TRUE))
 })
+
+test_that(".build_config_from_inputs emits a scraping block only when enabled", {
+  base <- list(methodology_mode = "codebook_collaborative", research_focus = "x",
+               ai_provider = "openai")
+
+  off <- pakhom:::.build_config_from_inputs(base)
+  expect_null(off$scraping)
+
+  on <- pakhom:::.build_config_from_inputs(c(base, list(
+    scraping_enabled = TRUE,
+    scraping_subreddits = "productivity, remotework",
+    scraping_posts = 250, scraping_comments = TRUE,
+    scraping_sort = "top", scraping_time = "year")))
+  expect_true(on$scraping$enabled)
+  expect_equal(unlist(on$scraping$subreddits), c("productivity", "remotework"))
+  expect_equal(on$scraping$posts_per_subreddit, 250)
+  expect_true(on$scraping$include_comments)
+  expect_equal(on$scraping$sort_by, "top")
+  expect_equal(on$scraping$time_filter, "year")
+  # Credentials must never be written into the config (env-only).
+  expect_null(on$scraping$reddit_client_id)
+  expect_null(on$scraping$reddit_client_secret)
+})
+
+test_that("the Shiny wizard exposes a Reddit scraping step", {
+  skip_if_not_installed("shiny")
+  ui <- pakhom:::.ui_step_scraping()
+  html <- as.character(htmltools::renderTags(ui)$html)
+  expect_true(grepl("scraping_enabled", html, fixed = TRUE))
+  expect_true(grepl("scraping_subreddits", html, fixed = TRUE))
+})
+
+test_that("create_config writes a scraping block from dot-path overrides", {
+  cfg <- tempfile(fileext = ".yaml"); on.exit(unlink(cfg), add = TRUE)
+  suppressMessages(create_config(
+    methodology = "reflexive_scaffold", study_name = "S", research_focus = "x",
+    output_path = cfg,
+    scraping.enabled = TRUE, scraping.subreddits = list("AskReddit"),
+    scraping.posts_per_subreddit = 100L))
+  rt <- yaml::read_yaml(cfg)
+  expect_true(rt$scraping$enabled)
+  expect_equal(unlist(rt$scraping$subreddits), "AskReddit")
+  expect_equal(rt$scraping$posts_per_subreddit, 100L)
+})

@@ -1,60 +1,86 @@
 # ==============================================================================
 # Reddit Scraper: Broad Subreddit Collection for Thematic Analysis
 # ==============================================================================
-# Scrapes entire subreddits (posts + comments) into SQLite. The progressive
-# sequential coder downstream decides which entries match the research
-# question, so no keyword pre-filtering is applied here.
+# Scrapes entire subreddits (posts + full comment trees) into SQLite. The
+# progressive sequential coder downstream decides which entries match the
+# research question, so no keyword pre-filtering is applied here.
 # ==============================================================================
 
 #' Scrape Reddit subreddits into a SQLite database
 #'
-#' Authenticates with the Reddit API and collects posts and comments from
-#' specified subreddits. Unlike keyword-based scrapers, this collects ALL
-#' content and lets the progressive sequential coder downstream decide
-#' which entries match the research question (no keyword pre-filter).
+#' Authenticates with the Reddit API and collects posts and their full comment
+#' trees from specified subreddits. Unlike keyword-based scrapers, this collects
+#' ALL content and lets the progressive sequential coder downstream decide which
+#' entries match the research question (no keyword pre-filter).
 #'
-#' @param config ThematicConfig object or list with $scraping section
+#' Comments are captured in full: nested reply threads are walked recursively
+#' and truncated "load more comments" placeholders are expanded via the Reddit
+#' API, so the stored corpus reflects the whole discussion rather than only the
+#' first page of top-level comments.
+#'
+#' The access token is refreshed automatically (proactively before expiry and
+#' on a 401), so long multi-subreddit runs do not truncate when the initial
+#' token ages out.
+#'
+#' @param config ThematicConfig object or list with a \code{$scraping} section
+#'   (a bare list is also accepted and treated as the scraping section).
 #' @param db_path Path to SQLite database (created if missing)
 #' @param subreddits Character vector of subreddit names (without "r/")
-#' @param posts_per_subreddit Max posts to fetch per subreddit (default 500)
-#' @param include_comments Logical; also scrape comments (default TRUE)
+#' @param posts_per_subreddit Max NEW posts to add per subreddit (default 500).
+#'   Already-stored posts do not count against this budget, so re-running reaches
+#'   genuinely new content rather than re-counting duplicates.
+#' @param include_comments Logical; also scrape full comment trees (default TRUE)
 #' @param sort_by Sort method: "new", "hot", "top", "rising" (default "new")
 #' @param time_filter Time filter for "top" sort: "hour", "day", "week",
 #'   "month", "year", "all" (default "all")
-#' @return List with counts: posts_added, comments_added, posts_skipped
+#' @return List with counts: \code{posts_added}, \code{comments_added},
+#'   \code{posts_skipped}, and \code{truncated_subreddits} (a character vector of
+#'   subreddits whose collection stopped early because of an API error, so the
+#'   caller can tell a genuinely empty result apart from an incomplete one).
 #' @export
 scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
                            posts_per_subreddit = 500, include_comments = TRUE,
                            sort_by = "new", time_filter = "all") {
 
-  # Resolve config
+  # Resolve config. Accept a ThematicConfig or a plain list. Prefer an explicit
+  # $scraping sub-list; otherwise treat the supplied list as the scraping
+  # section. db_path is resolved from $data$database (ThematicConfig) or a
+  # top-level $database, so a hand-built list configures the scraper the same
+  # way a loaded config does.
+  # Use exact [[ ]] indexing rather than $ so a top-level `database` key cannot
+  # be partial-matched by `data` (which would mis-resolve db_path).
   scrape_cfg <- NULL
-  if (inherits(config, "ThematicConfig")) {
-    scrape_cfg <- config$scraping
-    db_path <- db_path %||% config$data$database
+  if (!is.null(config)) {
+    scrape_cfg <- config[["scraping"]] %||% (if (is.list(config)) config else NULL)
+    db_path <- db_path %||% config[["data"]][["database"]] %||% config[["database"]]
     subreddits <- subreddits %||% scrape_cfg$subreddits
     posts_per_subreddit <- scrape_cfg$posts_per_subreddit %||% posts_per_subreddit
     include_comments <- scrape_cfg$include_comments %||% include_comments
     sort_by <- scrape_cfg$sort_by %||% sort_by
     time_filter <- scrape_cfg$time_filter %||% time_filter
-  } else if (is.list(config)) {
-    scrape_cfg <- config
-    subreddits <- subreddits %||% scrape_cfg$subreddits
   }
+
+  # Validate the listing parameters up front so a typo fails with an actionable
+  # message rather than a malformed request that silently returns nothing.
+  sort_by <- match.arg(sort_by, c("new", "hot", "top", "rising"))
+  time_filter <- match.arg(time_filter,
+                            c("hour", "day", "week", "month", "year", "all"))
 
   if (is.null(db_path)) stop("db_path is required")
   if (is.null(subreddits) || length(subreddits) == 0) stop("subreddits is required")
 
-  # Authenticate
+  # Authenticate. The token manager refreshes proactively and on 401.
   creds <- .get_reddit_credentials(scrape_cfg)
-  token <- .reddit_authenticate(creds)
+  tokmgr <- .reddit_token_manager(creds)
+  tokmgr$get()  # fetch the first token now so bad credentials fail fast
 
   # Initialize database
   .init_scraper_db(db_path)
 
   log_info("Starting Reddit scrape: {length(subreddits)} subreddit(s), {posts_per_subreddit} posts each")
 
-  totals <- list(posts_added = 0L, comments_added = 0L, posts_skipped = 0L)
+  totals <- list(posts_added = 0L, comments_added = 0L, posts_skipped = 0L,
+                 truncated_subreddits = character(0))
 
   # Randomize order to reduce pattern detection
   shuffled_subs <- sample(subreddits)
@@ -62,7 +88,7 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
     result <- .scrape_subreddit(
       subreddit = sub,
       db_path = db_path,
-      token = token,
+      tokmgr = tokmgr,
       creds = creds,
       max_posts = posts_per_subreddit,
       include_comments = include_comments,
@@ -73,6 +99,9 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
     totals$posts_added <- totals$posts_added + result$posts_added
     totals$comments_added <- totals$comments_added + result$comments_added
     totals$posts_skipped <- totals$posts_skipped + result$posts_skipped
+    if (isTRUE(result$truncated)) {
+      totals$truncated_subreddits <- c(totals$truncated_subreddits, sub)
+    }
 
     # Sleep between subreddits to respect rate limits
     if (sub != shuffled_subs[length(shuffled_subs)]) {
@@ -85,29 +114,59 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
   log_info("  Posts added: {totals$posts_added}")
   log_info("  Comments added: {totals$comments_added}")
   log_info("  Posts skipped (already in DB): {totals$posts_skipped}")
+  if (length(totals$truncated_subreddits) > 0) {
+    incomplete <- paste(totals$truncated_subreddits, collapse = ", ")
+    log_warn("Incomplete scrape (stopped on API error) for: {incomplete}")
+  }
 
   totals
 }
 
 # ==============================================================================
-# Internal: Reddit API authentication
+# Internal: small helpers
+# ==============================================================================
+
+# Convert a Unix epoch (seconds) to an ISO-8601 UTC string, tolerating a
+# missing/NA/non-numeric value (Reddit occasionally omits created_utc on
+# special entries). Without this guard as.POSIXct(NULL) yields a zero-length
+# value that aborts the parameterized insert.
+.epoch_to_iso <- function(x) {
+  if (is.null(x) || length(x) != 1 || !is.numeric(x) || is.na(x)) x <- 0
+  as.character(as.POSIXct(x, origin = "1970-01-01", tz = "UTC"))
+}
+
+# Run fn() inside a single database transaction. Commit on success, roll back
+# on error. The on.exit handler is scoped to this one call, so handlers never
+# accumulate across iterations and the rollback cannot fire against an already
+# committed or disconnected connection.
+.with_tx <- function(db, fn) {
+  committed <- FALSE
+  DBI::dbBegin(db)
+  on.exit(if (!committed) DBI::dbRollback(db), add = TRUE)
+  out <- fn()
+  DBI::dbCommit(db)
+  committed <- TRUE
+  out
+}
+
+# ==============================================================================
+# Internal: Reddit API authentication + token management
 # ==============================================================================
 
 .get_reddit_credentials <- function(scrape_cfg = NULL) {
-  # Try config first, then env vars
-  client_id <- scrape_cfg$reddit_client_id %||% ""
-  if (nchar(client_id) == 0) {
-    client_id <- Sys.getenv("REDDIT_CLIENT_ID")
-  }
+  # Resolution order: environment first (the documented, secure path -- keep
+  # secrets in .Renviron rather than a committed config), then the config
+  # fields as a fallback.
+  client_id <- Sys.getenv("REDDIT_CLIENT_ID")
+  if (nchar(client_id) == 0) client_id <- scrape_cfg$reddit_client_id %||% ""
 
-  client_secret <- scrape_cfg$reddit_client_secret %||% ""
-  if (nchar(client_secret) == 0) {
-    client_secret <- Sys.getenv("REDDIT_CLIENT_SECRET")
-  }
+  client_secret <- Sys.getenv("REDDIT_CLIENT_SECRET")
+  if (nchar(client_secret) == 0) client_secret <- scrape_cfg$reddit_client_secret %||% ""
 
-  user_agent <- scrape_cfg$reddit_user_agent %||% ""
+  user_agent <- Sys.getenv("REDDIT_USER_AGENT")
+  if (nchar(user_agent) == 0) user_agent <- scrape_cfg$reddit_user_agent %||% ""
   if (nchar(user_agent) == 0) {
-    # Fallback only fires when both config and env are empty. Constructed
+    # Fallback only fires when both env and config are empty. Constructed
     # dynamically from packageVersion so it stays in sync with DESCRIPTION
     # without needing a coordinated edit on every release. The literal
     # 'YourRedditUsername' is intended to make it obvious in Reddit's logs
@@ -116,20 +175,19 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
       as.character(utils::packageVersion("pakhom")),
       error = function(e) "dev"
     )
-    default_ua <- sprintf("pakhom/%s (by u/YourRedditUsername)", pkg_version)
-    user_agent <- Sys.getenv("REDDIT_USER_AGENT", default_ua)
+    user_agent <- sprintf("pakhom/%s (by u/YourRedditUsername)", pkg_version)
   }
 
   if (nchar(client_id) == 0 || nchar(client_secret) == 0) {
     stop(paste0(
       "Reddit API credentials not found.\n",
-      "Set them in config.yaml under scraping:\n",
+      "Set environment variables (recommended, in .Renviron):\n",
+      "  REDDIT_CLIENT_ID=your_id\n",
+      "  REDDIT_CLIENT_SECRET=your_secret\n",
+      "Or set them in config.yaml under scraping:\n",
       "  scraping:\n",
       "    reddit_client_id: \"your_id\"\n",
-      "    reddit_client_secret: \"your_secret\"\n",
-      "Or set environment variables:\n",
-      "  Sys.setenv(REDDIT_CLIENT_ID = 'your_id')\n",
-      "  Sys.setenv(REDDIT_CLIENT_SECRET = 'your_secret')"
+      "    reddit_client_secret: \"your_secret\""
     ))
   }
 
@@ -157,17 +215,69 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
   }
 
   log_info("Reddit authentication successful")
-  body$access_token
+  list(access_token = body$access_token, expires_in = body$expires_in %||% 3600)
 }
 
-.reddit_api_get <- function(url, token, creds, max_retries = 3) {
+# Environment-backed token holder. Reddit client-credentials tokens expire
+# (commonly ~1 hour), so a long scrape must re-authenticate. get() returns a
+# valid token, refreshing proactively shortly before expiry; refresh() forces
+# a new token (used when a 401 says the current one was rejected).
+.reddit_token_manager <- function(creds) {
+  state <- new.env(parent = emptyenv())
+  state$token <- NULL
+  state$expires_at <- 0
+
+  refresh <- function() {
+    auth <- .reddit_authenticate(creds)
+    state$token <- auth$access_token
+    ttl <- suppressWarnings(as.numeric(auth$expires_in))
+    if (is.na(ttl) || ttl <= 0) ttl <- 3600
+    # Refresh a minute early so a token never expires mid-request.
+    state$expires_at <- as.numeric(Sys.time()) + max(30, ttl - 60)
+    invisible(state$token)
+  }
+
+  get <- function() {
+    if (is.null(state$token) || as.numeric(Sys.time()) >= state$expires_at) {
+      refresh()
+    }
+    state$token
+  }
+
+  list(get = get, refresh = refresh)
+}
+
+# Number of seconds to wait after a 429, read from the server's Retry-After or
+# x-ratelimit-reset header when present, capped so a bad header cannot stall a
+# run indefinitely.
+.retry_after_seconds <- function(resp, default = 60) {
+  for (hdr in c("retry-after", "x-ratelimit-reset")) {
+    val <- tryCatch(httr2::resp_header(resp, hdr), error = function(e) NULL)
+    if (!is.null(val)) {
+      secs <- suppressWarnings(as.numeric(val))
+      if (!is.na(secs) && secs >= 0) return(min(secs, 300))
+    }
+  }
+  default
+}
+
+# Perform an authenticated GET. Returns a list: $ok (logical), $status (HTTP
+# status, NA if the request never completed), and $body (parsed JSON when ok).
+# A failed request is reported as ok = FALSE rather than an ambiguous NULL, so
+# callers can distinguish "no more data" from "the request failed".
+.reddit_api_get <- function(url, tokmgr, creds, max_retries = 4) {
+  refreshed <- FALSE
   for (attempt in seq_len(max_retries)) {
+    token <- tokmgr$get()
     resp <- tryCatch({
       httr2::request(url) |>
         httr2::req_headers(
           Authorization = paste("bearer", token),
           `User-Agent` = creds$user_agent
         ) |>
+        # Handle HTTP statuses ourselves so 401/403/404/429 are inspectable
+        # rather than thrown.
+        httr2::req_error(is_error = function(resp) FALSE) |>
         httr2::req_timeout(30) |>
         httr2::req_perform()
     }, error = function(e) {
@@ -178,25 +288,36 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
       NULL
     })
 
-    if (!is.null(resp)) {
-      status <- httr2::resp_status(resp)
-      if (status == 200) return(httr2::resp_body_json(resp))
-      if (status == 429) {
-        wait <- 60
-        log_warn("Rate limited. Waiting {wait}s...")
-        Sys.sleep(wait)
-      } else if (status >= 500) {
-        log_warn("Server error {status}. Retrying...")
-        Sys.sleep(5 * attempt)
-      } else {
-        log_warn("API returned status {status}")
-        return(NULL)
-      }
+    if (is.null(resp)) next
+
+    status <- httr2::resp_status(resp)
+    if (status == 200) {
+      return(list(ok = TRUE, status = 200L, body = httr2::resp_body_json(resp)))
     }
+    if (status == 401 && !refreshed) {
+      log_warn("Access token rejected (401); re-authenticating")
+      tokmgr$refresh()
+      refreshed <- TRUE
+      next
+    }
+    if (status == 429) {
+      wait <- .retry_after_seconds(resp, default = 60)
+      log_warn("Rate limited (429). Waiting {wait}s...")
+      Sys.sleep(wait)
+      next
+    }
+    if (status >= 500) {
+      log_warn("Server error {status}. Retrying...")
+      Sys.sleep(5 * attempt)
+      next
+    }
+    # Other 4xx (403 private/banned, 404 missing, ...): not retryable.
+    log_warn("API returned status {status} for {url}")
+    return(list(ok = FALSE, status = as.integer(status), body = NULL))
   }
 
   log_warn("Max retries reached for {url}")
-  NULL
+  list(ok = FALSE, status = NA_integer_, body = NULL)
 }
 
 # ==============================================================================
@@ -255,7 +376,7 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
 # Internal: Scrape a single subreddit
 # ==============================================================================
 
-.scrape_subreddit <- function(subreddit, db_path, token, creds, max_posts,
+.scrape_subreddit <- function(subreddit, db_path, tokmgr, creds, max_posts,
                                include_comments, sort_by, time_filter) {
   log_info("Scraping r/{subreddit} ({sort_by}, limit={max_posts})...")
 
@@ -266,17 +387,28 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
   comments_added <- 0L
   posts_skipped <- 0L
   after <- NULL
-  chunk_size <- 100  # Reddit API max per request
+  chunk_size <- 100L  # Reddit API max per request
+  pages <- 0L
+  max_pages <- 50L    # backstop; Reddit listings cap well below this
+  truncated <- FALSE
 
+  # The bar tracks NEW posts toward the budget and is only advanced on an
+  # insert, so it never ticks past its total (which would abort the run).
   pb <- safe_progress_bar(
-    format = "  r/{subreddit} [:bar] :current posts processed",
+    format = "  [:bar] :current/:total posts",
     total = max_posts
   )
 
-  while (posts_added + posts_skipped < max_posts) {
+  # Budget counts only newly-added posts, so already-seen entries do not
+  # consume it; pagination continues until the budget is met, the listing
+  # ends, or the page backstop is hit.
+  while (posts_added < max_posts && pages < max_pages) {
+    pages <- pages + 1L
+
     # Build URL. URL-encode the externally-derived path/query components
     # (subreddit, after cursor) so a name with reserved characters cannot
-    # alter the request path or inject query parameters.
+    # alter the request path or inject query parameters. sort_by/time_filter
+    # are validated by match.arg() in scrape_reddit().
     url <- sprintf("https://oauth.reddit.com/r/%s/%s.json?limit=%d&t=%s",
                     utils::URLencode(as.character(subreddit), reserved = TRUE),
                     sort_by, chunk_size, time_filter)
@@ -285,62 +417,27 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
                     utils::URLencode(as.character(after), reserved = TRUE))
     }
 
-    data <- .reddit_api_get(url, token, creds)
-    if (is.null(data)) break
+    res <- .reddit_api_get(url, tokmgr, creds)
+    if (!isTRUE(res$ok)) {
+      # A failed request (404/403/persistent 429/5xx/network) stops this
+      # subreddit early; flag it so the caller knows the result is partial.
+      truncated <- TRUE
+      break
+    }
 
+    data <- res$body
     posts <- data$data$children
     if (length(posts) == 0) break
 
-    committed <- FALSE
-    DBI::dbBegin(db)
-    on.exit(if (!committed) DBI::dbRollback(db), add = TRUE)
+    page <- .process_post_page(
+      db = db, posts = posts, subreddit = subreddit, tokmgr = tokmgr,
+      creds = creds, include_comments = include_comments,
+      budget = max_posts - posts_added, pb = pb
+    )
 
-    for (post in posts) {
-      pd <- post$data
-      if (is.null(pd$id)) next
-
-      # Check if already in DB
-      exists <- DBI::dbGetQuery(db,
-        "SELECT 1 FROM posts WHERE post_id = ? LIMIT 1",
-        params = list(pd$id)
-      )
-
-      if (nrow(exists) > 0) {
-        posts_skipped <- posts_skipped + 1L
-        pb$tick()
-        next
-      }
-
-      # Insert post
-      created <- as.character(as.POSIXct(pd$created_utc, origin = "1970-01-01", tz = "UTC"))
-      DBI::dbExecute(db,
-        "INSERT OR IGNORE INTO posts (post_id, subreddit, title, created_utc, num_comments, score, upvote_ratio, author, text, permalink) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        params = list(
-          pd$id,
-          subreddit,
-          pd$title %||% "",
-          created,
-          pd$num_comments %||% 0L,
-          pd$score %||% 0L,
-          pd$upvote_ratio %||% NA_real_,
-          pd$author %||% "[deleted]",
-          pd$selftext %||% "",
-          paste0("https://www.reddit.com", pd$permalink %||% "")
-        )
-      )
-      posts_added <- posts_added + 1L
-
-      # Fetch comments if requested
-      if (include_comments && (pd$num_comments %||% 0) > 0) {
-        n_comments <- .scrape_post_comments(db, subreddit, pd$id, token, creds)
-        comments_added <- comments_added + n_comments
-      }
-
-      pb$tick()
-    }
-
-    DBI::dbCommit(db)
-    committed <- TRUE
+    posts_added <- posts_added + page$added
+    posts_skipped <- posts_skipped + page$skipped
+    comments_added <- comments_added + page$comments
 
     # Pagination
     after <- data$data$after
@@ -350,55 +447,205 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
     Sys.sleep(runif(1, 1, 2))
   }
 
-  log_info("  r/{subreddit}: +{posts_added} posts, +{comments_added} comments, {posts_skipped} skipped")
+  status_note <- if (truncated) " (INCOMPLETE: stopped on API error)" else ""
+  log_info("  r/{subreddit}: +{posts_added} posts, +{comments_added} comments, {posts_skipped} skipped{status_note}")
 
-  list(posts_added = posts_added, comments_added = comments_added, posts_skipped = posts_skipped)
+  list(posts_added = posts_added, comments_added = comments_added,
+       posts_skipped = posts_skipped, truncated = truncated)
+}
+
+# Insert a page of posts in one transaction, then fetch comments for the newly
+# added posts AFTER the commit so a long comment crawl never holds a write
+# lock and a comment failure cannot discard the page's posts.
+.process_post_page <- function(db, posts, subreddit, tokmgr, creds,
+                                include_comments, budget, pb) {
+  res <- .with_tx(db, function() {
+    added <- 0L
+    skipped <- 0L
+    new_ids <- character(0)
+
+    for (post in posts) {
+      if (added >= budget) break  # honor the per-subreddit budget exactly
+      pd <- post$data
+      if (is.null(pd$id)) next
+
+      exists <- DBI::dbGetQuery(db,
+        "SELECT 1 FROM posts WHERE post_id = ? LIMIT 1",
+        params = list(pd$id)
+      )
+      if (nrow(exists) > 0) {
+        skipped <- skipped + 1L
+        next
+      }
+
+      DBI::dbExecute(db,
+        "INSERT OR IGNORE INTO posts (post_id, subreddit, title, created_utc, num_comments, score, upvote_ratio, author, text, permalink) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        params = list(
+          pd$id,
+          subreddit,
+          pd$title %||% "",
+          .epoch_to_iso(pd$created_utc),
+          pd$num_comments %||% 0L,
+          pd$score %||% 0L,
+          pd$upvote_ratio %||% NA_real_,
+          pd$author %||% "[deleted]",
+          pd$selftext %||% "",
+          paste0("https://www.reddit.com", pd$permalink %||% "")
+        )
+      )
+      added <- added + 1L
+      pb$tick()
+
+      if (include_comments && (pd$num_comments %||% 0) > 0) {
+        new_ids <- c(new_ids, pd$id)
+      }
+    }
+
+    list(added = added, skipped = skipped, new_ids = new_ids)
+  })
+
+  comments <- 0L
+  for (pid in res$new_ids) {
+    comments <- comments + .scrape_post_comments(db, subreddit, pid, tokmgr, creds)
+  }
+
+  list(added = res$added, skipped = res$skipped, comments = comments)
 }
 
 # ==============================================================================
-# Internal: Scrape comments for a single post
+# Internal: Scrape the full comment tree for a single post
 # ==============================================================================
 
-.scrape_post_comments <- function(db, subreddit, post_id, token, creds) {
-  url <- sprintf("https://oauth.reddit.com/r/%s/comments/%s.json?limit=200",
+.scrape_post_comments <- function(db, subreddit, post_id, tokmgr, creds) {
+  url <- sprintf("https://oauth.reddit.com/r/%s/comments/%s.json?limit=500&depth=10",
                   utils::URLencode(as.character(subreddit), reserved = TRUE),
                   utils::URLencode(as.character(post_id), reserved = TRUE))
 
-  data <- .reddit_api_get(url, token, creds)
-  if (is.null(data) || length(data) < 2) return(0L)
+  res <- .reddit_api_get(url, tokmgr, creds)
+  if (!isTRUE(res$ok)) return(0L)
 
-  comments_data <- data[[2]]$data$children
-  if (is.null(comments_data)) return(0L)
+  data <- res$body
+  if (length(data) < 2) return(0L)
 
+  children <- data[[2]]$data$children
+  if (is.null(children) || length(children) == 0) return(0L)
+
+  # Walk the embedded tree, collecting any "load more" placeholders, then
+  # expand those via the API so the whole discussion is captured.
+  more_acc <- new.env(parent = emptyenv())
+  more_acc$ids <- character(0)
+
+  added <- .with_tx(db, function() {
+    .insert_comment_tree(db, subreddit, post_id, children, more_acc)
+  })
+
+  if (length(more_acc$ids) > 0) {
+    added <- added + .expand_more_comments(
+      db, subreddit, post_id, unique(more_acc$ids), tokmgr, creds
+    )
+  }
+
+  added
+}
+
+# Recursively insert a list of comment nodes. t1 nodes are stored (and their
+# nested $replies walked); "more" nodes (truncated threads) have their child
+# ids collected into more_acc for later API expansion. Returns the number of
+# comments newly inserted.
+.insert_comment_tree <- function(db, subreddit, post_id, children, more_acc) {
   added <- 0L
 
-  for (comment in comments_data) {
-    cd <- comment$data
-    if (is.null(cd$body) || is.null(cd$id)) next
-    if (cd$body == "[deleted]" || cd$body == "[removed]") next
+  for (child in children) {
+    kind <- child$kind
+    cd <- child$data
+    if (is.null(cd)) next
 
-    exists <- DBI::dbGetQuery(db,
-      "SELECT 1 FROM comments WHERE comment_id = ? LIMIT 1",
-      params = list(cd$id)
-    )
-    if (nrow(exists) > 0) next
+    if (identical(kind, "more")) {
+      ids <- unlist(cd$children, use.names = FALSE)
+      if (length(ids) > 0) more_acc$ids <- c(more_acc$ids, as.character(ids))
+      next
+    }
 
-    created <- as.character(as.POSIXct(cd$created_utc %||% 0, origin = "1970-01-01", tz = "UTC"))
+    if (!identical(kind, "t1")) next
 
-    DBI::dbExecute(db,
-      "INSERT OR IGNORE INTO comments (comment_id, post_id, subreddit, created_utc, score, author, comment_body, permalink) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      params = list(
-        cd$id,
-        post_id,
-        subreddit,
-        created,
-        cd$score %||% 0L,
-        cd$author %||% "[deleted]",
-        cd$body,
-        paste0("https://www.reddit.com", cd$permalink %||% "")
+    if (!is.null(cd$id) && !is.null(cd$body) &&
+        !(cd$body %in% c("[deleted]", "[removed]"))) {
+      exists <- DBI::dbGetQuery(db,
+        "SELECT 1 FROM comments WHERE comment_id = ? LIMIT 1",
+        params = list(cd$id)
       )
+      if (nrow(exists) == 0) {
+        DBI::dbExecute(db,
+          "INSERT OR IGNORE INTO comments (comment_id, post_id, subreddit, created_utc, score, author, comment_body, permalink) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+          params = list(
+            cd$id,
+            post_id,
+            subreddit,
+            .epoch_to_iso(cd$created_utc),
+            cd$score %||% 0L,
+            cd$author %||% "[deleted]",
+            cd$body,
+            paste0("https://www.reddit.com", cd$permalink %||% "")
+          )
+        )
+        added <- added + 1L
+      }
+    }
+
+    # Recurse into nested replies. Reddit stores these under
+    # cd$replies$data$children; it is "" (empty string) when there are none.
+    replies <- cd$replies
+    if (is.list(replies) && !is.null(replies$data) &&
+        !is.null(replies$data$children)) {
+      added <- added + .insert_comment_tree(
+        db, subreddit, post_id, replies$data$children, more_acc
+      )
+    }
+  }
+
+  added
+}
+
+# Expand "load more comments" placeholders via the morechildren endpoint, in
+# batches of 100 ids, recursing into any further placeholders the expansion
+# returns (bounded by max_depth so a pathological thread cannot loop forever).
+.expand_more_comments <- function(db, subreddit, post_id, more_ids, tokmgr, creds,
+                                   depth = 0L, max_depth = 8L) {
+  if (length(more_ids) == 0 || depth >= max_depth) return(0L)
+
+  link_id <- paste0("t3_", post_id)
+  added <- 0L
+  remaining <- more_ids
+
+  while (length(remaining) > 0) {
+    batch <- utils::head(remaining, 100L)
+    remaining <- if (length(remaining) > 100L) remaining[-(1:100)] else character(0)
+
+    url <- sprintf(
+      "https://oauth.reddit.com/api/morechildren.json?api_type=json&link_id=%s&children=%s&limit_children=false",
+      link_id,
+      paste(utils::URLencode(batch, reserved = TRUE), collapse = ",")
     )
-    added <- added + 1L
+
+    res <- .reddit_api_get(url, tokmgr, creds)
+    if (!isTRUE(res$ok)) next
+
+    things <- res$body$json$data$things
+    if (is.null(things) || length(things) == 0) next
+
+    next_acc <- new.env(parent = emptyenv())
+    next_acc$ids <- character(0)
+
+    added <- added + .with_tx(db, function() {
+      .insert_comment_tree(db, subreddit, post_id, things, next_acc)
+    })
+
+    if (length(next_acc$ids) > 0) {
+      added <- added + .expand_more_comments(
+        db, subreddit, post_id, unique(next_acc$ids), tokmgr, creds,
+        depth + 1L, max_depth
+      )
+    }
   }
 
   added

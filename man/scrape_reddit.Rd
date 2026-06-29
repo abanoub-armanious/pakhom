@@ -15,15 +15,18 @@ scrape_reddit(
 )
 }
 \arguments{
-\item{config}{ThematicConfig object or list with $scraping section}
+\item{config}{ThematicConfig object or list with a \code{$scraping} section
+(a bare list is also accepted and treated as the scraping section).}
 
 \item{db_path}{Path to SQLite database (created if missing)}
 
 \item{subreddits}{Character vector of subreddit names (without "r/")}
 
-\item{posts_per_subreddit}{Max posts to fetch per subreddit (default 500)}
+\item{posts_per_subreddit}{Max NEW posts to add per subreddit (default 500).
+Already-stored posts do not count against this budget, so re-running reaches
+genuinely new content rather than re-counting duplicates.}
 
-\item{include_comments}{Logical; also scrape comments (default TRUE)}
+\item{include_comments}{Logical; also scrape full comment trees (default TRUE)}
 
 \item{sort_by}{Sort method: "new", "hot", "top", "rising" (default "new")}
 
@@ -31,11 +34,24 @@ scrape_reddit(
 "month", "year", "all" (default "all")}
 }
 \value{
-List with counts: posts_added, comments_added, posts_skipped
+List with counts: \code{posts_added}, \code{comments_added},
+\code{posts_skipped}, and \code{truncated_subreddits} (a character vector of
+subreddits whose collection stopped early because of an API error, so the
+caller can tell a genuinely empty result apart from an incomplete one).
 }
 \description{
-Authenticates with the Reddit API and collects posts and comments from
-specified subreddits. Unlike keyword-based scrapers, this collects ALL
-content and lets the progressive sequential coder downstream decide
-which entries match the research question (no keyword pre-filter).
+Authenticates with the Reddit API and collects posts and their full comment
+trees from specified subreddits. Unlike keyword-based scrapers, this collects
+ALL content and lets the progressive sequential coder downstream decide which
+entries match the research question (no keyword pre-filter).
+}
+\details{
+Comments are captured in full: nested reply threads are walked recursively
+and truncated "load more comments" placeholders are expanded via the Reddit
+API, so the stored corpus reflects the whole discussion rather than only the
+first page of top-level comments.
+
+The access token is refreshed automatically (proactively before expiry and
+on a 401), so long multi-subreddit runs do not truncate when the initial
+token ages out.
 }

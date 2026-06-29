@@ -187,9 +187,10 @@ approved through Reddit's Responsible Builder Program:
     ```
     REDDIT_CLIENT_ID=your_id_here
     REDDIT_CLIENT_SECRET=your_secret_here
-    REDDIT_USER_AGENT=pakhom/1.0.1 (by u/YourRedditUsername)
+    REDDIT_USER_AGENT=pakhom (by u/YourRedditUsername)
     ```
-  - In your config: `scraping.enabled: true` plus the list of subreddits.
+  - Enable the scraper in either wizard's Scraping step, or set
+    `scraping.enabled: true` plus the list of subreddits in `config.yaml`.
 
 If approval is pending or you'd rather skip the scraper, just leave
 `scraping.enabled: false` (the default) and load your own data into a
@@ -263,10 +264,10 @@ config_wizard_app("config.yaml")
 
 This opens a step-by-step web interface in your browser. It starts with your
 **methodology mode** (Reflexive Scaffold, Codebook Collaborative, or Framework
-Applied -- the mandatory architectural choice), then walks you through every
-other setting with descriptions, validation, and a live YAML preview. When done,
-it saves a config that loads cleanly. Requires the `shiny` package
-(`install.packages("shiny")`).
+Applied -- the mandatory architectural choice), then walks you through the
+remaining settings, including an optional Reddit scraping step, with
+descriptions, validation, and a live YAML preview. When done, it saves a config
+that loads cleanly. Requires the `shiny` package (`install.packages("shiny")`).
 
 ### Option B: CLI Wizard
 
@@ -276,7 +277,8 @@ config_wizard("config.yaml")
 
 A simpler text-based wizard that runs in your R console. Its first prompt is the
 methodology mode (and, for Framework Applied, the framework spec); it then asks
-for study metadata, data path, and provider.
+for study metadata, data path, and provider, and offers to configure the
+optional Reddit scraper.
 
 ### Option C: Write it Manually
 

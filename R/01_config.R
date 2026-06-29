@@ -1253,6 +1253,37 @@ config_wizard <- function(output_path = "config.yaml") {
     overrides[["study.researcher_positionality"]] <- positionality
   }
 
+  # Optional Reddit scraper. Credentials are read from .Renviron
+  # (REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET) and are never written here.
+  scrape_yn <- tolower(trimws(readline(
+    "Configure the optional Reddit scraper? [y/N]: ")))
+  if (scrape_yn %in% c("y", "yes")) {
+    subs_raw <- readline("  Subreddits (comma-separated, without 'r/'): ")
+    subs <- trimws(strsplit(subs_raw, ",")[[1]])
+    subs <- subs[nzchar(subs)]
+    overrides[["scraping.enabled"]] <- TRUE
+    if (length(subs) > 0) overrides[["scraping.subreddits"]] <- as.list(subs)
+
+    pps <- suppressWarnings(as.integer(trimws(
+      readline("  Posts per subreddit (default 500): "))))
+    overrides[["scraping.posts_per_subreddit"]] <- if (is.na(pps)) 500L else pps
+
+    inc_raw <- tolower(trimws(readline("  Include comments? [Y/n]: ")))
+    overrides[["scraping.include_comments"]] <- !(inc_raw %in% c("n", "no"))
+
+    sort_raw <- trimws(readline("  Sort [new/hot/top/rising] (default new): "))
+    overrides[["scraping.sort_by"]] <- if (sort_raw %in%
+      c("new", "hot", "top", "rising")) sort_raw else "new"
+    if (identical(overrides[["scraping.sort_by"]], "top")) {
+      tf_raw <- trimws(readline(
+        "  Time filter [hour/day/week/month/year/all] (default all): "))
+      overrides[["scraping.time_filter"]] <- if (tf_raw %in%
+        c("hour", "day", "week", "month", "year", "all")) tf_raw else "all"
+    }
+    cat("  Remember to set REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET in",
+        ".Renviron before scraping.\n")
+  }
+
   # NB: pass create_config()'s real parameter names. Earlier this used
   # `data_path =` / `config_path =`, which are NOT create_config() params --
   # they fell into `...`, were flattened to bogus top-level keys, and the

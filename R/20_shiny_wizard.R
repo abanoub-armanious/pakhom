@@ -69,9 +69,9 @@ config_wizard_app <- function(output_path = "config.yaml") {
 
   server <- function(input, output, session) {
     step <- shiny::reactiveVal(1L)
-    total_steps <- 8L
-    step_labels <- c("Methodology", "Study", "AI Provider", "Data", "Learning",
-                     "Analysis", "Output", "Review & Save")
+    total_steps <- 9L
+    step_labels <- c("Methodology", "Study", "AI Provider", "Data", "Scraping",
+                     "Learning", "Analysis", "Output", "Review & Save")
     saved_path <- shiny::reactiveVal(NULL)
 
     # --- Step indicator ---
@@ -150,10 +150,11 @@ config_wizard_app <- function(output_path = "config.yaml") {
         "2" = .ui_step_study(),
         "3" = .ui_step_ai(input),
         "4" = .ui_step_data(),
-        "5" = .ui_step_learning(),
-        "6" = .ui_step_analysis(),
-        "7" = .ui_step_output(),
-        "8" = .ui_step_review(input, output_path)
+        "5" = .ui_step_scraping(),
+        "6" = .ui_step_learning(),
+        "7" = .ui_step_analysis(),
+        "8" = .ui_step_output(),
+        "9" = .ui_step_review(input, output_path)
       )
     })
 
@@ -174,6 +175,13 @@ config_wizard_app <- function(output_path = "config.yaml") {
           trimws(input$output_path)
         } else {
           output_path
+        }
+        # Merge the wizard output over an existing file rather than overwriting
+        # it wholesale, so hand-edited sections the wizard does not surface are
+        # preserved across re-runs.
+        if (file.exists(save_to)) {
+          existing <- tryCatch(yaml::read_yaml(save_to), error = function(e) NULL)
+          if (is.list(existing)) config <- utils::modifyList(existing, config)
         }
         header <- paste0(
           "# =============================================================================\n",
@@ -395,6 +403,48 @@ config_wizard_app <- function(output_path = "config.yaml") {
       shiny::column(4, shiny::checkboxInput("remove_urls", "Remove URLs", value = TRUE)),
       shiny::column(4, shiny::checkboxInput("remove_mentions", "Remove @mentions", value = TRUE)),
       shiny::column(4, shiny::checkboxInput("remove_hashtags", "Remove #hashtags", value = FALSE))
+    )
+  )
+}
+
+#' @keywords internal
+.ui_step_scraping <- function() {
+  shiny::div(class = "section-card",
+    shiny::h3(class = "section-title", "Reddit Scraping (optional)"),
+    shiny::p(class = "help-text",
+             "If your corpus is already in a SQLite database, skip this. ",
+             "Otherwise the built-in scraper can collect posts and full ",
+             "comment trees from subreddits into the database above."),
+
+    shiny::checkboxInput("scraping_enabled", "Enable Reddit scraping", value = FALSE),
+
+    shiny::conditionalPanel(
+      condition = "input.scraping_enabled",
+      shiny::div(class = "help-text",
+                 "Reddit requires Responsible Builder approval for API access. ",
+                 "Store credentials in .Renviron (REDDIT_CLIENT_ID, ",
+                 "REDDIT_CLIENT_SECRET); they are never written to this config."),
+      shiny::br(),
+      shiny::textInput("scraping_subreddits", "Subreddits", width = "100%",
+                       placeholder = "comma-separated, without 'r/' (e.g. productivity, remotework)"),
+      shiny::br(),
+      shiny::fluidRow(
+        shiny::column(4,
+          shiny::numericInput("scraping_posts", "Posts per subreddit",
+                              value = 500, min = 1, width = "100%"),
+          shiny::div(class = "help-text", "Counts only NEW posts on re-runs.")
+        ),
+        shiny::column(4,
+          shiny::selectInput("scraping_sort", "Sort by",
+            choices = c("new", "hot", "top", "rising"), selected = "new", width = "100%")
+        ),
+        shiny::column(4,
+          shiny::selectInput("scraping_time", "Time filter (top only)",
+            choices = c("hour", "day", "week", "month", "year", "all"),
+            selected = "all", width = "100%")
+        )
+      ),
+      shiny::checkboxInput("scraping_comments", "Include comments", value = TRUE)
     )
   )
 }
@@ -739,6 +789,22 @@ config_wizard_app <- function(output_path = "config.yaml") {
     )
   } else {
     config$learning <- list(enabled = FALSE)
+  }
+
+  # Add scraping if enabled. Credentials are deliberately omitted -- they come
+  # from .Renviron (REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET), never the config.
+  if (isTRUE(input$scraping_enabled)) {
+    subs_raw <- val("scraping_subreddits", "")
+    subs <- trimws(strsplit(subs_raw, ",")[[1]])
+    subs <- subs[nzchar(subs)]
+    config$scraping <- list(
+      enabled = TRUE,
+      subreddits = if (length(subs) > 0) as.list(subs) else NULL,
+      posts_per_subreddit = val("scraping_posts", 500),
+      include_comments = isTRUE(input$scraping_comments),
+      sort_by = val("scraping_sort", "new"),
+      time_filter = val("scraping_time", "all")
+    )
   }
 
   config
