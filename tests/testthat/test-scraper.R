@@ -877,3 +877,104 @@ test_that("a backfill-eligible post after the budget cutoff is deferred, then re
   con <- DBI::dbConnect(RSQLite::SQLite(), db); on.exit(DBI::dbDisconnect(con), add = TRUE)
   expect_false(is.na(DBI::dbGetQuery(con, "SELECT comments_scraped_at FROM posts WHERE post_id='post_9'")$comments_scraped_at))
 })
+
+# ==============================================================================
+# morechildren rate limit (HTTP 200 + json.errors) is transient, not silent loss
+# ==============================================================================
+test_that("a morechildren embedded-error (rate limit) is treated as transient and backfilled", {
+  skip_if_not_installed("RSQLite")
+  db <- tempfile(fileext = ".db"); on.exit(unlink(db), add = TRUE)
+
+  listing <- mk_listing(list(mk_post(1, num_comments = 3L)), after = NULL)
+  comments <- mk_comments_listing(list(mk_t1("c1"), mk_more("m1")))
+  # HTTP 200 carrying a RATELIMIT error and empty things (Reddit's actual shape).
+  ratelimited <- ok_body(list(json = list(
+    errors = list(list("RATELIMIT", "you are doing that too much", "ratelimit")),
+    data = list(things = list()))))
+  good_more <- mk_morechildren(list(mk_t1("m1")))
+  state <- new.env(); state$more_ok <- FALSE
+
+  testthat::local_mocked_bindings(
+    .reddit_authenticate = function(creds) list(access_token = "TOK", expires_in = 3600),
+    .reddit_api_get = function(url, tokmgr, creds, max_retries = 4) {
+      if (grepl("morechildren", url)) return(if (state$more_ok) good_more else ratelimited)
+      if (grepl("/comments/", url)) return(comments)
+      listing
+    },
+    .package = "pakhom"
+  )
+  args <- list(subreddits = "test", db_path = db,
+               config = list(reddit_client_id = "i", reddit_client_secret = "s", reddit_user_agent = "ua"),
+               posts_per_subreddit = 10)
+
+  r1 <- do.call(scrape_reddit, args)
+  expect_equal(r1$comment_fetch_failures, 1L)   # NOT recorded as complete
+  con <- DBI::dbConnect(RSQLite::SQLite(), db)
+  expect_true(is.na(DBI::dbGetQuery(con, "SELECT comments_scraped_at FROM posts WHERE post_id='post_1'")$comments_scraped_at))
+  DBI::dbDisconnect(con)
+
+  state$more_ok <- TRUE
+  r2 <- do.call(scrape_reddit, args)
+  expect_equal(r2$comments_added, 1L)            # m1 backfilled once the limit clears
+  con <- DBI::dbConnect(RSQLite::SQLite(), db); on.exit(DBI::dbDisconnect(con), add = TRUE)
+  expect_setequal(DBI::dbGetQuery(con, "SELECT comment_id FROM comments")$comment_id, c("c1", "m1"))
+})
+
+# ==============================================================================
+# 401 during expansion is recoverable (auth), not permanent
+# ==============================================================================
+test_that(".is_permanent_failure treats 401 as transient (auth is recoverable)", {
+  expect_false(pakhom:::.is_permanent_failure(401L))
+  expect_true(pakhom:::.is_permanent_failure(403L))   # genuinely forbidden stays permanent
+  expect_true(pakhom:::.is_permanent_failure(404L))
+})
+
+test_that("a 401 on a morechildren expansion leaves the post un-stamped for retry", {
+  skip_if_not_installed("RSQLite")
+  db <- tempfile(fileext = ".db"); on.exit(unlink(db), add = TRUE)
+  listing <- mk_listing(list(mk_post(1, num_comments = 3L)), after = NULL)
+  comments <- mk_comments_listing(list(mk_t1("c1"), mk_more("m1")))
+  testthat::local_mocked_bindings(
+    .reddit_authenticate = function(creds) list(access_token = "TOK", expires_in = 3600),
+    .reddit_api_get = function(url, tokmgr, creds, max_retries = 4) {
+      if (grepl("morechildren", url)) return(list(ok = FALSE, status = 401L, body = NULL))
+      if (grepl("/comments/", url)) return(comments)
+      listing
+    },
+    .package = "pakhom"
+  )
+  r1 <- do.call(scrape_reddit, list(subreddits = "test", db_path = db,
+    config = list(reddit_client_id = "i", reddit_client_secret = "s", reddit_user_agent = "ua"),
+    posts_per_subreddit = 10))
+  expect_equal(r1$comment_fetch_failures, 1L)
+  con <- DBI::dbConnect(RSQLite::SQLite(), db); on.exit(DBI::dbDisconnect(con), add = TRUE)
+  expect_true(is.na(DBI::dbGetQuery(con, "SELECT comments_scraped_at FROM posts WHERE post_id='post_1'")$comments_scraped_at))
+})
+
+# ==============================================================================
+# Cross-level dedup: a self-echoing morechildren id is fetched once, not 12x
+# ==============================================================================
+test_that("a self-echoing morechildren id is fetched once, not once per level", {
+  skip_if_not_installed("RSQLite")
+  db <- tempfile(fileext = ".db"); on.exit(unlink(db), add = TRUE)
+  listing <- mk_listing(list(mk_post(1, num_comments = 3L)), after = NULL)
+  comments <- mk_comments_listing(list(mk_t1("c1"), mk_more("m1")))
+  calls <- new.env(); calls$more <- 0L
+  testthat::local_mocked_bindings(
+    .reddit_authenticate = function(creds) list(access_token = "TOK", expires_in = 3600),
+    .reddit_api_get = function(url, tokmgr, creds, max_retries = 4) {
+      if (grepl("morechildren", url)) {
+        calls$more <- calls$more + 1L
+        # Response echoes a comment AND a "more" re-pointing at the same id m1.
+        return(mk_morechildren(list(mk_t1("d1"), mk_more("m1"))))
+      }
+      if (grepl("/comments/", url)) return(comments)
+      listing
+    },
+    .package = "pakhom"
+  )
+  do.call(scrape_reddit, list(subreddits = "test", db_path = db,
+    config = list(reddit_client_id = "i", reddit_client_secret = "s", reddit_user_agent = "ua"),
+    posts_per_subreddit = 10))
+  expect_equal(calls$more, 1L)   # not 12 (max_depth); dedup stops the re-fetch
+})

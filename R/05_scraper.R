@@ -13,10 +13,11 @@
 #' ALL content and lets the progressive sequential coder downstream decide which
 #' entries match the research question (no keyword pre-filter).
 #'
-#' Comments are captured in full: nested reply threads are walked recursively,
+#' Comments are collected deeply: nested reply threads are walked recursively,
 #' "load more comments" placeholders are expanded via the Reddit API, and
 #' "continue this thread" branches deeper than the API's per-response depth are
-#' followed by re-fetching the tree rooted at the parent comment.
+#' followed by re-fetching the tree rooted at the parent comment (bounded by a
+#' generous recursion backstop that real threads do not reach).
 #'
 #' The access token is refreshed automatically (proactively before expiry and
 #' on a 401), so long multi-subreddit runs do not truncate when the initial
@@ -707,8 +708,16 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
 # subtree) is accepted as terminal rather than retried forever, and hitting
 # max_depth is an accepted truncation. added is the count newly inserted.
 .expand_pending <- function(db, subreddit, post_id, ids, parents, tokmgr, creds,
-                             depth = 0L, max_depth = 12L) {
+                             seen = NULL, depth = 0L, max_depth = 12L) {
   if (depth >= max_depth) return(list(ok = TRUE, added = 0L))
+
+  # Track ids/parents already requested for this post so a self-echoing
+  # placeholder costs one request, not one per recursion level.
+  if (is.null(seen)) {
+    seen <- new.env(parent = emptyenv())
+    seen$ids <- character(0)
+    seen$parents <- character(0)
+  }
 
   added <- 0L
   all_ok <- TRUE
@@ -718,7 +727,9 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
 
   # 1. Sibling-overflow ids via morechildren, in batches of 100.
   link_id <- paste0("t3_", post_id)
-  remaining <- unique(ids)
+  fresh_ids <- setdiff(unique(ids), seen$ids)
+  seen$ids <- c(seen$ids, fresh_ids)
+  remaining <- fresh_ids
   while (length(remaining) > 0) {
     batch <- utils::head(remaining, 100L)
     remaining <- if (length(remaining) > 100L) remaining[-(1:100)] else character(0)
@@ -734,6 +745,10 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
       if (!.is_permanent_failure(res$status)) all_ok <- FALSE
       next
     }
+    # Reddit signals a morechildren rate limit as an HTTP 200 carrying a
+    # non-empty json.errors block (not a 429), so treat that as a transient
+    # failure to retry rather than a genuinely-empty expansion.
+    if (length(res$body$json$errors) > 0) { all_ok <- FALSE; next }
 
     things <- res$body$json$data$things
     if (is.null(things) || length(things) == 0) next
@@ -745,7 +760,9 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
 
   # 2. "Continue this thread" markers via a re-fetch rooted at the parent
   #    comment (the comment= focus returns that comment plus its deeper tree).
-  for (pfull in unique(parents)) {
+  fresh_parents <- setdiff(unique(parents), seen$parents)
+  seen$parents <- c(seen$parents, fresh_parents)
+  for (pfull in fresh_parents) {
     cid <- sub("^t[0-9]_", "", pfull)
     if (!nzchar(cid)) next
 
@@ -772,11 +789,11 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
     })
   }
 
-  # 3. Recurse into anything the expansion newly surfaced.
+  # 3. Recurse into anything the expansion newly surfaced, sharing the seen set.
   if (length(next_acc$ids) > 0 || length(next_acc$parents) > 0) {
     sub_res <- .expand_pending(
       db, subreddit, post_id, next_acc$ids, next_acc$parents, tokmgr, creds,
-      depth + 1L, max_depth
+      seen, depth + 1L, max_depth
     )
     added <- added + sub_res$added
     all_ok <- all_ok && isTRUE(sub_res$ok)
@@ -785,9 +802,10 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
   list(ok = all_ok, added = added)
 }
 
-# A persistent 4xx (except 429) means the resource is genuinely gone/forbidden,
-# so it is terminal rather than worth retrying; everything else (5xx, 429,
-# network, retry-exhausted -> NA) is transient and should be retried later.
+# A persistent 4xx means the resource is genuinely gone/forbidden, so it is
+# terminal rather than worth retrying -- EXCEPT 401 (an auth-token rejection,
+# recoverable by re-authenticating on a later run) and 429 (rate limit).
+# Everything else (5xx, network, retry-exhausted -> NA) is transient.
 .is_permanent_failure <- function(status) {
-  !is.na(status) && status >= 400 && status < 500 && status != 429
+  !is.na(status) && status >= 400 && status < 500 && !(status %in% c(401L, 429L))
 }
