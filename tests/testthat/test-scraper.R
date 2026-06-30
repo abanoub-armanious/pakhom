@@ -664,3 +664,103 @@ test_that("a post_id duplicated within one page is comment-fetched only once", {
     posts_per_subreddit = 10))
   expect_equal(fetches$n, 1L)  # not 2
 })
+
+# ==============================================================================
+# Deep-thread "continue this thread" continuations are followed (rooted re-fetch)
+# ==============================================================================
+test_that("a depth-limit 'continue this thread' marker is followed via a rooted re-fetch", {
+  skip_if_not_installed("RSQLite")
+  db <- tempfile(fileext = ".db"); on.exit(unlink(db), add = TRUE)
+
+  listing <- mk_listing(list(mk_post(1, num_comments = 2L)), after = NULL)
+  # c1's replies hold a depth-limit "more" (empty children + parent_id) -- the
+  # "continue this thread" marker morechildren cannot resolve.
+  cont_marker <- list(kind = "more",
+                      data = list(id = "_cont", count = 1, children = list(),
+                                  parent_id = "t1_c1"))
+  c1 <- mk_t1("c1", replies = list(kind = "Listing", data = list(children = list(cont_marker))))
+  comments <- mk_comments_listing(list(c1))
+  # The ?comment=c1 re-fetch returns c1 (dup) plus the deeper reply c2.
+  refetch <- mk_comments_listing(list(
+    mk_t1("c1", replies = list(kind = "Listing", data = list(children = list(mk_t1("c2")))))
+  ))
+
+  testthat::local_mocked_bindings(
+    .reddit_authenticate = function(creds) list(access_token = "TOK", expires_in = 3600),
+    .reddit_api_get = function(url, tokmgr, creds, max_retries = 4) {
+      if (grepl("comment=", url)) return(refetch)        # rooted continuation fetch
+      if (grepl("/comments/", url)) return(comments)     # top-level comment listing
+      listing
+    },
+    .package = "pakhom"
+  )
+
+  res <- scrape_reddit(
+    subreddits = "test", db_path = db,
+    config = list(reddit_client_id = "i", reddit_client_secret = "s", reddit_user_agent = "ua"),
+    posts_per_subreddit = 10
+  )
+  expect_equal(res$comments_added, 2L)            # c1 + the deeper c2
+  expect_equal(res$comment_fetch_failures, 0L)
+  con <- DBI::dbConnect(RSQLite::SQLite(), db); on.exit(DBI::dbDisconnect(con), add = TRUE)
+  expect_setequal(DBI::dbGetQuery(con, "SELECT comment_id FROM comments")$comment_id, c("c1", "c2"))
+})
+
+test_that(".is_permanent_failure classifies statuses correctly", {
+  expect_true(pakhom:::.is_permanent_failure(404L))
+  expect_true(pakhom:::.is_permanent_failure(403L))
+  expect_false(pakhom:::.is_permanent_failure(429L))  # rate limit is transient
+  expect_false(pakhom:::.is_permanent_failure(503L))
+  expect_false(pakhom:::.is_permanent_failure(NA_integer_))  # retry-exhausted/network
+})
+
+test_that("a permanent (4xx) expansion failure is accepted, not retried forever", {
+  skip_if_not_installed("RSQLite")
+  db <- tempfile(fileext = ".db"); on.exit(unlink(db), add = TRUE)
+
+  listing <- mk_listing(list(mk_post(1, num_comments = 3L)), after = NULL)
+  comments <- mk_comments_listing(list(mk_t1("c1"), mk_more("m1")))
+  fetches <- new.env(); fetches$more <- 0L
+  testthat::local_mocked_bindings(
+    .reddit_authenticate = function(creds) list(access_token = "TOK", expires_in = 3600),
+    .reddit_api_get = function(url, tokmgr, creds, max_retries = 4) {
+      if (grepl("morechildren", url)) { fetches$more <- fetches$more + 1L
+                                        return(list(ok = FALSE, status = 404L, body = NULL)) }
+      if (grepl("/comments/", url)) return(comments)
+      listing
+    },
+    .package = "pakhom"
+  )
+  args <- list(subreddits = "test", db_path = db,
+               config = list(reddit_client_id = "i", reddit_client_secret = "s", reddit_user_agent = "ua"),
+               posts_per_subreddit = 10)
+  r1 <- do.call(scrape_reddit, args)
+  expect_equal(r1$comment_fetch_failures, 0L)  # permanent failure accepted, not counted
+  con <- DBI::dbConnect(RSQLite::SQLite(), db); on.exit(DBI::dbDisconnect(con), add = TRUE)
+  expect_false(is.na(DBI::dbGetQuery(con, "SELECT comments_scraped_at FROM posts WHERE post_id='post_1'")$comments_scraped_at))
+  # Second run must NOT re-fetch (post stamped) -> still 1 morechildren call total.
+  do.call(scrape_reddit, args)
+  expect_equal(fetches$more, 1L)
+})
+
+test_that("a transient (5xx) expansion failure is counted and retried", {
+  skip_if_not_installed("RSQLite")
+  db <- tempfile(fileext = ".db"); on.exit(unlink(db), add = TRUE)
+  listing <- mk_listing(list(mk_post(1, num_comments = 3L)), after = NULL)
+  comments <- mk_comments_listing(list(mk_t1("c1"), mk_more("m1")))
+  testthat::local_mocked_bindings(
+    .reddit_authenticate = function(creds) list(access_token = "TOK", expires_in = 3600),
+    .reddit_api_get = function(url, tokmgr, creds, max_retries = 4) {
+      if (grepl("morechildren", url)) return(list(ok = FALSE, status = NA_integer_, body = NULL))
+      if (grepl("/comments/", url)) return(comments)
+      listing
+    },
+    .package = "pakhom"
+  )
+  r1 <- do.call(scrape_reddit, list(subreddits = "test", db_path = db,
+    config = list(reddit_client_id = "i", reddit_client_secret = "s", reddit_user_agent = "ua"),
+    posts_per_subreddit = 10))
+  expect_equal(r1$comment_fetch_failures, 1L)  # transient -> counted
+  con <- DBI::dbConnect(RSQLite::SQLite(), db); on.exit(DBI::dbDisconnect(con), add = TRUE)
+  expect_true(is.na(DBI::dbGetQuery(con, "SELECT comments_scraped_at FROM posts WHERE post_id='post_1'")$comments_scraped_at))
+})

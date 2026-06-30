@@ -13,10 +13,10 @@
 #' ALL content and lets the progressive sequential coder downstream decide which
 #' entries match the research question (no keyword pre-filter).
 #'
-#' Comments are captured well beyond the first page: nested reply threads are
-#' walked recursively and truncated "load more comments" placeholders are
-#' expanded via the Reddit API, up to the API's returned depth. Very deeply
-#' nested "continue this thread" branches past that depth are not followed.
+#' Comments are captured in full: nested reply threads are walked recursively,
+#' "load more comments" placeholders are expanded via the Reddit API, and
+#' "continue this thread" branches deeper than the API's per-response depth are
+#' followed by re-fetching the tree rooted at the parent comment.
 #'
 #' The access token is refreshed automatically (proactively before expiry and
 #' on a 401), so long multi-subreddit runs do not truncate when the initial
@@ -595,22 +595,24 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
   children <- data[[2]]$data$children
   if (is.null(children) || length(children) == 0) return(list(ok = TRUE, added = 0L))
 
-  # Walk the embedded tree, collecting any "load more" placeholders, then
-  # expand those via the API so the whole discussion is captured.
+  # Walk the embedded tree, collecting both kinds of "load more" placeholder
+  # (sibling overflow + depth-limit continuations), then expand them via the
+  # API so the whole discussion is captured.
   more_acc <- new.env(parent = emptyenv())
   more_acc$ids <- character(0)
+  more_acc$parents <- character(0)
 
   added <- .with_tx(db, function() {
     .insert_comment_tree(db, subreddit, post_id, children, more_acc)
   })
 
-  # ok stays TRUE only if every "load more" expansion also succeeded, so a
-  # failed expansion leaves the post un-stamped (retried + counted) rather than
-  # silently recording the deep-thread tail as complete.
+  # ok stays TRUE only if every expansion also succeeded (transient failures),
+  # so a failed expansion leaves the post un-stamped (retried + counted) rather
+  # than silently recording the deep-thread tail as complete.
   ok <- TRUE
-  if (length(more_acc$ids) > 0) {
-    exp <- .expand_more_comments(
-      db, subreddit, post_id, unique(more_acc$ids), tokmgr, creds
+  if (length(more_acc$ids) > 0 || length(more_acc$parents) > 0) {
+    exp <- .expand_pending(
+      db, subreddit, post_id, more_acc$ids, more_acc$parents, tokmgr, creds
     )
     added <- added + exp$added
     ok <- isTRUE(exp$ok)
@@ -637,7 +639,15 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
 
     if (identical(kind, "more")) {
       ids <- unlist(cd$children, use.names = FALSE)
-      if (length(ids) > 0) more_acc$ids <- c(more_acc$ids, as.character(ids))
+      if (length(ids) > 0) {
+        # Sibling overflow: child ids to expand via the morechildren endpoint.
+        more_acc$ids <- c(more_acc$ids, as.character(ids))
+      } else {
+        # "Continue this thread": a depth-limit marker with no inline child ids.
+        # Its parent comment must be re-fetched to reach the deeper replies.
+        pfull <- cd$parent_id %||% ""
+        if (nzchar(pfull)) more_acc$parents <- c(more_acc$parents, as.character(pfull))
+      }
       next
     }
 
@@ -682,22 +692,30 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
   added
 }
 
-# Expand "load more comments" placeholders via the morechildren endpoint, in
-# batches of 100 ids, recursing into any further placeholders the expansion
-# returns (bounded by max_depth so a pathological thread cannot loop forever).
-# Returns list(ok, added): ok is FALSE if any morechildren request failed, so
-# the caller can leave the post for a later backfill rather than recording an
-# incomplete deep thread as done. Hitting max_depth is an accepted truncation,
-# not a failure.
-.expand_more_comments <- function(db, subreddit, post_id, more_ids, tokmgr, creds,
-                                   depth = 0L, max_depth = 8L) {
-  if (length(more_ids) == 0 || depth >= max_depth) return(list(ok = TRUE, added = 0L))
+# Expand both kinds of truncation placeholder so the whole discussion is
+# captured: sibling-overflow "more" nodes via the morechildren endpoint (100
+# ids per batch), and depth-limit "continue this thread" markers via a fetch
+# re-rooted at the parent comment. Recurses into anything the expansion newly
+# surfaces, bounded by max_depth so a pathological thread cannot loop forever.
+#
+# Returns list(ok, added). ok is FALSE only on a TRANSIENT request failure
+# (5xx / rate limit / network / retry-exhausted), so the post is left for a
+# later backfill; a PERMANENT failure (a 4xx such as a deleted/forbidden
+# subtree) is accepted as terminal rather than retried forever, and hitting
+# max_depth is an accepted truncation. added is the count newly inserted.
+.expand_pending <- function(db, subreddit, post_id, ids, parents, tokmgr, creds,
+                             depth = 0L, max_depth = 12L) {
+  if (depth >= max_depth) return(list(ok = TRUE, added = 0L))
 
-  link_id <- paste0("t3_", post_id)
   added <- 0L
   all_ok <- TRUE
-  remaining <- more_ids
+  next_acc <- new.env(parent = emptyenv())
+  next_acc$ids <- character(0)
+  next_acc$parents <- character(0)
 
+  # 1. Sibling-overflow ids via morechildren, in batches of 100.
+  link_id <- paste0("t3_", post_id)
+  remaining <- unique(ids)
   while (length(remaining) > 0) {
     batch <- utils::head(remaining, 100L)
     remaining <- if (length(remaining) > 100L) remaining[-(1:100)] else character(0)
@@ -709,27 +727,64 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
     )
 
     res <- .reddit_api_get(url, tokmgr, creds)
-    if (!isTRUE(res$ok)) { all_ok <- FALSE; next }
+    if (!isTRUE(res$ok)) {
+      if (!.is_permanent_failure(res$status)) all_ok <- FALSE
+      next
+    }
 
     things <- res$body$json$data$things
     if (is.null(things) || length(things) == 0) next
 
-    next_acc <- new.env(parent = emptyenv())
-    next_acc$ids <- character(0)
-
     added <- added + .with_tx(db, function() {
       .insert_comment_tree(db, subreddit, post_id, things, next_acc)
     })
+  }
 
-    if (length(next_acc$ids) > 0) {
-      sub <- .expand_more_comments(
-        db, subreddit, post_id, unique(next_acc$ids), tokmgr, creds,
-        depth + 1L, max_depth
-      )
-      added <- added + sub$added
-      all_ok <- all_ok && isTRUE(sub$ok)
+  # 2. "Continue this thread" markers via a re-fetch rooted at the parent
+  #    comment (the comment= focus returns that comment plus its deeper tree).
+  for (pfull in unique(parents)) {
+    cid <- sub("^t[0-9]_", "", pfull)
+    if (!nzchar(cid)) next
+
+    url <- sprintf(
+      "https://oauth.reddit.com/r/%s/comments/%s.json?comment=%s&context=0&depth=10&limit=500",
+      utils::URLencode(as.character(subreddit), reserved = TRUE),
+      utils::URLencode(as.character(post_id), reserved = TRUE),
+      utils::URLencode(cid, reserved = TRUE)
+    )
+
+    res <- .reddit_api_get(url, tokmgr, creds)
+    if (!isTRUE(res$ok)) {
+      if (!.is_permanent_failure(res$status)) all_ok <- FALSE
+      next
     }
+
+    body <- res$body
+    if (length(body) < 2) next
+    kids <- body[[2]]$data$children
+    if (is.null(kids) || length(kids) == 0) next
+
+    added <- added + .with_tx(db, function() {
+      .insert_comment_tree(db, subreddit, post_id, kids, next_acc)
+    })
+  }
+
+  # 3. Recurse into anything the expansion newly surfaced.
+  if (length(next_acc$ids) > 0 || length(next_acc$parents) > 0) {
+    sub_res <- .expand_pending(
+      db, subreddit, post_id, next_acc$ids, next_acc$parents, tokmgr, creds,
+      depth + 1L, max_depth
+    )
+    added <- added + sub_res$added
+    all_ok <- all_ok && isTRUE(sub_res$ok)
   }
 
   list(ok = all_ok, added = added)
+}
+
+# A persistent 4xx (except 429) means the resource is genuinely gone/forbidden,
+# so it is terminal rather than worth retrying; everything else (5xx, 429,
+# network, retry-exhausted -> NA) is transient and should be retried later.
+.is_permanent_failure <- function(status) {
+  !is.na(status) && status >= 400 && status < 500 && status != 429
 }

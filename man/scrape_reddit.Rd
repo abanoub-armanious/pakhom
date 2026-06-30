@@ -48,10 +48,10 @@ ALL content and lets the progressive sequential coder downstream decide which
 entries match the research question (no keyword pre-filter).
 }
 \details{
-Comments are captured well beyond the first page: nested reply threads are
-walked recursively and truncated "load more comments" placeholders are
-expanded via the Reddit API, up to the API's returned depth. Very deeply
-nested "continue this thread" branches past that depth are not followed.
+Comments are captured in full: nested reply threads are walked recursively,
+"load more comments" placeholders are expanded via the Reddit API, and
+"continue this thread" branches deeper than the API's per-response depth are
+followed by re-fetching the tree rooted at the parent comment.
 
 The access token is refreshed automatically (proactively before expiry and
 on a 401), so long multi-subreddit runs do not truncate when the initial
