@@ -16,10 +16,12 @@
 #'
 #' @param output_path Where to save the generated config (default "config.yaml").
 #'   The user can also change this in the UI.
+#' @param .return_app Internal testing hook. When \code{TRUE}, returns the Shiny
+#'   app object (for \code{shiny::testServer}) instead of launching it.
 #' @return The path to the created config file (invisibly). Returns NULL if the
 #'   user closes the app without saving.
 #' @export
-config_wizard_app <- function(output_path = "config.yaml") {
+config_wizard_app <- function(output_path = "config.yaml", .return_app = FALSE) {
   if (!requireNamespace("shiny", quietly = TRUE)) {
     stop("The 'shiny' package is required for config_wizard_app().\n",
          "Install it with: install.packages('shiny')")
@@ -112,8 +114,16 @@ config_wizard_app <- function(output_path = "config.yaml") {
     # Without this, selecting Anthropic left the OpenAI key var + gpt-4o models,
     # silently producing an OpenAI-shaped config under the anthropic block --
     # exactly the path the methods paper's OpenAI-vs-Anthropic comparison uses.
+    # Track the provider so the sync only fires on an actual USER change. The
+    # AI step's inputs are created lazily (renderUI), so when the user first
+    # reaches it the pre-loaded provider materializes and would otherwise be
+    # seen as a "change" -- stomping the pre-loaded model/key fields with the
+    # provider defaults. Seeding this with the pre-loaded provider prevents that.
+    prev_provider <- shiny::reactiveVal(dflts$ai_provider)
     shiny::observeEvent(input$ai_provider, {
       prov <- input$ai_provider %||% "openai"
+      if (identical(prov, prev_provider())) return()  # materialization, not a change
+      prev_provider(prov)
       dm <- .default_models(prov)
       key_env <- if (identical(prov, "anthropic")) "ANTHROPIC_API_KEY" else "OPENAI_API_KEY"
       shiny::updateTextInput(session, "api_key_env", value = key_env)
@@ -224,8 +234,13 @@ config_wizard_app <- function(output_path = "config.yaml") {
     })
   }
 
+  app <- shiny::shinyApp(ui, server)
+  # Testability hook: return the app object (for shiny::testServer) instead of
+  # launching it. Internal use only.
+  if (isTRUE(.return_app)) return(app)
+
   result <- shiny::runApp(
-    shiny::shinyApp(ui, server),
+    app,
     launch.browser = TRUE,
     quiet = TRUE
   )

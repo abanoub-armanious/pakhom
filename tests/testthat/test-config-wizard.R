@@ -300,3 +300,31 @@ test_that("a pre-loaded value is rendered as the input default", {
   html <- as.character(htmltools::renderTags(pakhom:::.ui_step_study(d))$html)
   expect_true(grepl("Loaded Study Name", html, fixed = TRUE))
 })
+
+test_that("provider sync is gated so pre-loaded model/key fields survive the AI step", {
+  skip_if_not_installed("shiny")
+  cfg <- tempfile(fileext = ".yaml"); on.exit(unlink(cfg), add = TRUE)
+  yaml::write_yaml(list(
+    methodology = list(mode = "codebook_collaborative"),
+    study = list(name = "S", research_focus = "r"),
+    ai = list(provider = "anthropic", anthropic = list(
+      api_key_env = "MY_KEY",
+      models = list(primary = "claude-custom-primary", fast = "claude-custom-fast")))
+  ), cfg)
+  app <- config_wizard_app(cfg, .return_app = TRUE)
+  shiny::testServer(app, {
+    rec <- new.env(); rec$msgs <- character(0)
+    orig <- session$sendInputMessage
+    session$sendInputMessage <- function(inputId, message) {
+      rec$msgs <- c(rec$msgs, inputId); orig(inputId, message)
+    }
+    # Reaching the AI step materializes the pre-loaded provider; the observer
+    # must NOT push any model/key update (which would clobber loaded values).
+    session$setInputs(ai_provider = "anthropic")
+    expect_length(rec$msgs, 0L)
+    # A genuine provider change DOES re-sync the model + key fields.
+    rec$msgs <- character(0)
+    session$setInputs(ai_provider = "openai")
+    expect_setequal(rec$msgs, c("api_key_env", "model_primary", "model_fast"))
+  })
+})

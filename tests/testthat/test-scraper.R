@@ -594,3 +594,73 @@ test_that(".epoch_to_iso parses a numeric-string epoch instead of zeroing it", {
   expect_equal(pakhom:::.epoch_to_iso(NULL), "1970-01-01")
   expect_equal(pakhom:::.epoch_to_iso("not-a-number"), "1970-01-01")
 })
+
+# ==============================================================================
+# A failed "load more" (morechildren) expansion is recoverable, not silent
+# ==============================================================================
+test_that("a morechildren failure leaves the post un-stamped, counted, and backfilled", {
+  skip_if_not_installed("RSQLite")
+  db <- tempfile(fileext = ".db"); on.exit(unlink(db), add = TRUE)
+
+  listing <- mk_listing(list(mk_post(1, num_comments = 3L)), after = NULL)
+  # Embedded tree: c1 plus a "more" placeholder for m1.
+  comments <- mk_comments_listing(list(mk_t1("c1"), mk_more("m1")))
+  more_ok <- mk_morechildren(list(mk_t1("m1")))
+  state <- new.env(); state$more_ok <- FALSE  # run 1: expansion fails
+
+  testthat::local_mocked_bindings(
+    .reddit_authenticate = function(creds) list(access_token = "TOK", expires_in = 3600),
+    .reddit_api_get = function(url, tokmgr, creds, max_retries = 4) {
+      if (grepl("morechildren", url)) {
+        if (state$more_ok) return(more_ok)
+        return(list(ok = FALSE, status = 500L, body = NULL))
+      }
+      if (grepl("/comments/", url)) return(comments)
+      listing
+    },
+    .package = "pakhom"
+  )
+  args <- list(subreddits = "test", db_path = db,
+               config = list(reddit_client_id = "i", reddit_client_secret = "s",
+                             reddit_user_agent = "ua"), posts_per_subreddit = 10)
+
+  # Run 1: c1 stored, but the "more" expansion failed -> failure surfaced, not stamped.
+  r1 <- do.call(scrape_reddit, args)
+  expect_equal(r1$comment_fetch_failures, 1L)
+  con <- DBI::dbConnect(RSQLite::SQLite(), db)
+  expect_equal(DBI::dbGetQuery(con, "SELECT COUNT(*) n FROM comments")$n, 1L)  # only c1
+  expect_true(is.na(DBI::dbGetQuery(con, "SELECT comments_scraped_at FROM posts WHERE post_id='post_1'")$comments_scraped_at))
+  DBI::dbDisconnect(con)
+
+  # Run 2: expansion now succeeds -> the deep comment is backfilled.
+  state$more_ok <- TRUE
+  r2 <- do.call(scrape_reddit, args)
+  expect_equal(r2$comment_fetch_failures, 0L)
+  expect_equal(r2$comments_added, 1L)  # m1 backfilled
+  con <- DBI::dbConnect(RSQLite::SQLite(), db); on.exit(DBI::dbDisconnect(con), add = TRUE)
+  expect_setequal(DBI::dbGetQuery(con, "SELECT comment_id FROM comments")$comment_id, c("c1", "m1"))
+  expect_false(is.na(DBI::dbGetQuery(con, "SELECT comments_scraped_at FROM posts WHERE post_id='post_1'")$comments_scraped_at))
+})
+
+test_that("a post_id duplicated within one page is comment-fetched only once", {
+  skip_if_not_installed("RSQLite")
+  db <- tempfile(fileext = ".db"); on.exit(unlink(db), add = TRUE)
+
+  # Same post_1 appears twice in one listing page.
+  listing <- mk_listing(list(mk_post(1, num_comments = 1L), mk_post(1, num_comments = 1L)),
+                        after = NULL)
+  comments <- mk_comments_listing(list(mk_t1("c1")))
+  fetches <- new.env(); fetches$n <- 0L
+  testthat::local_mocked_bindings(
+    .reddit_authenticate = function(creds) list(access_token = "TOK", expires_in = 3600),
+    .reddit_api_get = function(url, tokmgr, creds, max_retries = 4) {
+      if (grepl("/comments/", url)) { fetches$n <- fetches$n + 1L; return(comments) }
+      listing
+    },
+    .package = "pakhom"
+  )
+  do.call(scrape_reddit, list(subreddits = "test", db_path = db,
+    config = list(reddit_client_id = "i", reddit_client_secret = "s", reddit_user_agent = "ua"),
+    posts_per_subreddit = 10))
+  expect_equal(fetches$n, 1L)  # not 2
+})

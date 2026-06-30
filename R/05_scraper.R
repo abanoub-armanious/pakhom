@@ -555,7 +555,9 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
   # leaves it NULL (to retry) and is counted so the caller can see it.
   comments <- 0L
   comment_failures <- 0L
-  for (pid in c(res$new_ids, res$backfill_ids)) {
+  # unique() guards the rare case of a post_id appearing twice on one page,
+  # which would otherwise hit the comment endpoint twice in a single run.
+  for (pid in unique(c(res$new_ids, res$backfill_ids))) {
     r <- .scrape_post_comments(db, subreddit, pid, tokmgr, creds)
     comments <- comments + r$added
     if (isTRUE(r$ok)) {
@@ -602,13 +604,19 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
     .insert_comment_tree(db, subreddit, post_id, children, more_acc)
   })
 
+  # ok stays TRUE only if every "load more" expansion also succeeded, so a
+  # failed expansion leaves the post un-stamped (retried + counted) rather than
+  # silently recording the deep-thread tail as complete.
+  ok <- TRUE
   if (length(more_acc$ids) > 0) {
-    added <- added + .expand_more_comments(
+    exp <- .expand_more_comments(
       db, subreddit, post_id, unique(more_acc$ids), tokmgr, creds
     )
+    added <- added + exp$added
+    ok <- isTRUE(exp$ok)
   }
 
-  list(ok = TRUE, added = added)
+  list(ok = ok, added = added)
 }
 
 # Recursively insert a list of comment nodes. t1 nodes are stored (and their
@@ -677,12 +685,17 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
 # Expand "load more comments" placeholders via the morechildren endpoint, in
 # batches of 100 ids, recursing into any further placeholders the expansion
 # returns (bounded by max_depth so a pathological thread cannot loop forever).
+# Returns list(ok, added): ok is FALSE if any morechildren request failed, so
+# the caller can leave the post for a later backfill rather than recording an
+# incomplete deep thread as done. Hitting max_depth is an accepted truncation,
+# not a failure.
 .expand_more_comments <- function(db, subreddit, post_id, more_ids, tokmgr, creds,
                                    depth = 0L, max_depth = 8L) {
-  if (length(more_ids) == 0 || depth >= max_depth) return(0L)
+  if (length(more_ids) == 0 || depth >= max_depth) return(list(ok = TRUE, added = 0L))
 
   link_id <- paste0("t3_", post_id)
   added <- 0L
+  all_ok <- TRUE
   remaining <- more_ids
 
   while (length(remaining) > 0) {
@@ -696,7 +709,7 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
     )
 
     res <- .reddit_api_get(url, tokmgr, creds)
-    if (!isTRUE(res$ok)) next
+    if (!isTRUE(res$ok)) { all_ok <- FALSE; next }
 
     things <- res$body$json$data$things
     if (is.null(things) || length(things) == 0) next
@@ -709,12 +722,14 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
     })
 
     if (length(next_acc$ids) > 0) {
-      added <- added + .expand_more_comments(
+      sub <- .expand_more_comments(
         db, subreddit, post_id, unique(next_acc$ids), tokmgr, creds,
         depth + 1L, max_depth
       )
+      added <- added + sub$added
+      all_ok <- all_ok && isTRUE(sub$ok)
     }
   }
 
-  added
+  list(ok = all_ok, added = added)
 }

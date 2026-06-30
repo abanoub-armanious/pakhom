@@ -4,11 +4,14 @@
 \alias{config_wizard_app}
 \title{Launch the interactive configuration wizard}
 \usage{
-config_wizard_app(output_path = "config.yaml")
+config_wizard_app(output_path = "config.yaml", .return_app = FALSE)
 }
 \arguments{
 \item{output_path}{Where to save the generated config (default "config.yaml").
 The user can also change this in the UI.}
+
+\item{.return_app}{Internal testing hook. When \code{TRUE}, returns the Shiny
+app object (for \code{shiny::testServer}) instead of launching it.}
 }
 \value{
 The path to the created config file (invisibly). Returns NULL if the
