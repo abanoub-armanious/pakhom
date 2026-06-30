@@ -20,6 +20,8 @@
 #'   app object (for \code{shiny::testServer}) instead of launching it.
 #' @return The path to the created config file (invisibly). Returns NULL if the
 #'   user closes the app without saving.
+#' @seealso [config_wizard()] for the CLI-based wizard and [create_config()] for
+#'   building a config programmatically; [load_config()] to load the result.
 #' @export
 config_wizard_app <- function(output_path = "config.yaml", .return_app = FALSE) {
   if (!requireNamespace("shiny", quietly = TRUE)) {

@@ -29,3 +29,7 @@ This is the web-based companion to the CLI-based \code{\link[=config_wizard]{con
 write an equivalent \code{config.yaml} (the same required sections and methodology
 block); exact field defaults may differ between the two entry points.
 }
+\seealso{
+\code{\link[=config_wizard]{config_wizard()}} for the CLI-based wizard and \code{\link[=create_config]{create_config()}} for
+building a config programmatically; \code{\link[=load_config]{load_config()}} to load the result.
+}
