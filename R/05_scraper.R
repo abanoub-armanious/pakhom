@@ -93,7 +93,9 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
 
   # Randomize order to reduce pattern detection
   shuffled_subs <- sample(subreddits)
-  for (sub in shuffled_subs) {
+  n_subs <- length(shuffled_subs)
+  for (i in seq_along(shuffled_subs)) {
+    sub <- shuffled_subs[i]
     result <- .scrape_subreddit(
       subreddit = sub,
       db_path = db_path,
@@ -113,8 +115,9 @@ scrape_reddit <- function(config = NULL, db_path = NULL, subreddits = NULL,
       totals$truncated_subreddits <- c(totals$truncated_subreddits, sub)
     }
 
-    # Sleep between subreddits to respect rate limits
-    if (sub != shuffled_subs[length(shuffled_subs)]) {
+    # Sleep between subreddits (positional check, so a duplicated subreddit
+    # name does not skip the pause) to respect rate limits.
+    if (i < n_subs) {
       delay <- runif(1, 2, 5)
       Sys.sleep(delay)
     }

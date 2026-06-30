@@ -205,6 +205,7 @@ config_wizard_app <- function(output_path = "config.yaml", .return_app = FALSE) 
           # corresponding value already in the file.
           if (is.list(existing)) {
             config <- utils::modifyList(existing, .drop_null_leaves(config))
+            config <- .normalize_merged_config(config)
           }
         }
         header <- paste0(
@@ -961,4 +962,25 @@ config_wizard_app <- function(output_path = "config.yaml", .return_app = FALSE) 
   if (!is.list(x)) return(x)
   x <- lapply(x, .drop_null_leaves)
   x[!vapply(x, is.null, logical(1))]
+}
+
+#' Clear stale subtree keys a per-key merge leaves behind
+#'
+#' The wizard fully owns the \code{ai} and \code{methodology} subtrees, but
+#' \code{modifyList} merges per key, so switching provider or leaving framework
+#' mode would otherwise retain the old provider's block or a now-orphaned
+#' \code{framework_spec_path}. This drops those so the saved config stays
+#' internally consistent with the active provider and mode.
+#' @keywords internal
+#' @noRd
+.normalize_merged_config <- function(config) {
+  prov <- config$ai$provider
+  if (is.list(config$ai) && !is.null(prov)) {
+    config$ai <- config$ai[intersect(names(config$ai), c("provider", prov))]
+  }
+  if (is.list(config$methodology) &&
+      !identical(config$methodology$mode, "framework_applied")) {
+    config$methodology$framework_spec_path <- NULL
+  }
+  config
 }

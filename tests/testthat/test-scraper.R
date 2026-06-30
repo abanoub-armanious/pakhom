@@ -764,3 +764,116 @@ test_that("a transient (5xx) expansion failure is counted and retried", {
   con <- DBI::dbConnect(RSQLite::SQLite(), db); on.exit(DBI::dbDisconnect(con), add = TRUE)
   expect_true(is.na(DBI::dbGetQuery(con, "SELECT comments_scraped_at FROM posts WHERE post_id='post_1'")$comments_scraped_at))
 })
+
+# ==============================================================================
+# Schema migration: an old DB gains comments_scraped_at without losing rows
+# ==============================================================================
+test_that(".init_scraper_db migrates an old posts schema and preserves rows", {
+  skip_if_not_installed("RSQLite")
+  db <- tempfile(fileext = ".db"); on.exit(unlink(db), add = TRUE)
+
+  con <- DBI::dbConnect(RSQLite::SQLite(), db)
+  # Pre-change schema: no upvote_ratio / scraped_at / comments_scraped_at.
+  DBI::dbExecute(con, "CREATE TABLE posts (post_id TEXT PRIMARY KEY, subreddit TEXT,
+    title TEXT, created_utc TEXT, num_comments INTEGER, score INTEGER, author TEXT,
+    text TEXT, permalink TEXT)")
+  DBI::dbExecute(con, "CREATE TABLE comments (comment_id TEXT PRIMARY KEY, post_id TEXT,
+    subreddit TEXT, created_utc TEXT, score INTEGER, author TEXT, comment_body TEXT, permalink TEXT)")
+  DBI::dbExecute(con, "INSERT INTO posts (post_id, subreddit, title) VALUES ('old1','x','T')")
+  DBI::dbDisconnect(con)
+
+  pakhom:::.init_scraper_db(db)
+
+  con <- DBI::dbConnect(RSQLite::SQLite(), db); on.exit(DBI::dbDisconnect(con), add = TRUE)
+  cols <- DBI::dbListFields(con, "posts")
+  expect_true(all(c("upvote_ratio", "scraped_at", "comments_scraped_at") %in% cols))
+  row <- DBI::dbGetQuery(con, "SELECT * FROM posts WHERE post_id='old1'")
+  expect_equal(nrow(row), 1L)                 # row survived the migration
+  expect_true(is.na(row$comments_scraped_at)) # eligible for comment backfill
+})
+
+# ==============================================================================
+# Credential fallback: a NULL user-agent yields the version-stamped default
+# ==============================================================================
+test_that(".get_reddit_credentials builds a version-stamped user-agent when unset", {
+  withr::local_envvar(
+    REDDIT_CLIENT_ID = "id", REDDIT_CLIENT_SECRET = "sec", REDDIT_USER_AGENT = NA
+  )
+  creds <- pakhom:::.get_reddit_credentials(list(reddit_user_agent = NULL))
+  expect_match(creds$user_agent, "^pakhom/.+ \\(by u/YourRedditUsername\\)$")
+})
+
+# ==============================================================================
+# Recursive morechildren: a "more" inside a morechildren response is expanded
+# ==============================================================================
+test_that("scrape_reddit recurses into a nested morechildren placeholder", {
+  skip_if_not_installed("RSQLite")
+  db <- tempfile(fileext = ".db"); on.exit(unlink(db), add = TRUE)
+
+  listing <- mk_listing(list(mk_post(1, num_comments = 5L)), after = NULL)
+  comments <- mk_comments_listing(list(mk_t1("c1"), mk_more("m1")))
+  calls <- new.env(); calls$more <- 0L
+  testthat::local_mocked_bindings(
+    .reddit_authenticate = function(creds) list(access_token = "TOK", expires_in = 3600),
+    .reddit_api_get = function(url, tokmgr, creds, max_retries = 4) {
+      if (grepl("morechildren", url)) {
+        calls$more <- calls$more + 1L
+        # First expansion returns a comment AND a deeper "more" (m2); second
+        # expansion resolves m2.
+        if (grepl("children=m1", url)) return(mk_morechildren(list(mk_t1("d1"), mk_more("m2"))))
+        return(mk_morechildren(list(mk_t1("d2"))))
+      }
+      if (grepl("/comments/", url)) return(comments)
+      listing
+    },
+    .package = "pakhom"
+  )
+  res <- scrape_reddit(subreddits = "test", db_path = db,
+    config = list(reddit_client_id = "i", reddit_client_secret = "s", reddit_user_agent = "ua"),
+    posts_per_subreddit = 10)
+  expect_equal(calls$more, 2L)             # recursion fired (m1 then m2)
+  con <- DBI::dbConnect(RSQLite::SQLite(), db); on.exit(DBI::dbDisconnect(con), add = TRUE)
+  expect_setequal(DBI::dbGetQuery(con, "SELECT comment_id FROM comments")$comment_id,
+                  c("c1", "d1", "d2"))
+})
+
+# ==============================================================================
+# Backfill is deferred (not lost) when a same-page new post fills the budget
+# ==============================================================================
+test_that("a backfill-eligible post after the budget cutoff is deferred, then recovered", {
+  skip_if_not_installed("RSQLite")
+  db <- tempfile(fileext = ".db"); on.exit(unlink(db), add = TRUE)
+
+  pakhom:::.init_scraper_db(db)
+  con0 <- DBI::dbConnect(RSQLite::SQLite(), db)
+  # Pre-seed an existing comment-less post (needs backfill), comments_scraped_at NULL.
+  DBI::dbExecute(con0, "INSERT INTO posts (post_id, subreddit, num_comments, created_utc) VALUES ('post_9','test',1,'0')")
+  DBI::dbDisconnect(con0)
+
+  # Page order: two NEW posts first, then the backfill-eligible existing one.
+  page <- mk_listing(list(mk_post(1, num_comments = 1L), mk_post(2, num_comments = 1L),
+                          mk_post(9, num_comments = 1L)), after = NULL)
+  comments <- mk_comments_listing(list(mk_t1("c1")))
+  testthat::local_mocked_bindings(
+    .reddit_authenticate = function(creds) list(access_token = "TOK", expires_in = 3600),
+    .reddit_api_get = function(url, tokmgr, creds, max_retries = 4) {
+      if (grepl("/comments/", url)) return(comments)
+      page
+    },
+    .package = "pakhom"
+  )
+  args <- list(subreddits = "test", db_path = db,
+               config = list(reddit_client_id = "i", reddit_client_secret = "s", reddit_user_agent = "ua"),
+               posts_per_subreddit = 2)  # budget filled by post_1 + post_2
+
+  # Run 1: budget hit before reaching post_9 -> its comments are NOT backfilled yet.
+  do.call(scrape_reddit, args)
+  con <- DBI::dbConnect(RSQLite::SQLite(), db)
+  expect_true(is.na(DBI::dbGetQuery(con, "SELECT comments_scraped_at FROM posts WHERE post_id='post_9'")$comments_scraped_at))
+  DBI::dbDisconnect(con)
+
+  # Run 2: post_1/post_2 now existing (add 0, no budget break), so post_9 is reached + backfilled.
+  do.call(scrape_reddit, args)
+  con <- DBI::dbConnect(RSQLite::SQLite(), db); on.exit(DBI::dbDisconnect(con), add = TRUE)
+  expect_false(is.na(DBI::dbGetQuery(con, "SELECT comments_scraped_at FROM posts WHERE post_id='post_9'")$comments_scraped_at))
+})

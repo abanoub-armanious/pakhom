@@ -328,3 +328,67 @@ test_that("provider sync is gated so pre-loaded model/key fields survive the AI 
     expect_setequal(rec$msgs, c("api_key_env", "model_primary", "model_fast"))
   })
 })
+
+test_that(".normalize_merged_config drops stale provider + framework keys", {
+  # Switching openai<-anthropic and out of framework mode on a merge must not
+  # leave a contradictory ai.anthropic block or an orphaned framework_spec_path.
+  merged <- list(
+    ai = list(provider = "openai",
+              openai = list(models = list(primary = "gpt-4o")),
+              anthropic = list(models = list(primary = "claude-x"))),
+    methodology = list(mode = "reflexive_scaffold", framework_spec_path = "tpb"),
+    data = list(database = "x.db")  # unmanaged sibling preserved
+  )
+  out <- pakhom:::.normalize_merged_config(merged)
+  expect_setequal(names(out$ai), c("provider", "openai"))
+  expect_false("framework_spec_path" %in% names(out$methodology))
+  expect_equal(out$data$database, "x.db")
+
+  # framework_applied keeps its spec path and its own provider block.
+  fw <- list(ai = list(provider = "anthropic", anthropic = list(x = 1)),
+             methodology = list(mode = "framework_applied", framework_spec_path = "comb"))
+  out2 <- pakhom:::.normalize_merged_config(fw)
+  expect_equal(out2$methodology$framework_spec_path, "comb")
+  expect_setequal(names(out2$ai), c("provider", "anthropic"))
+})
+
+test_that("re-run save drops the stale provider block end-to-end", {
+  skip_if_not_installed("shiny")
+  cfg <- tempfile(fileext = ".yaml"); on.exit(unlink(cfg), add = TRUE)
+  yaml::write_yaml(list(
+    methodology = list(mode = "codebook_collaborative"),
+    study = list(name = "S", research_focus = "r"),
+    ai = list(provider = "anthropic", anthropic = list(
+      api_key_env = "ANTHROPIC_API_KEY",
+      models = list(primary = "claude-sonnet-4-20250514", fast = "claude-haiku-4-5-20251001")))
+  ), cfg)
+  app <- config_wizard_app(cfg, .return_app = TRUE)
+  shiny::testServer(app, {
+    session$setInputs(ai_provider = "openai")  # genuine switch
+    # testServer does not render the UI, so required inputs must be set directly.
+    session$setInputs(methodology_mode = "codebook_collaborative",
+                      research_focus = "r", study_name = "S")
+    session$setInputs(btn_save = 1)
+  })
+  saved <- yaml::read_yaml(cfg)
+  expect_equal(saved$ai$provider, "openai")
+  expect_false("anthropic" %in% names(saved$ai))   # stale block gone
+  expect_true("openai" %in% names(saved$ai))
+})
+
+test_that("provider sync pushes the correct VALUES, not just message ids", {
+  skip_if_not_installed("shiny")
+  app <- config_wizard_app(tempfile(fileext = ".yaml"), .return_app = TRUE)  # fresh -> openai
+  shiny::testServer(app, {
+    rec <- new.env(); rec$vals <- list()
+    orig <- session$sendInputMessage
+    session$sendInputMessage <- function(inputId, message) {
+      rec$vals[[inputId]] <- message$value; orig(inputId, message)
+    }
+    session$setInputs(ai_provider = "openai")    # materialization -> gated
+    expect_length(rec$vals, 0L)
+    session$setInputs(ai_provider = "anthropic") # real switch -> anthropic values
+    expect_equal(rec$vals$api_key_env, "ANTHROPIC_API_KEY")
+    expect_equal(rec$vals$model_primary, .default_models("anthropic")$primary)
+  })
+})
