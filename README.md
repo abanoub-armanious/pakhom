@@ -115,7 +115,7 @@ empirical critiques of LLM-for-TA tools:
 
 ## About the name
 
-**pakhom** (Coptic ⲡⲁϩⲱⲙ, "eagle") honors Saint Pachomius the Great
+**pakhom** (Coptic ⲡⲁϧⲱⲙ, "eagle") honors Saint Pachomius the Great
 (c. 292-348 CE), the Coptic Egyptian abbot whose written **Rule** of communal
 discipline established the genre of *methodology-as-written-document*. Before
 him, monastic life was anchoritic, solitary and largely unstructured. He
