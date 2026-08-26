@@ -1,3 +1,81 @@
+# pakhom 1.1.0
+
+## Reddit scraper
+
+- Long scrapes no longer stop when the OAuth token expires. The token is
+  refreshed shortly before expiry and re-requested once on a 401.
+- Comment collection now captures full comment trees. Nested replies are
+  walked recursively and "load more comments" batches are expanded. Deep
+  "continue this thread" branches are followed through a re-fetch rooted at
+  the parent comment, and the initial listing request asks for more comments
+  per post than before.
+- Comment fetching is recoverable. A new `comments_scraped_at` column on the
+  posts table (added automatically to existing databases) records which posts
+  have complete comments, and a post whose comment fetch failed is retried on
+  the next run. The return value gains a `comment_fetch_failures` count.
+- Incomplete collection is surfaced instead of silent. A subreddit whose
+  listing stopped on an API error is reported in the new
+  `truncated_subreddits` return field and flagged in the log.
+- `posts_per_subreddit` now counts only newly added posts, so re-running the
+  scraper reaches new content instead of spending its budget on entries
+  already stored. Posts are committed page by page before their comments are
+  fetched, so an error during comment fetching cannot discard them. The
+  progress bar can no longer over-run its total and abort the scrape.
+- Rate limits are honored: a 429 response waits for the interval the API
+  requests (capped at five minutes) before retrying.
+- `sort_by` and `time_filter` are validated up front, so a typo fails
+  immediately with a clear message instead of silently returning nothing.
+- Credentials and the user agent resolve environment-first: the
+  `REDDIT_CLIENT_ID` / `REDDIT_CLIENT_SECRET` / `REDDIT_USER_AGENT`
+  environment variables now take precedence over the corresponding config
+  fields, so if both were set the environment value now wins. The shipped
+  config template leaves `reddit_user_agent` empty; a version-stamped
+  default is generated at scrape time when nothing is set.
+
+## Configuration wizards
+
+- The web wizard gains a Scraping step covering the scraper settings.
+  Credentials stay in the environment and are never written to the file,
+  disabling scraping writes an explicit `enabled: false`, and saved configs
+  always carry a `scraping` block.
+- Both wizards now pre-load an existing `config.yaml`: every prompt or field
+  shows the saved value, hand-edited sections survive a re-save, and the
+  provider step no longer resets pre-loaded model fields unless the provider
+  is actually changed.
+- The command-line wizard gains the same scraper prompts.
+
+## Reports and exports
+
+- Representative quotes in reports and the per-theme entry tables now display
+  the cleaned analytic text (`std_text`), matching the documented
+  preprocessing contract; earlier versions showed the raw platform text on
+  these two surfaces. Quotes shown in reports now correspond exactly to the
+  text that quote verification checks. The raw platform text remains
+  available in the `original_text` column of the loaded data.
+
+## Provenance and error handling
+
+- `run_metadata.json` now records the installed package's commit
+  (`package_sha`) alongside the package version.
+- Provider error messages are reduced to the HTTP status plus a masked
+  summary of the provider's structured error before they reach the console or
+  the audit trail; raw response bodies are no longer embedded in error
+  messages.
+
+## Configuration
+
+- Four output options that had no effect are removed: `export_csv`,
+  `export_json`, `generate_theme_details`, and `checkpoint_dir`. Exports and
+  theme detail pages are always produced, and checkpoints always live inside
+  the run directory. A config file still carrying these keys loads normally
+  and logs a note that they can be deleted.
+
+## Documentation
+
+- New vignette: "What Leaves Your Machine: Data Flow and Privacy",
+  documenting each network call the package makes and everything a finished
+  run directory contains. SECURITY.md is expanded to match.
+
 # pakhom 1.0.1
 
 - Saturation checks are now scheduled by the number of coded entries rather
