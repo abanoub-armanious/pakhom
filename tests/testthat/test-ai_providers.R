@@ -693,3 +693,90 @@ test_that("ai_complete with NULL documents leaves the existing call path bit-ide
   # Default NULL flows through; .validate_documents normalizes to NULL
   expect_null(captured$documents)
 })
+
+# ---- Provider error-body summarization ---------------------------------------
+
+test_that(".summarize_api_error_body keeps error type/code and masks key material", {
+  body <- paste0(
+    '{"error":{"message":"Incorrect API key provided: sk-proj-abcd1234efgh5678. ',
+    'You can find your key at the dashboard.",',
+    '"type":"invalid_request_error","code":"invalid_api_key"}}'
+  )
+  out <- pakhom:::.summarize_api_error_body(body)
+  expect_match(out, "type=invalid_request_error", fixed = TRUE)
+  expect_match(out, "code=invalid_api_key", fixed = TRUE)
+  expect_match(out, "Incorrect API key provided", fixed = TRUE)
+  expect_false(grepl("sk-proj", out, fixed = TRUE))
+  expect_match(out, "[redacted]", fixed = TRUE)
+})
+
+test_that(".summarize_api_error_body masks provider-side partially masked key echoes", {
+  body <- paste0(
+    '{"error":{"message":"Incorrect API key provided: sk-proj-********************1234.",',
+    '"type":"invalid_request_error","code":"invalid_api_key"}}'
+  )
+  out <- pakhom:::.summarize_api_error_body(body)
+  expect_false(grepl("sk-proj", out, fixed = TRUE))
+  expect_false(grepl("1234", out, fixed = TRUE))
+})
+
+test_that(".summarize_api_error_body handles the Anthropic error shape", {
+  body <- '{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}'
+  out <- pakhom:::.summarize_api_error_body(body)
+  expect_match(out, "type=authentication_error", fixed = TRUE)
+  expect_match(out, "invalid x-api-key", fixed = TRUE)
+})
+
+test_that(".summarize_api_error_body withholds a body that is not a structured error", {
+  out <- pakhom:::.summarize_api_error_body("<html><body>Bad gateway</body></html>")
+  expect_match(out, "withheld", fixed = TRUE)
+  expect_false(grepl("Bad gateway", out, fixed = TRUE))
+  # Empty and NA-ish inputs also stay withheld rather than erroring
+  expect_match(pakhom:::.summarize_api_error_body(""), "withheld", fixed = TRUE)
+})
+
+test_that("a 401 error message from the OpenAI path carries no key material", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+  fake <- httr2::response(
+    status_code = 401,
+    headers = list("content-type" = "application/json"),
+    body = charToRaw(paste0(
+      '{"error":{"message":"Incorrect API key provided: sk-proj-abcd1234efgh5678.",',
+      '"type":"invalid_request_error","code":"invalid_api_key"}}'
+    ))
+  )
+  local_mocked_bindings(req_perform = function(...) fake, .package = "pakhom")
+  cond <- tryCatch(
+    pakhom:::.openai_completion(mock_provider("openai"), "p", NULL, "gpt-4o",
+                                 0, 100, FALSE),
+    error = function(e) e
+  )
+  expect_s3_class(cond, "pakhom_permanent_error")
+  msg <- conditionMessage(cond)
+  expect_match(msg, "OpenAI API error (HTTP 401)", fixed = TRUE)
+  expect_match(msg, "code=invalid_api_key", fixed = TRUE)
+  expect_false(grepl("sk-proj", msg, fixed = TRUE))
+})
+
+test_that("a 429 with a non-JSON body keeps HTTP 429 visible and stays transient", {
+  skip_if_not(exists("local_mocked_bindings", envir = asNamespace("testthat")),
+              "Requires testthat >= 3.1.5 for local_mocked_bindings")
+  fake <- httr2::response(
+    status_code = 429,
+    headers = list("content-type" = "text/html"),
+    body = charToRaw("<html>Too many requests</html>")
+  )
+  local_mocked_bindings(req_perform = function(...) fake, .package = "pakhom")
+  cond <- tryCatch(
+    pakhom:::.anthropic_completion(mock_provider("anthropic"), "p", NULL,
+                                    "claude-sonnet-4-5", 0, 100, FALSE),
+    error = function(e) e
+  )
+  expect_false(inherits(cond, "pakhom_permanent_error"))
+  msg <- conditionMessage(cond)
+  # The retry loop's rate-limit backoff matches on "429" in the message text;
+  # the summary must keep the status visible while withholding the raw body.
+  expect_match(msg, "HTTP 429", fixed = TRUE)
+  expect_false(grepl("Too many requests", msg, fixed = TRUE))
+})

@@ -314,6 +314,49 @@ ai_complete <- function(provider, prompt, system_prompt = NULL,
   ))
 }
 
+#' Summarize a provider error body for safe reporting
+#'
+#' Non-200 responses are reported as the HTTP status plus a compact summary of
+#' the provider's structured error object (type, code, message) instead of the
+#' raw response body. Key-shaped tokens are masked, so an authentication error
+#' that echoes credential material can never reach a condition message, the
+#' console, or the audit trail. A body that does not parse as a structured API
+#' error is withheld entirely; the HTTP status carries the diagnostic weight on
+#' that path.
+#'
+#' @param body_text Raw response body string
+#' @return Length-1 character summary safe to embed in a condition message
+#' @keywords internal
+.summarize_api_error_body <- function(body_text) {
+  parsed <- tryCatch(
+    jsonlite::fromJSON(body_text, simplifyVector = FALSE),
+    error = function(e) NULL
+  )
+  err <- if (is.list(parsed)) parsed$error else NULL
+  if (!is.list(err)) {
+    return("response body withheld (not a structured API error)")
+  }
+  parts <- character(0)
+  if (is.character(err$type) && length(err$type) == 1L && nzchar(err$type)) {
+    parts <- c(parts, paste0("type=", err$type))
+  }
+  code <- err$code
+  if (!is.null(code) && length(code) == 1L) {
+    code_chr <- as.character(code)
+    if (!is.na(code_chr) && nzchar(code_chr)) {
+      parts <- c(parts, paste0("code=", code_chr))
+    }
+  }
+  msg <- if (is.character(err$message) && length(err$message) == 1L) err$message else ""
+  # Mask key-shaped tokens (raw keys and provider-side partially masked
+  # echoes) plus bearer tokens before the message can travel anywhere.
+  msg <- gsub("sk-[A-Za-z0-9*_-]{8,}", "[redacted]", msg)
+  msg <- gsub("(?i)bearer\\s+\\S+", "bearer [redacted]", msg, perl = TRUE)
+  out <- paste(c(parts, if (nzchar(msg)) msg), collapse = "; ")
+  if (!nzchar(out)) out <- "response body withheld (no error details)"
+  substr(out, 1L, 500L)
+}
+
 #' Send a quick completion using the fast/cheap model
 #'
 #' Thin wrapper around \code{\link{ai_complete}} that selects the provider's
@@ -430,8 +473,8 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 
   status <- resp_status(resp)
   if (status != 200) {
-    body_text <- resp_body_string(resp)
-    msg <- sprintf("OpenAI API error (HTTP %d): %s", status, substr(body_text, 1, 500))
+    msg <- sprintf("OpenAI API error (HTTP %d): %s", status,
+                   .summarize_api_error_body(resp_body_string(resp)))
     # 4xx client errors (bad request / auth / forbidden / not found / model)
     # will not change on retry; 429 + 5xx are transient and retryable.
     if (status %in% c(400, 401, 403, 404, 405, 422)) .stop_permanent(msg) else stop(msg)
@@ -561,8 +604,8 @@ ai_complete_fast <- function(provider, prompt, system_prompt = NULL,
 
   status <- resp_status(resp)
   if (status != 200) {
-    body_text <- resp_body_string(resp)
-    msg <- sprintf("Anthropic API error (HTTP %d): %s", status, substr(body_text, 1, 500))
+    msg <- sprintf("Anthropic API error (HTTP %d): %s", status,
+                   .summarize_api_error_body(resp_body_string(resp)))
     if (status %in% c(400, 401, 403, 404, 405, 422)) .stop_permanent(msg) else stop(msg)
   }
 
