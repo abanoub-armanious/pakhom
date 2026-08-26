@@ -1,0 +1,153 @@
+---
+title: "What Leaves Your Machine: Data Flow and Privacy"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{What Leaves Your Machine: Data Flow and Privacy}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+# Chunks in this vignette are illustrative only: they reference user-supplied
+# paths and live API credentials. eval = FALSE stops knitr from running them
+# at build time; purl = FALSE stops R CMD check's tangle step from extracting
+# and running them (Stangle/purl ignores eval = FALSE and respects
+# purl = FALSE).
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE,
+  purl = FALSE
+)
+```
+
+This article is a complete account of where your data goes when you run a
+pakhom analysis: which network calls the package makes, what each call
+carries, and what ends up on disk afterward. It is written for whoever has to
+answer for a study's data handling, whether that is you, an ethics board, or
+a privacy reviewer at your institution.
+
+The short version: pakhom runs on your machine and contains no telemetry. It
+makes network calls to exactly two kinds of destination, both configured by
+you. Every analysis sends text to the AI provider you chose (OpenAI or
+Anthropic). If you enable the optional Reddit scraper, the package also talks
+to Reddit's API. Nothing else leaves your computer, and nothing is ever sent
+to the package author.
+
+## What is sent to the AI provider
+
+The analysis itself is performed by the provider's models, so the entries you
+analyze are transmitted to that provider over HTTPS. The table below lists
+each pipeline step that makes AI calls and what the request carries.
+
+| Pipeline step | What the request carries |
+|---------------|--------------------------|
+| Relevance gate and coding | One entry's cleaned text per call (up to the per-entry character cap), your research focus, the methodology rules for the declared mode, the current codebook, and your positionality and reflexivity statements when configured |
+| Methodology assistant | A sample of corpus entries (up to 12, each capped at 300 characters) plus your metric column names, used to articulate the relevance criterion and select meaningful statistics |
+| Sentiment scoring | Batches of entry text |
+| Saturation checks | Code names and progress counts only; no raw entry text |
+| Theme clustering and labeling | The code labels and code descriptions being grouped |
+| Report synthesis | Aggregated statistics, your research focus, and your reflexivity statement |
+| Mode 1 provocations | The theme under interrogation, its supporting entries, and a bounded sample of entries from outside the theme |
+| Semantic code retrieval (optional, OpenAI only) | The full, untruncated text of each entry, sent to the embeddings endpoint |
+| Manuscript learning (optional) | Excerpts from the prior manuscripts you point the learning system at |
+
+A few of these deserve a second look:
+
+- **Your framing travels with your data.** The research focus is embedded in
+  the prompts for most calls, together with the positionality and reflexivity
+  statements you write into `config.yaml`. Write them as text you would be
+  comfortable sending to your provider.
+- **Entry identifiers accompany entry text.** Coding calls reference entries
+  by their standardized IDs; on the Anthropic citations path, an entry's ID
+  is used as its document title.
+- **Truncation is measured, never silent.** Entries longer than the per-entry
+  character cap are sent truncated, and the coverage card on the report
+  discloses how many entries were affected and how many characters were sent.
+- **Prompts are hashed, not stored.** The audit trail records a hash of every
+  prompt so a run can be replay-checked. Full response bodies are kept only in
+  the optional local response cache (`audit.capture_raw_responses`, on by
+  default) and never leave your machine.
+
+The database file itself never leaves your machine, and neither does your
+configuration file or your local file paths. Your API key travels only as an
+authentication header to its own provider.
+
+## The optional Reddit scraper
+
+`scrape_reddit()` is off by default. When you enable it, the package sends
+your Reddit credentials to Reddit's token endpoint and then queries Reddit's
+API for the subreddits you listed. Post and comment text returned by those
+queries is stored in your local SQLite database and nowhere else. No AI
+provider is involved in scraping, and Reddit sees only your credentials, your
+user agent string, and the queries themselves.
+
+## What ends up on disk
+
+Each run writes a timestamped directory under your configured results folder.
+Treat that directory as research data: most of its files contain participant
+text.
+
+- `sentiment_scores.csv`, `theme_entries/`, and `themes.json` carry the
+  cleaned analytic text of your entries.
+- The HTML report and its `theme_details/` pages display representative
+  quotes and per-theme entry tables drawn from that same cleaned text.
+- `checkpoints/` holds R data files used for resuming; these include full
+  copies of the loaded corpus.
+- `ai_decisions.jsonl` is the audit trail: one line per AI decision, each
+  stamped with the methodology mode and the prompt hash. Provider error
+  responses are summarized before they reach this file, with key-shaped
+  tokens masked.
+- `api_responses/` holds raw provider responses when the response cache is
+  enabled. Responses can quote your entry text back, so this folder is as
+  sensitive as the corpus itself.
+- The QDPX export is staged through the system temporary directory while the
+  archive is being assembled, then written into the run directory.
+
+All of these files stay on your machine unless you share them, and the same
+holds for your input database and your configuration.
+
+## Your API key
+
+Keys are read from environment variables (for example via `.Renviron`), held
+in memory for the duration of the run, and sent only to the provider they
+authenticate with. They are never written to logs, the audit trail, cached
+responses, or any output file. Provider error messages are reduced to the
+HTTP status plus a masked summary before they can reach your console or the
+audit trail, so an authentication error that echoes key material back is
+stripped rather than recorded.
+
+## Provider data handling
+
+Once your text reaches OpenAI or Anthropic it is governed by that provider's
+own data-use policy and by whatever agreements your account operates under.
+Both providers document their API data handling publicly; review the current
+terms for your account type before analyzing sensitive material, and prefer
+an organizational account where your institution has negotiated terms. The
+package works within whatever account and endpoint your key belongs to.
+
+## Reviewing and sharing outputs
+
+The transparency artifacts are designed to be shared with reviewers, but they
+contain participant text, so review them the way you would review any data
+release. Two practical notes:
+
+- Reports and exports display the cleaned analytic text (`std_text`). Under
+  the default Reddit preprocessing this text carries no URLs or usernames,
+  and subreddit names appear only as a `[subreddit]` token. Versions before
+  1.1.0 displayed the raw platform text on two report surfaces (the
+  representative quote boxes and the per-theme entry tables). If you plan to
+  share a report generated by an earlier version, re-render it with the
+  current version or review those surfaces first.
+- The default cleaning is a formatting pass, not de-identification. Names,
+  locations, or other identifying details inside the body of an entry remain
+  your responsibility to handle in line with your ethics approval.
+
+## Where to go next
+
+- `vignette("getting-started")` walks through setup, including where the API
+  key lives.
+- `vignette("methodology-modes")` explains the three modes and the
+  transparency layer their outputs share.
+- `SECURITY.md` in the repository states the security policy and how to
+  report a concern.

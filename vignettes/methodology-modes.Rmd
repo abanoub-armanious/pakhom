@@ -599,6 +599,9 @@ These commitments are load-bearing: a finalized pakhom run that lacks
 any of them is a transparency failure surfaced by
 `verify_run_integrity()`.
 
+What each pipeline step transmits to the AI provider, and what a finished
+run directory contains on disk, is documented in `vignette("data-flow")`.
+
 ## Replay-equivalence and run_metadata.json
 
 Every finalized run carries `run_metadata.json` with:

@@ -388,3 +388,11 @@ articles:
       and a decision rubric.
     contents:
       - methodology-modes
+  - title: "Data Flow and Privacy"
+    navbar: "Data Flow and Privacy"
+    desc: >
+      What leaves your machine during an analysis: every network call the
+      package makes, what each request carries, and what a finished run
+      directory contains.
+    contents:
+      - data-flow

@@ -146,7 +146,9 @@ Both services charge per use. A typical analysis of ~500 entries costs
 approximately $2--5 USD.
 
 **Important:** Never share your API key or commit it to version control.
-The package reads it from an environment variable (explained below).
+The package reads it from an environment variable (explained below). For a
+full account of what is transmitted to the provider during an analysis, see
+`vignette("data-flow")`.
 
 ### Your Data
 
@@ -187,14 +189,16 @@ approved through Reddit's Responsible Builder Program:
     ```
     REDDIT_CLIENT_ID=your_id_here
     REDDIT_CLIENT_SECRET=your_secret_here
-    REDDIT_USER_AGENT=pakhom (by u/YourRedditUsername)
+    REDDIT_USER_AGENT=pakhom/<version> (by u/YourRedditUsername)
     ```
   - Enable the scraper in either wizard's Scraping step, or set
     `scraping.enabled: true` plus the list of subreddits in `config.yaml`.
 
 If approval is pending or you'd rather skip the scraper, just leave
 `scraping.enabled: false` (the default) and load your own data into a
-SQLite `.db` file using whatever method you prefer.
+SQLite `.db` file using whatever method you prefer. What the scraper sends
+to Reddit, and what it stores locally, is documented in
+`vignette("data-flow")`.
 
 ---
 
