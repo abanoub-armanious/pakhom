@@ -549,6 +549,57 @@ test_that(".generate_theme_detail_htmls embeds .build_subtheme_summary_table out
   expect_match(html, "Subtheme One", fixed = TRUE)
 })
 
+test_that(".generate_theme_detail_htmls entry table renders std_text, not original_text", {
+  # The All Entries table must show the cleaned analytic text, matching the
+  # CSV and QDPX exports; the raw platform text stays out of the report.
+  ts <- list(
+    description = "Demo",
+    n_entries = 2L,
+    pct_of_total = 10,
+    sentiment = list(mean = 0.1, pct_negative = 10, pct_positive = 20),
+    intensity = list(mean = 0.3),
+    keywords = character(0),
+    quotes_with_context = NULL,
+    subthemes_structured = list(),
+    subtheme_stats = list(),
+    metric_cols = character(0),
+    theme_kind = "emergent"
+  )
+  theme_stats <- list("Focus" = ts)
+
+  data <- tibble::tibble(
+    std_id          = c("e1", "e2"),
+    std_text        = c("Cleaned entry text one, no links here at all in this row.",
+                        "Cleaned entry text two, equally free of raw platform noise."),
+    original_text   = c("Raw text one with https://example.com/a and u/personone inside.",
+                        "Raw text two with https://example.com/b and u/persontwo inside."),
+    sentiment_score = c(-0.2, 0.4),
+    confidence      = c(0.9, 0.8),
+    all_emotions    = c("neutral", "hope"),
+    theme_membership_Focus = c(1L, 1L)
+  )
+
+  out_dir <- tempfile()
+  dir.create(out_dir)
+  on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
+
+  generated <- pakhom:::.generate_theme_detail_htmls(
+    theme_stats = theme_stats,
+    theme_order = names(theme_stats),
+    export_files = list(theme_csv_files = list()),
+    output_dir = out_dir,
+    data = data,
+    coding_results = NULL
+  )
+
+  html <- paste(readLines(generated[["Focus"]]$file_path), collapse = "\n")
+  expect_match(html, "All Entries", fixed = TRUE)
+  expect_match(html, "Cleaned entry text one", fixed = TRUE)
+  expect_match(html, "Cleaned entry text two", fixed = TRUE)
+  expect_false(grepl("https://example.com", html, fixed = TRUE))
+  expect_false(grepl("u/personone", html, fixed = TRUE))
+})
+
 test_that(".generate_theme_detail_htmls methodology-stamps each detail page (AC4)", {
   # AC4 ("methodology stamped on every output"): a standalone theme-detail page
   # must carry the same methodology badge as the main report when a mode is

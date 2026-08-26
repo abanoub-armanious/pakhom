@@ -4554,7 +4554,7 @@ sentiment_colors <- c(
       }
     }
 
-    # Interactive entry table (Issue 8)
+    # Interactive entry table
     if (!is.null(data)) {
       safe_col <- paste0("theme_membership_", make.names(tn))
       if (safe_col %in% names(data)) {
@@ -4566,7 +4566,9 @@ sentiment_colors <- c(
         theme_entries <- data[0, ]
       }
       if (nrow(theme_entries) > 0) {
-        text_col <- if ("original_text" %in% names(theme_entries)) "original_text" else "std_text"
+        # The entries table shows the cleaned analytic text (std_text), matching
+        # every other export surface; the raw platform text stays in original_text.
+        text_col <- if ("std_text" %in% names(theme_entries)) "std_text" else "original_text"
 
         html <- paste0(html, '<h2>All Entries</h2>\n',
           '<table id="entries-table" class="display" style="width:100%">\n',
@@ -4579,12 +4581,9 @@ sentiment_colors <- c(
           row <- theme_entries[ri, ]
           entry_id <- as.character(row$std_id)
           full_text <- as.character(row[[text_col]])
-          # Use the word-boundary
-          # helper so the per-theme entries table doesn't cut mid-word
-          # either (the helper was first applied at the metric-tagged
-          # quote site in R/16_report_helpers.R; the audit caught that
-          # this parallel site at the per-theme detail HTML was still
-          # doing a hard substr).
+          # Word-boundary truncation so the entries table doesn't cut
+          # mid-word, matching the metric-tagged quote site in
+          # R/16_report_helpers.R.
           display_text <- .html_esc(
             .truncate_quote_word_boundary(full_text, max_chars = 200L)
           )

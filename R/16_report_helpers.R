@@ -1448,7 +1448,9 @@ generate_downloads_section <- function(export_files, theme_stats) {
 .select_representative_quotes <- function(entries, n_quotes = 3) {
   if (nrow(entries) == 0) return(list())
 
-  text_col <- if ("original_text" %in% names(entries)) "original_text" else "std_text"
+  # Quotes render the cleaned analytic text (std_text), the same text surface
+  # that T0.1 verification checks; the raw platform text stays in original_text.
+  text_col <- if ("std_text" %in% names(entries)) "std_text" else "original_text"
   valid <- entries |>
     filter(!is.na(.data[[text_col]]), nchar(.data[[text_col]]) > 50)
 
@@ -1459,8 +1461,8 @@ generate_downloads_section <- function(export_files, theme_stats) {
   # heavily multi-coded extreme-sentiment post is the "most negative" (or "most
   # positive") member of MANY themes at once, so pure sentiment-extremity selection
   # makes the SAME diffuse post the lead quote for several themes -- where it
-  # illustrates none of them well (verified: one "I feel like giving up" post led 5
-  # of 9 themes, including a Recovery theme). When theme-membership breadth is
+  # illustrates none of them well (verified on real data: one diffuse
+  # extreme-negativity post led 5 of 9 themes at once). When theme-membership breadth is
   # available, restrict the candidate pool to the more theme-specific entries (at or
   # below median breadth) BEFORE sentiment-positioning -- but only when that still
   # leaves >= 3 rows to span the sentiment range. Multi-coding is fully preserved in

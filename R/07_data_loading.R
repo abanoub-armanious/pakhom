@@ -514,7 +514,8 @@ standardize_data <- function(data, column_map) {
     std$std_timestamp <- NA_character_
   }
 
-  # Keep original text for quotes in reports
+  # Preserve the raw platform text in original_text; analysis, exports, and
+  # report surfaces all use the cleaned std_text (see preprocess_text).
   std$original_text <- std$std_text
 
   # Select standardized + metric columns

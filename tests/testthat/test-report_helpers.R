@@ -411,6 +411,33 @@ test_that(".select_representative_quotes prefers theme-characteristic entries ov
   expect_equal(q0$most_negative$entry_id, "e1")
 })
 
+test_that(".select_representative_quotes quotes the cleaned std_text, not original_text", {
+  # original_text is the raw platform text (URLs, u/-mentions) captured before
+  # preprocessing; std_text is the cleaned analytic text every other surface
+  # ships. Quotes must render the cleaned form so the displayed text is the
+  # text T0.1 verification actually checked.
+  raw <- paste0(
+    "Raw platform text with a link https://example.com/x and a u/someone mention, entry ",
+    1:5, ".")
+  clean <- paste0(
+    "Cleaned analytic text without links or mentions, long enough to pass the filter, entry ",
+    1:5, ".")
+  entries <- tibble::tibble(
+    std_id          = paste0("e", 1:5),
+    std_text        = clean,
+    original_text   = raw,
+    sentiment_score = c(-0.8, -0.4, 0.0, 0.4, 0.8),
+    all_emotions    = rep("neutral", 5)
+  )
+  quotes <- pakhom:::.select_representative_quotes(entries, n_quotes = 3)
+  expect_length(quotes, 3L)
+  for (q in quotes) {
+    expect_false(grepl("https://", q$text, fixed = TRUE))
+    expect_false(grepl("u/someone", q$text, fixed = TRUE))
+    expect_true(q$text %in% clean)
+  }
+})
+
 test_that(".pick_quote_with_spread expands outward correctly", {
   valid_df <- tibble::tibble(
     std_text = letters[1:7],

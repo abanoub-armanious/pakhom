@@ -182,6 +182,35 @@ test_that("enrich_themes handles entries below 50-char text filter (no supportin
               length(enriched$themes[[1]]$supporting_quotes) == 0L)
 })
 
+test_that("enrich_themes supporting quotes use std_text and stay substrings of it", {
+  # Supporting quotes must carry the cleaned analytic text, and each quote
+  # record's text must be recoverable from its source entry's std_text.
+  ts <- create_theme_set(list(
+    list(id = 1, name = "T", description = "", codes_included = "a")
+  ))
+  data <- tibble::tibble(
+    std_id   = paste0("e", 1:3),
+    std_text = paste0("Cleaned quote text long enough to pass the fifty-character filter, entry ",
+                      1:3, "."),
+    original_text = paste0("Raw quote text with https://example.com/", 1:3,
+                           " and a u/name mention, entry ", 1:3, "."),
+    emerged_themes = rep("T", 3),
+    sentiment_score = c(-0.7, 0.0, 0.7),
+    theme_membership_T = rep(1L, 3)
+  )
+  enriched <- enrich_themes(ts, data)
+  qs <- enriched$themes[[1]]$supporting_quotes
+  expect_length(qs, 3L)
+  expect_false(any(grepl("https://", qs, fixed = TRUE)))
+  recs <- enriched$themes[[1]]$supporting_quote_records
+  expect_true(length(recs) >= 1L)
+  for (r in recs) {
+    src <- data$std_text[data$std_id == r$entry_id]
+    expect_length(src, 1L)
+    expect_true(grepl(r$text, src, fixed = TRUE))
+  }
+})
+
 
 test_that("theme_membership columns are created", {
   state <- create_coding_state()
