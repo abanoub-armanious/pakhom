@@ -373,6 +373,23 @@ test_that("empty config produces no deprecated-knob warnings", {
   expect_length(flagged, 0L)
 })
 
+test_that(".warn_deprecated_config_knobs flags retired output knobs", {
+  cfg <- list(output = list(
+    results_dir            = "outputs/results",  # live; should NOT be flagged
+    checkpoint_dir         = NULL,
+    generate_theme_details = TRUE,
+    export_csv             = FALSE,
+    export_json            = TRUE
+  ))
+  flagged <- pakhom:::.warn_deprecated_config_knobs(cfg)
+  expect_length(flagged, 4L)
+  expect_true(any(grepl("export_csv", flagged)))
+  expect_true(any(grepl("export_json", flagged)))
+  expect_true(any(grepl("generate_theme_details", flagged)))
+  expect_true(any(grepl("checkpoint_dir", flagged)))
+  expect_false(any(grepl("results_dir", flagged)))
+})
+
 # ============================================================================
 # reflexivity-scaffold warnings
 # ============================================================================

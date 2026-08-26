@@ -276,7 +276,6 @@ test_that(".wizard_input_defaults is the faithful inverse of .build_config_from_
     irr_enabled = TRUE, irr_sample = 30, irr_seed = 11,
     corr_method = "pearson", corr_adjust = "holm", corr_min_obs = 20, corr_min_theme = 3,
     results_dir = "out/res", gen_report = FALSE, gen_corr_plot = FALSE,
-    gen_theme_details = FALSE, export_csv = FALSE, export_json = TRUE,
     gen_comparison = FALSE, log_level = "DEBUG"
   )
   cfg1 <- pakhom:::.build_config_from_inputs(inp)

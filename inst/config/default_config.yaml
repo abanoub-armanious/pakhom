@@ -348,12 +348,8 @@ analysis:
 # -----------------------------------------------------------------------------
 output:
   results_dir: ~                  # REQUIRED. Pipeline writes a timestamped subfolder here per run.
-  checkpoint_dir: ~               # NULL = auto-create checkpoints/ inside results_dir.
   generate_report: true
-  generate_theme_details: true
   generate_correlation_plot: true
-  export_csv: true
-  export_json: true
   comparison_enabled: true
   comparison_similarity_threshold: 0.75
   export_qdpx: true               # Produce QDPX archive for import into NVivo / ATLAS.ti / MAXQDA.

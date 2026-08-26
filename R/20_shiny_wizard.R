@@ -633,12 +633,6 @@ config_wizard_app <- function(output_path = "config.yaml", .return_app = FALSE) 
       shiny::column(4, shiny::checkboxInput("gen_corr_plot", "Generate Correlation Plot", value = dflts$gen_corr_plot)),
       shiny::column(4, shiny::checkboxInput("gen_comparison", "Enable Run Comparison", value = dflts$gen_comparison))
     ),
-    shiny::fluidRow(
-      shiny::column(4, shiny::checkboxInput("export_csv", "Export CSVs", value = dflts$export_csv)),
-      shiny::column(4, shiny::checkboxInput("export_json", "Export JSON", value = dflts$export_json)),
-      shiny::column(4, shiny::checkboxInput("gen_theme_details", "Export Theme Details", value = dflts$gen_theme_details))
-    ),
-
     shiny::br(),
     shiny::selectInput("log_level", "Log Level",
                        choices = c("DEBUG", "INFO", "WARN", "ERROR"),
@@ -757,9 +751,6 @@ config_wizard_app <- function(output_path = "config.yaml", .return_app = FALSE) 
     results_dir       = g("output.results_dir", "outputs/results"),
     gen_report        = isTRUE(g("output.generate_report", TRUE)),
     gen_corr_plot     = isTRUE(g("output.generate_correlation_plot", TRUE)),
-    gen_theme_details = isTRUE(g("output.generate_theme_details", TRUE)),
-    export_csv        = isTRUE(g("output.export_csv", TRUE)),
-    export_json       = isTRUE(g("output.export_json", TRUE)),
     gen_comparison    = isTRUE(g("output.comparison_enabled", TRUE)),
     # Logging
     log_level = g("logging.log_level", "INFO")
@@ -900,9 +891,6 @@ config_wizard_app <- function(output_path = "config.yaml", .return_app = FALSE) 
       results_dir = val("results_dir", "outputs/results"),
       generate_report = isTRUE(input$gen_report),
       generate_correlation_plot = isTRUE(input$gen_corr_plot),
-      generate_theme_details = isTRUE(input$gen_theme_details),
-      export_csv = isTRUE(input$export_csv),
-      export_json = isTRUE(input$export_json),
       comparison_enabled = isTRUE(input$gen_comparison)
     ),
     logging = list(

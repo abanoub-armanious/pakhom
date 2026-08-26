@@ -300,7 +300,18 @@ validate_config <- function(config) {
     list(path = c("analysis", "coding", "min_coded_before_saturation"),
          reason = "AI arbiter has its own cadence (.saturation_cadence)."),
     list(path = c("analysis", "coding", "ai_assessment_interval"),
-         reason = "AI arbiter has its own cadence (.saturation_cadence).")
+         reason = "AI arbiter has its own cadence (.saturation_cadence)."),
+    # Output knobs that never gated anything (exports and the theme detail
+    # pages are always produced; checkpoints always live inside the run
+    # directory):
+    list(path = c("output", "export_csv"),
+         reason = "CSV exports are always written."),
+    list(path = c("output", "export_json"),
+         reason = "themes.json is always written; cross-run comparison depends on it."),
+    list(path = c("output", "generate_theme_details"),
+         reason = "Theme detail pages are part of the report (`output.generate_report` is the live knob)."),
+    list(path = c("output", "checkpoint_dir"),
+         reason = "Checkpoints always live in checkpoints/ inside the run directory.")
   )
 
   # Helper: walk path through a nested list, returning TRUE if every
@@ -762,12 +773,8 @@ print.ThematicConfig <- function(x, ...) {
 
     output = list(
       results_dir = NULL,
-      checkpoint_dir = NULL,
       generate_report = TRUE,
-      generate_theme_details = TRUE,
       generate_correlation_plot = TRUE,
-      export_csv = TRUE,
-      export_json = TRUE,
       comparison_enabled = TRUE,
       comparison_similarity_threshold = 0.75,
       export_qdpx = TRUE  # Export QDPX file for QDA software interoperability
@@ -814,8 +821,6 @@ print.ThematicConfig <- function(x, ...) {
     config$learning$base_dir <- resolve(config$learning$base_dir)
   if (!is.null(config$output$results_dir))
     config$output$results_dir <- resolve(config$output$results_dir)
-  if (!is.null(config$output$checkpoint_dir))
-    config$output$checkpoint_dir <- resolve(config$output$checkpoint_dir)
   # Resolve a relative CUSTOM framework spec path too (Mode 3), so a run
   # launched from a different working directory finds a spec sitting next to
   # config.yaml -- consistent with every other path field. Built-in aliases
