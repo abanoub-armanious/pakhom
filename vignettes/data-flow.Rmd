@@ -42,16 +42,16 @@ the pipeline steps that make AI calls and what each request carries.
 |---------------|--------------------------|
 | Relevance gate and coding | One entry's cleaned text per call (up to the per-entry character cap), your research focus, the methodology rules for the declared mode, the current codebook, and your positionality and reflexivity statements when configured |
 | Code description refresh | Sample coded segments for the code being re-described (several entries' segments per call, each capped at 300 characters) |
-| Methodology assistant | A sample of corpus entries (up to 12, each capped at 300 characters), your metric column names, and up to 12 raw sample values from every metric and timestamp column |
+| Methodology assistant | Your research focus and research context, a sample of corpus entries (up to 12, each capped at 300 characters), and up to 12 raw sample values from every metric and timestamp column |
 | Sentiment scoring | Batches of entry text |
 | Saturation checks | Code names and progress counts only; no raw entry text |
 | Theme clustering and labeling | The code labels and code descriptions being grouped |
 | Mode 3 anomaly coding (with `anomaly_handling` extend or revise) | Batches of segment text the framework did not capture (up to 50 segments per call, each capped at 500 characters) |
-| Correlation insights | Variable and theme names with their correlation statistics, plus your research focus |
+| Correlation insights | Variable and theme names with their correlation statistics, plus your research focus and reflexivity statement |
 | Research-question coverage (Mode 2) | Your research focus and stated concepts, plus the theme and code structure |
 | Report synthesis | Aggregated statistics, your research focus, and your reflexivity statement |
 | Mode 1 provocations | The theme under interrogation, its supporting entries, and a bounded sample of entries from outside the theme |
-| Semantic code retrieval (OpenAI providers, automatic) | The full, untruncated text of each entry, sent to the embeddings endpoint during coding |
+| Semantic code retrieval (Mode 2 with OpenAI, automatic) | The full, untruncated text of each entry, sent to the embeddings endpoint during inductive coding |
 | Manuscript learning (optional) | Excerpts from the prior manuscripts you point the learning system at |
 
 A few of these deserve a second look:
@@ -63,10 +63,13 @@ A few of these deserve a second look:
 - **Entry identifiers accompany entry text.** Coding calls reference entries
   by their standardized IDs; on the Anthropic citations path, an entry's ID
   is used as its document title.
-- **Embeddings are automatic on OpenAI runs.** Semantic code retrieval has no
-  on or off setting: whenever the provider is OpenAI, each coded entry's full
-  text is also sent to the embeddings endpoint. Anthropic runs make no
-  embeddings calls.
+- **Embeddings are automatic on Mode 2 OpenAI runs.** Semantic code retrieval
+  has no on or off setting: during inductive coding with an OpenAI provider,
+  each coded entry's full text is also sent to the embeddings endpoint.
+  Framework coding (Mode 3) does not use it, and Anthropic runs make no
+  embeddings calls. The quote-verification ladder has an optional embedding
+  step that compares a quote against its source text; it runs only when an
+  OpenAI provider is available for embeddings.
 - **Truncation is measured, never silent.** Entries longer than the per-entry
   character cap are sent truncated, and the coverage card on the report
   discloses how many entries were affected and how many characters were sent.

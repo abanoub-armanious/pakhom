@@ -396,7 +396,7 @@ telemetry and sends nothing about you or your data to its author. The entries
 you analyze are transmitted to the AI provider you configure (OpenAI or
 Anthropic, over HTTPS) solely to perform the analysis you request. If you
 enable the optional scraper, your Reddit credentials and subreddit queries go
-to Reddit's API, and the text it retrieves stays in your local database. Your
+to Reddit's API, and the text it retrieves is stored in your local database. Your
 API key is read from your environment and is never written to logs, audit
 records, or outputs. See [`SECURITY.md`](SECURITY.md) and the
 [data-flow article](https://abanoub-armanious.github.io/pakhom/articles/data-flow.html)
