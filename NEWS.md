@@ -35,13 +35,13 @@
 ## Configuration wizards
 
 - The web wizard gains a Scraping step covering the scraper settings.
-  Credentials stay in the environment and are never written to the file,
-  disabling scraping writes an explicit `enabled: false`, and saved configs
+  Credentials stay in the environment and are never written to the file.
+  Disabling scraping writes an explicit `enabled: false`, and saved configs
   always carry a `scraping` block.
-- Both wizards now pre-load an existing `config.yaml`: every prompt or field
-  shows the saved value, hand-edited sections survive a re-save, and the
-  provider step no longer resets pre-loaded model fields unless the provider
-  is actually changed.
+- Both wizards now pre-load an existing `config.yaml`, so every prompt or
+  field shows the saved value. In the web wizard, hand-edited sections
+  survive a re-save, and the provider step no longer resets pre-loaded model
+  fields unless the provider is actually changed.
 - The command-line wizard gains the same scraper prompts.
 
 ## Reports and exports
@@ -56,7 +56,8 @@
 ## Provenance and error handling
 
 - `run_metadata.json` now records the installed package's commit
-  (`package_sha`) alongside the package version.
+  (`package_sha`) alongside the package version, for installations made from
+  a git remote.
 - Provider error messages are reduced to the HTTP status plus a masked
   summary of the provider's structured error before they reach the console or
   the audit trail; raw response bodies are no longer embedded in error
@@ -65,16 +66,17 @@
 ## Configuration
 
 - Four output options that had no effect are removed: `export_csv`,
-  `export_json`, `generate_theme_details`, and `checkpoint_dir`. Exports and
-  theme detail pages are always produced, and checkpoints always live inside
-  the run directory. A config file still carrying these keys loads normally
+  `export_json`, `generate_theme_details`, and `checkpoint_dir`. Exports are
+  always written, and theme detail pages accompany every generated report.
+  Checkpoints always live inside the run directory. A config file still
+  carrying these keys loads normally
   and logs a note that they can be deleted.
 
 ## Documentation
 
 - New vignette: "What Leaves Your Machine: Data Flow and Privacy",
-  documenting each network call the package makes and everything a finished
-  run directory contains. SECURITY.md is expanded to match.
+  documenting the network calls the package makes and what a finished run
+  directory contains. SECURITY.md is expanded to match.
 
 # pakhom 1.0.1
 

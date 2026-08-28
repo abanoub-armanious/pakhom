@@ -392,12 +392,13 @@ rather than in config files. The package warns if it detects a key pasted
 directly into `config.yaml`.
 
 **Your privacy:** pakhom runs entirely on your own machine. It collects no
-telemetry and sends nothing about you or your data to its author or any third
-party. The entries you analyze are transmitted to the AI provider you configure
-(OpenAI or Anthropic, over HTTPS) solely to perform the analysis you request,
-and to Reddit's API only if you enable the optional scraper; your API key is
-read from your environment and is never written to logs, audit records, or
-outputs. See [`SECURITY.md`](SECURITY.md) and the
+telemetry and sends nothing about you or your data to its author. The entries
+you analyze are transmitted to the AI provider you configure (OpenAI or
+Anthropic, over HTTPS) solely to perform the analysis you request. If you
+enable the optional scraper, your Reddit credentials and subreddit queries go
+to Reddit's API, and the text it retrieves stays in your local database. Your
+API key is read from your environment and is never written to logs, audit
+records, or outputs. See [`SECURITY.md`](SECURITY.md) and the
 [data-flow article](https://abanoub-armanious.github.io/pakhom/articles/data-flow.html)
 for the full data-handling description.
 

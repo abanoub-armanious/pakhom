@@ -8,11 +8,10 @@ vignette: >
 ---
 
 ```{r setup, include = FALSE}
-# Chunks in this vignette are illustrative only: they reference user-supplied
-# paths and live API credentials. eval = FALSE stops knitr from running them
-# at build time; purl = FALSE stops R CMD check's tangle step from extracting
-# and running them (Stangle/purl ignores eval = FALSE and respects
-# purl = FALSE).
+# This vignette is prose and tables. The knitr options match the package's
+# other vignettes so any future code chunk stays illustrative: eval = FALSE
+# stops knitr from running chunks at build time, and purl = FALSE keeps
+# R CMD check's tangle step from extracting and running them.
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
@@ -21,11 +20,10 @@ knitr::opts_chunk$set(
 )
 ```
 
-This article is a complete account of where your data goes when you run a
-pakhom analysis: which network calls the package makes, what each call
-carries, and what ends up on disk afterward. It is written for whoever has to
-answer for a study's data handling, whether that is you, an ethics board, or
-a privacy reviewer at your institution.
+This article describes where your data goes when you run a pakhom analysis:
+the network calls the package makes and what ends up on disk afterward. It
+is written for whoever has to answer for a study's data handling, whether
+that is you or a reviewer at your institution.
 
 The short version: pakhom runs on your machine and contains no telemetry. It
 makes network calls to exactly two kinds of destination, both configured by
@@ -38,18 +36,22 @@ to the package author.
 
 The analysis itself is performed by the provider's models, so the entries you
 analyze are transmitted to that provider over HTTPS. The table below lists
-each pipeline step that makes AI calls and what the request carries.
+the pipeline steps that make AI calls and what each request carries.
 
 | Pipeline step | What the request carries |
 |---------------|--------------------------|
 | Relevance gate and coding | One entry's cleaned text per call (up to the per-entry character cap), your research focus, the methodology rules for the declared mode, the current codebook, and your positionality and reflexivity statements when configured |
-| Methodology assistant | A sample of corpus entries (up to 12, each capped at 300 characters) plus your metric column names, used to articulate the relevance criterion and select meaningful statistics |
+| Code description refresh | Sample coded segments for the code being re-described (several entries' segments per call, each capped at 300 characters) |
+| Methodology assistant | A sample of corpus entries (up to 12, each capped at 300 characters), your metric column names, and up to 12 raw sample values from every metric and timestamp column |
 | Sentiment scoring | Batches of entry text |
 | Saturation checks | Code names and progress counts only; no raw entry text |
 | Theme clustering and labeling | The code labels and code descriptions being grouped |
+| Mode 3 anomaly coding (with `anomaly_handling` extend or revise) | Batches of segment text the framework did not capture (up to 50 segments per call, each capped at 500 characters) |
+| Correlation insights | Variable and theme names with their correlation statistics, plus your research focus |
+| Research-question coverage (Mode 2) | Your research focus and stated concepts, plus the theme and code structure |
 | Report synthesis | Aggregated statistics, your research focus, and your reflexivity statement |
 | Mode 1 provocations | The theme under interrogation, its supporting entries, and a bounded sample of entries from outside the theme |
-| Semantic code retrieval (optional, OpenAI only) | The full, untruncated text of each entry, sent to the embeddings endpoint |
+| Semantic code retrieval (OpenAI providers, automatic) | The full, untruncated text of each entry, sent to the embeddings endpoint during coding |
 | Manuscript learning (optional) | Excerpts from the prior manuscripts you point the learning system at |
 
 A few of these deserve a second look:
@@ -61,6 +63,10 @@ A few of these deserve a second look:
 - **Entry identifiers accompany entry text.** Coding calls reference entries
   by their standardized IDs; on the Anthropic citations path, an entry's ID
   is used as its document title.
+- **Embeddings are automatic on OpenAI runs.** Semantic code retrieval has no
+  on or off setting: whenever the provider is OpenAI, each coded entry's full
+  text is also sent to the embeddings endpoint. Anthropic runs make no
+  embeddings calls.
 - **Truncation is measured, never silent.** Entries longer than the per-entry
   character cap are sent truncated, and the coverage card on the report
   discloses how many entries were affected and how many characters were sent.
@@ -79,8 +85,8 @@ authentication header to its own provider.
 your Reddit credentials to Reddit's token endpoint and then queries Reddit's
 API for the subreddits you listed. Post and comment text returned by those
 queries is stored in your local SQLite database and nowhere else. No AI
-provider is involved in scraping, and Reddit sees only your credentials, your
-user agent string, and the queries themselves.
+provider is involved in scraping. Reddit sees only two things: the
+credentials and user agent that authenticate you, and the queries themselves.
 
 ## What ends up on disk
 
@@ -89,15 +95,17 @@ Treat that directory as research data: most of its files contain participant
 text.
 
 - `sentiment_scores.csv`, `theme_entries/`, and `themes.json` carry the
-  cleaned analytic text of your entries.
+  cleaned analytic text of your entries. The `theme_entries/` files also
+  carry the contributor identifier (`std_author`), which for scraped Reddit
+  data is the author's username.
 - The HTML report and its `theme_details/` pages display representative
   quotes and per-theme entry tables drawn from that same cleaned text.
 - `checkpoints/` holds R data files used for resuming; these include full
   copies of the loaded corpus.
 - `ai_decisions.jsonl` is the audit trail: one line per AI decision, each
-  stamped with the methodology mode and the prompt hash. Provider error
-  responses are summarized before they reach this file, with key-shaped
-  tokens masked.
+  stamped with the methodology mode; request lines also record a hash of the
+  prompt. Provider error responses are summarized before they reach this
+  file, with key-shaped tokens masked.
 - `api_responses/` holds raw provider responses when the response cache is
   enabled. Responses can quote your entry text back, so this folder is as
   sensitive as the corpus itself.
@@ -109,10 +117,12 @@ holds for your input database and your configuration.
 
 ## Your API key
 
-Keys are read from environment variables (for example via `.Renviron`), held
-in memory for the duration of the run, and sent only to the provider they
-authenticate with. They are never written to logs, the audit trail, cached
-responses, or any output file. Provider error messages are reduced to the
+Keys are read from environment variables (for example via `.Renviron`) and
+held in memory for the duration of the run. A key placed directly in
+`config.yaml` is accepted but draws a warning, since a key in a config file
+is easy to commit or share by accident. Either way the key travels only to
+the provider it authenticates with. It is never written to logs, the audit
+trail, cached responses, or any output file. Provider error messages are reduced to the
 HTTP status plus a masked summary before they can reach your console or the
 audit trail, so an authentication error that echoes key material back is
 stripped rather than recorded.
@@ -133,15 +143,18 @@ contain participant text, so review them the way you would review any data
 release. Two practical notes:
 
 - Reports and exports display the cleaned analytic text (`std_text`). Under
-  the default Reddit preprocessing this text carries no URLs or usernames,
-  and subreddit names appear only as a `[subreddit]` token. Versions before
+  the default Reddit preprocessing, links and u/ mentions are stripped from
+  this text, and subreddit names appear only as a `[subreddit]` token. The
+  author column in the per-theme entry exports is not cleaned; treat
+  `std_author` as an identifier when sharing those files. Versions before
   1.1.0 displayed the raw platform text on two report surfaces (the
   representative quote boxes and the per-theme entry tables). If you plan to
   share a report generated by an earlier version, re-render it with the
   current version or review those surfaces first.
-- The default cleaning is a formatting pass, not de-identification. Names,
-  locations, or other identifying details inside the body of an entry remain
-  your responsibility to handle in line with your ethics approval.
+- The default cleaning is a formatting pass, not de-identification.
+  Identifying details inside the body of an entry, such as a name or a
+  location, remain your responsibility to handle in line with your ethics
+  approval.
 
 ## Where to go next
 
