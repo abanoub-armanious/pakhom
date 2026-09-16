@@ -255,7 +255,7 @@ run_human_verification <- function(data, coding_state,
   # The threshold is deliberately conservative (0.15 Jaro-Winkler): it bridges
   # spelling / inflection differences ("focus gap" vs "focus gaps",
   # jw<=0.04) but NOT semantic variants ("focus gaps" vs "focus problems",
-  # jw~=0.30), which are genuine labelling disagreements and must not be hidden.
+  # jw~=0.21), which are genuine labelling disagreements and must not be hidden.
   all_observed <- unique(unlist(c(human_raw, ai_raw)))
   all_observed <- all_observed[!is.na(all_observed) & nchar(all_observed) > 0]
 

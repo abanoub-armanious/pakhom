@@ -125,7 +125,7 @@ review_progressive_codebook <- function(coding_state, output_dir,
             if (!isTRUE(er$skipped)) {
               # Exact-key replacement: codes_assigned holds whole code KEYS, so
               # substring gsub would corrupt any key that merely contains
-              # source_key (e.g. source "sleep" mangling "sleep_problems").
+              # source_key (e.g. source "focus" mangling "focus_problems").
               er$codes_assigned[er$codes_assigned == source_key] <- target_key
               er$codes_assigned <- unique(er$codes_assigned)
               for (j in seq_along(er$coded_segments)) {

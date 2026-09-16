@@ -318,7 +318,7 @@ config_wizard_app <- function(output_path = "config.yaml", .return_app = FALSE) 
     shiny::br(),
     shiny::textAreaInput("research_context", "Research Context", value = dflts$research_context,
                          rows = 2, width = "100%",
-                         placeholder = "Brief description of your data source and population. e.g., 'Online forum discussions', 'Survey responses from undergraduate students', 'Interview transcripts from healthcare workers'"),
+                         placeholder = "Brief description of your data source and population. e.g., 'Online forum discussions', 'Survey responses from undergraduate students', 'Interview transcripts from remote employees'"),
     shiny::div(class = "help-text", "Where does your data come from? What is the broader context?"),
 
     shiny::br(),

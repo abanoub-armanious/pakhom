@@ -42,7 +42,7 @@ prepare_correlation_data <- function(data, theme_set, config = list()) {
   # the two pakhom-engineered sentiment columns. .detect_metric_columns()
   # honors explicit config$data$column_mappings$metric_columns first,
   # then falls back to auto-detect (any numeric column not in the
-  # internal exclusion list and not theme_membership_*). A clinical
+  # internal exclusion list and not theme_membership_*). An employee-survey
   # corpus with `age` and `tenure_months` now correlates those against
   # every theme; a Reddit corpus with `score` + `num_comments`
   # correlates those; etc. See pakhom/R/16_report_helpers.R::.detect_metric_columns.
@@ -1422,7 +1422,7 @@ compare_theme_groups <- function(data, theme_set, config = list()) {
   #
   # C4 (dataset-agnostic): test EVERY numeric
   # metric column for theme-group differences via Mann-Whitney U, not
-  # just the two pakhom-engineered sentiment columns. A clinical
+  # just the two pakhom-engineered sentiment columns. A workplace
   # researcher with a `tenure_months` column now sees "Theme X has
   # significantly higher tenure_months than non-X"; before this fix
   # they never would. See pakhom/R/16_report_helpers.R::.detect_metric_columns.

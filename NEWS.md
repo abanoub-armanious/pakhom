@@ -1,3 +1,14 @@
+# pakhom 1.1.0.9000
+
+- Representative quotes with a negative sentiment score are now labeled
+  "Strongly Negative" or "Mildly Negative" in reports. The methodological note
+  on bimodal sentiment is also reworded.
+- Example text in the built-in COM-B framework and in the Mode 2
+  research-question coverage prompt has changed. Mode 3 runs that apply the
+  built-in COM-B framework therefore record a different `framework_hash` in
+  `run_metadata.json` than the same run made with 1.1.0. Runs finalized under
+  1.1.0 keep the framework copy archived with them.
+
 # pakhom 1.1.0
 
 ## Reddit scraper

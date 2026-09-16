@@ -371,7 +371,7 @@ configuration_selection_aid <- function(mode,
   # Mode 2: estimate codebook size, then theme range from v2 empirical evidence.
   # Observed ratios:
   #   - narrow_intersection: ~40-47 codes from 60-67 coded entries (~0.7-0.8 codes/coded)
-  #   - broad (emotional triggers): ~157 codes from 140 coded entries (~1.1 codes/coded)
+  #   - broad (affect-oriented): ~157 codes from 140 coded entries (~1.1 codes/coded)
   # Coded entries are typically 25-60% of corpus size (saturation kicks in around the 25% mark
   # for narrow foci, later for broad foci).
   if (is.null(estimated_codebook_size)) {

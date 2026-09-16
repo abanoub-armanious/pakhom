@@ -982,7 +982,7 @@
         description = paste0(
           "A named research facet or sub-question the researcher set out to study, ",
           "read from the research focus and concepts in their OWN words (e.g. ",
-          "'physical effects', 'emotional triggers', 'recovery'). Do NOT invent ",
+          "'barriers to change', 'how people adapt', 'role of peers'). Do NOT invent ",
           "facets the focus does not state; do NOT force the corpus into a fixed ",
           "taxonomy."
         )

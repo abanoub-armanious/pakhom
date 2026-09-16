@@ -382,8 +382,8 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
 # The AI's temporal interpretations (metric_interpretation$temporal_columns) had
 # ZERO consumers before 61.4 -- recorded and archived, never computed. The panel
 # applies each requested temporal primitive to THIS theme's entry timestamps, so
-# a reviewer sees when a theme's entries were actually posted (e.g. evening
-# clustering of distress) alongside the AI's interpretation note.
+# a reviewer sees when a theme's entries were actually posted (e.g. Monday
+# clustering of meeting complaints) alongside the AI's interpretation note.
 
 # Enumerate every "YYYY-MM" from first to last inclusive (base R, no lubridate).
 .enumerate_year_months <- function(first_ym, last_ym) {
@@ -570,9 +570,9 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
     # Exact token membership against the ";"-joined subtheme_assignments list
     # (reuse .entry_in_theme, the same exact-match helper aggregate_theme_
     # statistics uses for themes). A raw substring grepl(snm, ...) would treat
-    # any subtheme whose name is a substring of another ("Sleep" in "Sleep
-    # quality") as a member, inflating n, medians, and the example quotes in
-    # the paper-style per-subtheme table.
+    # any subtheme whose name is a substring of another ("Focus" in "Focus
+    # quality") as a member, which inflates n and distorts the medians while
+    # pulling unrelated example quotes into the paper-style per-subtheme table.
     sub_entries <- if ("subtheme_assignments" %in% names(theme_entries)) {
       theme_entries[.entry_in_theme(theme_entries$subtheme_assignments, snm), ]
     } else {
@@ -678,13 +678,10 @@ aggregate_theme_statistics <- function(data, theme_set, consolidated = NULL,
   vapply(picked_idx, function(i) {
     if (is.na(i)) return(NA_character_)
     row <- entries[i, , drop = FALSE]
-    # word-boundary-aware truncation with
-    # visible ellipsis instead of a bare substr cut. An earlier version
-    # quote was cut at exactly 280 chars even mid-word, then the
-    # metric tag was butted up against the partial word (real
-    # examples: "I've gained 7 pounds since Ma[score: 5]"). Now:
-    # truncate to <= 280 chars, back off to the last whitespace
-    # boundary if necessary, append " ..." marker.
+    # A bare substr cut at 280 chars can split a word and butt the metric
+    # tag against it (e.g. "I've logged 7 extra hours since Ma[score: 5]"),
+    # so a quote longer than 280 chars is cut back to its last whitespace
+    # boundary and ends with a visible " ..." marker.
     raw_text <- as.character(row[[text_col]] %||% "")
     q <- .truncate_quote_word_boundary(raw_text, max_chars = 280L)
     if (nchar(q) == 0L) return(NA_character_)

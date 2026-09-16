@@ -40,7 +40,7 @@ framework:
         - "There's no time"
         - "It's not available"
         - "I can afford"
-        - "The pharmacy is"
+        - "I don't have the space"
     - id: opportunity_social
       name: "Social opportunity"
       description: "Opportunity afforded by the social environment - cultural milieu, social influences that shape the way we think about things and the words and concepts we use."
@@ -61,9 +61,9 @@ framework:
         - "On balance"
     - id: motivation_automatic
       name: "Automatic motivation"
-      description: "Automatic processes involving emotions and impulses arising from associative learning and/or innate dispositions (cravings, habits, emotional responses)."
+      description: "Automatic processes involving emotions and impulses arising from associative learning and/or innate dispositions (desires, habits, emotional responses)."
       example_indicators:
-        - "I crave"
+        - "I really wanted to"
         - "Out of habit"
         - "I felt compelled"
         - "Automatically I"

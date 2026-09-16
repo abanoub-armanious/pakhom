@@ -1533,8 +1533,8 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   content <- paste0(content,
     '<div class="callout callout-neutral">\n',
     '<strong>Methodological Note:</strong> Bimodal sentiment distributions are common in ',
-    'health and support communities, where entries naturally cluster around distress narratives ',
-    'and recovery/positive-experience narratives. Additionally, the coupled emotion-sentiment ',
+    'online forums and peer communities, where entries naturally cluster around negative and ',
+    'positive experience narratives. Additionally, the coupled emotion-sentiment ',
     'prompt architecture (which elicits both emotion and sentiment simultaneously) may ',
     'amplify polarity. Interpret distribution shape with both factors in mind.\n',
     '</div>\n\n'
@@ -1926,8 +1926,8 @@ generate_report <- function(data, theme_set, correlations_df, insights,
           else "neutral"
 
         slabel <- if (is.na(q_sent)) "Neutral/Mixed"
-          else if (q_sent < -0.3) "High Distress"
-          else if (q_sent < 0) "Moderate Distress"
+          else if (q_sent < -0.3) "Strongly Negative"
+          else if (q_sent < 0) "Mildly Negative"
           else if (q_sent < 0.3) "Neutral/Mixed"
           else "Positive"
 
@@ -2275,7 +2275,7 @@ generate_report <- function(data, theme_set, correlations_df, insights,
   metric_cols <- ts$metric_cols %||% character(0)
 
   # Pretty-print metric column names (underscores -> spaces) so e.g. a
-  # "drug_rating" column heads as "drug rating" while the underlying data
+  # "policy_rating" column heads as "policy rating" while the underlying data
   # column stays canonical. Paper-style convention; dataset-agnostic.
   .pretty_metric <- function(mc) gsub("_+", " ", mc)
 

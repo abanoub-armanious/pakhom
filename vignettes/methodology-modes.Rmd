@@ -91,8 +91,8 @@ my_corpus <- tibble::tibble(
   std_id   = c("e1", "e2", "e3", "e4"),
   std_text = c(
     "I plan to batch my messages every morning from now on.",
-    "My manager encouraged me to protect focus time carefully.",
-    "I always slip back into back-to-back calls; the calendar is impossible.",
+    "My manager encouraged the team to try no-meeting mornings.",
+    "My team keeps booking back-to-back calls, so async never took hold.",
     "Notification overload makes me drop async habits on busy days."
   ),
   std_author = c("alice", "bob", "carol", "dave"),
@@ -323,10 +323,10 @@ codes, and a theme is the *union* of the original codes grouped under it
 is built.
 
 **Named facets may disperse (Mode 2) or be guaranteed (Mode 3).** In inductive
-Mode 2, a secondary facet you named in your research focus (say, "physical
-effects" within a broad lived-experience study) may not surface as its own
-theme: the codes that express it can legitimately disperse across the emotional
-and behavioral themes where they cohere more strongly. That is sound emergent
+Mode 2, a secondary facet you named in your research focus (say, "meeting
+load" within a broad remote-work study) may not surface as its own
+theme: the codes that express it can legitimately disperse across the other
+themes where they cohere more strongly. That is sound emergent
 grouping -- the content is preserved in the codes and visible in the per-theme
 breakdowns -- not a coverage failure. The Mode 2 report includes a
 **research-question coverage** section that maps each named facet to where it
